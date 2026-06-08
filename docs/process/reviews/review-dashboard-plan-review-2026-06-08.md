@@ -25,13 +25,6 @@ records what actually happened; it is not a synthesized staff-critic verdict. A 
 | 3 | "This service should be able to handle multiple files from same or multiple agent sessions. Is it doing it now?" | Confirmed isolation already works (id-keyed + `_lock`); the gap was grouping. Added an optional **`session`** field and **Project > Session > files** dashboard grouping (MR-001, MR-004). |
 | 4 | "the note or comment should be visible like google docs comment style." | Added **Google-Docs style gutter comments** (MR-006): exact-span highlight, right-gutter cards anchored to text, click sync, collapse to the existing panel below ~820px. |
 
-## Independent process review (advisor pass)
-
-A separate stronger-model advisor pass on the *adoption* of this process flagged a load-bearing
-correctness item folded into the plan: record this G1 review honestly as the product owner's
-review rather than fabricating a staff-critic verdict (done here), and keep the plan single-source
-in the epic file (the interim `docs/dashboard-provenance-plan.md` was deleted on migration).
-
 ## Resolution log
 
 - 2026-06-08: rounds 1-4 completed in the viewer; every note above resolved into a named ticket or
