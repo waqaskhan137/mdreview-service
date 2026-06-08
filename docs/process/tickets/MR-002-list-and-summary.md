@@ -1,13 +1,13 @@
 ---
 id: MR-002
 title: summary() + list_reviews() + GET /api/reviews
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-01
 epic: review-dashboard
 depends_on: [MR-001]
-branch:
+branch: dev (small/solo change)
 created: 2026-06-08
 updated: 2026-06-08
 ---
@@ -37,11 +37,19 @@ POST). Add a list endpoint with per-review status the dashboard can render.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-08` — `app.py`: added `summary(rid)` (meta + `notes_total`/`notes_addressed`/
+  `revision` + derived `status`) and `list_reviews()` (scans `DATA_DIR` via `_exists`, sorts by
+  `created` desc); extended the `/api/reviews` route block to handle `GET` ->
+  `{"reviews": [...]}`. Reused `_read_json`/`meta`/`_dir`. POST unchanged.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-08` — `python3 -m py_compile app.py` passed. On an isolated instance, created three
+  reviews exercising each status branch and confirmed `GET /api/reviews`:
+  - no notes -> `awaiting`; one unaddressed note -> `feedback`; all notes addressed ->
+    `resolved`.
+  - list returned 3, sorted newest-first, each with `notes_total`/`notes_addressed`/`revision`
+    and the provenance `project` carried through from MR-001.
 
 ## Follow-ups
 

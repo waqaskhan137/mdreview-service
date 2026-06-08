@@ -78,6 +78,30 @@ def bump(rid, field):
     _write(p, json.dumps(m))
 
 
+def summary(rid):
+    """meta augmented with note counts, revision, and a derived status."""
+    m = dict(meta(rid))
+    notes = _read_json(os.path.join(_dir(rid), "notes.json"), [])
+    total = len(notes)
+    addressed = sum(1 for n in notes if n.get("addressed"))
+    m["notes_total"] = total
+    m["notes_addressed"] = addressed
+    m["revision"] = m.get("revision", 0)
+    if not m.get("feedback_updated") and total == 0:
+        m["status"] = "awaiting"
+    elif total and addressed == total:
+        m["status"] = "resolved"
+    else:
+        m["status"] = "feedback"
+    return m
+
+
+def list_reviews():
+    out = [summary(name) for name in os.listdir(DATA_DIR) if _exists(name)]
+    out.sort(key=lambda r: r.get("created", 0), reverse=True)
+    return out
+
+
 def create_review(markdown, title, project="", source_path="", session=""):
     rid = secrets.token_hex(5)
     d = _dir(rid)
@@ -164,6 +188,9 @@ class H(BaseHTTPRequestHandler):
                 "post_a_review": "POST /api/reviews {markdown, title?}",
                 "collect_feedback": "GET /api/reviews/{id}/feedback",
             })
+
+        if path == "/api/reviews" and m == "GET":
+            return self._json(200, {"reviews": list_reviews()})
 
         if path == "/api/reviews" and m == "POST":
             b = self._body_json()
