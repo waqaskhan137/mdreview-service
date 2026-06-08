@@ -1,13 +1,13 @@
 ---
 id: MR-008
 title: Planner agent — fit-based-layout rule + Dockerfile-COPY footgun
-status: ready
+status: done
 layer: docs
 priority: P2
 sprint: sprint-02
 epic: process-hardening
 depends_on: []
-branch:
+branch: dev (small/solo change)
 created: 2026-06-08
 updated: 2026-06-08
 ---
@@ -39,11 +39,18 @@ Plan: `epics/process-hardening-plan.md` (Agent section). Evidence:
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-08` — `.claude/agents/mdreview-planner.md`: amended footgun 6 (JS-rendered surfaces)
+  to require a rebuilt-container DOM-node render-smoke and to specify responsive layout as
+  *behavior* ("show only when it physically fits"), never a hard-coded breakpoint, citing the
+  sprint-01 ~820px lesson. Added footgun 9 (packaging): a new served file needs a matching
+  `Dockerfile COPY` and the `ui` ticket must carry it (sprint-01 bug, `1326462`). Updated Method
+  step 4 verification guidance to name `scripts/render-smoke.sh` over a bare screenshot.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-08` — read-diff (docs/agent ticket; no `app.py` change). Confirmed footgun 6 now
+  states the fit-based rule, footgun 9 exists with the Dockerfile-COPY guidance, and Method
+  step 4 references the render-smoke.
 
 ## Follow-ups
 

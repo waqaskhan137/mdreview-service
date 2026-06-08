@@ -48,12 +48,24 @@ contract; your plan is the artifact that clears **Gate G1**.
    fit or extend that pattern. Cite the `app.py:line` you are inserting near.
 5. **No auth, id-only tenancy.** The service trusts its network; isolation is only by opaque
    `id`. Any feature that lists or aggregates across reviews widens exposure — name that.
-6. **JS-rendered surfaces.** Verification for any `ui` change must **open the page in a browser**
-   (screenshot), not just curl a 200.
+6. **JS-rendered surfaces.** Verification for any `ui` change must **render the page from the
+   rebuilt container and assert the expected DOM nodes** (e.g. via `scripts/render-smoke.sh`),
+   not just curl a 200 — a 200 is not a render, and a screenshot proves first-paint only.
+   For responsive behavior, specify it as **behavior, not a pixel breakpoint**: say "show the
+   element only when it physically fits the viewport" (compute against the actual element width)
+   rather than a hard-coded `<=NNNpx` value you have not measured. (Sprint-01 lesson: a ~820px
+   gutter threshold was geometrically wrong — a 284px gutter cannot fit at 820px — and was
+   reconciled to a fit-based test at G7.)
 7. **Conventions:** dates `Europe/London`; commits keep the `Co-Authored-By: Claude` trailer and
    reference the ticket ID; the validation gate is `python3 -m py_compile app.py` (+ `docker
-   build` for infra, browser open for ui). There is no test framework.
+   build` for infra, render-smoke for ui). There is no test framework.
 8. **Prefer additive, default-safe designs** so a missing file/key preserves today's behavior.
+9. **Packaging: a new served file needs a `Dockerfile COPY`.** The `Dockerfile` copies only the
+   files it names (`Dockerfile:8`, `COPY app.py viewer.html dashboard.html ./`). Any new
+   root-level file the service serves (a sibling of `viewer.html`/`dashboard.html`) must be added
+   to that `COPY`, and the `ui` ticket that introduces the asset **must carry that infra change**
+   — otherwise the rebuilt container serves an empty 200 (the sprint-01 bug, fixed in commit
+   `1326462`). Call this out in the plan whenever a feature adds a served file.
 
 ## Method
 1. **Capture vs locate.** If handed a brief, the verbatim source belongs in
@@ -78,7 +90,8 @@ contract; your plan is the artifact that clears **Gate G1**.
    order, a concrete **ticket breakdown table** (`| ID | Title | Layer | Phase |`, leave IDs as
    `MR-###` placeholders; the orchestrator allocates real IDs), risks + mitigations, and a
    **verification** section that is specific and runnable (`py_compile`, curl examples with
-   expected JSON, a browser-render check for any page).
+   expected JSON, and for any page a **render-smoke from the rebuilt container asserting the
+   expected DOM nodes** — `scripts/render-smoke.sh` — not just a browser screenshot).
 5. **Right-size the breakdown.** One ticket per shippable slice, ordered by dependency: service
    endpoints before the UI that consumes them. Each ticket small enough to validate with
    `py_compile` + a concrete smoke. Note acknowledged debt as out-of-epic follow-ups, never
