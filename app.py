@@ -182,12 +182,18 @@ class H(BaseHTTPRequestHandler):
         if path == "/healthz" and m == "GET":
             return self._json(200, {"ok": True})
 
-        if path == "/" and m == "GET":
-            return self._json(200, {
+        if path in ("/", "/api") and m == "GET":
+            descriptor = {
                 "service": "mdreview",
-                "post_a_review": "POST /api/reviews {markdown, title?}",
+                "dashboard": "GET / (HTML; this descriptor on Accept: application/json or GET /api)",
+                "list_reviews": "GET /api/reviews",
+                "post_a_review": "POST /api/reviews {markdown, title?, project?, source_path?, session?}",
                 "collect_feedback": "GET /api/reviews/{id}/feedback",
-            })
+            }
+            if path == "/api" or "application/json" in self.headers.get("Accept", ""):
+                return self._json(200, descriptor)
+            return self._send(200, _read(os.path.join(HERE, "dashboard.html")),
+                              "text/html; charset=utf-8")
 
         if path == "/api/reviews" and m == "GET":
             return self._json(200, {"reviews": list_reviews()})

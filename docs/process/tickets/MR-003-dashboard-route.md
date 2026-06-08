@@ -1,13 +1,13 @@
 ---
 id: MR-003
 title: Serve dashboard at /; move JSON descriptor to /api
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-01
 epic: review-dashboard
 depends_on: [MR-002]
-branch:
+branch: dev (small/solo change)
 created: 2026-06-08
 updated: 2026-06-08
 ---
@@ -37,11 +37,18 @@ for browsers while keeping the descriptor reachable for anything that probes `/`
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-08` — `app.py`: the `/` GET branch now content-negotiates — serves
+  `dashboard.html` as `text/html` for browsers, or the JSON descriptor when `Accept` contains
+  `application/json`. Added `/api` (same branch) always returning the descriptor. Descriptor
+  updated to document `list_reviews` and the new POST provenance fields. `dashboard.html` itself
+  lands in MR-004 (served from disk; until then `_read` returns empty HTML gracefully).
 
 ## Validation
 
-_How this was verified._
+- `2026-06-08` — `python3 -m py_compile app.py` passed. On an isolated instance:
+  - `GET /` (no Accept) -> `200` `text/html`.
+  - `GET /` with `Accept: application/json` and `GET /api` -> the descriptor JSON.
+  - `GET /healthz` and `GET /api/reviews` still `200` (no route shadowing).
 
 ## Follow-ups
 
