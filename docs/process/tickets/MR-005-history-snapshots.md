@@ -1,13 +1,13 @@
 ---
 id: MR-005
 title: History snapshots on PUT + /history routes
-status: ready
+status: done
 layer: svc
 priority: P2
 sprint: sprint-01
 epic: review-dashboard
 depends_on: [MR-001]
-branch:
+branch: dev (small/solo change)
 created: 2026-06-08
 updated: 2026-06-08
 ---
@@ -40,11 +40,21 @@ it received.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-08` — `app.py`: added `snapshot_round(rid)` — under `_lock`, copies the current
+  `source.md`/`feedback.md`/`notes.json` into `{id}/history/round-{N}/`, writes `round.json`
+  (`round`, `ts`, `notes_total`, `notes_addressed`), and bumps `meta.revision`. Wired it into the
+  `PUT /source` handler before the overwrite. Snapshot happens only on PUT, not on
+  `POST /feedback`. Added `GET /api/reviews/{id}/history` (rounds newest-first) and
+  `GET /api/reviews/{id}/history/{n}` (source + feedback + notes for one round). Routes use
+  `re.fullmatch` so `/history` and `/history/{n}` do not cross-match.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-08` — `python3 -m py_compile app.py` passed. On an isolated instance: created a
+  review, added a note, PUT a revised draft -> `revision` became 1, `GET /history` listed
+  `round 0` with `notes_total: 1`, `GET /history/0` returned the prior `# v0 draft` plus the
+  note. A second PUT produced `round 1` (list `[1, 0]`). `GET /history/9` -> `404`. The live
+  `GET /source` still returned the latest draft.
 
 ## Follow-ups
 

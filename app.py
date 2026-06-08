@@ -102,6 +102,31 @@ def list_reviews():
     return out
 
 
+def snapshot_round(rid):
+    """Archive the current source + feedback as a closed history round; bump revision.
+
+    Called under _lock before a PUT overwrites source.md, so each agent revision leaves
+    the outgoing draft and the feedback it accumulated recoverable.
+    """
+    d = _dir(rid)
+    m = _read_json(os.path.join(d, "meta.json"), {})
+    n = int(m.get("revision", 0) or 0)
+    rd = os.path.join(d, "history", "round-%d" % n)
+    os.makedirs(rd, exist_ok=True)
+    for fn in ("source.md", "feedback.md", "notes.json"):
+        src = os.path.join(d, fn)
+        if os.path.isfile(src):
+            shutil.copy(src, os.path.join(rd, fn))
+    notes = _read_json(os.path.join(d, "notes.json"), [])
+    _write(os.path.join(rd, "round.json"), json.dumps({
+        "round": n, "ts": time.time(),
+        "notes_total": len(notes),
+        "notes_addressed": sum(1 for x in notes if x.get("addressed")),
+    }))
+    m["revision"] = n + 1
+    _write(os.path.join(d, "meta.json"), json.dumps(m))
+
+
 def create_review(markdown, title, project="", source_path="", session=""):
     rid = secrets.token_hex(5)
     d = _dir(rid)
@@ -234,6 +259,7 @@ class H(BaseHTTPRequestHandler):
             if m == "PUT":
                 b = self._body_json()
                 with _lock:
+                    snapshot_round(rid)
                     _write(os.path.join(_dir(rid), "source.md"), b.get("markdown", ""))
                     bump(rid, "source_updated")
                 return self._json(200, meta(rid))
@@ -266,6 +292,35 @@ class H(BaseHTTPRequestHandler):
                 "source_updated": mt.get("source_updated", 0),
                 "feedback_updated": mt.get("feedback_updated", 0),
             })
+
+        mo = re.fullmatch(r"/api/reviews/" + RID + r"/history", path)
+        if mo and m == "GET":
+            rid = mo.group(1)
+            if not _exists(rid):
+                return self._json(404, {"error": "not found"})
+            hd = os.path.join(_dir(rid), "history")
+            rounds = []
+            if os.path.isdir(hd):
+                for name in os.listdir(hd):
+                    rj = _read_json(os.path.join(hd, name, "round.json"), None)
+                    if rj:
+                        rounds.append(rj)
+            rounds.sort(key=lambda r: r.get("round", 0), reverse=True)
+            return self._json(200, {"rounds": rounds})
+
+        mo = re.fullmatch(r"/api/reviews/" + RID + r"/history/(\d+)", path)
+        if mo and m == "GET":
+            rid, n = mo.group(1), mo.group(2)
+            if not _exists(rid):
+                return self._json(404, {"error": "not found"})
+            rd = os.path.join(_dir(rid), "history", "round-%s" % n)
+            if not os.path.isfile(os.path.join(rd, "round.json")):
+                return self._json(404, {"error": "no such round"})
+            out = dict(_read_json(os.path.join(rd, "round.json"), {}))
+            out["source"] = _read(os.path.join(rd, "source.md"))
+            out["feedback"] = _read(os.path.join(rd, "feedback.md"))
+            out["notes"] = _read_json(os.path.join(rd, "notes.json"), [])
+            return self._json(200, out)
 
         mo = re.fullmatch(r"/review/" + RID, path)
         if mo and m == "GET":
