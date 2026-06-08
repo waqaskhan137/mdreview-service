@@ -1,11 +1,11 @@
 ---
 id: sprint-03
 name: Process hardening 2
-status: active
+status: closed
 start: 2026-06-09
 end: 2026-06-16
 goal: Wire gate-row enforcement discipline + cite-by-name into the planner/README/skill (MR-012..014).
-close_review:
+close_review: reviews/sprint-03-close-review-2026-06-09.md
 ---
 
 ## Goal
@@ -32,14 +32,24 @@ All three are independent (no `depends_on`); order is by leverage.
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+- All 3 tickets `done`, no carry-overs. Docs-only sprint (planner agent, README, skill).
+- **Dogfooded its own outputs twice:** the new pre-G7 board-reconciliation rail (MR-014) was used
+  to reconcile the board before the G7 critic was spawned; and the cite-by-name rule (MR-012/013)
+  was followed throughout (zero stale line anchors).
+- **G7 caught a real dogfooding failure:** the sprint reworded G7 to keep the rebuild + curl smoke
+  unconditional, then its own close checklist dropped it — the critic caught the sprint about to
+  violate the clause it shipped. Fixed (smoke run + recorded; checklist corrected; README↔skill
+  Phase 6 drift closed). See `reviews/sprint-03-close-review-2026-06-09.md`.
+- **Carry-overs:** none.
 
 ## Close gate (G7)
 
-- [ ] every committed ticket is `done` or explicitly carried over (docs-sweep tickets ineligible
+- [x] every committed ticket is `done` or explicitly carried over (docs-sweep tickets ineligible
       for carry-over; n/a here);
-- [ ] an independent `staff-critic` close review at `reviews/sprint-03-close-review-YYYY-MM-DD.md`
+- [x] an independent `staff-critic` close review at `reviews/sprint-03-close-review-YYYY-MM-DD.md`
       verifies shipped work against each ticket's AC. This is a docs-only sprint touching no
       product page, so per the (newly reworded) G7 clause the per-page render-smoke + screenshot
-      are not owed; verification is read-diff of the agent/README/skill against the plan;
-- [ ] retro + carry-overs recorded, `close_review:` set.
+      are not owed — but the **unconditional** container rebuild + `curl /healthz` + `/api/reviews`
+      smoke is still owed (evidence: `reviews/sprint-03-render-evidence-2026-06-09/smoke.txt`); the
+      rest of verification is read-diff of the agent/README/skill against the plan;
+- [x] retro + carry-overs recorded, `close_review:` set.

@@ -1,0 +1,12 @@
+# sprint-03 G7 evidence — the UNCONDITIONAL smoke every sprint owes (no product page touched, so no per-page render-smoke/screenshot)
+# date: 2026-06-09
+
+$ docker compose up -d --build
+ Container mdreview Recreated 
+ Container mdreview Starting 
+ Container mdreview Started 
+
+$ curl -s localhost:8137/healthz
+{"ok": true}
+$ curl -s localhost:8137/api/reviews | (count)
+6 reviews returned (sane JSON)
