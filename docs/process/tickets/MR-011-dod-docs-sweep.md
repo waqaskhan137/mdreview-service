@@ -1,13 +1,13 @@
 ---
 id: MR-011
 title: README — reconcile DoD with a bounded same-sprint docs-sweep (G7 row clause)
-status: ready
+status: done
 layer: docs
 priority: P2
 sprint: sprint-02
 epic: process-hardening
 depends_on: []
-branch:
+branch: dev (small/solo change)
 created: 2026-06-08
 updated: 2026-06-08
 ---
@@ -41,11 +41,20 @@ least-sure call, hard-bounded by the G7 clause + carry-over ineligibility, with 
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-09` — `README.md`: the Definition of Done now blesses deferring durable docs to a
+  trailing **docs-sweep ticket within the same sprint** (deferring ticket names it in the Work
+  log), and states a docs-sweep ticket is **ineligible for carry-over**. The G5 row mirrors the
+  DoD. The **G7 pass-condition row** gains the enforcement clause: G7 does not pass while any
+  committed ticket has docs deferred to a not-yet-`done` docs-sweep ticket, and a docs-sweep
+  ticket is not eligible for carry-over (deferred docs are force-closed at sprint close). Gate set
+  and lifecycle unchanged. (Also folded `scripts/render-smoke.sh` into the G7 render-smoke wording
+  for consistency with MR-009/010.)
 
 ## Validation
 
-_How this was verified._
+- `2026-06-09` — read-diff against `README.md` DoD (`### Definition of Done`), the G5 row, and the
+  G7 row. Confirmed: DoD blesses the same-sprint sweep; carry-over ineligibility stated in both
+  the DoD and the G7 row; the G7 row carries the docs-currency clause; G5 mirrors it.
 
 ## Follow-ups
 

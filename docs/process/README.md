@@ -132,8 +132,13 @@ immediately. If several are eligible, pick the highest `priority` first.
 ### Definition of Done
 
 A ticket is `done` only when: all acceptance criteria met; local validation passes; durable
-behavior changes are reflected in `README.md` / `AGENTS.md` / `CLAUDE.md` **in the same change**;
-the ticket's Work log + Validation are filled in; the work is committed (and pushed).
+behavior changes are reflected in `README.md` / `AGENTS.md` / `CLAUDE.md` **in the same change**
+**or** deferred to a trailing **docs-sweep ticket within the same sprint** (the deferring ticket
+must name its sweep ticket in its Work log); the ticket's Work log + Validation are filled in; the
+work is committed (and pushed).
+
+A **docs-sweep ticket is not eligible for carry-over** — it must be `done` before its sprint
+closes (see G7), so deferred docs cannot cross a sprint boundary.
 
 ### Blocking rule
 
@@ -155,9 +160,9 @@ by default, not by memory. A failed gate is the gate doing its job.
 | **G2 — Definition of Ready** | ticket -> `ready` | Acceptance criteria written, dependencies identified, `layer` + `priority` set, no open questions, roughly sized. |
 | **G3 — Pickup** | `ready` -> `in-progress` | Active sprint + every `depends_on` is `done` + the one-in-progress rule. |
 | **G4 — Review** | `in-progress` -> `review` | `python3 -m py_compile app.py` passes (and `docker build` for `infra`); **for `ui` tickets, a render-smoke from the rebuilt image passes** — `scripts/render-smoke.sh <url> <selector>...` asserts the expected DOM nodes rendered (a 200 is not a render; see Development flow step 5); author self-checked the acceptance criteria. |
-| **G5 — Definition of Done** | `review` -> `done` | All AC met + validation + docs updated + Work log/Validation filled + committed. |
+| **G5 — Definition of Done** | `review` -> `done` | All AC met + validation + docs updated (in the same change, or deferred to a same-sprint docs-sweep ticket named in the Work log) + Work log/Validation filled + committed. |
 | **G6 — Sprint open** | -> sprint `active` | Every committed ticket is `ready`; the sprint has a goal and a committed-ticket list. |
-| **G7 — Sprint close** | sprint -> `closed` | Every committed ticket is `done` or explicitly carried over; an **independent `staff-critic` sprint-close review** is recorded in `reviews/` (reviewer is NOT the implementer), verifying shipped work against each ticket's acceptance criteria, **including a render smoke** of any page touched (rebuild the container, `curl /healthz` + `/api/reviews`, open the touched page in a browser and screenshot under `reviews/sprint-NN-render-evidence-*`); retro + carry-overs are written into the sprint file. |
+| **G7 — Sprint close** | sprint -> `closed` | Every committed ticket is `done` or explicitly carried over (**a docs-sweep ticket is NOT eligible for carry-over**); **no committed ticket has docs deferred to a docs-sweep ticket that is not yet `done`** (deferred docs are force-closed at sprint close, never carried across cycles); an **independent `staff-critic` sprint-close review** is recorded in `reviews/` (reviewer is NOT the implementer), verifying shipped work against each ticket's acceptance criteria, **including a render smoke** of any page touched (rebuild the container, `curl /healthz` + `/api/reviews`, then `scripts/render-smoke.sh` against the touched page asserting its DOM nodes, plus a screenshot under `reviews/sprint-NN-render-evidence-*`); retro + carry-overs are written into the sprint file. |
 | **G8 — Promote to main** | `dev` -> `main` | **Explicit user go-ahead.** `dev` holds all work; `main` advances only when the user approves. A single standing `dev -> main` PR accumulates work until then. |
 
 **Two gates require a recorded independent review: G1 (before tickets exist) and G7 (before a
