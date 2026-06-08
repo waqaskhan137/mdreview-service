@@ -1,12 +1,12 @@
 ---
 epic: process-hardening-2
-status: draft          # draft | active | done  (stays draft until G1 passes)
+status: active
 created: 2026-06-09
 source: requirements/process-hardening-2.md
-gate: G1 not passed    # G1 (Plan Gate): not passed | passed YYYY-MM-DD — tickets blocked until passed
-review:                # reviews/process-hardening-2-plan-review-YYYY-MM-DD.md once reviewed
-related_sprints: []
-related_tickets: []
+gate: passed 2026-06-09
+review: reviews/process-hardening-2-plan-review-2026-06-09.md
+related_sprints: [sprint-03]
+related_tickets: [MR-012, MR-013, MR-014]
 ---
 
 # Process Hardening 2 Plan
@@ -28,18 +28,21 @@ this epic ships **no code** (every ticket is `layer: docs`).
 > **Dogfooding note (this plan practices suggestions 1 + 2).** Per suggestion 2, this plan cites
 > gates and process sections **by name** (e.g. "the **G7** pass-condition row", "the **Definition of
 > Done** section", "the **Reviews (gate evidence)** section") and contains **zero `README.md:NNN`
-> line anchors**. Per suggestion 1, every rule this plan proposes names the gate row that enforces
-> it. Line numbers are reserved for code citations (there are none here, since this epic touches no
-> code).
+> line anchors**. Per suggestion 1, every rule this plan proposes is **wired into the surface that
+> enforces it** — suggestion 4 into the **G7** row's pass-condition text, suggestion 3 into the
+> **Phase 6** rail plus the **SKILL.md** invariant — not merely named alongside a prose rule. Line
+> numbers are reserved for code citations (there are none here, since this epic touches no code).
 
 ## Product goal
 
 The "done" state: every suggestion in the brief is durably resolved in the process artifacts, so the
 next cycle does not re-improvise the same calls.
 
-1. The `mdreview-planner` agent carries a standing rule that **every new rule must be placed in the
-   enforcing gate pass-condition row**, and that any DoD / prose / G5 restatement is a non-enforcing
-   pointer (suggestion 1). This pre-empts the whole G1-blocker class from last cycle.
+1. The `mdreview-planner` agent carries a standing rule that **every new rule's enforcement must be
+   written into (added to) the named gate pass-condition row's text** — wired into the row, not merely
+   pointed at — and that any DoD / prose / G5 restatement is a non-enforcing pointer (suggestion 1).
+   This pre-empts three of five of last cycle's G1 blockers (the same enforcement-wiring defect three
+   times).
 2. The `mdreview-planner` agent carries a standing rule to **cite gates and process sections by
    name, not by line number**, with line numbers reserved for code citations (suggestion 2 — agent
    half). The README's **Reviews (gate evidence)** section states the same as a one-line project
@@ -56,8 +59,9 @@ next cycle does not re-improvise the same calls.
 **Land each rule in the one surface that enforces it, and make every other mention point at that
 surface by name.** This is the same single-source-of-truth principle the README and skill already
 follow ("This skill does **not** redefine the gates — it executes them", `SKILL.md` **feature-cycle
-— orchestrator** intro) — but turned on the *meta-process*. Suggestion 1 makes "name the enforcing
-gate row" a standing planner rule; suggestion 2 makes "reference by name, not by brittle line
+— orchestrator** intro) — but turned on the *meta-process*. Suggestion 1 makes "wire the enforcement
+into the named gate row's pass-condition text" a standing planner rule (the citation is a pointer,
+the row text is the enforcement); suggestion 2 makes "reference by name, not by brittle line
 number" the citation form so those references survive document growth; suggestions 3 and 4 fix the
 two surfaces (skill close step, **G7** row) where the enforcement and the reality had drifted. Every
 edit is additive and default-safe: it sharpens a standing instruction or clarifies a pass-condition
@@ -100,8 +104,9 @@ every decision has a safe default, and the brief pre-decides the contested ones.
   artificial `depends_on` on the same file.
 
 - **(minor) Where the two new agent rules attach.** Assumption: both rules attach to the planner
-  agent's **Method** section — the "name the enforcing gate row" rule extends the plan-authoring
-  guidance (Method step 4), and the "cite by name, not line number" rule sharpens the existing
+  agent's **Method** section — the "wire the enforcement into the named gate row" rule extends the
+  plan-authoring guidance (Method step 4), and the "cite by name, not line number" rule sharpens the
+  existing
   "Cite real `path:line` references" instruction in Method step 2 (which today tells the planner to
   emit `path:line` for *all* claims; it must be narrowed to **code** claims). A pointer also belongs
   in the **Project footguns** framing so the planner treats stale anchors as a known footgun.
@@ -132,11 +137,15 @@ service/UI; every ticket is `layer: docs`.
 
 ### Agent (`.claude/agents/mdreview-planner.md`) — `docs` (suggestions 1 + 2, agent half)
 
-- **Suggestion 1 — "name the enforcing gate row" standing rule.** Add a standing instruction to the
-  planner's **Method**: for every new rule a plan proposes, **name the gate pass-condition row that
-  enforces it**; treat any **Definition of Done** / prose / G5 restatement as a non-enforcing
-  pointer, never the enforcement. Rationale to cite in the rule: all five G1 blockers last cycle
-  collapsed to this one class — rules landing in prose / DoD / G5 instead of the enforcing gate row
+- **Suggestion 1 — "wire the enforcement into the named gate row" standing rule.** Add a standing
+  instruction to the planner's **Method**: for every new rule a plan proposes, the enforcement must be
+  **placed in (added to) the named gate pass-condition row's text** — wired into the row, not merely
+  cited next to a prose-only rule; treat any **Definition of Done** / prose / G5 restatement as a
+  non-enforcing **pointer**, never the enforcement. Citing a row is necessary but not sufficient: if
+  the rule's teeth live only in DoD/G5/prose while a row is merely *named*, the recurring defect
+  recurs. Rationale to cite in the rule: three of five G1 blockers last cycle collapsed to this one
+  class (the same enforcement-wiring defect three times) — rules landing in prose / DoD / G5 instead
+  of being written into the enforcing gate row
   (`reviews/process-hardening-cycle-retro-2026-06-09.md`, suggestion 1; the three same-defect
   blockers in `reviews/sprint-02-close-review-2026-06-09.md`, the line-anchor SHOULD-FIX).
 - **Suggestion 2 — "cite by name, not line number" standing rule.** Add a standing instruction: in
@@ -157,39 +166,48 @@ service/UI; every ticket is `layer: docs`.
   line numbers for code citations, since process docs grow and numeric anchors drift. This makes the
   convention visible to any future reader of the process, not only to the planner agent.
 - **Suggestion 4 — scope the G7 render clause to product-page changes.** Reword the render clause of
-  the **G7** pass-condition row so the render-smoke + screenshot requirement is explicitly
-  **conditional on a product page being touched**. Exact before/after below (this is a deliverable):
-  - **Current G7 render clause (verbatim):** *"… including a render smoke of any page touched
+  the **G7** pass-condition row so the **`render-smoke.sh` DOM assertion + screenshot** are explicitly
+  **conditional on a product page being touched**, while the **container rebuild + `curl /healthz` +
+  `/api/reviews`** smoke stays **unconditional** for every sprint. Exact before/after below (this is a
+  deliverable):
+  - **Current G7 render clause (verbatim):** *"… **including a render smoke** of any page touched
     (rebuild the container, `curl /healthz` + `/api/reviews`, then `scripts/render-smoke.sh` against
     the touched page asserting its DOM nodes, plus a screenshot under
     `reviews/sprint-NN-render-evidence-*`); …"*
-  - **Replacement wording:** *"… and, **only if a product page (`viewer.html` / `dashboard.html` /
-    `static/**`) was touched this sprint**, a render smoke of each touched page (rebuild the
-    container, `curl /healthz` + `/api/reviews`, then `scripts/render-smoke.sh` against the touched
-    page asserting its DOM nodes, plus a screenshot under `reviews/sprint-NN-render-evidence-*`); a
-    docs/infra-only sprint that touches no product page is **not non-compliant** for this clause; …"*
+  - **Replacement wording:** *"… **including a render smoke** (rebuild the container, `curl /healthz`
+    + `/api/reviews`), and — **only if a product page (`viewer.html` / `dashboard.html` /
+    `static/**`) was touched this sprint** — `scripts/render-smoke.sh` against each touched page
+    asserting its DOM nodes plus a screenshot under `reviews/sprint-NN-render-evidence-*`; a
+    docs/infra-only sprint that touches no product page is **not non-compliant** for lacking the
+    per-page DOM assertion and screenshot, but still owes the container rebuild + `curl /healthz` +
+    `/api/reviews` smoke; …"*
 
-    (The whole render parenthetical is kept verbatim from the current row; the **only** change is to
-    prepend the product-page condition to the entire block, so a docs/infra-only sprint owes none of
-    it. The brief scopes suggestion 4 to the screenshot/render requirement, so this reword adds **no
-    new unconditional obligation** — it does not promote the `curl /healthz` + `/api/reviews` smoke
-    to a per-sprint requirement (the prior cycle only "exercised render-smoke.sh" because it
-    *shipped* it, which does not generalize). The implementer adjusts the final phrasing to read
-    cleanly within the existing G7 sentence, preserving every other G7 clause — the "done or
-    explicitly carried over", docs-sweep-ineligible-for-carry-over, independent-`staff-critic`-review,
-    and retro clauses are untouched.)
+    (The **only** change is to split the parenthetical: the `rebuild` + `curl /healthz` +
+    `/api/reviews` smoke remains **unconditional** every sprint, and **only** the per-page
+    `render-smoke.sh` DOM assertion + screenshot become conditional on a product page being touched.
+    This matches the brief, which scopes suggestion 4 to the **screenshot/render** requirement, and it
+    keeps the README aligned with `references/04-close-and-ship.md` **Phase 6**, which already runs
+    `rebuild` + `curl /healthz` + `/api/reviews` unconditionally and gates only the per-page
+    open/screenshot. The implementer adjusts the final phrasing to read cleanly within the existing G7
+    sentence, preserving every other G7 clause — the "done or explicitly carried over",
+    docs-sweep-ineligible-for-carry-over, independent-`staff-critic`-review, and retro clauses are
+    untouched.)
 
 ### Skill (`.claude/skills/feature-cycle/`) — `docs` (suggestion 3)
 
 - **Suggestion 3 — pre-G7 board-reconciliation rail.** In `references/04-close-and-ship.md`, **Phase
   6 — render-smoke + independent close review (G7)**, add a reconciliation step that runs **before**
   the `staff-critic` is spawned (i.e. before the existing "Independent review (staff-critic)" step).
-  The checklist, enforced by **G7** (which the reconciled board is the precondition for):
-  - every committed ticket is `done` in its frontmatter (not still `ready`/`review`);
-  - the sprint file's committed-ticket checkboxes are checked to match;
-  - `TRACKER.md` rows are moved to the section matching each ticket's `status` (the README's **The
-    board** section makes ticket frontmatter the source of truth and TRACKER the hand-maintained
-    view).
+  The checklist, enforced by **G7** (which the reconciled board is the precondition for). Note the
+  **genuinely new reconciliation** the rail adds is the **sprint checkboxes + TRACKER rows** — the
+  "every committed ticket `done`" item restates a precondition Phase 6 already assumes, and is listed
+  only for completeness:
+  - every committed ticket is `done` in its frontmatter (not still `ready`/`review`) — *restates an
+    existing Phase 6 precondition*;
+  - **(new)** the sprint file's committed-ticket checkboxes are checked to match;
+  - **(new)** `TRACKER.md` rows are moved to the section matching each ticket's `status` (the
+    README's **The board** section makes ticket frontmatter the source of truth and TRACKER the
+    hand-maintained view).
   - **Explicitly NOT in this rail:** setting `close_review:`, setting `status: closed`, or writing
     the retro. Those remain in **Phase 8 — second critic pass + close**, because `close_review:`
     names the review file the critic *produces* and cannot exist before the critic runs.
@@ -298,9 +316,11 @@ placeholders; the orchestrator allocates the real sequential `MR-###` (next free
   coherent reading is a *post-critic* check, which Phase 8 already does — so no rail change is
   needed. Flagged here so the G1 reviewer can confirm cheaply.
 - **G7 rewording accidentally weakens the render bar.** *Mitigation:* the replacement wording makes
-  only the per-**page** screenshot/DOM assertion conditional on a product page being touched, retains
-  the container-rebuild + `curl /healthz` + `/api/reviews` smoke for every sprint, and leaves every
-  other G7 clause verbatim. A non-goal states the page-touched case is unchanged.
+  only the per-**page** `render-smoke.sh` DOM assertion + screenshot conditional on a product page
+  being touched; it keeps the container-rebuild + `curl /healthz` + `/api/reviews` smoke
+  **unconditional for every sprint** (this is literally true of the replacement wording above — the
+  rebuild/curl smoke sits outside the product-page condition), and leaves every other G7 clause
+  verbatim. A non-goal states the page-touched case is unchanged.
 - **Two new agent rules over-specify and go stale.** *Mitigation:* both rules are behavioral ("name
   the enforcing row", "cite by name") and carry no numeric value or path that can drift; suggestion 2
   is itself the anti-staleness rule.
@@ -321,8 +341,10 @@ app.py` still passes trivially since `app.py` is unchanged, if a reviewer wants 
   Grep the plan for `README.md:` and `\.md:[0-9]` -> no process-doc line anchors.
 
 - **Planner agent ticket (sug 1+2):** confirm `.claude/agents/mdreview-planner.md` now states, in its
-  **Method**, (a) a standing rule to place every new rule in the **enforcing gate pass-condition
-  row** and treat DoD/G5/prose as non-enforcing pointers; and (b) a standing rule to cite gates and
+  **Method**, (a) a standing rule that every new rule's enforcement must be **written into (added to)
+  the named gate pass-condition row's text** — wired into the row, with citing-a-row-alone explicitly
+  insufficient — and that DoD/G5/prose are non-enforcing pointers; and (b) a standing rule to cite
+  gates and
   sections **by name**, with `path:line` narrowed to **code** citations (the prior
   "Cite real `path:line` references … for each claim" instruction is scoped to code). Read-diff.
 
@@ -343,3 +365,40 @@ app.py` still passes trivially since `app.py` is unchanged, if a reviewer wants 
 - **Epic-level:** confirm no product file (`app.py`, `viewer.html`, `dashboard.html`, `static/**`)
   appears in any ticket's diff; the gate set G0-G8 and the status lifecycle are unchanged (only the
   **G7** render-clause wording moved).
+
+## Review resolutions
+
+Applied 2026-06-09 in response to the independent G1 review
+[`reviews/process-hardening-2-plan-review-2026-06-09.md`](../reviews/process-hardening-2-plan-review-2026-06-09.md)
+(verdict PASS-WITH-FIXES). The author (`mdreview-planner`) applies resolutions, preserving G1
+independence.
+
+- **B1 (BLOCKER) — suggestion-4 G7 replacement over-scoped the conditional.** The replacement
+  previously prepended "only if a product page was touched" to the **entire** render parenthetical,
+  which would have made `rebuild` + `curl /healthz` + `/api/reviews` conditional — over-scoping the
+  brief (which scopes suggestion 4 to the screenshot/render requirement), contradicting the Risks
+  sentence, and disagreeing with `references/04-close-and-ship.md` **Phase 6** (which runs rebuild +
+  curl **unconditionally**). *Changed:* rewrote the **Replacement wording** in the README section so
+  the `render smoke (rebuild the container, curl /healthz + /api/reviews)` stays **unconditional**
+  every sprint, and **only** the per-page `scripts/render-smoke.sh` DOM assertion + screenshot become
+  conditional on a product page being touched. *Also changed:* the Risks-section "G7 rewording
+  weakens the render bar" entry now states (truthfully under the corrected wording) that the
+  rebuild/curl smoke is unconditional for every sprint, and notes that this is literally true because
+  the rebuild/curl smoke sits outside the product-page condition.
+- **S1 (SHOULD-FIX) — suggestion-1 rule enforced citation, not wiring.** "Name the enforcing gate
+  row" could be satisfied by citing a row next to a prose-only rule, reproducing the recurring defect.
+  *Changed:* tightened the rule everywhere it is stated (product-goal item 1, core design principle,
+  the Agent recommended-approach bullet, and the Verification planner-agent item) to require the
+  enforcement be **placed in / added to the named gate row's pass-condition text** — wired into the
+  row, with citing-a-row-alone explicitly insufficient; DoD/G5/prose remain non-enforcing pointers.
+- **N1 (NIT) — "all five G1 blockers" overstated the retro.** *Changed:* corrected the
+  enforcement-class count to **three of five (the same enforcement-wiring defect three times)** in the
+  product-goal item and the Agent recommended-approach rationale. (The intro's factual "the G1 loop
+  caught five blockers" is left as-is — it states the total blockers caught, not the class size.)
+- **N2 (optional) — note the rail's genuinely new reconciliation.** *Changed:* the Skill (suggestion
+  3) checklist now marks the **sprint checkboxes + TRACKER rows** as the genuinely new reconciliation
+  and notes that "every committed ticket `done`" restates an existing Phase 6 precondition (listed for
+  completeness).
+
+**Ticket breakdown unchanged** — the approved 3-ticket slicing (one per artifact: planner agent,
+README, skill) is preserved; all fixes are wording changes within the existing tickets' scope.

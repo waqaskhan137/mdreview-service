@@ -3,17 +3,21 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-09. review-dashboard shipped to main (PR #1). process-hardening (sprint-02) closed; G7 passed.
+Last updated: 2026-06-09. process-hardening-2 (sprint-03) groomed, G1 passed (2 rounds); implementing.
 
 ## Active sprint
 
-**sprint-02 — Process hardening** (`closed`, 2026-06-09). Epic: `process-hardening`. G7 passed; 4/4 done.
-sprint-01 (Review dashboard) closed; shipped to main (PR #1).
+**sprint-03 — Process hardening 2** (`active`, 2026-06-09). Epic: `process-hardening-2`. G1 passed; 3 tickets ready.
+sprint-02 (Process hardening) closed; sprint-01 shipped to main (PR #1).
 Progress: 7/7 done — all committed tickets complete; sprint pending G7 close.
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-012 | Planner agent — wire-enforcement-into-row + cite-by-name rules | docs | P1 | sprint-03 |
+| MR-013 | README — citation-by-name convention + scope G7 render clause | docs | P2 | sprint-03 |
+| MR-014 | Skill — pre-G7 board-reconciliation rail + SKILL.md invariant | docs | P2 | sprint-03 |
 
 ## in-progress
 
@@ -49,3 +53,4 @@ _none_
 |------|--------|------|--------|
 | review-dashboard | done (merged to main 2026-06-08, PR #1) | G1 passed 2026-06-08 | sprint-01 |
 | process-hardening | done (sprint-02 closed, G7 passed) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
+| process-hardening-2 | active | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
