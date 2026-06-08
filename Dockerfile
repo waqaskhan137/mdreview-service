@@ -5,7 +5,7 @@ ENV MDREVIEW_DATA=/data \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
-COPY app.py viewer.html ./
+COPY app.py viewer.html dashboard.html ./
 COPY static/ ./static/
 
 RUN mkdir -p /data
