@@ -1,6 +1,6 @@
 ---
 epic: review-dashboard
-status: active
+status: done
 created: 2026-06-08
 source: requirements/review-dashboard.md
 gate: passed 2026-06-08

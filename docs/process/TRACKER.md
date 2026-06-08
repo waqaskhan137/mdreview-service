@@ -3,7 +3,7 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-08.
+Last updated: 2026-06-08. Epic review-dashboard shipped to main (PR #1).
 
 ## Active sprint
 
@@ -42,4 +42,4 @@ _none_
 
 | Epic | Status | Gate | Sprint |
 |------|--------|------|--------|
-| review-dashboard | active | G1 passed 2026-06-08 | sprint-01 |
+| review-dashboard | done (merged to main 2026-06-08, PR #1) | G1 passed 2026-06-08 | sprint-01 |
