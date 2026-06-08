@@ -1,13 +1,13 @@
 ---
 id: MR-012
 title: Planner agent — "wire enforcement into the named gate row" + "cite by name, not line number" rules
-status: ready
+status: done
 layer: docs
 priority: P1
 sprint: sprint-03
 epic: process-hardening-2
 depends_on: []
-branch:
+branch: dev (small/solo change)
 created: 2026-06-09
 updated: 2026-06-09
 ---
@@ -40,11 +40,17 @@ Plan: `epics/process-hardening-2-plan.md` (Agent section). Evidence:
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-09` — `.claude/agents/mdreview-planner.md`: Method step 2 now scopes `path:line` to
+  **code** claims and requires citing gates/process sections **by name** (line numbers reserved
+  for code). New Method step 6 requires a proposed rule's enforcement be **written into the named
+  gate pass-condition row's text** (citing-a-row-alone explicitly insufficient; DoD/G5/prose are
+  non-enforcing pointers), citing the three-of-five same-defect blockers.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-09` — read-diff. Confirmed Method step 2 narrows `path:line` to code + adds cite-by-name;
+  Method step 6 states the wire-into-the-row rule with "necessary but not sufficient" and the
+  three-of-five rationale. Additive; prior instructions intact.
 
 ## Follow-ups
 

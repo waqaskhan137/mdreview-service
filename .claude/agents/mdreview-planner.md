@@ -74,7 +74,10 @@ contract; your plan is the artifact that clears **Gate G1**.
 2. **Explore before designing.** Grep/read the real code paths the feature touches in `app.py`,
    `viewer.html`, `static/`. **Reuse before inventing** (existing helpers `_read`, `_read_json`,
    `_write`, `meta`, `bump`, `create_review`; the viewer's `numberBlocks`/`reconcile`/`render`).
-   Cite real `path:line` references so each claim is checkable. Verify every symbol exists.
+   Cite real `path:line` references **for code claims** so each is checkable, and verify every
+   symbol exists. **Cite gates and process sections by name** (e.g. "the G7 pass-condition row",
+   "the Definition of Done section"), never by line number — process docs grow and numeric
+   anchors drift (they went stale in two cycles running). Reserve line numbers for code.
 3. **Surface clarifying questions + explicit assumptions FIRST**, in an "Assumptions & open
    questions" section. Tag each question **load-bearing** (changes the design) or **minor**, and
    give the best-effort assumption you are planning against with a one-line justification. You are
@@ -96,6 +99,13 @@ contract; your plan is the artifact that clears **Gate G1**.
    endpoints before the UI that consumes them. Each ticket small enough to validate with
    `py_compile` + a concrete smoke. Note acknowledged debt as out-of-epic follow-ups, never
    smuggled into scope.
+6. **Wire enforcement into the gate row.** When a plan proposes a new *rule the process must
+   enforce*, its enforcement must be **written into (added to) the named gate pass-condition row's
+   text** — not merely cited next to a Definition of Done / G5 / prose restatement. Citing a row
+   is necessary but **not sufficient**: if the teeth live only in prose/DoD/G5 while a row is just
+   named, the rule is unenforced. (Three of five G1 blockers in the process-hardening cycle were
+   this exact defect — rules in prose instead of the enforcing row.) DoD/G5/prose mentions are
+   non-enforcing pointers; the pass-condition row text is the enforcement.
 
 ## When re-invoked to REVISE after a staff-critic review
 The orchestrator sends you the review's findings (or the review path). **You** apply the
