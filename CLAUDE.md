@@ -11,9 +11,11 @@ Base URL: wherever the container is published (default `http://localhost:8137`).
 ```bash
 BASE=http://localhost:8137
 
-# 1. Submit a document for review.
+# 1. Submit a document for review. project/session/source_path are optional provenance
+#    that groups the review on the dashboard (project > session > files).
 resp=$(curl -s -X POST "$BASE/api/reviews" -H 'Content-Type: application/json' \
-  -d '{"title":"My draft","markdown":"# My draft\n\nFirst paragraph...\n"}')
+  -d '{"title":"My draft","markdown":"# My draft\n\nFirst paragraph...\n",
+       "project":"my-repo","session":"run-42","source_path":"docs/my-draft.md"}')
 # resp = {"id":"...", "review_url":"...", "feedback_url":"...", "status_url":"...", ...}
 
 # 2. Give review_url to the human. They open it and annotate.
@@ -42,6 +44,16 @@ There is no explicit "submit" from the human; feedback streams as they type. Pra
 
 `notes` is the structured form (each has `num`, `quote`, `note`, `addressed`); `markdown` is the
 same content as a readable block per note. Use whichever you prefer.
+
+## Discovering and revisiting reviews
+
+- `GET /api/reviews` lists every review with `notes_total`, `notes_addressed`, `revision`, and a
+  derived `status` (`awaiting` | `feedback` | `resolved`) — the same data the dashboard at `/`
+  renders. Use it to find reviews you created or to poll many at once.
+- Each `PUT /source` snapshots a **history round** (the outgoing draft + the feedback it
+  accumulated) and bumps `revision`. Revisit past versions with
+  `GET /api/reviews/{id}/history` and `GET /api/reviews/{id}/history/{n}`. An earlier draft and
+  the feedback it received are always recoverable, not just the latest state.
 
 ## Why this shape
 

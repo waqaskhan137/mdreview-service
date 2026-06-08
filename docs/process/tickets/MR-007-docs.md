@@ -1,13 +1,13 @@
 ---
 id: MR-007
 title: Docs — provenance/list/history fields + docs/future-mcp.md
-status: ready
+status: done
 layer: docs
 priority: P2
 sprint: sprint-01
 epic: review-dashboard
 depends_on: [MR-001, MR-002, MR-003, MR-004, MR-005, MR-006]
-branch:
+branch: dev (small/solo change)
 created: 2026-06-08
 updated: 2026-06-08
 ---
@@ -39,11 +39,20 @@ lost.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-08` — `README.md`: rewrote the API table to add `GET /`, `GET /api`,
+  `GET /api/reviews`, the two `/history` routes, and the optional `project`/`source_path`/
+  `session` POST fields; added provenance, status, history, and cross-review exposure notes.
+  `AGENTS.md` + `CLAUDE.md`: added the provenance fields to the contract example and a
+  "Discovering and revisiting reviews" section (list + history). New `docs/future-mcp.md`
+  sketches the deferred MCP wrapper (tool surface mapped 1:1 to the HTTP API). `backlog.md`
+  already carried the MCP follow-up from the seed.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-08` — cross-checked every documented route against `app.py` route matchers: `/`,
+  `/api`, `/api/reviews` (GET+POST), `/api/reviews/{id}` (+`/source`,`/feedback`,`/status`),
+  `/history` (+`/{n}`), `/review/{id}`, `/static`, `/healthz` — all present. Confirmed
+  `docs/future-mcp.md` exists and `backlog.md` references the MCP wrapper.
 
 ## Follow-ups
 
