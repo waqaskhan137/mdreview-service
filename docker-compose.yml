@@ -1,0 +1,17 @@
+services:
+  mdreview:
+    build: .
+    image: mdreview-service:latest
+    container_name: mdreview
+    ports:
+      - "8137:8080"            # host 8137 -> container 8080
+    volumes:
+      - mdreview-data:/data     # feedback/source persist across restarts
+    restart: unless-stopped
+    environment:
+      # Set this if the service is reached via a fixed external URL, so review_url
+      # is correct regardless of the Host header. Leave empty for local use.
+      MDREVIEW_PUBLIC_BASE: ""
+
+volumes:
+  mdreview-data:

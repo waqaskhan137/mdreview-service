@@ -1,0 +1,72 @@
+# mdreview-service for agents
+
+A networked, human-in-the-loop markdown review service. You POST markdown over HTTP, hand a
+human the returned URL, and poll feedback back. It is a single running service; each review is
+an isolated session keyed by `id`. You never spawn a process or touch shared files.
+
+Base URL: wherever the container is published (default `http://localhost:8137`).
+
+## The contract
+
+```bash
+BASE=http://localhost:8137
+
+# 1. Submit a document for review.
+resp=$(curl -s -X POST "$BASE/api/reviews" -H 'Content-Type: application/json' \
+  -d '{"title":"My draft","markdown":"# My draft\n\nFirst paragraph...\n"}')
+# resp = {"id":"...", "review_url":"...", "feedback_url":"...", "status_url":"...", ...}
+
+# 2. Give review_url to the human. They open it and annotate.
+
+# 3. Poll for feedback. status_url is cheap; feedback_url returns the notes.
+curl -s "$BASE/api/reviews/<id>/status"     # {"source_updated":..., "feedback_updated":...}
+curl -s "$BASE/api/reviews/<id>/feedback"   # {"markdown":"...", "notes":[...], ...}
+
+# 4. Apply the edits, then push the new version (the human's page live-reloads,
+#    and notes your edit addressed get struck through).
+curl -s -X PUT "$BASE/api/reviews/<id>/source" -H 'Content-Type: application/json' \
+  -d '{"markdown":"# My draft\n\nTighter first paragraph...\n"}'
+
+# 5. (optional) clean up
+curl -s -X DELETE "$BASE/api/reviews/<id>"
+```
+
+## Detecting "the human is done"
+
+There is no explicit "submit" from the human; feedback streams as they type. Practical options:
+
+- Poll `status_url` and watch `feedback_updated`. When it has not changed for a while (e.g. a
+  few minutes) and is non-zero, treat the round as complete.
+- Or just tell the human "reply 'done' when finished," and read `feedback_url` once on their
+  signal.
+
+`notes` is the structured form (each has `num`, `quote`, `note`, `addressed`); `markdown` is the
+same content as a readable block per note. Use whichever you prefer.
+
+## Why this shape
+
+- **One service, many sessions.** Isolated by `id`, so any number of agents and reviews run
+  concurrently with no port juggling and no shared state.
+- **Decoupled.** You talk HTTP; you do not need the service's filesystem, a local process, or
+  the same machine. Point `BASE` at wherever it runs.
+- **Stateless client.** The POST response is your handle. Persist the `id` / urls on your side.
+
+## Rules
+
+- Treat `id` as opaque. Operate only on reviews you created.
+- The service has no auth. If it is exposed beyond localhost, expect a proxy/token in front;
+  do not assume isolation between tenants beyond the `id` namespace.
+- `PUT /source` is for pushing your applied edits; do not use it to overwrite a review you did
+  not create.
+
+## Running your own instance
+
+```bash
+cd mdreview-service
+docker compose up -d --build         # localhost:8137
+# or pick another host port:
+docker run -d -p 9000:8080 -v my-mdreview:/data mdreview-service
+```
+
+Each container is independent; point your `BASE` at it. See `README.md` for the full API table
+and config.

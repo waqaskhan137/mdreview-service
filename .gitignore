@@ -1,0 +1,5 @@
+# local review data (Docker volume mounts to /data)
+data/
+*.pyc
+__pycache__/
+.DS_Store
