@@ -3,16 +3,22 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-08. Epic review-dashboard shipped to main (PR #1).
+Last updated: 2026-06-08. review-dashboard shipped to main (PR #1). process-hardening (sprint-02) groomed, G1 passed.
 
 ## Active sprint
 
-**sprint-01 — Review dashboard** (`closed`, 2026-06-08). Epic: `review-dashboard`. G7 passed.
+**sprint-02 — Process hardening** (`active`, 2026-06-08). Epic: `process-hardening`. G1 passed; 4 tickets ready.
+sprint-01 (Review dashboard) closed; G7 passed; shipped to main.
 Progress: 7/7 done — all committed tickets complete; sprint pending G7 close.
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-009 | Add scripts/render-smoke.sh (DOM-node assertion) | infra | P1 | sprint-02 |
+| MR-010 | README + skill — render-smoke as the ui validation bar (G4 row) | docs | P1 | sprint-02 |
+| MR-008 | Planner agent — fit-based-layout rule + Dockerfile-COPY footgun | docs | P2 | sprint-02 |
+| MR-011 | README — reconcile DoD with bounded same-sprint docs-sweep (G7 row) | docs | P2 | sprint-02 |
 
 ## in-progress
 
@@ -43,3 +49,4 @@ _none_
 | Epic | Status | Gate | Sprint |
 |------|--------|------|--------|
 | review-dashboard | done (merged to main 2026-06-08, PR #1) | G1 passed 2026-06-08 | sprint-01 |
+| process-hardening | active | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
