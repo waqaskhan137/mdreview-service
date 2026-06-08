@@ -1,13 +1,13 @@
 ---
 id: MR-009
 title: Add scripts/render-smoke.sh (DOM-node assertion against a served URL)
-status: ready
+status: done
 layer: infra
 priority: P1
 sprint: sprint-02
 epic: process-hardening
 depends_on: []
-branch:
+branch: dev (small/solo change)
 created: 2026-06-08
 updated: 2026-06-08
 ---
@@ -43,11 +43,23 @@ render-wait: `reviews/sprint-01-close-review-2026-06-08.md:62` (the working asse
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-08` — new executable `scripts/render-smoke.sh <url> <selector>...`. Drives headless
+  Chrome (`--headless=new --virtual-time-budget` render-wait) to dump the RENDERED DOM, then a
+  stdlib Python `html.parser` **counts elements** matching each selector (`tag`/`.class`/
+  `tag.class`/`#id`) — text inside `<style>`/`<script>` is data, not elements, so source strings
+  are correctly ignored. Fails loud (exit 3) when no Chrome is found; exit 1 + named selector
+  when a selector matches 0 nodes; exit 0 when all match. `RENDER_SMOKE_CHROME` pins the binary
+  (CI / fail-loud test). No pip/runtime dependency (uses the existing Chrome + stdlib python3).
 
 ## Validation
 
-_How this was verified._
+- `2026-06-08` — `bash -n` clean. Against the rebuilt container on `:8137` (`healthz` ok):
+  - present `.card` on `/` -> `ok (6 nodes)`, exit 0.
+  - bogus `.totally-not-here` -> exit 1, names it.
+  - **anti-grep:** `.empty` appears twice in `dashboard.html` CSS source but renders 0 elements
+    (reviews exist) -> exit 1 (proves DOM-element matching, not substring grep).
+  - **fail-loud:** `RENDER_SMOKE_CHROME=/nonexistent/chrome` -> exit 3 with the tried path.
+  - viewer `/review/<id>` with `.gcard mark.cmt` -> `ok (2 nodes)` each, exit 0.
 
 ## Follow-ups
 
