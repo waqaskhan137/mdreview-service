@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mdreview · reviews</title>
+<style>
+  :root{--bg:#fafaf9;--text:#1a1a1a;--muted:#6b6b6b;--accent:#0f766e;--rule:#e6e4e0;--noteline:#d4a017;--card:#fff;}
+  @media (prefers-color-scheme: dark){:root{--bg:#111;--text:#f1efec;--muted:#9a9a9a;--accent:#2dd4bf;--rule:#2a2a2a;--noteline:#d4a017;--card:#181817;}}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5;}
+  .wrap{max-width:920px;margin:0 auto;padding:40px 24px 120px;}
+  header h1{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 4px;font-weight:600;}
+  header .lead{font-size:28px;font-weight:700;letter-spacing:-.02em;margin:0 0 2px;}
+  header .sub{color:var(--muted);font-size:13.5px;margin:0 0 28px;}
+  .project{margin:0 0 36px;}
+  .project>h2{font-size:18px;font-weight:700;margin:0 0 2px;display:flex;align-items:baseline;gap:8px;}
+  .project>h2 .pcount{font-size:12px;font-weight:500;color:var(--muted);}
+  .session{margin:14px 0 0;}
+  .session>h3{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--accent);text-transform:none;letter-spacing:0;margin:0 0 8px;font-weight:600;}
+  .session>h3::before{content:"› ";color:var(--muted);}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+  .card{background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:13px 14px;display:flex;flex-direction:column;gap:7px;transition:border-color .15s,transform .05s;}
+  .card:hover{border-color:var(--accent);}
+  .card .title{font-size:15px;font-weight:600;line-height:1.25;word-break:break-word;}
+  .card .path{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--muted);word-break:break-all;}
+  .card .path:empty{display:none;}
+  .meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .pill{display:inline-flex;align-items:center;gap:4px;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600;border:1px solid var(--rule);}
+  .pill.awaiting{color:var(--muted);}
+  .pill.feedback{color:#7a5b00;background:rgba(212,160,23,.16);border-color:transparent;}
+  @media (prefers-color-scheme: dark){.pill.feedback{color:#f0cb5a;}}
+  .pill.resolved{color:#fff;background:var(--accent);border-color:transparent;}
+  .badge{border-radius:6px;padding:1px 6px;background:rgba(127,127,127,.12);font-size:11px;}
+  .rev{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .actions{display:flex;gap:6px;margin-top:4px;}
+  .btn{flex:0 0 auto;font:inherit;font-size:12.5px;border-radius:6px;padding:5px 12px;cursor:pointer;border:1px solid var(--rule);background:var(--bg);color:var(--text);text-decoration:none;display:inline-block;}
+  .btn.open{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn.del{margin-left:auto;color:var(--muted);}
+  .btn.del:hover{color:#c0392b;border-color:#c0392b;}
+  .empty{text-align:center;color:var(--muted);padding:80px 0;}
+  .empty code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:rgba(127,127,127,.1);padding:2px 6px;border-radius:5px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>mdreview</h1>
+    <p class="lead">Reviews</p>
+    <p class="sub" id="sub">Loading…</p>
+  </header>
+  <div id="list"></div>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function rel(ts){
+  if(!ts)return "";
+  const s=Math.max(0,(Date.now()/1000)-ts);
+  if(s<60)return "just now";
+  const m=s/60; if(m<60)return Math.round(m)+"m ago";
+  const h=m/60; if(h<24)return Math.round(h)+"h ago";
+  const d=h/24; if(d<30)return Math.round(d)+"d ago";
+  return new Date(ts*1000).toLocaleDateString();
+}
+function noteLabel(r){
+  const t=r.notes_total||0, a=r.notes_addressed||0;
+  if(!t)return "no notes";
+  return t+(t===1?" note":" notes")+(a?" · "+a+" done":"");
+}
+function card(r){
+  const status=r.status||"awaiting";
+  const rev=(r.revision||0)>0?`<span class="badge rev">v${r.revision}</span>`:"";
+  return `<div class="card">
+    <div class="title">${esc(r.title||r.id)}</div>
+    <div class="path">${esc(r.source_path||"")}</div>
+    <div class="meta">
+      <span class="pill ${status}">${status}</span>
+      <span class="badge">${noteLabel(r)}</span>
+      ${rev}
+      <span>${rel(r.created)}</span>
+    </div>
+    <div class="actions">
+      <a class="btn open" href="/review/${encodeURIComponent(r.id)}">Open</a>
+      <button class="btn del" data-id="${esc(r.id)}" data-title="${esc(r.title||r.id)}">Delete</button>
+    </div>
+  </div>`;
+}
+function groupBy(arr,key){
+  const m=new Map();
+  for(const r of arr){const k=r[key]||"";(m.get(k)||m.set(k,[]).get(k)).push(r);}
+  return m;
+}
+async function load(){
+  let data;
+  try{ data=await fetch('/api/reviews',{cache:'no-store'}).then(r=>r.json()); }
+  catch(e){ $("#sub").textContent="Could not reach the service."; return; }
+  const reviews=(data&&data.reviews)||[];
+  $("#sub").textContent = reviews.length
+    ? `${reviews.length} review${reviews.length===1?"":"s"} across ${new Set(reviews.map(r=>r.project||"Ungrouped")).size} project${new Set(reviews.map(r=>r.project||"Ungrouped")).size===1?"":"s"}`
+    : "No reviews yet.";
+  const list=$("#list");
+  if(!reviews.length){
+    list.innerHTML=`<div class="empty">No reviews yet.<br><br>An agent creates one with <code>POST /api/reviews</code>.</div>`;
+    return;
+  }
+  // Project › Session › files. Ungrouped projects last; within, undated sessions first (no sub-header).
+  const byProject=groupBy(reviews, "project");
+  const projectNames=[...byProject.keys()].sort((a,b)=>{
+    if(a==="" )return 1; if(b==="")return -1; return a.localeCompare(b);
+  });
+  let html="";
+  for(const p of projectNames){
+    const items=byProject.get(p);
+    const label=p||"Ungrouped";
+    html+=`<section class="project"><h2>${esc(label)} <span class="pcount">${items.length}</span></h2>`;
+    const bySession=groupBy(items, "session");
+    const sessionNames=[...bySession.keys()].sort((a,b)=>{
+      if(a==="")return -1; if(b==="")return 1; return a.localeCompare(b);
+    });
+    for(const s of sessionNames){
+      const cards=bySession.get(s).sort((a,b)=>(b.created||0)-(a.created||0)).map(card).join("");
+      if(s) html+=`<div class="session"><h3>${esc(s)}</h3><div class="grid">${cards}</div></div>`;
+      else  html+=`<div class="session"><div class="grid">${cards}</div></div>`;
+    }
+    html+=`</section>`;
+  }
+  list.innerHTML=html;
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('.btn.del'); if(!b)return;
+  if(!confirm(`Delete review "${b.dataset.title}"? This cannot be undone.`))return;
+  await fetch('/api/reviews/'+encodeURIComponent(b.dataset.id),{method:'DELETE'}).catch(()=>{});
+  load();
+});
+load();
+</script>
+</body>
+</html>

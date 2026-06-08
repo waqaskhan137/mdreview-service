@@ -1,13 +1,13 @@
 ---
 id: MR-004
 title: dashboard.html — Project>Session grouping, status pills, open/delete, revision badge
-status: ready
+status: done
 layer: ui
 priority: P1
 sprint: sprint-01
 epic: review-dashboard
 depends_on: [MR-002, MR-003, MR-005]
-branch:
+branch: dev (small/solo change)
 created: 2026-06-08
 updated: 2026-06-08
 ---
@@ -42,11 +42,23 @@ session, with status at a glance and the ability to open or delete.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-08` — new `dashboard.html` at project root, self-contained (no external assets),
+  reusing `viewer.html`'s palette/dark-mode/fonts. Fetches `/api/reviews`, groups
+  **Project > Session > files** (Ungrouped project sorted last; session-less reviews render
+  without a sub-header). Cards show title||id, `source_path` (mono, hidden when empty), relative
+  created time, a note-count badge, a status pill (awaiting/feedback/resolved), and a `vN`
+  revision badge when `revision > 0`. Open -> `/review/{id}`; Delete -> confirm +
+  `DELETE /api/reviews/{id}` + re-fetch. Empty state when no reviews.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-08` — `python3 -m py_compile app.py` passed (server unchanged; serves the file).
+  Seeded an isolated instance with 5 reviews across acme-web (run-1 x2, run-2 x1), blog, and an
+  ungrouped one; gave one a note and one a revision. `GET /` returned the HTML (7137 bytes).
+  **Browser render-smoke** via headless Chrome: screenshot at
+  `reviews/sprint-01-render-evidence-2026-06-08/dashboard.png` shows correct Project>Session
+  grouping, the amber `feedback` pill + `1 note`, the `v1` badge on blog, the Ungrouped section,
+  and Open/Delete actions. The empty `source_path` correctly hides its line.
 
 ## Follow-ups
 
