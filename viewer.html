@@ -62,6 +62,30 @@
   #modal{display:none;position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.45);align-items:center;justify-content:center;}
   #modalbox{width:min(680px,92vw);max-height:80vh;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;padding:18px;}
   #modal textarea{flex:1;min-height:300px;width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;border:1px solid var(--rule);border-radius:8px;padding:12px;background:var(--bg);color:var(--text);}
+  /* MR-006: Google-Docs style margin comments */
+  #gutter{position:absolute;top:0;width:284px;z-index:5;display:none;}
+  body.gutter-on #toggle{display:none;}
+  body.gutter-on #panel{display:none !important;}
+  .gcard{position:absolute;width:284px;background:var(--bg);border:1px solid var(--rule);border-left:3px solid var(--noteline);border-radius:8px;padding:10px 28px 10px 12px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;line-height:1.4;box-shadow:0 1px 6px rgba(0,0,0,.06);transition:top .18s ease,box-shadow .15s,border-color .15s;cursor:pointer;}
+  .gcard:hover,.gcard.active{box-shadow:0 5px 18px rgba(0,0,0,.18);border-left-color:var(--accent);}
+  .gcard .gref{color:var(--accent);font-weight:700;}
+  .gcard .gq{color:var(--muted);font-style:italic;display:block;margin:2px 0 5px;font-size:12px;max-height:48px;overflow:hidden;}
+  .gcard .gnote{color:var(--text);}
+  .gcard .gx{position:absolute;top:5px;right:8px;border:none;background:none;color:var(--muted);font-size:16px;cursor:pointer;line-height:1;}
+  .gcard.addressed{opacity:.55;border-left-color:var(--muted);}
+  .gcard.addressed .gnote{text-decoration:line-through;}
+  mark.cmt{background:rgba(212,160,23,.28);color:inherit;border-radius:2px;padding:.5px 0;cursor:pointer;transition:background .15s;}
+  mark.cmt.active{background:rgba(212,160,23,.62);}
+  #histmodal{display:none;position:fixed;inset:0;z-index:85;background:rgba(0,0,0,.45);align-items:center;justify-content:center;}
+  #histbox{width:min(720px,92vw);max-height:82vh;overflow:auto;background:var(--bg);border-radius:12px;padding:18px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13.5px;}
+  #histbox h3{margin:0 0 12px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
+  .histlist{display:flex;flex-direction:column;gap:6px;}
+  .histitem{text-align:left;font:inherit;font-size:13px;border:1px solid var(--rule);background:var(--bg);color:var(--text);border-radius:7px;padding:8px 10px;cursor:pointer;}
+  .histitem:hover{border-color:var(--accent);}
+  #histview h4{margin:16px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  #histview ul{margin:4px 0;padding-left:1.2em;}
+  .histdoc{border:1px solid var(--rule);border-radius:8px;padding:12px 14px;font-family:Charter,Georgia,serif;font-size:15px;line-height:1.5;max-height:38vh;overflow:auto;}
+  .histbtnrow{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
 </style>
 </head>
 <body>
@@ -88,9 +112,16 @@
 <div id="dock"><div id="dockbar">
   <span id="count">0 notes</span><span id="synced"></span>
   <button class="btn" id="toggle">Show</button>
+  <button class="btn" id="histbtn">History</button>
   <button class="btn primary" id="collect">Collect / copy</button>
 </div></div>
 <div id="panel"><h3>Your notes</h3><div id="items"></div></div>
+<div id="gutter"></div>
+<div id="histmodal"><div id="histbox">
+  <h3>Version history</h3>
+  <div id="histbody"></div>
+  <div class="histbtnrow"><button class="btn" id="histclose">Close</button></div>
+</div></div>
 
 <div id="modal"><div id="modalbox">
   <div style="font-family:-apple-system,sans-serif;font-size:13px;color:var(--muted);margin-bottom:8px;">This is what the AI reads (also written to the feedback file automatically). Copy if you want.</div>
@@ -289,6 +320,112 @@ function poll(){
 }
 
 boot();
+</script>
+<script>
+/* MR-006: Google-Docs style margin comments + version history.
+   Self-contained layer over the existing notes model. Reuses the globals
+   `notes`, `render`, `save`, `API` declared above (shared global scope). */
+(function(){
+  const art=()=>document.getElementById('article');
+  const gutter=()=>document.getElementById('gutter');
+  const esc=s=>(s||'').replace(/[&<>]/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[x]));
+
+  // wrap the exact quoted text (within a single text node) in a highlight
+  function highlightNote(n,i){
+    if(n.quote==='(whole block)')return null;
+    const blk=document.querySelector('.blk[data-num="'+n.num+'"]');
+    if(!blk)return null;
+    const w=document.createTreeWalker(blk,NodeFilter.SHOW_TEXT);
+    let node;
+    while(node=w.nextNode()){
+      const idx=node.nodeValue.indexOf(n.quote);
+      if(idx>=0){
+        const r=document.createRange();
+        r.setStart(node,idx);r.setEnd(node,idx+n.quote.length);
+        const mk=document.createElement('mark');mk.className='cmt';mk.dataset.id=i;
+        try{r.surroundContents(mk);return mk;}catch(e){return null;}
+      }
+    }
+    return null; // spans inline tags / not found -> fall back to block anchor
+  }
+  function focusPair(id){
+    document.querySelectorAll('.gcard.active,mark.cmt.active').forEach(e=>e.classList.remove('active'));
+    const c=document.querySelector('.gcard[data-id="'+id+'"]');
+    const m=document.querySelector('mark.cmt[data-id="'+id+'"]');
+    if(c)c.classList.add('active');
+    if(m){m.classList.add('active');m.scrollIntoView({block:'center',behavior:'smooth'});}
+    else if(c)c.scrollIntoView({block:'center',behavior:'smooth'});
+  }
+  function renderComments(){
+    const A=art(),G=gutter();if(!A||!G)return;
+    A.querySelectorAll('mark.cmt').forEach(m=>{const p=m.parentNode;while(m.firstChild)p.insertBefore(m.firstChild,m);p.removeChild(m);p.normalize();});
+    G.innerHTML='';
+    (notes||[]).forEach((n,i)=>{
+      let anchor=null;
+      if(!n.addressed){const mk=highlightNote(n,i);anchor=mk||document.querySelector('.blk[data-num="'+n.num+'"]');}
+      const card=document.createElement('div');
+      card.className='gcard'+(n.addressed?' addressed':'');card.dataset.id=i;
+      const q=n.quote==='(whole block)'?'(whole block)':'"'+n.quote+'"';
+      card.innerHTML='<button class="gx" data-i="'+i+'" title="delete">&times;</button>'+
+        '<span class="gref">#'+n.num+'</span> <span class="gq">'+esc(q)+'</span>'+
+        '<div class="gnote">'+esc(n.note)+'</div>';
+      card._anchor=anchor;G.appendChild(card);
+    });
+    G.querySelectorAll('.gx').forEach(x=>x.onclick=e=>{e.stopPropagation();notes.splice(+x.dataset.i,1);save();});
+    G.querySelectorAll('.gcard').forEach(c=>c.onclick=()=>focusPair(c.dataset.id));
+    A.querySelectorAll('mark.cmt').forEach(m=>m.onclick=()=>focusPair(m.dataset.id));
+    layoutComments();
+  }
+  function layoutComments(){
+    const A=art(),G=gutter();if(!A||!G)return;
+    const rect=A.getBoundingClientRect();
+    const wide=window.innerWidth>=rect.right+300;            // only when the gutter fits
+    document.body.classList.toggle('gutter-on',wide);
+    if(!wide){G.style.display='none';return;}
+    G.style.display='block';
+    G.style.top='0px';
+    G.style.left=(rect.left+window.scrollX+rect.width+24)+'px';
+    const active=[...G.querySelectorAll('.gcard:not(.addressed)')].map(c=>{
+      let top=0;const a=c._anchor;
+      if(a){const r=a.getBoundingClientRect();top=r.top+window.scrollY;}
+      return {c,top};
+    }).sort((x,y)=>x.top-y.top);
+    let prev=0;
+    active.forEach(o=>{const t=Math.max(o.top,prev+10);o.c.style.top=t+'px';prev=t+o.c.offsetHeight;});
+    [...G.querySelectorAll('.gcard.addressed')].forEach(c=>{const t=prev+22;c.style.top=t+'px';prev=t+c.offsetHeight;});
+  }
+  // re-render comments whenever the doc/notes re-render
+  const _render=render;
+  render=function(){ _render.apply(this,arguments); try{renderComments();}catch(e){console.warn('comments',e);} };
+  window.addEventListener('resize',()=>{try{layoutComments();}catch(e){}});
+  // catch the first paint regardless of async load timing
+  [250,800,1600].forEach(t=>setTimeout(()=>{try{renderComments();}catch(e){}},t));
+
+  // version history (read-only)
+  const $h=s=>document.querySelector(s);
+  async function openHistory(){
+    const body=$h('#histbody');body.innerHTML='Loading...';$h('#histmodal').style.display='flex';
+    try{
+      const d=await fetch(API+'/history').then(r=>r.json());
+      const rounds=(d&&d.rounds)||[];
+      if(!rounds.length){body.innerHTML='<p style="color:var(--muted)">No earlier versions yet. A version is saved each time the AI pushes a revised draft.</p>';return;}
+      body.innerHTML='<div class="histlist">'+rounds.map(r=>'<button class="histitem" data-n="'+r.round+'">v'+r.round+' &middot; '+r.notes_total+' notes'+(r.notes_addressed?' ('+r.notes_addressed+' done)':'')+' &middot; '+new Date(r.ts*1000).toLocaleString()+'</button>').join('')+'</div><div id="histview"></div>';
+      body.querySelectorAll('.histitem').forEach(b=>b.onclick=()=>showRound(b.dataset.n));
+    }catch(e){body.innerHTML='Could not load history.';}
+  }
+  async function showRound(n){
+    const v=$h('#histview');v.innerHTML='Loading...';
+    try{
+      const d=await fetch(API+'/history/'+n).then(r=>r.json());
+      const html=window.marked?marked.parse(d.source||''):esc(d.source||'');
+      const nl=(d.notes||[]).map(x=>'<li><b>#'+x.num+'</b> '+esc(x.note)+'</li>').join('');
+      v.innerHTML='<h4>v'+n+' draft</h4><div class="histdoc">'+html+'</div>'+(nl?'<h4>notes that round</h4><ul>'+nl+'</ul>':'');
+    }catch(e){v.innerHTML='Could not load that version.';}
+  }
+  document.getElementById('histbtn').onclick=openHistory;
+  document.getElementById('histclose').onclick=()=>$h('#histmodal').style.display='none';
+  $h('#histmodal').onclick=e=>{if(e.target.id==='histmodal')$h('#histmodal').style.display='none';};
+})();
 </script>
 </body>
 </html>
