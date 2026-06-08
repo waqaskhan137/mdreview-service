@@ -70,3 +70,19 @@ docker run -d -p 9000:8080 -v my-mdreview:/data mdreview-service
 
 Each container is independent; point your `BASE` at it. See `README.md` for the full API table
 and config.
+
+## Delivery process
+
+Feature work in this repo runs through a file-based, gated delivery process under
+`docs/process/` (committed + pushed, so any session reconstructs state from frontmatter + git).
+Read `docs/process/README.md` for the gates (G0-G8), conventions, and layout. The
+`/feature-cycle` skill (`.claude/skills/feature-cycle/`) drives a brief through
+plan -> independent review (G1) -> tickets -> sprint -> implement -> close review (G7) -> PR,
+using the `mdreview-planner` and `cycle-retrospective` agents and the global `staff-critic`.
+
+- Tickets `MR-###` in `docs/process/tickets/`; the board is `docs/process/TRACKER.md`.
+- Validation gate: `python3 -m py_compile app.py` (+ `docker build` for infra, a browser render
+  for UI). No test framework.
+- Commits: conventional subject with the ticket ID; this repo keeps the `Co-Authored-By: Claude`
+  trailer.
+- Current epic: `review-dashboard` (sprint-01) — the dashboard/provenance/history/comments work.
