@@ -1,13 +1,13 @@
 ---
 id: MR-010
 title: README + skill — rebuild-from-image + render-smoke as the ui validation bar (G4 row)
-status: ready
+status: done
 layer: docs
 priority: P1
 sprint: sprint-02
 epic: process-hardening
 depends_on: [MR-009]
-branch:
+branch: dev (small/solo change)
 created: 2026-06-08
 updated: 2026-06-08
 ---
@@ -41,11 +41,19 @@ must exist before docs reference it). G1 review B1c + the non-blocking scope not
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-09` — `README.md`: the **G4 pass-condition row** now requires, for `ui` tickets, a
+  render-smoke from the rebuilt image (`scripts/render-smoke.sh`), scoped explicitly to `ui`
+  (mirrors how the row special-cases `docker build` "for infra"); the old "if needed" hedge is
+  gone. Development-flow step 5 `ui` clause points at the script. `.claude/skills/feature-cycle/
+  references/03-implement.md` `ui` bullet references the README G4 rule / the script ("run it, do
+  not restate it") instead of "open it in a browser". Single canonical command; no raw Chrome
+  invocation restated.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-09` — read-diff. `grep render-smoke.sh`: README 2 (step 5 + G4 row), 03-implement 1;
+  `grep dump-dom`: 0 in both (no restated raw command); G4 row scopes the smoke to `ui` tickets
+  explicitly; the "mirror into G4 if needed" hedge is removed.
 
 ## Follow-ups
 

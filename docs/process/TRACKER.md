@@ -15,7 +15,6 @@ Progress: 7/7 done — all committed tickets complete; sprint pending G7 close.
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
-| MR-010 | README + skill — render-smoke as the ui validation bar (G4 row) | docs | P1 | sprint-02 |
 | MR-011 | README — reconcile DoD with bounded same-sprint docs-sweep (G7 row) | docs | P2 | sprint-02 |
 
 ## in-progress
@@ -39,6 +38,7 @@ _none_
 | MR-007 | Docs — provenance/list/history fields + docs/future-mcp.md | docs | P2 | sprint-01 |
 | MR-008 | Planner agent — fit-based-layout rule + Dockerfile-COPY footgun | docs | P2 | sprint-02 |
 | MR-009 | Add scripts/render-smoke.sh (DOM-node assertion) | infra | P1 | sprint-02 |
+| MR-010 | README + skill — render-smoke as the ui validation bar (G4 row) | docs | P1 | sprint-02 |
 
 ## blocked
 

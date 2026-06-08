@@ -115,7 +115,9 @@ immediately. If several are eligible, pick the highest `priority` first.
 4. Implement on a ticket branch (`MR-###-slug`) cut from `dev` (small changes may commit to
    `dev` directly).
 5. Validate locally: `python3 -m py_compile app.py`; for `infra`, `docker build`; for `ui`,
-   rebuild + curl smoke + open the page. See `CLAUDE.md` "Run".
+   rebuild from the image and assert the rendered DOM nodes with
+   `scripts/render-smoke.sh <url> <selector>...` (a 200 is not a render; a screenshot proves
+   first-paint only). See `CLAUDE.md` "Run".
 6. Commit referencing the ticket ID (conventional subject).
 7. Fill the ticket's **Work log** (what changed, files) and **Validation** (what you checked).
 8. Set `status: review`. On approval, set `status: done`.
@@ -152,7 +154,7 @@ by default, not by memory. A failed gate is the gate doing its job.
 | **G1 — Plan Gate** | epic plan -> tickets | The epic plan has a recorded **independent** review in `reviews/` (reviewer is NOT the plan's author: the `staff-critic` agent, or the product owner), **all blocker questions answered**, and explicit sign-off. Only then does the epic move to `status: active`/`gate: passed` and tickets may be created. |
 | **G2 — Definition of Ready** | ticket -> `ready` | Acceptance criteria written, dependencies identified, `layer` + `priority` set, no open questions, roughly sized. |
 | **G3 — Pickup** | `ready` -> `in-progress` | Active sprint + every `depends_on` is `done` + the one-in-progress rule. |
-| **G4 — Review** | `in-progress` -> `review` | `python3 -m py_compile app.py` passes (and `docker build` for infra), author self-checked the acceptance criteria. |
+| **G4 — Review** | `in-progress` -> `review` | `python3 -m py_compile app.py` passes (and `docker build` for `infra`); **for `ui` tickets, a render-smoke from the rebuilt image passes** — `scripts/render-smoke.sh <url> <selector>...` asserts the expected DOM nodes rendered (a 200 is not a render; see Development flow step 5); author self-checked the acceptance criteria. |
 | **G5 — Definition of Done** | `review` -> `done` | All AC met + validation + docs updated + Work log/Validation filled + committed. |
 | **G6 — Sprint open** | -> sprint `active` | Every committed ticket is `ready`; the sprint has a goal and a committed-ticket list. |
 | **G7 — Sprint close** | sprint -> `closed` | Every committed ticket is `done` or explicitly carried over; an **independent `staff-critic` sprint-close review** is recorded in `reviews/` (reviewer is NOT the implementer), verifying shipped work against each ticket's acceptance criteria, **including a render smoke** of any page touched (rebuild the container, `curl /healthz` + `/api/reviews`, open the touched page in a browser and screenshot under `reviews/sprint-NN-render-evidence-*`); retro + carry-overs are written into the sprint file. |
