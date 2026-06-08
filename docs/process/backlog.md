@@ -13,4 +13,8 @@ entry to a line or two with enough context to pick up later.
 
 ## Ideas (ungroomed)
 
-_none yet_
+- **Automated post-interaction render evidence** (from sprint-01 G7, SHOULD-FIX #2). Current
+  render-smoke is headless-Chrome single-shot (first paint) + a `--dump-dom` node assertion. A
+  small scripted interaction (add a note, assert the gutter card appears without reload; resize,
+  assert relayout) would make the dynamic-path evidence fully automated. Needs a CDP/puppeteer
+  driver, so it is its own small `infra` ticket.

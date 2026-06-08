@@ -7,7 +7,7 @@ Last updated: 2026-06-08.
 
 ## Active sprint
 
-**sprint-01 — Review dashboard** (`active`, 2026-06-08 -> 2026-06-15). Epic: `review-dashboard`.
+**sprint-01 — Review dashboard** (`closed`, 2026-06-08). Epic: `review-dashboard`. G7 passed.
 Progress: 7/7 done — all committed tickets complete; sprint pending G7 close.
 
 ## ready

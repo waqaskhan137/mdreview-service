@@ -32,8 +32,12 @@ past history rounds.
 - [ ] **Add flow unchanged:** the select -> "+ note" -> `#pop` popup (`viewer.html:232-259`) stays;
       saving re-renders highlights + cards. Resolved notes drop their highlight and grey/strike at
       the bottom of the gutter.
-- [ ] **Narrow fallback (<=820px):** hide the gutter, restore the existing `#panel` toggle + dock
-      (reuse the current code, do not delete it).
+- [x] **Narrow / no-room fallback:** show the gutter only when it physically fits
+      (`innerWidth >= article.right + ~300`); otherwise hide it and restore the existing `#panel`
+      toggle + dock (reuse the current code, do not delete it). Supersedes the original "<=820px"
+      wording — a 284px gutter cannot fit at 820px, so a fixed pixel breakpoint would clip the
+      gutter or hide it on wide screens. Reconciled at G7 (see
+      `reviews/sprint-01-close-review-2026-06-08.md`, SHOULD-FIX #1).
 - [ ] **History view:** a small "History" affordance fetches `/history`, lists past rounds
       (timestamp + note count), and opens a past draft's rendered markdown + its notes read-only.
 - [ ] Validation: serve, **open `/review/{id}` in a browser**: highlight appears, card aligns,
