@@ -15,8 +15,11 @@ For each ticket:
    - `svc`: `python3 -m py_compile app.py`; then run it and curl the affected endpoints
      (`PORT=8137 MDREVIEW_DATA=/tmp/mr python3 app.py` on a free port, or rebuild the container).
    - `infra`: `docker build -t mdreview-service .` must pass.
-   - `ui`: rebuild/serve, `curl` the page route, and **open it in a browser** to confirm it
-     renders (the viewer/dashboard are JS-rendered; a 200 is not proof it renders).
+   - `ui`: rebuild from the image (`docker compose up -d --build`) and run
+     **`scripts/render-smoke.sh <url> <selector>...`** against the published port to assert the
+     expected DOM nodes rendered (the viewer/dashboard are JS-rendered; a 200 is not a render and
+     a screenshot proves first-paint only). This is the README G4 rule for `ui` tickets — run it,
+     do not restate it.
    - There is no test framework; the smoke IS the gate.
 5. **Commit** referencing the ticket: `feat(svc): add list endpoint (MR-002)` (conventional
    subject + the `Co-Authored-By: Claude` trailer this repo keeps).

@@ -4,12 +4,26 @@
 
 Precondition: every committed ticket is `done`.
 
+0. **Reconcile the board to reality (you), BEFORE spawning the critic.** Keep the independent
+   reviewer on substance, not bookkeeping:
+   - every committed ticket is `done` in its frontmatter (not still `ready`/`review`) — restates
+     the precondition above; confirm it;
+   - **(new)** the sprint file's committed-ticket table / close-gate checkboxes are updated to
+     match the ticket frontmatter;
+   - **(new)** `TRACKER.md` rows are moved to the section matching each ticket's `status`.
+   **Not in this step:** setting `close_review:`, setting `status: closed`, or writing the retro —
+   those stay in **Phase 8**, because `close_review:` names the review file the critic *produces*
+   and cannot exist before the critic runs.
 1. **Render smoke (you):** rebuild the container (`docker compose up -d --build`), then:
    - `curl -s localhost:8137/healthz` -> `{"ok":true}`;
    - `curl -s localhost:8137/api/reviews` (or other touched endpoints) returns sane JSON;
-   - **open every touched page** (`/`, `/review/<id>`) in a browser and screenshot it to
-     `reviews/sprint-NN-render-evidence-YYYY-MM-DD/` (a 200 is not proof a JS page renders).
-   - If any page fails to render -> **park** (do not pass G7): `## BLOCKED` note in the sprint +
+   - **only if a product page (`viewer.html`/`dashboard.html`/`static/**`) was touched this
+     sprint** (see the G7 pass-condition row): run `scripts/render-smoke.sh` against each touched
+     page and **open it** (`/`, `/review/<id>`) in a browser, screenshotting to
+     `reviews/sprint-NN-render-evidence-YYYY-MM-DD/` (a 200 is not proof a JS page renders). A
+     docs/infra-only sprint that touches no product page skips this per-page step but still owes
+     the rebuild + curl smoke above.
+   - If any touched page fails to render -> **park** (do not pass G7): `## BLOCKED` note in the sprint +
      epic, draft `[BLOCKED]` PR, arm the retro marker, run Phase 10.
 2. **Independent review (staff-critic):** spawn `staff-critic` (reviewer != implementer) on the
    shipped diff + the render evidence. It writes

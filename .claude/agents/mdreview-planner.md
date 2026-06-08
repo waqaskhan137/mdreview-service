@@ -48,12 +48,24 @@ contract; your plan is the artifact that clears **Gate G1**.
    fit or extend that pattern. Cite the `app.py:line` you are inserting near.
 5. **No auth, id-only tenancy.** The service trusts its network; isolation is only by opaque
    `id`. Any feature that lists or aggregates across reviews widens exposure — name that.
-6. **JS-rendered surfaces.** Verification for any `ui` change must **open the page in a browser**
-   (screenshot), not just curl a 200.
+6. **JS-rendered surfaces.** Verification for any `ui` change must **render the page from the
+   rebuilt container and assert the expected DOM nodes** (e.g. via `scripts/render-smoke.sh`),
+   not just curl a 200 — a 200 is not a render, and a screenshot proves first-paint only.
+   For responsive behavior, specify it as **behavior, not a pixel breakpoint**: say "show the
+   element only when it physically fits the viewport" (compute against the actual element width)
+   rather than a hard-coded `<=NNNpx` value you have not measured. (Sprint-01 lesson: a ~820px
+   gutter threshold was geometrically wrong — a 284px gutter cannot fit at 820px — and was
+   reconciled to a fit-based test at G7.)
 7. **Conventions:** dates `Europe/London`; commits keep the `Co-Authored-By: Claude` trailer and
    reference the ticket ID; the validation gate is `python3 -m py_compile app.py` (+ `docker
-   build` for infra, browser open for ui). There is no test framework.
+   build` for infra, render-smoke for ui). There is no test framework.
 8. **Prefer additive, default-safe designs** so a missing file/key preserves today's behavior.
+9. **Packaging: a new served file needs a `Dockerfile COPY`.** The `Dockerfile` copies only the
+   files it names (`Dockerfile:8`, `COPY app.py viewer.html dashboard.html ./`). Any new
+   root-level file the service serves (a sibling of `viewer.html`/`dashboard.html`) must be added
+   to that `COPY`, and the `ui` ticket that introduces the asset **must carry that infra change**
+   — otherwise the rebuilt container serves an empty 200 (the sprint-01 bug, fixed in commit
+   `1326462`). Call this out in the plan whenever a feature adds a served file.
 
 ## Method
 1. **Capture vs locate.** If handed a brief, the verbatim source belongs in
@@ -62,7 +74,10 @@ contract; your plan is the artifact that clears **Gate G1**.
 2. **Explore before designing.** Grep/read the real code paths the feature touches in `app.py`,
    `viewer.html`, `static/`. **Reuse before inventing** (existing helpers `_read`, `_read_json`,
    `_write`, `meta`, `bump`, `create_review`; the viewer's `numberBlocks`/`reconcile`/`render`).
-   Cite real `path:line` references so each claim is checkable. Verify every symbol exists.
+   Cite real `path:line` references **for code claims** so each is checkable, and verify every
+   symbol exists. **Cite gates and process sections by name** (e.g. "the G7 pass-condition row",
+   "the Definition of Done section"), never by line number — process docs grow and numeric
+   anchors drift (they went stale in two cycles running). Reserve line numbers for code.
 3. **Surface clarifying questions + explicit assumptions FIRST**, in an "Assumptions & open
    questions" section. Tag each question **load-bearing** (changes the design) or **minor**, and
    give the best-effort assumption you are planning against with a one-line justification. You are
@@ -78,11 +93,19 @@ contract; your plan is the artifact that clears **Gate G1**.
    order, a concrete **ticket breakdown table** (`| ID | Title | Layer | Phase |`, leave IDs as
    `MR-###` placeholders; the orchestrator allocates real IDs), risks + mitigations, and a
    **verification** section that is specific and runnable (`py_compile`, curl examples with
-   expected JSON, a browser-render check for any page).
+   expected JSON, and for any page a **render-smoke from the rebuilt container asserting the
+   expected DOM nodes** — `scripts/render-smoke.sh` — not just a browser screenshot).
 5. **Right-size the breakdown.** One ticket per shippable slice, ordered by dependency: service
    endpoints before the UI that consumes them. Each ticket small enough to validate with
    `py_compile` + a concrete smoke. Note acknowledged debt as out-of-epic follow-ups, never
    smuggled into scope.
+6. **Wire enforcement into the gate row.** When a plan proposes a new *rule the process must
+   enforce*, its enforcement must be **written into (added to) the named gate pass-condition row's
+   text** — not merely cited next to a Definition of Done / G5 / prose restatement. Citing a row
+   is necessary but **not sufficient**: if the teeth live only in prose/DoD/G5 while a row is just
+   named, the rule is unenforced. (Three of five G1 blockers in the process-hardening cycle were
+   this exact defect — rules in prose instead of the enforcing row.) DoD/G5/prose mentions are
+   non-enforcing pointers; the pass-condition row text is the enforcement.
 
 ## When re-invoked to REVISE after a staff-critic review
 The orchestrator sends you the review's findings (or the review path). **You** apply the

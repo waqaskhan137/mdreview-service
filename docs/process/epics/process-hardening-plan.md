@@ -1,0 +1,383 @@
+---
+epic: process-hardening
+status: active
+created: 2026-06-08
+source: requirements/process-hardening.md
+gate: passed 2026-06-08
+review: reviews/process-hardening-plan-review-2026-06-08.md
+related_sprints: [sprint-02]
+related_tickets: [MR-008, MR-009, MR-010, MR-011]
+---
+
+# Process Hardening Plan
+
+The first delivery cycle (`review-dashboard`, sprint-01) shipped cleanly but exercised only half
+the new process machinery: G7's render-smoke earned its keep by catching a container-packaging bug,
+while G1's planner-then-critic loop was never run on a real plan, and the cycle retrospective
+surfaced six concrete hardening suggestions. This epic applies those six suggestions to the
+**delivery process itself** — the docs under `docs/process/`, the `feature-cycle` skill, and the
+`mdreview-planner` agent — so the next product cycle inherits a tighter validation bar and a
+sharper planner. It changes **no product behavior** (`app.py`, `viewer.html`, `dashboard.html` are
+untouched).
+
+**Source requirement:** [`requirements/process-hardening.md`](../requirements/process-hardening.md)
+— the six verbatim retrospective suggestions, kept verbatim.
+
+## Product goal
+
+The "done" state: every suggestion in the brief is durably resolved in the process artifacts, so a
+future cycle does not re-improvise the same calls.
+
+1. A `ui`-ticket cannot pass G4 on a local-file render alone — it must rebuild the image and assert
+   the expected DOM nodes exist, via a single canonical, reusable check (suggestions 1 + 2).
+2. The G1 planner-then-staff-critic loop has been exercised on a real plan (suggestion 3 — see
+   "Suggestion 3 is discharged by this epic" below).
+3. The Definition of Done and the docs-sweep pattern no longer contradict each other; the README
+   states one resolution unambiguously (suggestion 4).
+4. The `mdreview-planner` agent carries a fit-based-layout rule and a Dockerfile-COPY footgun, so
+   it stops emitting hard-coded breakpoints and remembers that a new served file needs a Dockerfile
+   edit (suggestions 5 + 6).
+
+## Core design principle
+
+**The README is the single source of truth for the gates; the skill and the agent point at it,
+never restate it.** (`SKILL.md:17-18`: "This skill does **not** redefine the gates — it
+executes them.") Every change here lands the *rule* in exactly one place and makes the other
+surfaces reference it, so the process cannot drift between README, skill, and agent. The concrete
+expression of this principle is suggestions 1+2: the render-smoke command lives in one executable
+script (`scripts/render-smoke.sh`), and the README G4 row, README Development-flow step 5, and
+`references/03-implement.md` step 4 all point at that one script rather than each spelling out a
+headless-Chrome DOM-assertion invocation that would inevitably diverge.
+
+## Assumptions & open questions
+
+I am invoked autonomously and proceed on the assumptions below. None is a BLOCKER-FOR-HUMAN: every
+one has a safe default, and the brief itself (`requirements/process-hardening.md`) pre-decides the
+contested ones.
+
+- **(load-bearing) Suggestions 1+2 become a standing rule *and* a reusable script, not a rule
+  alone.** Assumption: add `scripts/render-smoke.sh <url> <css-selector...>` (the only canonical
+  copy of the headless-Chrome DOM-node assertion — selector evaluated against the rendered DOM,
+  not a source grep), then rewrite the two `ui`-validation bullets (`README.md:117-118`,
+  `references/03-implement.md:18-20`) to call it and wire it into the G4 row.
+  Justification: the rule otherwise has to be spelled out in both files and they will drift; one
+  script is the single-source-of-truth expression of the core principle.
+
+- **(load-bearing) Suggestion 4 is resolved by *blessing* a bounded same-sprint docs-sweep, not by
+  forbidding sweeps.** Assumption: the README DoD permits a ticket to defer durable docs to a
+  trailing docs-sweep ticket **within the same sprint**, provided the deferring ticket names the
+  sweep ticket in its Work log; the **G7 row** gains a docs-currency clause and makes a docs-sweep
+  ticket **ineligible for carry-over** so the debt cannot escape the sprint. Justification: the
+  brief's own
+  two options (`requirements/process-hardening.md:30-33`) are *both* forms of blessing the sweep;
+  the brief is the contract. The gate that actually enforces docs accuracy is G7 (sprint close),
+  not per-commit, so per-sprint-close accuracy is consistent with the repo-as-source-of-truth
+  philosophy. **This is the decision I am least sure about** — see Risks.
+
+- **(load-bearing) Suggestion 3 is discharged by this epic's own G1 review; it gets no ticket.**
+  Assumption: this plan going through the `mdreview-planner`-authors / `staff-critic`-reviews G1
+  path IS the deliberate exercise the retrospective asked for, so I create no "exercise the loop"
+  ticket (a process-act ticket has nothing to validate). Justification: a verifiable discharge
+  (the recorded G1 review file) beats an unverifiable commitment ticket. The durable evidence that
+  both gate rails are now exercised is the G1 review file itself
+  (`reviews/process-hardening-plan-review-2026-06-08.md`); no "rails-exercised" note is bundled
+  into the suggestion-1+2 skill ticket.
+
+- **(minor) Where the two planner footguns attach.** Assumption: the Dockerfile-COPY footgun
+  becomes a new numbered item in the planner's footgun list (after `mdreview-planner.md:56`); the
+  fit-based-layout rule attaches to footgun 6 (JS-rendered surfaces, `mdreview-planner.md:51-52`)
+  and to the verification guidance in Method step 4 (`mdreview-planner.md:80-81`). Justification:
+  both are additive, default-safe edits to standing instructions.
+
+- **(minor) The script targets the published container port, 8137.** Assumption: `render-smoke.sh`
+  is documented to run against the rebuilt container's published port (`SKILL.md:107`,
+  `references/04-close-and-ship.md:8-11` already standardize `localhost:8137`), not a local file.
+  Justification: the whole point of suggestion 1 is to surface packaging gaps at the ticket.
+
+## Recommended approach
+
+All edits are documentation/tooling. There is no `app.py` or `viewer.html` change. The work splits
+by artifact rather than by service/UI.
+
+### Tooling (`scripts/render-smoke.sh`) — `infra`
+
+- New executable `scripts/render-smoke.sh <url> <css-selector>...`. It drives headless Chrome
+  and **evaluates each supplied CSS selector against the rendered DOM, asserting at least one
+  matched element exists** (i.e. `document.querySelectorAll(sel).length > 0`, optionally an
+  expected count), not a substring search of the page source. Stdlib/system-tool only — Chrome is
+  already the render tool the process uses; **no new pip/runtime dependency** (footgun:
+  stdlib-only, zero installs).
+- **Selector evaluation, not grep.** The assertion must run against the *rendered DOM tree* and
+  count matched elements — never `chrome --dump-dom | grep -q <selector>`. A substring grep
+  false-passes because the inline CSS/JS source literally contains strings like `gcard` and `cmt`,
+  so grep would report success even when zero elements rendered. Use Chrome headless evaluating
+  `document.querySelectorAll(sel).length` (or an equivalent that distinguishes rendered nodes from
+  source text).
+- **Wait for render before asserting.** The viewer renders asynchronously — markdown via
+  `setTimeout` fallbacks and mermaid via async init — so the script must advance a virtual-time
+  budget (or equivalent render-wait) before snapshotting the DOM and counting nodes. Rationale:
+  the only assertion proven to work on this viewer used `--dump-dom` *after a virtual-time advance*
+  to read the rendered `.gcard`/`mark.cmt` nodes (`sprint-01-close-review-2026-06-08.md:62`); a
+  pre-render snapshot would false-fail on a page that renders correctly.
+- Contract: every selector matches >=1 rendered node -> exit 0; any selector matches zero ->
+  nonzero exit + a clear message naming the missing selector. The script must target a served URL
+  (the rebuilt container's published port), never a `file://` path, so the Dockerfile-COPY class
+  of bug surfaces here.
+- It must **fail loud** if no Chrome binary is found (detect `google-chrome` / `chromium` /
+  `Google Chrome` and error with the lookup it tried), not silently pass.
+- This is the only ticket with a genuinely runnable check beyond reading the diff: run it against a
+  rebuilt container and confirm a present selector exits 0 and a bogus selector exits nonzero.
+
+### Process (`docs/process/README.md`) — `docs`
+
+- **Suggestion 1+2** — land the render-smoke bar in **two** README places:
+  - **G4 pass-condition row (`README.md:155`)** — this is the enforcement point. Today the row is
+    `py_compile` + `docker build` + self-check, with **no render** for `ui` tickets, so a `ui`
+    ticket passes G4 today without proving anything rendered. Amend the row to add, for `ui`
+    tickets: rebuild the image and run `scripts/render-smoke.sh` against the published port to
+    assert the expected rendered nodes (reference the script / the Development-flow rule once; do
+    not restate the command in the row). This is not a hedge — without it in the G4 row the gate
+    does not require the smoke.
+  - **Development-flow step 5 (`README.md:117-118`)** — rewrite the `ui` clause: rebuild + serve
+    from the **published container port** (`docker compose up -d --build`), then run
+    `scripts/render-smoke.sh <url> <selector...>` asserting the expected rendered nodes
+    (e.g. `.gcard`, `mark.cmt`) — "a screenshot proves first-paint only; a 200 is not a render."
+    The G4 row references this rule, keeping the command in one place.
+- **Suggestion 4** — land the bounded-docs-sweep rule in **three** README places, with the
+  enforcement clause in the gate that actually enforces it:
+  - **Definition of Done (`README.md:130-134`)** — durable behavior docs ship in the same change
+    **or** are deferred to a trailing **docs-sweep ticket within the same sprint**; a deferring
+    ticket must name its sweep ticket in its Work log.
+  - **G5 row (`README.md:156`)** — mirror the "docs in same change or named same-sprint sweep"
+    allowance so per-ticket DoD and G5 agree.
+  - **G7 pass-condition row (`README.md:158`)** — this is the actual enforcement point and today
+    has **no docs-currency clause**. Add one: G7 does not pass while any committed ticket has docs
+    deferred to a docs-sweep ticket that is not yet `done`, and **a docs-sweep ticket is ineligible
+    for carry-over** (its non-completion fails G7). Without this, the existing "explicitly carried
+    over" allowance would let a docs-sweep ticket cross the sprint boundary, defeating the
+    "bounded same-sprint" guarantee and letting docs debt escape the cycle.
+  This blesses the MR-001 -> MR-007 pattern the retrospective flagged
+  (`requirements/process-hardening.md:30-33`) while force-closing the docs debt at sprint close.
+
+### Skill (`.claude/skills/feature-cycle/`) — `docs`
+
+- **Suggestion 1+2** — in `references/03-implement.md` step 4 `ui` bullet
+  (`references/03-implement.md:18-20`), replace the prose "open it in a browser" bar with: rebuild
+  + serve, then `scripts/render-smoke.sh` against the published port asserting the expected
+  rendered nodes. Point at the README rule rather than restating the gate (core principle). This
+  ticket carries the render-smoke rewrite **only** — no suggestion-3 artifact rides along.
+
+### Agent (`.claude/agents/mdreview-planner.md`) — `docs`
+
+- **Suggestion 5** — fit-based-layout rule: amend footgun 6 (`mdreview-planner.md:51-52`) and the
+  verification guidance in Method step 4 (`mdreview-planner.md:80-81`) so the planner specifies
+  responsive **behavior** ("show the gutter only when it physically fits the viewport"), never a
+  pixel breakpoint it has not computed. Cite the sprint-01 lesson: a ~820px threshold was
+  geometrically wrong (a 284px gutter cannot fit at 820px) and was reconciled to a fit-based test
+  at G7 (`sprint-01-close-review-2026-06-08.md:28-34`, `:57-61`).
+- **Suggestion 6** — Dockerfile-COPY footgun: add a new numbered footgun after
+  `mdreview-planner.md:56`: a new root-level served file (a sibling of `viewer.html` /
+  `dashboard.html`) needs a matching `COPY` in the `Dockerfile` (today `Dockerfile:8`,
+  `COPY app.py viewer.html dashboard.html ./`); the `ui` ticket that adds the asset **must carry
+  that infra change**, or the rebuilt container serves an empty 200 (the sprint-01 bug, commit
+  `1326462`, `review-dashboard-cycle-retro-2026-06-08.md:18-21`).
+
+> **Suggestion 3 is discharged by this epic.** This plan being authored by `mdreview-planner` and
+> reviewed independently by `staff-critic` at G1 **is** the deliberate exercise of the novel rail
+> the retrospective asked for. No ticket is created for suggestion 3.
+
+## Rollout phases
+
+Each phase is independently shippable. Phases are ordered by dependency, not by suggestion number.
+
+### Phase 1 — Planner agent edits (suggestions 5 + 6)
+
+Pure additive edits to `mdreview-planner.md`. Zero dependencies on the other work; can ship first
+and immediately sharpens any future plan. Validation: read-diff only (no script, no `py_compile`).
+
+### Phase 2 — Render-smoke script + standing rule (suggestions 1 + 2)
+
+`scripts/render-smoke.sh` lands first (it is the canonical command), then the README and skill
+bullets are rewritten to call it. The docs-rule ticket `depends_on` the script ticket. Validation:
+the script ticket has a real runnable smoke; the docs ticket is read-diff.
+
+### Phase 3 — DoD / docs-sweep reconciliation (suggestion 4)
+
+README-only wording change to the DoD (`:130-134`) + G5 row (`:156`) + G7 row (`:158`, the
+enforcement point, incl. docs-sweep carry-over ineligibility). Independent of Phases 1-2.
+Validation: read-diff.
+
+> **Suggestion 3** rides this epic's own G1 review and is not a phase.
+
+## Non-goals
+
+- **Not** re-running or re-reviewing the `review-dashboard` (sprint-01) feature work; it is shipped
+  and closed.
+- **Not** changing any product behavior: `app.py`, `viewer.html`, `dashboard.html`, and
+  `static/**` are untouched.
+- **Not** restructuring the gate set G0-G8 or the status lifecycle. The edits here only amend
+  *pass-condition wording* within existing gates (suggestion 1+2 -> G4 row; suggestion 4 -> DoD,
+  G5 row, G7 row), never the gate set, boundaries, or lifecycle.
+- **Not** creating tickets, opening a sprint, or implementing (the orchestrator does that after
+  G1).
+- **Not** adding a test framework or any new pip/runtime dependency; the render-smoke script uses
+  the Chrome binary the process already relies on.
+- **Not** automating the staff-critic G1 loop further — suggestion 3 is satisfied by exercising the
+  existing loop, not by building new machinery.
+
+## Key constraints (process footguns made specific)
+
+- **G1 independence (author != reviewer).** This plan is authored by `mdreview-planner`; its G1
+  review must be by `staff-critic` or the product owner, never the author (`README.md:152`,
+  `:165-167`). Revisions after review are made by the planner (still the author), preserving
+  independence.
+- **The verbatim brief is never edited.** `requirements/process-hardening.md` is the record;
+  grooming and decisions live in this plan, not by rewriting the brief (`README.md:54-60`). Changes
+  to the requirement, if any, go under its `## Amendments`.
+- **The README is the single source of truth for gates; the skill executes, never redefines.**
+  (`SKILL.md:17-18`, `README.md:199-200`.) Every rule here lands in one place and is referenced
+  elsewhere.
+- **Editing README here is legitimate** precisely because it goes through a normal reviewed `docs`
+  ticket. The SKILL autonomy note forbids editing the README *to dodge a gate* (`SKILL.md`
+  "Autonomy posture"), not editing it via a reviewed ticket.
+- **No new runtime/pip dependency.** `render-smoke.sh` shells out to the existing Chrome render
+  tool; nothing is installed (stdlib-only ethos).
+- **Back-compat / additive.** Planner footgun edits are additive; the README DoD change widens
+  (blesses) an existing pattern rather than invalidating closed tickets like MR-001.
+- **Dates are `Europe/London`** in every process file touched.
+
+## Preferred execution order
+
+1. Phase 1 — planner edits (suggestions 5 + 6); no dependencies.
+2. Phase 2a — `scripts/render-smoke.sh` (`infra`); the canonical command must exist before docs
+   reference it.
+3. Phase 2b — README + skill `ui`-validation rewrite (suggestions 1 + 2); `depends_on` 2a.
+4. Phase 3 — README DoD / docs-sweep wording (suggestion 4); independent, can run any time after
+   Phase 1.
+
+(Phases 1 and 3 are mutually independent and may be reordered; Phase 2b is the only ticket with a
+hard `depends_on`.)
+
+## Ticket breakdown
+
+How this epic decomposes into tickets (create them in `tickets/` after G1, then link here). IDs are
+placeholders; the orchestrator allocates the real sequential `MR-###`.
+
+| ID | Title | Layer | Phase |
+|----|-------|-------|-------|
+| MR-### | Planner agent: fit-based-layout rule + Dockerfile-COPY footgun (sug 5+6) | docs | 1 |
+| MR-### | Add `scripts/render-smoke.sh <url> <selector...>` DOM-node assertion (sug 1+2) | infra | 2 |
+| MR-### | README + skill: rebuild-from-image + render-smoke as the `ui` validation bar (sug 1+2) | docs | 2 |
+| MR-### | README: reconcile DoD with bounded same-sprint docs-sweep (sug 4) | docs | 3 |
+
+Suggestion 3 has no ticket — it is discharged by this epic's own G1 staff-critic review.
+
+## Risks & mitigations
+
+- **Chrome-path fragility in `render-smoke.sh`.** The render tool's binary name/location varies
+  across machines (`google-chrome`, `chromium`, macOS `Google Chrome`). *Mitigation:* the script
+  probes a known list and **fails loud** with the paths it tried; it never silently exits 0 when
+  Chrome is missing (that would reintroduce the "200 is not a render" class of false pass).
+- **Suggestion 4's blessed sweep could become a habitual docs-debt loophole** (the decision I am
+  least sure about). *Mitigation:* the wording bounds it hard — same sprint only, the deferring
+  ticket must name the sweep ticket in its Work log, and **G7 will not pass with stale docs**, so
+  the debt is force-closed at sprint close, not carried across cycles. If the product owner instead
+  prefers "docs in the same change, no sweeps," that is a one-line wording flip in the same ticket;
+  flagging here so the G1 reviewer can overrule cheaply.
+- **README/skill drift on the render-smoke command.** *Mitigation:* the core principle — one
+  canonical command in `render-smoke.sh`, both docs reference it — is exactly what removes the drift
+  surface. Reviewers should reject any future restatement of the raw `chrome --dump-dom` line.
+- **Planner edits could over-specify and become stale.** *Mitigation:* suggestion 5's rule is
+  deliberately behavioral ("show the gutter only when it physically fits"), carrying no pixel value
+  that could go stale.
+
+## Verification
+
+This epic ships docs + one script; most tickets validate by reading the diff against the cited
+anchors. Concrete, runnable checks:
+
+- **`scripts/render-smoke.sh` ticket (the real smoke):**
+  1. Rebuild and serve: `docker compose up -d --build`; confirm `curl -s localhost:8137/healthz`
+     returns `{"ok":true}`.
+  2. Present selector passes (DOM-evaluated, after render-wait): run against a page with a selector
+     known to render there (e.g. a dashboard-card class on `/`, or `.gcard` on `/review/<id>` — the
+     ticket confirms which selector lives on which page from the UI files):
+     `scripts/render-smoke.sh http://localhost:8137/ <known-selector> ; echo "exit=$?"` ->
+     prints `exit=0` because `document.querySelectorAll(<sel>).length > 0` in the rendered DOM.
+  3. Absent selector fails loud:
+     `scripts/render-smoke.sh http://localhost:8137/ .does-not-exist ; echo "exit=$?"` -> nonzero
+     exit and a message naming the missing selector.
+  3a. Grep false-pass is *not* possible: a selector whose string appears only in inline CSS/JS
+     source but matches zero rendered elements (the ticket picks one, e.g. a class used only in a
+     stylesheet rule) must exit nonzero — proving the assertion reads the DOM, not the source text.
+  4. Missing-Chrome path fails loud (temporarily shadow the binary or run where Chrome is absent):
+     the script errors with the lookup paths it tried, exit nonzero — it does **not** print
+     `exit=0`.
+  - No `python3 -m py_compile app.py` is required: `app.py` is untouched. (If a reviewer wants it
+    as a no-op sanity check, it still passes since the file is unchanged.)
+
+- **Planner agent ticket (sug 5+6):** confirm `mdreview-planner.md` now (a) has a new
+  Dockerfile-COPY footgun after the existing footgun list, citing that a new root-level served file
+  needs a `Dockerfile COPY` and the `ui` ticket must carry it; and (b) states the fit-based-layout
+  rule in footgun 6 and Method step 4. Read-diff; no code execution.
+
+- **README + skill `ui`-bar ticket (sug 1+2):** confirm the **G4 row (`README.md:155`)** now
+  requires, for `ui` tickets, a rebuild + `scripts/render-smoke.sh` render assertion (referencing
+  the rule, not restating the command); and that Development-flow step 5 (`README.md:117-118`) and
+  `references/03-implement.md:18-20` both require rebuild-from-image + `scripts/render-smoke.sh`
+  against the published port. Grep all three for `render-smoke` -> present. Read-diff.
+
+- **README DoD ticket (sug 4):** confirm the DoD (`README.md:130-134`) and G5 row (`README.md:156`)
+  now permit a bounded same-sprint docs-sweep with the Work-log-naming requirement; and that the
+  **G7 row (`README.md:158`)** now carries the docs-currency clause **and** marks a docs-sweep
+  ticket ineligible for carry-over (so its non-completion fails G7). Read-diff.
+
+- **Epic-level (suggestion 3):** the existence of an independent G1 review file
+  `reviews/process-hardening-plan-review-2026-06-08.md` (reviewer != `mdreview-planner`,
+  `independent: true`) is itself the evidence that the planner<->critic rail was exercised.
+
+## Review resolutions
+
+All findings from the G1 staff-critic review
+(`reviews/process-hardening-plan-review-2026-06-08.md`, PASS-WITH-FIXES, 2026-06-08) are resolved
+below. The 4-ticket breakdown and the single `depends_on` were approved and are unchanged; no fix
+forced a slicing change (each fix is a wording/contract change inside an already-scoped ticket).
+
+- **2026-06-08 — B1a (BLOCKER) resolved.** Suggestion 4 now amends the **G7 pass-condition row
+  (`README.md:158`)** — the actual enforcement point — with a docs-currency clause ("G7 does not
+  pass while any committed ticket has docs deferred to a docs-sweep ticket that is not yet
+  `done`"), in addition to the DoD (`:130-134`) and G5 (`:156`) wording. Updated the Process
+  section, the suggestion-4 assumption, Phase 3, and the DoD verification check.
+
+- **2026-06-08 — B1b (BLOCKER) resolved.** Added to the suggestion-4 G7 wording that a
+  **docs-sweep ticket is ineligible for carry-over** (its non-completion fails G7), closing the
+  loophole where the existing "explicitly carried over" allowance would let docs debt cross the
+  sprint boundary. Reflected in the Process section, assumption, and verification check.
+
+- **2026-06-08 — B1c (BLOCKER) resolved.** Suggestion 1+2 now puts the `ui` render-smoke
+  requirement into the **G4 pass-condition row (`README.md:155`)** (referencing the
+  Development-flow rule / the script once, not restating the command), alongside the
+  Development-flow step 5 rewrite. **Removed the "mirror into G4 if needed" hedge** — it is now an
+  unconditional G4 amendment. Updated the verification check to assert the G4 row.
+
+- **2026-06-08 — B2a (BLOCKER) resolved.** The `render-smoke.sh` contract no longer uses
+  `chrome --dump-dom | grep -q <selector>`. It now **evaluates each CSS selector against the
+  rendered DOM and counts matched elements** (`document.querySelectorAll(sel).length`), explicitly
+  rejecting substring grep (which false-passes on `gcard`/`cmt` strings present in inline
+  CSS/JS source). Added a verification step (3a) proving a source-only string matching zero
+  rendered nodes exits nonzero. Also de-referenced the `grep` phrasing in the core principle and
+  the assumption.
+
+- **2026-06-08 — B2b (BLOCKER) resolved.** The contract now mandates a **render-wait
+  (virtual-time budget / equivalent) before asserting**, citing
+  `sprint-01-close-review-2026-06-08.md:62` as the rationale (the only proven assertion read
+  `.gcard`/`mark.cmt` nodes via `--dump-dom` after a virtual-time advance; the viewer renders via
+  `setTimeout` fallbacks + async mermaid).
+
+- **2026-06-08 — SHOULD-FIX resolved.** Unbundled the "both gate rails now exercised" note from
+  the suggestion-1+2 skill ticket; that ticket now carries the render-smoke rewrite only. The
+  durable evidence that both rails were exercised is the G1 review file itself, as recorded in the
+  suggestion-3 assumption and the epic-level verification line.
+
+- **2026-06-08 — NIT resolved.** Corrected the DoD anchor throughout from `README.md:131-135` to
+  `README.md:130-134` (line 135 is blank).

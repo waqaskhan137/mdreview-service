@@ -1,0 +1,36 @@
+# sprint-02 G7 render-smoke evidence — scripts/render-smoke.sh exercised against the live container
+# date: 2026-06-09  container: docker compose (:8137)
+
+$ curl -s localhost:8137/healthz
+{"ok": true}
+
+## present selector on dashboard (.card)
+  ok : .card (6 nodes)
+exit=0
+
+## anti-grep: .empty is in CSS source, renders 0 elements
+render-smoke: 1 selector(s) matched no rendered element: .empty
+  MISSING: .empty (0 nodes)
+exit=1
+
+## fail-loud: pinned Chrome missing
+render-smoke: no Chrome/Chromium binary found. Tried: /nonexistent/chrome
+exit=3
+
+
+## async exit-0 case (the reason --virtual-time-budget exists): viewer .gcard / mark.cmt
+$ scripts/render-smoke.sh http://localhost:8137/review/266379cb58 .gcard mark.cmt
+  ok : .gcard (2 nodes)
+  ok : mark.cmt (2 nodes)
+exit=0
+
+## render-wait is load-bearing: same page with RENDER_SMOKE_VTB=1 (wait removed) -> nodes drop to 0
+render-smoke: 1 selector(s) matched no rendered element: .gcard
+  MISSING: .gcard (0 nodes)
+exit=1
+
+## unsupported selector (combinator) is rejected loudly, not a silent 0-match -> exit 2
+render-smoke: unsupported selector(s) (only tag/.class/tag.class/#id; no combinators, attributes, pseudo-classes, or spaces): 'div > .card'
+exit=2
+
+# note: .gcard/mark.cmt only render on a review that HAS comments; a 0-comment review correctly returns 0.
