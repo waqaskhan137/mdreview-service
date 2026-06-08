@@ -8,12 +8,12 @@ Last updated: 2026-06-08.
 ## Active sprint
 
 **sprint-01 — Review dashboard** (`active`, 2026-06-08 -> 2026-06-15). Epic: `review-dashboard`.
+Progress: 1/7 done (MR-001).
 
 ## ready
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
-| MR-001 | Persist provenance (project/source_path/session) on POST + meta | svc | P1 | sprint-01 |
 | MR-002 | summary() + list_reviews() + GET /api/reviews | svc | P1 | sprint-01 |
 | MR-003 | Serve dashboard at /; move JSON descriptor to /api | svc | P1 | sprint-01 |
 | MR-004 | dashboard.html — Project>Session grouping, status pills, open/delete, revision badge | ui | P1 | sprint-01 |
@@ -31,7 +31,9 @@ _none_
 
 ## done
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-001 | Persist provenance (project/source_path/session) on POST + meta | svc | P1 | sprint-01 |
 
 ## blocked
 

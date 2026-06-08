@@ -78,7 +78,7 @@ def bump(rid, field):
     _write(p, json.dumps(m))
 
 
-def create_review(markdown, title):
+def create_review(markdown, title, project="", source_path="", session=""):
     rid = secrets.token_hex(5)
     d = _dir(rid)
     os.makedirs(d, exist_ok=True)
@@ -89,6 +89,8 @@ def create_review(markdown, title):
     _write(os.path.join(d, "meta.json"), json.dumps({
         "id": rid, "title": title or "", "created": now,
         "source_updated": now, "feedback_updated": 0,
+        "project": project or "", "source_path": source_path or "",
+        "session": session or "",
     }))
     return rid
 
@@ -165,7 +167,9 @@ class H(BaseHTTPRequestHandler):
 
         if path == "/api/reviews" and m == "POST":
             b = self._body_json()
-            rid = create_review(b.get("markdown", ""), b.get("title", ""))
+            rid = create_review(b.get("markdown", ""), b.get("title", ""),
+                                b.get("project", ""), b.get("source_path", ""),
+                                b.get("session", ""))
             base = self._base()
             return self._json(201, {
                 "id": rid,

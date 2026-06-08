@@ -1,13 +1,13 @@
 ---
 id: MR-001
 title: Persist provenance (project/source_path/session) on POST + meta
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-01
 epic: review-dashboard
 depends_on: []
-branch:
+branch: dev (small/solo change)
 created: 2026-06-08
 updated: 2026-06-08
 ---
@@ -36,12 +36,22 @@ session. Today `POST /api/reviews` only takes `markdown` + `title`; nothing reco
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-08` — `app.py`: `create_review(markdown, title, project="", source_path="",
+  session="")` now writes `project`/`source_path`/`session` into `meta.json`; the
+  `POST /api/reviews` handler reads the three optional fields from the body and passes them
+  through. Additive and default-safe; no new dependency. Committed to `dev` (small change).
+- Docs for these agent-facing fields are tracked by **MR-007** (the epic's docs sweep, same
+  sprint) — deliberate deferral, not dropped.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-08` — `python3 -m py_compile app.py` passed. Ran on an isolated port/data dir
+  (`PORT=8199 MDREVIEW_DATA=/tmp/mr001`):
+  - POST with `project/session/source_path` -> `GET /api/reviews/{id}` returns all three in meta.
+  - POST with none -> the three fields default to `""` (review still created).
+  - A hand-written legacy review dir with OLD meta (no new keys) still serves `GET` `200`
+    (back-compat confirmed).
 
 ## Follow-ups
 
-None.
+None (docs via MR-007).
