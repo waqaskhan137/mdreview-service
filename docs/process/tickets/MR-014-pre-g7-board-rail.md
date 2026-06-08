@@ -1,13 +1,13 @@
 ---
 id: MR-014
 title: Skill — pre-G7 board-reconciliation rail (Phase 6) + SKILL.md invariant
-status: ready
+status: done
 layer: docs
 priority: P2
 sprint: sprint-03
 epic: process-hardening-2
 depends_on: []
-branch:
+branch: dev (small/solo change)
 created: 2026-06-09
 updated: 2026-06-09
 ---
@@ -42,11 +42,16 @@ board-reality only, not `close_review`) was confirmed correct by the G1 reviewer
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-09` — `.claude/skills/feature-cycle/references/04-close-and-ship.md`: Phase 6 gains a
+  step 0 "Reconcile the board to reality (you), BEFORE spawning the critic" — committed tickets
+  `done`, sprint checkboxes/table updated, TRACKER rows moved; explicitly excludes
+  `close_review`/`status: closed`/retro (those stay in Phase 8). `SKILL.md` Invariants list gains
+  the matching one-line invariant pointing at Phase 6.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-09` — read-diff. Phase 6 step 0 precedes the staff-critic spawn step; the rail excludes
+  `close_review` (kept in Phase 8); the SKILL invariant is present.
 
 ## Follow-ups
 

@@ -19,9 +19,9 @@ and add a pre-G7 board-reconciliation rail. No product code; all `docs`.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-012 | Planner agent — wire-enforcement-into-row + cite-by-name rules | docs | P1 | ready |
-| MR-013 | README — citation-by-name convention + scope G7 render clause | docs | P2 | ready |
-| MR-014 | Skill — pre-G7 board-reconciliation rail + SKILL.md invariant | docs | P2 | ready |
+| MR-012 | Planner agent — wire-enforcement-into-row + cite-by-name rules | docs | P1 | done |
+| MR-013 | README — citation-by-name convention + scope G7 render clause | docs | P2 | done |
+| MR-014 | Skill — pre-G7 board-reconciliation rail + SKILL.md invariant | docs | P2 | done |
 
 ## Preferred execution order
 

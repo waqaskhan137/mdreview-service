@@ -80,6 +80,10 @@ Use `TaskCreate`/`TaskUpdate` to track phases in-session (convenience only).
   `infra` changes, `docker build` must pass; for `ui` changes, a curl smoke + a browser open of
   the touched page.
 - **Dates** are `Europe/London`.
+- **Reconcile the board before the G7 critic:** all committed tickets `done`, the sprint's
+  checkboxes/table updated, and `TRACKER.md` rows moved — done in Phase 6 *before* spawning
+  `staff-critic`, so the reviewer spends its budget on substance, not bookkeeping. `close_review`
+  and `status: closed` are set post-review in Phase 8 (the critic produces the review file).
 - **No fabrication:** verify paths/IDs/state against disk before acting; on a genuine product
   fork with no safe default, **stop and ask** rather than guess. Never invent a review verdict.
 

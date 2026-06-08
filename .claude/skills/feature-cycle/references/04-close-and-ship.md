@@ -4,6 +4,16 @@
 
 Precondition: every committed ticket is `done`.
 
+0. **Reconcile the board to reality (you), BEFORE spawning the critic.** Keep the independent
+   reviewer on substance, not bookkeeping:
+   - every committed ticket is `done` in its frontmatter (not still `ready`/`review`) — restates
+     the precondition above; confirm it;
+   - **(new)** the sprint file's committed-ticket table / close-gate checkboxes are updated to
+     match the ticket frontmatter;
+   - **(new)** `TRACKER.md` rows are moved to the section matching each ticket's `status`.
+   **Not in this step:** setting `close_review:`, setting `status: closed`, or writing the retro —
+   those stay in **Phase 8**, because `close_review:` names the review file the critic *produces*
+   and cannot exist before the critic runs.
 1. **Render smoke (you):** rebuild the container (`docker compose up -d --build`), then:
    - `curl -s localhost:8137/healthz` -> `{"ok":true}`;
    - `curl -s localhost:8137/api/reviews` (or other touched endpoints) returns sane JSON;
