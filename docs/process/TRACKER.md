@@ -15,7 +15,6 @@ Progress: 7/7 done — all committed tickets complete; sprint pending G7 close.
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
-| MR-013 | README — citation-by-name convention + scope G7 render clause | docs | P2 | sprint-03 |
 | MR-014 | Skill — pre-G7 board-reconciliation rail + SKILL.md invariant | docs | P2 | sprint-03 |
 
 ## in-progress
@@ -42,6 +41,7 @@ _none_
 | MR-010 | README + skill — render-smoke as the ui validation bar (G4 row) | docs | P1 | sprint-02 |
 | MR-011 | README — reconcile DoD with bounded same-sprint docs-sweep (G7 row) | docs | P2 | sprint-02 |
 | MR-012 | Planner agent — wire-enforcement-into-row + cite-by-name rules | docs | P1 | sprint-03 |
+| MR-013 | README — citation-by-name convention + scope G7 render clause | docs | P2 | sprint-03 |
 
 ## blocked
 
