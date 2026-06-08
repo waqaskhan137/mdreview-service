@@ -23,8 +23,12 @@ reference, so the check cannot drift. (Retro suggestions 1 + 2.)
 - [ ] New executable `scripts/render-smoke.sh <url> <css-selector>...`. Drives headless Chrome
       against the **served URL** (never a `file://` path) and, **after waiting for render**
       (virtual-time budget or equivalent), asserts each selector matches at least one node via
-      **DOM evaluation** (`document.querySelectorAll(sel).length`), NOT a substring grep of the
-      dump (the inline CSS/JS source contains strings like `gcard`/`cmt`, so grep false-passes).
+      **DOM-element evaluation**, NOT a substring grep of the dump (the inline CSS/JS source
+      contains strings like `gcard`/`cmt`, so grep false-passes). Implementation note: shipped as
+      a stdlib `html.parser` element counter rather than literal `document.querySelectorAll` — the
+      epic blesses "an equivalent that distinguishes rendered nodes from source text"; it is a
+      flat `tag`/`.class`/`tag.class`/`#id` matcher and rejects unsupported selectors (combinators,
+      attributes, pseudo) with exit 2 so they fail loud rather than silently match 0.
 - [ ] Contract: every selector matches >=1 node -> exit 0; any selector matches 0 -> nonzero
       exit + a message naming the missing selector.
 - [ ] **Fails loud if no Chrome binary is found** (probes `google-chrome`/`chromium`/macOS

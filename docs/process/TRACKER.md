@@ -3,12 +3,12 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-08. review-dashboard shipped to main (PR #1). process-hardening (sprint-02) groomed, G1 passed.
+Last updated: 2026-06-09. review-dashboard shipped to main (PR #1). process-hardening (sprint-02) closed; G7 passed.
 
 ## Active sprint
 
-**sprint-02 — Process hardening** (`active`, 2026-06-08). Epic: `process-hardening`. G1 passed; 4 tickets ready.
-sprint-01 (Review dashboard) closed; G7 passed; shipped to main.
+**sprint-02 — Process hardening** (`closed`, 2026-06-09). Epic: `process-hardening`. G7 passed; 4/4 done.
+sprint-01 (Review dashboard) closed; shipped to main (PR #1).
 Progress: 7/7 done — all committed tickets complete; sprint pending G7 close.
 
 ## ready
@@ -48,4 +48,4 @@ _none_
 | Epic | Status | Gate | Sprint |
 |------|--------|------|--------|
 | review-dashboard | done (merged to main 2026-06-08, PR #1) | G1 passed 2026-06-08 | sprint-01 |
-| process-hardening | active | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
+| process-hardening | done (sprint-02 closed, G7 passed) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |

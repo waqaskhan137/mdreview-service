@@ -59,11 +59,22 @@ fi
 
 # count elements per selector against the rendered DOM (stdlib parser; not a substring grep)
 python3 - "$DOM" "$@" <<'PY'
+import re
 import sys
 from html.parser import HTMLParser
 
 dom_path = sys.argv[1]
 selectors = sys.argv[2:]
+
+# This is a FLAT matcher, not a CSS engine: only `tag`, `.class`, `tag.class[.class]`, `#id`.
+# Reject anything with a combinator / attribute / pseudo / whitespace so an unsupported selector
+# fails loud as bad usage (exit 2) instead of silently matching 0 and looking like a render miss.
+_VALID = re.compile(r'^(#[A-Za-z_][\w-]*|[A-Za-z][\w-]*(\.[A-Za-z_][\w-]*)*|(\.[A-Za-z_][\w-]*)+)$')
+bad = [s for s in selectors if not _VALID.match(s.strip())]
+if bad:
+    print("render-smoke: unsupported selector(s) (only tag/.class/tag.class/#id; no combinators, "
+          "attributes, pseudo-classes, or spaces): " + ', '.join(repr(s) for s in bad), file=sys.stderr)
+    sys.exit(2)
 
 def parse_selector(sel):
     sel = sel.strip()

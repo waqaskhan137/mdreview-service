@@ -1,11 +1,11 @@
 ---
 id: sprint-02
 name: Process hardening
-status: active
+status: closed
 start: 2026-06-08
 end: 2026-06-15
 goal: Apply the 6 first-cycle retro suggestions to the process, skill, and planner agent (MR-008..011).
-close_review:
+close_review: reviews/sprint-02-close-review-2026-06-09.md
 ---
 
 ## Goal
@@ -21,10 +21,10 @@ own 2-round G1 review.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-008 | Planner agent — fit-based-layout rule + Dockerfile-COPY footgun | docs | P2 | ready |
-| MR-009 | Add `scripts/render-smoke.sh` (DOM-node assertion against a served URL) | infra | P1 | ready |
-| MR-010 | README + skill — render-smoke as the `ui` validation bar (G4 row) | docs | P1 | ready |
-| MR-011 | README — reconcile DoD with a bounded same-sprint docs-sweep (G7 row clause) | docs | P2 | ready |
+| MR-008 | Planner agent — fit-based-layout rule + Dockerfile-COPY footgun | docs | P2 | done |
+| MR-009 | Add `scripts/render-smoke.sh` (DOM-node assertion against a served URL) | infra | P1 | done |
+| MR-010 | README + skill — render-smoke as the `ui` validation bar (G4 row) | docs | P1 | done |
+| MR-011 | README — reconcile DoD with a bounded same-sprint docs-sweep (G7 row clause) | docs | P2 | done |
 
 ## Preferred execution order
 
@@ -35,15 +35,25 @@ own 2-round G1 review.
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+- All 4 tickets `done`, no carry-overs. Docs/infra sprint — no product code changed.
+- The G1 loop on this epic's own plan (2 rounds) caught real blockers before any ticket existed,
+  discharging retro suggestion 3 by exercising the planner<->critic rail for the first time.
+- Independent `staff-critic` G7 close review: **PASS-WITH-FIXES**, no blockers; it re-ran
+  `render-smoke.sh` live (including a render-wait ablation) and found 5 SHOULD-FIX, all resolved in
+  Phase 7 (selector validation; evidence completeness; anchor de-brittling; close-step
+  reconciliation). See `reviews/sprint-02-close-review-2026-06-09.md`.
+- **Dogfooding note:** the new render-smoke bar (MR-009/010) was itself used to validate the
+  sprint at G7 — the process change validated by the process it changed.
+- **Carry-overs:** none.
 
 ## Close gate (G7)
 
-- [ ] every committed ticket is `done` or explicitly carried over (docs-sweep tickets are not
-      eligible for carry-over once that wording lands);
-- [ ] an independent `staff-critic` close review at
-      `reviews/sprint-02-close-review-YYYY-MM-DD.md` verifies shipped work against each ticket's
-      AC. For this docs/infra sprint the "render smoke of touched pages" reduces to: the new
-      `scripts/render-smoke.sh` is exercised (present/absent/missing-Chrome cases) and the README
-      gate-row wording is checked against the cited anchors;
-- [ ] retro + carry-overs recorded, `close_review:` set.
+- [x] every committed ticket is `done` (no carry-overs; docs-sweep tickets are not eligible for
+      carry-over per the new wording, n/a here);
+- [x] an independent `staff-critic` close review at
+      `reviews/sprint-02-close-review-2026-06-09.md` verified shipped work against each ticket's
+      AC. The "render smoke of touched pages" reduced to: `scripts/render-smoke.sh` exercised
+      (present / anti-grep / fail-loud / async exit-0 / render-wait ablation / unsupported-reject)
+      in `reviews/sprint-02-render-evidence-2026-06-09/`, and the README gate-row wording checked
+      against the rows;
+- [x] retro + carry-overs recorded, `close_review:` set.

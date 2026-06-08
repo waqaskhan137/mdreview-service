@@ -20,17 +20,17 @@ docs-sweep ticket pattern the first sprint actually used (MR-001 deferred field 
 
 ## Acceptance criteria
 
-- [ ] `README.md` Definition of Done (`README.md:130-134`) and the **G5 row (`:156`)**: durable
+- [ ] `README.md` Definition of Done and the **G5 row**: durable
       behavior docs ship in the same change **or** are deferred to a trailing **docs-sweep ticket
       within the same sprint**, provided the deferring ticket names its sweep ticket in its Work
       log.
-- [ ] **G7 pass-condition row (`README.md:158`)** gains a docs-currency clause: G7 does not pass
+- [ ] **G7 pass-condition row** gains a docs-currency clause: G7 does not pass
       while any committed ticket has docs deferred to a docs-sweep ticket that is not `done`
       (the actual enforcement point — B1a).
 - [ ] The wording states a **docs-sweep ticket is ineligible for carry-over** (its
       non-completion fails G7), closing the cross-sprint-boundary loophole (B1b).
 - [ ] Changes wording only; the gate set G0-G8 and the status lifecycle are unchanged.
-- [ ] Validation: read-diff against `README.md:130-134`, `:156`, `:158`.
+- [ ] Validation: read-diff against the DoD, G5 row, and G7 row.
 
 ## Notes / context
 

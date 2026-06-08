@@ -19,10 +19,10 @@ on a local-file render. (Retro suggestions 1 + 2; resolves G1 finding B1c.)
 
 ## Acceptance criteria
 
-- [ ] `README.md`: the **G4 pass-condition row (`README.md:155`)** requires, for `ui` tickets,
+- [ ] `README.md`: the **G4 pass-condition row** requires, for `ui` tickets,
       a rebuild-from-image render + `scripts/render-smoke.sh` against the published container
       port asserting the expected nodes. The requirement is scoped **explicitly to `ui` tickets**
-      (so `infra`/`docs` tickets are not read as needing it, matching how `:155` already
+      (so `infra`/`docs` tickets are not read as needing it, matching how the G4 row already
       special-cases `docker build` "for infra"). References the rule/script once; does not
       restate the raw command. The old "mirror into G4 if needed" hedge is gone.
 - [ ] `README.md` Development-flow step 5 `ui` clause points at `scripts/render-smoke.sh` (the
