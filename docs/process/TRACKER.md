@@ -3,7 +3,7 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-09. process-hardening-2 (sprint-03) closed; G7 passed. 3 epics on dev awaiting promotion (PR #2).
+Last updated: 2026-06-09. all 3 epics merged to main (PR #1, #2). Ready for next epic.
 
 ## Active sprint
 
@@ -51,5 +51,5 @@ _none_
 | Epic | Status | Gate | Sprint |
 |------|--------|------|--------|
 | review-dashboard | done (merged to main 2026-06-08, PR #1) | G1 passed 2026-06-08 | sprint-01 |
-| process-hardening | done (sprint-02 closed, G7 passed) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
-| process-hardening-2 | done (sprint-03 closed, G7 passed) | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
+| process-hardening | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
+| process-hardening-2 | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
