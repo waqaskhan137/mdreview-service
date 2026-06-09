@@ -5,8 +5,8 @@ created: 2026-06-09
 source: requirements/landing-page.md
 gate: passed 2026-06-09   # G1 (Plan Gate): staff-critic r2 PASS
 review: reviews/landing-page-plan-review-2026-06-09.md   # r1 PASS-WITH-FIXES (resolved); r2 -r2.md PASS
-related_sprints: []    # [sprint-05]
-related_tickets: []    # empty until G1 passes and tickets are created
+related_sprints: [sprint-05]
+related_tickets: [MR-019, MR-020, MR-021]   # MR-021 backlog, not committed to sprint-05
 ---
 
 # Landing page on GitHub Pages Plan
