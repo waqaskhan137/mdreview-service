@@ -13,9 +13,7 @@ Progress: 7/7 done — all committed tickets complete; sprint pending G7 close.
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-018 | Docs — MCP wrapper | docs | P2 | sprint-04 |
+_none_
 
 ## in-progress
 
@@ -46,6 +44,7 @@ _none_
 | MR-015 | mcp_server.py — stdio JSON-RPC core | svc | P1 | sprint-04 |
 | MR-016 | tools/call dispatch → HTTP | svc | P1 | sprint-04 |
 | MR-017 | mcp_smoke.py — stdlib smoke harness | svc | P1 | sprint-04 |
+| MR-018 | Docs — MCP wrapper | docs | P2 | sprint-04 |
 
 ## blocked
 

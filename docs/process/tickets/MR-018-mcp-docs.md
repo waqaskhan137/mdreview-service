@@ -1,13 +1,13 @@
 ---
 id: MR-018
 title: Docs — MCP wrapper in README/AGENTS, future-mcp.md to shipped, client config + exposure
-status: ready
+status: done
 layer: docs
 priority: P2
 sprint: sprint-04
 epic: mcp-wrapper
 depends_on: [MR-015, MR-016, MR-017]
-branch:
+branch: dev (docs)
 created: 2026-06-09
 updated: 2026-06-09
 ---
@@ -38,11 +38,17 @@ undone (it is not eligible for carry-over).
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-09` — `README.md`: new "MCP server (optional)" section — run command, `mcp_smoke.py`,
+  an example `mcpServers` stdio client config, the 8 tools, the `isError`/`-32602` behavior, the
+  `MDREVIEW_PUBLIC_BASE`-for-reachable-`review_url` guidance, and the `list_reviews` exposure note.
+  `AGENTS.md` + `CLAUDE.md`: a "Calling it over MCP" section. `docs/future-mcp.md`: flipped from
+  "not built" to **SHIPPED**, pointing at `mcp_server.py`/`mcp_smoke.py`.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-09` — read-diff. README covers run/config/tools/public_base/exposure; AGENTS + CLAUDE
+  carry the MCP section; future-mcp marked SHIPPED. Service-unchanged diff (app.py/UI/Docker/compose)
+  empty — only docs touched.
 
 ## Follow-ups
 

@@ -73,6 +73,48 @@ and `markdown` is the same feedback rendered as a readable block per note.
 | `MDREVIEW_DATA` | `/data` | storage dir (mount a volume) |
 | `MDREVIEW_PUBLIC_BASE` | empty | if set (e.g. `https://review.example.com`), `review_url`/`feedback_url` use it; otherwise the request Host header is used |
 
+## MCP server (optional)
+
+`mcp_server.py` is a thin, stdlib-only **MCP** server (stdio, JSON-RPC 2.0, spec rev `2025-06-18`)
+that exposes the review API as first-class tools, so an MCP-speaking agent can call it without
+hand-rolling HTTP. It wraps the running HTTP service and adds no state — the service is unchanged.
+
+```bash
+# point it at a running mdreview-service and run it over stdio
+MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py
+# smoke it (stdlib only, no deps):
+MDREVIEW_BASE=http://localhost:8137 python3 mcp_smoke.py
+```
+
+Example MCP client config (stdio):
+
+```json
+{
+  "mcpServers": {
+    "mdreview": {
+      "command": "python3",
+      "args": ["/path/to/mdreview-service/mcp_server.py"],
+      "env": { "MDREVIEW_BASE": "http://localhost:8137" }
+    }
+  }
+}
+```
+
+**Tools (1:1 with the HTTP API):** `create_review` (markdown, title?, project?, session?,
+source_path?), `list_reviews`, `get_review` (id), `get_feedback` (id), `get_status` (id),
+`update_source` (id, markdown), `get_history` (id, round?), `delete_review` (id). A failed call
+(bad/expired id, service down) returns an `isError: true` result; an unknown tool name is a
+JSON-RPC `-32602` error.
+
+**Reachable `review_url`.** The wrapper relays the service's `review_url`, which the service
+derives from the request `Host` header unless `MDREVIEW_PUBLIC_BASE` is set. So a human handed the
+link can reach it, set `MDREVIEW_PUBLIC_BASE` on the **service** (not the wrapper) to a
+host-reachable URL (e.g. `https://review.example.com`); otherwise the link may be an unreachable
+`localhost`.
+
+**Exposure.** `list_reviews` (like `GET /api/reviews` and the dashboard) returns every review with
+no auth — fine for the trusted-network posture, but keep auth in front if exposed.
+
 ## Notes
 
 - Multi-tenant by id, so concurrent reviews never collide. No auth (intended for trusted /
