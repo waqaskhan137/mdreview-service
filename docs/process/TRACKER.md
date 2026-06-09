@@ -3,13 +3,12 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-09. sprint-05 (landing-page) opened at G6; mcp-wrapper merged to main (PR #3).
+Last updated: 2026-06-09. sprint-05 (landing-page) closed at G7 (staff-critic PASS); MR-020 remainder carried (user DNS step). On dev awaiting promotion.
 
 ## Active sprint
 
-**sprint-05 — landing-page** (`active`, opened 2026-06-09). Epic: `landing-page`. Committed: MR-019, MR-020 (MR-021 backlog).
+**sprint-05 — landing-page** (`closed`, 2026-06-09). Epic: `landing-page`. G7 PASS; MR-019 done, MR-020 carried (blocked on user DNS; resume sequence in ticket). Awaits promotion.
 sprint-01/02/03/04 shipped to main (PR #1, #2, #3).
-Progress: 1/2 done; MR-020 blocked on the human DNS step.
 
 ## ready
 
@@ -67,4 +66,4 @@ _none_
 | process-hardening | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
 | process-hardening-2 | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
 | mcp-wrapper | done (merged to main 2026-06-09, PR #3) | G1 passed 2026-06-09 (2 rounds) | sprint-04 |
-| landing-page | active | G1 passed 2026-06-09 (2 rounds) | sprint-05 |
+| landing-page | active (sprint-05 closed, G7 PASS; MR-020 remainder + MR-021 carry to next cycle) | G1 passed 2026-06-09 (2 rounds) | sprint-05 |

@@ -34,6 +34,10 @@ close before this can be `ready`._
   video is the open question; capture tooling does not exist yet).
 - Deliberately NOT in sprint-05: the asset does not exist and the format decision is open, so the
   ticket cannot be `ready`, and committing it would fail G6.
+- **Carried advisory from the sprint-05 close review (F7):** capture the GIF against a
+  **throwaway local instance** (e.g. `docker run --rm -p 8137:8080 mdreview-service`), not by
+  staging/deleting a review on the user's live container — epic Decision 2 prescribes the
+  deterministic local capture.
 
 ## Work log
 
