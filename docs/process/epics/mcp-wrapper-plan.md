@@ -82,7 +82,8 @@ field names at build time** against the official MCP specification/SDK reference
 there if the spec has moved. Treat any mismatch as a build-time correction, not a re-plan.
 
 **Error mapping (specify precisely — getting this wrong is a real bug):**
-- **Protocol errors → JSON-RPC `error` object.** Malformed JSON → `-32700` (parse error); unknown
+- **Protocol errors → JSON-RPC `error` object.** A malformed JSON line is **skipped** (no `id` to
+  answer; the stream survives — robustness over a best-effort `-32700`); unknown
   method → `-32601` (method not found); **unknown tool name in `tools/call` → `-32602` (invalid
   params)** — a *decided* choice (see MR-016 ACs): naming a non-existent tool is a malformed request,
   not a tool that ran and failed, so it is a protocol error, not an `isError` result.

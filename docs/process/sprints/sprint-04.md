@@ -1,11 +1,11 @@
 ---
 id: sprint-04
 name: MCP wrapper
-status: active
+status: closed
 start: 2026-06-09
 end: 2026-06-16
 goal: Ship a stdlib stdio MCP server wrapping the HTTP API (MR-015..018), with the HTTP service unchanged.
-close_review:
+close_review: reviews/sprint-04-close-review-2026-06-09.md
 ---
 
 ## Goal
@@ -33,19 +33,27 @@ product page. Success: an MCP client can `initialize`, `tools/list` the 8 tools,
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+- All 4 tickets `done`, no carry-overs. First product-code sprint: shipped `mcp_server.py` +
+  `mcp_smoke.py` (stdlib MCP wrapper) + docs, with the HTTP service provably unchanged.
+- **The hardened gates paid off on real code:** G1 caught the planner violating its own MR-012 rule
+  (service-unchanged enforced in prose, not a ticket AC); G7 independently re-ran the diff and the
+  spec cross-check and reproduced the smoke. Verdict PASS (only 2 cosmetic NITs, both fixed).
+- **Dogfooded + extended the pre-G7 rail:** it reconciled the board AND ran+recorded the
+  unconditional smoke (process-hardening-2 retro suggestion 1) — see
+  `reviews/sprint-04-render-evidence-2026-06-09/smoke.txt`.
+- **Carry-overs:** none.
 
 ## Close gate (G7)
 
-- [ ] every committed ticket is `done` (MR-018 is a docs-sweep ticket — NOT eligible for
+- [x] every committed ticket is `done` (MR-018 is a docs-sweep ticket — NOT eligible for
       carry-over; must be `done` before close);
-- [ ] an independent `staff-critic` close review at `reviews/sprint-04-close-review-YYYY-MM-DD.md`
+- [x] an independent `staff-critic` close review at `reviews/sprint-04-close-review-YYYY-MM-DD.md`
       verifies shipped work against each ticket's AC. No product page is touched, so per the G7
       pass-condition row the per-page render-smoke/screenshot are not owed — but the
       **unconditional** rebuild + `curl /healthz` + `/api/reviews` smoke IS owed and must be run +
       recorded (carrying process-hardening-2 retro suggestion 1). The wrapper's own evidence is the
       `mcp_smoke.py` run output;
-- [ ] retro + carry-overs recorded, `close_review:` set.
+- [x] retro + carry-overs recorded, `close_review:` set.
 
 ## Carry-over note
 

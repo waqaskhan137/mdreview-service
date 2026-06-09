@@ -106,4 +106,5 @@ using the `mdreview-planner` and `cycle-retrospective` agents and the global `st
   for UI). No test framework.
 - Commits: conventional subject with the ticket ID; this repo keeps the `Co-Authored-By: Claude`
   trailer.
-- Current epic: `review-dashboard` (sprint-01) — the dashboard/provenance/history/comments work.
+- For the current epic / sprint and shipped history, see `docs/process/TRACKER.md` (source of
+  truth) — don't hard-code it here, it goes stale.

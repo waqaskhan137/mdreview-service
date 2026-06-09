@@ -3,12 +3,12 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-09. mcp-wrapper (sprint-04) groomed, G1 passed (2 rounds); implementing. 3 epics on main.
+Last updated: 2026-06-09. mcp-wrapper (sprint-04) closed; G7 PASS. On dev awaiting promotion. 3 epics on main.
 
 ## Active sprint
 
-**sprint-04 — MCP wrapper** (`active`, 2026-06-09). Epic: `mcp-wrapper`. G1 passed (2 rounds); 4 tickets ready.
-sprint-01/02/03 all shipped to main (PR #1, #2).
+**sprint-04 — MCP wrapper** (`closed`, 2026-06-09). Epic: `mcp-wrapper`. G7 PASS; 4/4 done. Awaits promotion.
+sprint-01/02/03 shipped to main (PR #1, #2).
 Progress: 7/7 done — all committed tickets complete; sprint pending G7 close.
 
 ## ready
@@ -57,4 +57,4 @@ _none_
 | review-dashboard | done (merged to main 2026-06-08, PR #1) | G1 passed 2026-06-08 | sprint-01 |
 | process-hardening | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
 | process-hardening-2 | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
-| mcp-wrapper | active | G1 passed 2026-06-09 (2 rounds) | sprint-04 |
+| mcp-wrapper | done (sprint-04 closed, G7 PASS) | G1 passed 2026-06-09 (2 rounds) | sprint-04 |
