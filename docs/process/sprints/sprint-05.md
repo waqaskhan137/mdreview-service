@@ -23,8 +23,8 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-019 | Author buildless landing page (site/index.html) with dashboard tokens, static demo screenshot, and CNAME | ui | P1 | ready |
-| MR-020 | Publish to GitHub Pages — gh-pages pipeline, one-time runbook, record canonical URL in README | infra | P1 | ready |
+| MR-019 | Author buildless landing page (site/index.html) with dashboard tokens, static demo screenshot, and CNAME | ui | P1 | done |
+| MR-020 | Publish to GitHub Pages — gh-pages pipeline, one-time runbook, record canonical URL in README | infra | P1 | blocked |
 
 MR-021 (animated GIF demo) is deliberately **not** committed — `backlog`, next cycle (epic plan,
 Phase 2: asset doesn't exist, GIF-vs-video open; committing it would fail G6).
@@ -37,6 +37,15 @@ Phase 2: asset doesn't exist, GIF-vs-video open; committing it would fail G6).
 ## Notes / retro
 
 _Filled in as the sprint runs and at close._
+
+- `2026-06-09` — MR-019 done: page authored, demo captured (procedure b), render-smoke 7/7,
+  light+dark evidence committed.
+- `2026-06-09` — MR-020 blocked at its one genuinely-human step: the DNS `CNAME mdreview ->
+  waqaskhan137.github.io` record (product owner asked, "can't right now"; wildcard currently
+  points the host at a non-GitHub IP). Everything automatable shipped: `gh-pages` branch
+  published (`a528282`), Pages enabled + custom domain registered (API-confirmed `built`),
+  deployment verified at GitHub's edge via `--resolve`. Resume sequence recorded in the ticket;
+  README URL deliberately withheld until the live URL verifies (per AC).
 
 ## Close gate (G7)
 

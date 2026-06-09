@@ -9,14 +9,11 @@ Last updated: 2026-06-09. sprint-05 (landing-page) opened at G6; mcp-wrapper mer
 
 **sprint-05 — landing-page** (`active`, opened 2026-06-09). Epic: `landing-page`. Committed: MR-019, MR-020 (MR-021 backlog).
 sprint-01/02/03/04 shipped to main (PR #1, #2, #3).
-Progress: 0/2 done.
+Progress: 1/2 done; MR-020 blocked on the human DNS step.
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-019 | Author buildless landing page (site/index.html) with dashboard tokens, static demo, CNAME | ui | P1 | sprint-05 |
-| MR-020 | Publish to GitHub Pages — gh-pages pipeline, runbook, README URL | infra | P1 | sprint-05 |
+_none_
 
 ## in-progress
 
@@ -48,10 +45,13 @@ _none_
 | MR-016 | tools/call dispatch → HTTP | svc | P1 | sprint-04 |
 | MR-017 | mcp_smoke.py — stdlib smoke harness | svc | P1 | sprint-04 |
 | MR-018 | Docs — MCP wrapper | docs | P2 | sprint-04 |
+| MR-019 | Author buildless landing page (site/index.html) with dashboard tokens, static demo, CNAME | ui | P1 | sprint-05 |
 
 ## blocked
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-020 | Publish to GitHub Pages — gh-pages pipeline, runbook, README URL (blocked: user DNS record pending; resume sequence in ticket) | infra | P1 | sprint-05 |
 
 ## backlog
 
