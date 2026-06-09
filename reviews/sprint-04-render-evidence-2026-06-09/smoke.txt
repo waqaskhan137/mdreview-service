@@ -1,0 +1,29 @@
+# sprint-04 G7 evidence — unconditional smoke (no product page touched) + the MCP wrapper smoke
+# date: 2026-06-09
+
+## unconditional, owed every sprint (process-hardening-2 retro suggestion 1: rail runs+records it)
+$ docker compose up -d --build
+ Container mdreview Starting 
+ Container mdreview Started 
+$ curl -s localhost:8137/healthz
+{"ok": true}
+$ curl -s localhost:8137/api/reviews | (count)
+11 reviews (sane JSON)
+
+## the wrapper's own smoke (MR-017): mcp_smoke.py against the rebuilt container
+$ MDREVIEW_BASE=http://localhost:8137 python3 mcp_smoke.py
+mcp_smoke against MDREVIEW_BASE=http://localhost:8137
+  ok   notification gets no response (2 requests -> 2 responses)
+  ok   initialize protocolVersion == 2025-06-18
+  ok   capabilities are tools-only
+  ok   serverInfo.name == mdreview-mcp
+  ok   tools/list returns exactly the 8 tools
+  ok   each tool has a description + object inputSchema
+  ok   tools/call create_review -> text-content result, isError false
+  ok   create_review result text parses as JSON with an id
+  ok   update_source round-trip -> revision >= 1
+  ok   bad id -> isError:true result
+  ok   unknown tool -> JSON-RPC error -32602
+
+PASS: all MCP smoke assertions hold
+exit=0

@@ -19,10 +19,10 @@ product page. Success: an MCP client can `initialize`, `tools/list` the 8 tools,
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-015 | mcp_server.py — stdio JSON-RPC core (initialize/tools-list) | svc | P1 | ready |
-| MR-016 | tools/call dispatch → HTTP (8 tools, error mapping) | svc | P1 | ready |
-| MR-017 | mcp_smoke.py — stdlib smoke harness + container round-trip | svc | P1 | ready |
-| MR-018 | Docs — wrapper in README/AGENTS, future-mcp.md to shipped | docs | P2 | ready |
+| MR-015 | mcp_server.py — stdio JSON-RPC core (initialize/tools-list) | svc | P1 | done |
+| MR-016 | tools/call dispatch → HTTP (8 tools, error mapping) | svc | P1 | done |
+| MR-017 | mcp_smoke.py — stdlib smoke harness + container round-trip | svc | P1 | done |
+| MR-018 | Docs — wrapper in README/AGENTS, future-mcp.md to shipped | docs | P2 | done |
 
 ## Preferred execution order
 
