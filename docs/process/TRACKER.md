@@ -3,17 +3,22 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-09. all 3 epics merged to main (PR #1, #2). Ready for next epic.
+Last updated: 2026-06-09. mcp-wrapper (sprint-04) groomed, G1 passed (2 rounds); implementing. 3 epics on main.
 
 ## Active sprint
 
-**sprint-03 — Process hardening 2** (`closed`, 2026-06-09). Epic: `process-hardening-2`. G7 passed; 3/3 done.
-sprint-02 (Process hardening) closed; sprint-01 shipped to main (PR #1). sprint-02 + sprint-03 await promotion (PR #2).
+**sprint-04 — MCP wrapper** (`active`, 2026-06-09). Epic: `mcp-wrapper`. G1 passed (2 rounds); 4 tickets ready.
+sprint-01/02/03 all shipped to main (PR #1, #2).
 Progress: 7/7 done — all committed tickets complete; sprint pending G7 close.
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-015 | mcp_server.py — stdio JSON-RPC core | svc | P1 | sprint-04 |
+| MR-016 | tools/call dispatch → HTTP | svc | P1 | sprint-04 |
+| MR-017 | mcp_smoke.py — stdlib smoke harness | svc | P1 | sprint-04 |
+| MR-018 | Docs — MCP wrapper | docs | P2 | sprint-04 |
 
 ## in-progress
 
@@ -53,3 +58,4 @@ _none_
 | review-dashboard | done (merged to main 2026-06-08, PR #1) | G1 passed 2026-06-08 | sprint-01 |
 | process-hardening | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
 | process-hardening-2 | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
+| mcp-wrapper | active | G1 passed 2026-06-09 (2 rounds) | sprint-04 |

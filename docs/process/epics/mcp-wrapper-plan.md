@@ -1,12 +1,12 @@
 ---
 epic: mcp-wrapper
-status: draft          # draft | active | done  (stays draft until G1 passes)
+status: active
 created: 2026-06-09
 source: requirements/mcp-wrapper.md
-gate: G1 not passed    # G1 (Plan Gate): not passed | passed YYYY-MM-DD — tickets blocked until passed
-review:                # reviews/mcp-wrapper-plan-review-YYYY-MM-DD.md once reviewed
-related_sprints: []
-related_tickets: []
+gate: passed 2026-06-09
+review: reviews/mcp-wrapper-plan-review-2026-06-09.md
+related_sprints: [sprint-04]
+related_tickets: [MR-015, MR-016, MR-017, MR-018]
 ---
 
 # MCP wrapper for mdreview-service
@@ -44,9 +44,10 @@ sides (`urllib.request` + `json` are stdlib; MCP framing is hand-written, no SDK
 ## Recommended approach
 
 ### Service (`app.py`)
-- **No change.** `app.py`, `viewer.html`, `dashboard.html`, and `static/**` are untouched by this
-  epic. The wrapper is a new sibling component, not an edit to the service. This is the load-bearing
-  non-goal and is restated under Non-goals and Key constraints.
+- **No change.** `app.py`, `viewer.html`, `dashboard.html`, `static/**`, `Dockerfile`, and
+  `docker-compose.yml` are untouched by this epic. The wrapper is a new sibling component, not an
+  edit to the service. This is the load-bearing non-goal, restated under Non-goals and Key
+  constraints and enforced by the per-ticket base-relative `git diff` AC.
 
 ### New component — `mcp_server.py` (layer: `svc`, separate process)
 
@@ -68,20 +69,23 @@ framing, the read/write loop changes but nothing else in this plan does.
 
 | JSON-RPC method | Server responds with (planned shape) |
 |-----------------|--------------------------------------|
-| `initialize` | `{protocolVersion, capabilities:{tools:{}}, serverInfo:{name:"mdreview-mcp", version}}` |
+| `initialize` | `{protocolVersion:"2025-06-18", capabilities:{tools:{}}, serverInfo:{name:"mdreview-mcp", version}}` (the `protocolVersion` is pinned in the MR-015 AC; confirm the value at build time) |
 | `notifications/initialized` | notification (no `id`); acknowledge silently, send no response |
 | `tools/list` | `{tools:[{name, description, inputSchema /* JSON Schema */}, …]}` — all 8, **static** |
 | `tools/call` | `{content:[{type:"text", text:<json-string of HTTP response>}], isError?:bool}` |
 
-The `protocolVersion` string and the exact `capabilities`/`serverInfo`/`content` field names are
-**not verifiable from this repo** (no MCP code or spec is vendored here). They are written as the
-shape we are planning against and **must be confirmed at build time** against the official MCP
-specification or the SDK reference. Treat any mismatch as a build-time correction, not a re-plan.
+The plan **pins** the target `protocolVersion` to `"2025-06-18"` (current MCP spec revision) and the
+exact `capabilities:{tools:{}}` / `serverInfo` / `content` field names in the MR-015/MR-016 ACs, so
+the harness asserts concrete values rather than a vague "confirm against spec." Because no MCP code
+or spec is vendored in this repo, the implementer still **confirms the pinned `protocolVersion` and
+field names at build time** against the official MCP specification/SDK reference and corrects them
+there if the spec has moved. Treat any mismatch as a build-time correction, not a re-plan.
 
 **Error mapping (specify precisely — getting this wrong is a real bug):**
 - **Protocol errors → JSON-RPC `error` object.** Malformed JSON → `-32700` (parse error); unknown
-  method → `-32601` (method not found); unknown tool name in `tools/call` → `-32602` (invalid
-  params) or an `isError` result (confirm the spec's preference at build time).
+  method → `-32601` (method not found); **unknown tool name in `tools/call` → `-32602` (invalid
+  params)** — a *decided* choice (see MR-016 ACs): naming a non-existent tool is a malformed request,
+  not a tool that ran and failed, so it is a protocol error, not an `isError` result.
 - **Tool/transport errors → a normal `tools/call` result with `isError:true`**, not a JSON-RPC
   error. A `404` from the service (bad/expired id), a connection refused (service down), or a non-2xx
   status is surfaced as `{content:[{type:"text", text:<error detail>}], isError:true}`. The agent
@@ -151,7 +155,11 @@ client config, and the explicit note that it is optional and does not change the
 ## Non-goals
 
 - **No change to the HTTP service.** `app.py`, `viewer.html`, `dashboard.html`, `static/**`, the
-  `Dockerfile`, and the storage format are untouched. This is the epic's defining boundary.
+  `Dockerfile`, `docker-compose.yml`, and the storage format are untouched. This is the epic's
+  defining boundary (enforced by the per-ticket base-relative `git diff` AC, not by prose).
+- **MCP tools only — no resources, no prompts.** This wrapper implements the MCP **tools** feature
+  and nothing else; the `initialize` capabilities advertise only `{tools:{}}`. No `resources/*` or
+  `prompts/*` methods are implemented, which forecloses that scope drift up front.
 - **Not baking the wrapper into the service image.** It is a standalone host-side script; COPYing it
   into the `Dockerfile` is an out-of-epic `infra` follow-up, not this epic.
 - **No auth in the wrapper.** It inherits the service's trust-the-network, id-only posture; it adds
@@ -219,6 +227,72 @@ Create these in `tickets/` only after G1 passes, then link them in the frontmatt
 | MR-017 | `mcp_smoke.py` (stdlib `json`+`subprocess`, no jq): handcrafted JSON-RPC sequence + container `create_review`→`update_source` round-trip | svc | 3 |
 | MR-018 | Docs: wrapper in `README.md`/`AGENTS.md`, update `docs/future-mcp.md` to shipped, client config + exposure note | docs | 4 |
 
+**Layer-tag note (N1).** MR-015–MR-017 are tagged `svc` because the work is server-side Python and
+the layer table has no closer fit — yet these tickets are **forbidden from touching `app.py`**. The
+tension is deliberate and pragmatic: the `svc` tag is what drives the right validation gate
+(`py_compile`, no `docker build`), while the per-ticket "service unchanged" AC below keeps the
+forbidden files inviolate.
+
+### Per-ticket acceptance criteria
+
+These are the AC-level requirements the implementer self-checks at **G4 (Implementation Gate)**
+(under its "author self-checked the acceptance criteria" clause). Routine `py_compile` is owed by
+every code ticket and is not repeated per row.
+
+**MR-015 (protocol core) ACs:**
+- **Service-unchanged (defining non-goal).** The base-relative diff
+  `git diff --stat "$(git merge-base origin/main HEAD)"...HEAD -- app.py viewer.html dashboard.html static Dockerfile docker-compose.yml`
+  is **empty**.
+- **Pinned protocol contract (build-time-verified).** `initialize` returns
+  `{protocolVersion:"2025-06-18", capabilities:{tools:{}}, serverInfo:{name:"mdreview-mcp", version:<str>}}`.
+  `"2025-06-18"` is the target MCP `protocolVersion` planned against (current MCP spec revision); the
+  implementer **confirms this exact string against the official MCP spec/SDK at build time** and
+  corrects it there if the spec has moved — the AC pins a concrete value to assert, not a vague
+  "confirm against spec."
+- **Capabilities advertise tools only** — `capabilities == {tools:{}}` (no `resources`, no `prompts`).
+- **`notifications/initialized`** (an `id`-less notification) is acknowledged silently — the server
+  sends **no** response line for it.
+- **`tools/list`** returns `{tools:[…]}` whose `.name` set is exactly the 8 tool names, each object
+  carrying a `description` and an `inputSchema` (JSON Schema object).
+- **Stream hygiene (S4 — the pipe-smoke depends on it).** The server **flushes stdout after each
+  response** and **exits cleanly on stdin EOF**, so a piped (`printf … | python3 mcp_server.py`)
+  smoke completes instead of hanging.
+
+**MR-016 (tool dispatch → HTTP) ACs:**
+- **Service-unchanged.** Same base-relative empty-diff check as MR-015.
+- **`tools/call` envelope (pinned).** A successful call returns
+  `{content:[{type:"text", text:<json-string of the HTTP response body>}]}` (no `isError`, or
+  `isError:false`). The harness asserts `content[0].type == "text"` and that `content[0].text`
+  parses as JSON.
+- **Tool error → result, not protocol error.** A service `404` (bad/expired id), connection refused,
+  or any non-2xx is returned as `{content:[{type:"text", text:<error detail>}], isError:true}` — a
+  normal `tools/call` result, leaving the JSON-RPC stream valid.
+- **Unknown tool name → JSON-RPC `error` `-32602` (invalid params).** *Decision (resolving the
+  review's open question):* an unrecognized `name` in `tools/call` is a malformed request, so it
+  returns a JSON-RPC `error` object with code **`-32602`** (invalid params) — **not** an
+  `isError:true` result. This keeps "the tool ran and failed" (`isError`) cleanly separate from "you
+  named a tool that does not exist" (protocol error). MR-016's smoke asserts a JSON-RPC `error`
+  with `code == -32602` for an unknown tool name.
+- **Provenance pass-through.** `create_review` forwards `project`/`session`/`source_path` verbatim in
+  the `POST` body; omitting them behaves exactly as today (they are optional service fields,
+  `app.py:228-230`).
+
+**MR-017 (verification harness) ACs:**
+- **Service-unchanged.** Same base-relative empty-diff check as MR-015.
+- **Stdlib only.** `mcp_smoke.py` uses only `json` + `subprocess` (+ `os`/`sys`); **no `jq`, no pip**.
+- It encodes assertions for: the MR-015 protocol surface (8 tools, pinned `initialize` shape), the
+  MR-016 happy-path envelope, the `isError:true` 404 path, and the `-32602` unknown-tool path, plus
+  the container `create_review`→`update_source` round-trip.
+
+**MR-018 (docs) ACs:**
+- Documents the run command, the 8 tools, an example MCP client config, and the `list_reviews`
+  exposure note (footgun 5).
+- **`MDREVIEW_PUBLIC_BASE` guidance (resolving the review's open question).** The `review_url` the
+  wrapper relays is derived by the service from the request `Host` header unless `MDREVIEW_PUBLIC_BASE`
+  is set (`app.py:34`, `app.py:177-179`). The docs ticket must instruct operators to set
+  `MDREVIEW_PUBLIC_BASE` on the **service** to a URL reachable by whoever the agent hands the link to
+  (a human browser), so the returned `review_url` is not an unreachable `localhost`/internal host.
+
 ## Risks and mitigations
 
 - **MCP protocol shape unverifiable from this repo.** No MCP code/spec is vendored here, so the
@@ -231,12 +305,18 @@ Create these in `tickets/` only after G1 passes, then link them in the frontmatt
   newline-delimited JSON, isolate framing behind a `read_message`/`write_message` pair so swapping
   it is a one-function change, and verify against the spec first.
 - **Error-mapping confusion** (protocol error vs tool error). Mitigation: the mapping is specified
-  above — JSON-RPC `error` only for malformed/unknown-method input, `isError:true` results for HTTP
-  4xx/5xx and connection failures. MR-016's smoke must hit both a happy path and a `404`/bad-id path
-  and assert the right channel.
+  above and decided in the MR-016 ACs — JSON-RPC `error` for malformed input, unknown method
+  (`-32601`), and unknown tool name (`-32602`); `isError:true` results for HTTP 4xx/5xx and
+  connection failures. MR-016's smoke hits a happy path, a `404`/bad-id path (→ `isError`), and an
+  unknown-tool path (→ `-32602`), asserting the right channel for each.
 - **Scope creep into the service.** Any temptation to "just add a key" or a route to make a tool
-  cleaner violates the defining non-goal. Mitigation: G4 for MR-015–MR-017 asserts `git diff` shows
-  **no change** to `app.py`/`viewer.html`/`dashboard.html`/`static/**`/`Dockerfile`.
+  cleaner violates the defining non-goal. Mitigation: each of MR-015–MR-017 carries a **per-ticket
+  acceptance criterion** (see "Per-ticket acceptance criteria" below) requiring a base-relative
+  `git diff` to show **no change** to `app.py`/`viewer.html`/`dashboard.html`/`static/**`/
+  `Dockerfile`/`docker-compose.yml`. That AC rides **G4 (Implementation Gate)**'s existing "author
+  self-checked the acceptance criteria" clause — the enforcement lives in a real ticket AC, not in a
+  free-floating claim about the gate row (per **MR-012**: citing a gate row alone is insufficient;
+  the check must be wired into a mechanism the gate already runs).
 - **`MDREVIEW_BASE` mismatch.** The wrapper defaults to the *published* `http://localhost:8137`, not
   the in-container `8080`. Mitigation: documented default + env override; the harness sets it
   explicitly.
@@ -274,7 +354,7 @@ python3 -m py_compile mcp_server.py        # + the harness if it is Python
 Pipe newline-delimited JSON-RPC into the server; assert it answers `initialize` and lists 8 tools:
 ```bash
 printf '%s\n' \
-  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"<verify>","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
+  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
   '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
   | python3 mcp_server.py
@@ -294,7 +374,7 @@ export MDREVIEW_BASE=http://localhost:8137
 
 # create_review via tools/call, then update_source on the returned id, then verify over plain HTTP.
 printf '%s\n' \
-  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"<verify>","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
+  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
   '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_review","arguments":{"markdown":"# Hi","title":"smoke","project":"mcp","session":"s1","source_path":"x.md"}}}' \
   | python3 mcp_server.py
@@ -312,16 +392,60 @@ curl -s "$MDREVIEW_BASE/api/reviews/<id>/history"    # -> {"rounds":[{"round":0,
 # tools/call get_review {id:"doesnotexist0"} against a running service
 # Expect: a tools/call RESULT with isError:true (the service's 404 relayed), NOT a JSON-RPC error object.
 # tools/call with an unknown tool name
-# Expect: a JSON-RPC error (-32602/-32601) OR isError per the spec-confirmed convention.
+# Expect: a JSON-RPC error object with code -32602 (invalid params) — the decided convention
+#         (an unknown tool name is a malformed request, not an isError result).
 ```
 
-**5. Service-unchanged check (every code ticket, enforces the defining non-goal):**
+**5. Service-unchanged check (per-ticket AC on MR-015–MR-017, enforces the defining non-goal).**
+Use a **base-relative** diff — a bare `git diff --stat <paths>` compares working tree to index and
+false-passes once the edit is committed, so it must be anchored to the branch base:
 ```bash
-git diff --stat app.py viewer.html dashboard.html static/ Dockerfile
-# Expect: empty — this epic adds files, it does not edit the service.
+git diff --stat "$(git merge-base origin/main HEAD)"...HEAD -- \
+  app.py viewer.html dashboard.html static Dockerfile docker-compose.yml
+# Expect: empty — this epic adds files (mcp_server.py, mcp_smoke.py, docs), it edits none of these.
 ```
+This is the runnable form of the per-ticket AC; the author self-checks it at **G4 (Implementation
+Gate)** under the gate's existing "author self-checked the acceptance criteria" clause.
 
 **6. Sprint close (G7).** Independent `staff-critic` close review; the unconditional smoke —
 rebuild the container, `curl /healthz` + `/api/reviews` — is run and recorded (also satisfying the
 carry-over above). No product page is touched, so per the G7 pass-condition row the per-page
 `scripts/render-smoke.sh` DOM assertion + screenshot are **not** owed.
+
+## Review resolutions
+
+Round 1 — review `reviews/mcp-wrapper-plan-review-2026-06-09.md` (G1, PASS-WITH-FIXES). Applied by
+the author 2026-06-09; the 4-ticket breakdown (MR-015–MR-018) is unchanged.
+
+- **B1 (BLOCKER) — "HTTP service unchanged" enforced only in prose, citing a non-existent G4
+  condition (the MR-012 defect class).** Made "base-relative `git diff` shows no change to
+  `app.py`/`viewer.html`/`dashboard.html`/`static/**`/`Dockerfile`/`docker-compose.yml`" an explicit
+  **per-ticket acceptance criterion** on MR-015, MR-016, and MR-017 (new "Per-ticket acceptance
+  criteria" subsection after the ticket table), so it rides **G4 (Implementation Gate)**'s existing
+  "author self-checked the acceptance criteria" clause. Deleted the free-floating "G4 asserts
+  `git diff`" claim from the Risks bullet and rewrote the Verification §5 prose to point at the
+  per-ticket AC instead of asserting a gate-row condition.
+- **S1 — diff command false-passes after commit.** Replaced every
+  `git diff --stat <paths>` with the base-relative form
+  `git diff --stat "$(git merge-base origin/main HEAD)"...HEAD -- …` (Verification §5 and the
+  per-ticket ACs). Added `docker-compose.yml` to the watched-paths set everywhere it is listed
+  (Non-goals, the `Service (app.py)` subsection, Risks, the per-ticket ACs, and Verification §5).
+- **S2 — "confirm against the MCP spec" not testable.** Pinned `protocolVersion` to `"2025-06-18"`
+  (current MCP spec revision; implementer confirms at build time) in the method-set table, the
+  MR-015/MR-016 ACs, and both `printf` smoke examples. The ACs now assert the exact `initialize`
+  fields (`capabilities:{tools:{}}`, `serverInfo`) and the `tools/call` envelope
+  (`content[0].type=="text"`, `content[0].text` parses as JSON, `isError` semantics).
+- **S3 — tools-only non-goal.** Added a Non-goal: the wrapper implements MCP **tools only** — no
+  resources, no prompts; `initialize` advertises only `{tools:{}}`.
+- **S4 — pipe-smoke hang.** Added an MR-015 AC: the server flushes stdout after each response and
+  exits cleanly on stdin EOF, so the pipe-based smoke completes instead of hanging.
+- **N1 (nit) — `svc`-tag tension.** Added a one-line "Layer-tag note" under the ticket table naming
+  why MR-015–MR-017 are tagged `svc` yet forbidden from touching `app.py` (the tag drives
+  `py_compile` / no `docker build`; the per-ticket AC keeps the forbidden files inviolate).
+- **Open question (a) — unknown tool name.** Decided: an unknown `name` in `tools/call` returns a
+  JSON-RPC `error` with code **`-32602`** (invalid params), not an `isError` result. Recorded in the
+  error-mapping prose, the MR-016 AC, the Risks bullet, and the Verification §4 assertion.
+- **Open question (b) — `MDREVIEW_PUBLIC_BASE`.** Decided: the docs ticket (MR-018) must instruct
+  operators to set `MDREVIEW_PUBLIC_BASE` on the **service** to a browser-reachable URL so the
+  `review_url` the wrapper relays is reachable (the service derives it from the `Host` header unless
+  the env var is set — `app.py:34`, `app.py:177-179`). Added as an MR-018 AC.
