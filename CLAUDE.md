@@ -55,6 +55,15 @@ same content as a readable block per note. Use whichever you prefer.
   `GET /api/reviews/{id}/history` and `GET /api/reviews/{id}/history/{n}`. An earlier draft and
   the feedback it received are always recoverable, not just the latest state.
 
+## Calling it over MCP (optional)
+
+`mcp_server.py` is a thin, stdlib-only stdio MCP server (JSON-RPC 2.0, spec rev `2025-06-18`)
+exposing the API as tools (`create_review`, `list_reviews`, `get_review`, `get_feedback`,
+`get_status`, `update_source`, `get_history`, `delete_review`). Run
+`MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py`; smoke with `mcp_smoke.py`. It wraps a
+running service and adds no state. Set `MDREVIEW_PUBLIC_BASE` on the service so a relayed
+`review_url` is reachable. See `README.md` and `docs/future-mcp.md`.
+
 ## Why this shape
 
 - **One service, many sessions.** Isolated by `id`, so any number of agents and reviews run
@@ -97,4 +106,5 @@ using the `mdreview-planner` and `cycle-retrospective` agents and the global `st
   for UI). No test framework.
 - Commits: conventional subject with the ticket ID; this repo keeps the `Co-Authored-By: Claude`
   trailer.
-- Current epic: `review-dashboard` (sprint-01) — the dashboard/provenance/history/comments work.
+- For the current epic / sprint and shipped history, see `docs/process/TRACKER.md` (source of
+  truth) — don't hard-code it here, it goes stale.

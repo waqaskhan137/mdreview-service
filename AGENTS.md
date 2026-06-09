@@ -56,6 +56,20 @@ same content as a readable block per note. Use whichever you prefer.
   `GET /api/reviews/{id}/history/{n}` (one round's `source`, `feedback`, `notes`). So an earlier
   draft and the feedback it received are always recoverable, not just the latest state.
 
+## Calling it over MCP (optional)
+
+If your runtime speaks MCP, `mcp_server.py` exposes the whole API as tools so you don't hand-roll
+HTTP. It is a thin, stdlib-only stdio server (JSON-RPC 2.0, spec rev `2025-06-18`) that wraps a
+running service and adds no state. Run it as `MDREVIEW_BASE=http://localhost:8137 python3
+mcp_server.py`; wire it into your client's `mcpServers` as a stdio command (see `README.md`).
+
+Tools map 1:1 to the API: `create_review` (with optional `project`/`session`/`source_path`
+provenance), `list_reviews`, `get_review`, `get_feedback`, `get_status`, `update_source`,
+`get_history` (optional `round`), `delete_review`. The same workflow applies — `create_review`,
+hand the human the `review_url`, poll `get_status`/`get_feedback`, then `update_source`. A failed
+call returns an `isError` result; an unknown tool name is a `-32602` error. Set
+`MDREVIEW_PUBLIC_BASE` on the service so the `review_url` you hand a human is reachable.
+
 ## Why this shape
 
 - **One service, many sessions.** Isolated by `id`, so any number of agents and reviews run

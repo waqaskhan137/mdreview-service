@@ -3,12 +3,12 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-09. process-hardening-2 (sprint-03) closed; G7 passed. 3 epics on dev awaiting promotion (PR #2).
+Last updated: 2026-06-09. mcp-wrapper (sprint-04) closed; G7 PASS. On dev awaiting promotion. 3 epics on main.
 
 ## Active sprint
 
-**sprint-03 — Process hardening 2** (`closed`, 2026-06-09). Epic: `process-hardening-2`. G7 passed; 3/3 done.
-sprint-02 (Process hardening) closed; sprint-01 shipped to main (PR #1). sprint-02 + sprint-03 await promotion (PR #2).
+**sprint-04 — MCP wrapper** (`closed`, 2026-06-09). Epic: `mcp-wrapper`. G7 PASS; 4/4 done. Awaits promotion.
+sprint-01/02/03 shipped to main (PR #1, #2).
 Progress: 7/7 done — all committed tickets complete; sprint pending G7 close.
 
 ## ready
@@ -41,6 +41,10 @@ _none_
 | MR-012 | Planner agent — wire-enforcement-into-row + cite-by-name rules | docs | P1 | sprint-03 |
 | MR-013 | README — citation-by-name convention + scope G7 render clause | docs | P2 | sprint-03 |
 | MR-014 | Skill — pre-G7 board-reconciliation rail + SKILL.md invariant | docs | P2 | sprint-03 |
+| MR-015 | mcp_server.py — stdio JSON-RPC core | svc | P1 | sprint-04 |
+| MR-016 | tools/call dispatch → HTTP | svc | P1 | sprint-04 |
+| MR-017 | mcp_smoke.py — stdlib smoke harness | svc | P1 | sprint-04 |
+| MR-018 | Docs — MCP wrapper | docs | P2 | sprint-04 |
 
 ## blocked
 
@@ -51,5 +55,6 @@ _none_
 | Epic | Status | Gate | Sprint |
 |------|--------|------|--------|
 | review-dashboard | done (merged to main 2026-06-08, PR #1) | G1 passed 2026-06-08 | sprint-01 |
-| process-hardening | done (sprint-02 closed, G7 passed) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
-| process-hardening-2 | done (sprint-03 closed, G7 passed) | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
+| process-hardening | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
+| process-hardening-2 | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
+| mcp-wrapper | done (sprint-04 closed, G7 PASS) | G1 passed 2026-06-09 (2 rounds) | sprint-04 |

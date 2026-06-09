@@ -1,8 +1,14 @@
-# Future: an MCP wrapper for mdreview-service
+# An MCP wrapper for mdreview-service
 
-Status: **not built.** Deferred from the `review-dashboard` epic (2026-06-08). This is a sketch of
-the intended shape so the follow-up is a clean, self-contained deliverable when picked up. See
-`docs/process/backlog.md`.
+Status: **SHIPPED** (2026-06-09, epic `mcp-wrapper` / sprint-04). Built as **`mcp_server.py`**
+(the stdlib stdio server) with **`mcp_smoke.py`** (the dependency-free smoke). This file was the
+original sketch; the shape below is what was built. To run:
+`MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py` (see `README.md` for the client config
+and the `MDREVIEW_PUBLIC_BASE` reachability note).
+
+The implementation followed this sketch with two refinements decided during review: it is
+**stdlib-only** (newline-delimited JSON-RPC 2.0, no SDK/pip), and `get_history` is **one tool**
+covering both `/history` and `/history/{n}` via an optional `round` arg.
 
 ## Why
 
