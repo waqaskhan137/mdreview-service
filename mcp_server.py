@@ -17,6 +17,8 @@ Run:  MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py
 import os
 import sys
 import json
+import urllib.request
+import urllib.error
 
 PROTOCOL_VERSION = "2025-06-18"   # MCP spec revision this server targets
 SERVER_INFO = {"name": "mdreview-mcp", "version": "0.1.0"}
@@ -115,6 +117,71 @@ def _error(rid, code, message):
     write_message({"jsonrpc": "2.0", "id": rid, "error": {"code": code, "message": message}})
 
 
+TOOL_NAMES = {t["name"] for t in TOOLS}
+
+
+# ---- HTTP client (tools/call dispatch -> the existing mdreview HTTP API) ----
+class ToolError(Exception):
+    """A tool ran and failed (bad id, service down, non-2xx) -> isError result, not a protocol error."""
+
+
+def http(method, path, body=None):
+    url = BASE + path
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method)
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "replace")
+        raise ToolError("HTTP %s from %s %s: %s" % (e.code, method, path, detail))
+    except urllib.error.URLError as e:
+        raise ToolError("cannot reach mdreview at %s (%s)" % (BASE, e.reason))
+
+
+def route(name, args):
+    """Map a tool name + args onto (http_method, path, body). KeyError -> missing required arg."""
+    if name == "create_review":
+        body = {k: args[k] for k in ("markdown", "title", "project", "session", "source_path") if k in args}
+        body.setdefault("markdown", args["markdown"])  # KeyError if absent -> -32602
+        return "POST", "/api/reviews", body
+    if name == "list_reviews":
+        return "GET", "/api/reviews", None
+    if name == "get_review":
+        return "GET", "/api/reviews/%s" % args["id"], None
+    if name == "get_feedback":
+        return "GET", "/api/reviews/%s/feedback" % args["id"], None
+    if name == "get_status":
+        return "GET", "/api/reviews/%s/status" % args["id"], None
+    if name == "update_source":
+        return "PUT", "/api/reviews/%s/source" % args["id"], {"markdown": args["markdown"]}
+    if name == "get_history":
+        if args.get("round") is not None:
+            return "GET", "/api/reviews/%s/history/%s" % (args["id"], args["round"]), None
+        return "GET", "/api/reviews/%s/history" % args["id"], None
+    if name == "delete_review":
+        return "DELETE", "/api/reviews/%s" % args["id"], None
+    return None  # unreachable (caller checks TOOL_NAMES first)
+
+
+def handle_tools_call(rid, params):
+    name = params.get("name")
+    args = params.get("arguments") or {}
+    if name not in TOOL_NAMES:
+        return _error(rid, -32602, "Unknown tool: %s" % name)   # protocol error
+    try:
+        method, path, body = route(name, args)
+    except KeyError as e:
+        return _error(rid, -32602, "Missing required argument: %s" % e)
+    try:
+        text = http(method, path, body)
+        _result(rid, {"content": [{"type": "text", "text": text}], "isError": False})
+    except ToolError as e:
+        _result(rid, {"content": [{"type": "text", "text": str(e)}], "isError": True})
+
+
 # ---- method handlers ----
 def handle_initialize(rid, params):
     # Version negotiation: echo the client's version if we support it, else offer ours.
@@ -144,9 +211,10 @@ def dispatch(msg):
         return handle_initialize(rid, params)
     if method == "tools/list":
         return handle_tools_list(rid, params)
+    if method == "tools/call":
+        return handle_tools_call(rid, params)
     if method == "ping":
         return _result(rid, {})
-    # tools/call dispatch is added in MR-016. Until then, unknown method.
     _error(rid, -32601, "Method not found: %s" % method)
 
 
