@@ -1,13 +1,13 @@
 ---
 id: MR-017
 title: mcp_smoke.py — stdlib JSON-RPC smoke harness + container round-trip
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-04
 epic: mcp-wrapper
 depends_on: [MR-016]
-branch:
+branch: dev (mcp_smoke.py)
 created: 2026-06-09
 updated: 2026-06-09
 ---
@@ -38,11 +38,17 @@ evidence at close.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-09` — new `mcp_smoke.py` (stdlib `json`+`subprocess`+`os`/`sys`; no jq/pip). Drives
+  `mcp_server.py` over stdio and asserts: notification gets no response; pinned `initialize` shape
+  (protocolVersion 2025-06-18, tools-only, serverInfo); exactly the 8 tools with schemas;
+  `tools/call` text-content envelope; `create_review`->`update_source` round-trip (revision>=1,
+  then deletes the smoke review); bad id -> `isError:true`; unknown tool -> `-32602`. Exits nonzero
+  naming any failed assertion.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-09` — `py_compile` OK. Ran against the live container: **11/11 assertions pass, exit 0**.
+  Confirmed stdlib-only imports (os/sys/json/subprocess). Service-unchanged diff empty.
 
 ## Follow-ups
 
