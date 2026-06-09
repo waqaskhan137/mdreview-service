@@ -121,7 +121,8 @@ no auth — fine for the trusted-network posture, but keep auth in front if expo
   local networks); put it behind a reverse proxy with auth if exposing it.
 - The dashboard (`/`) and `GET /api/reviews` list **across all reviews** — fine for the
   trusted-network posture, but a reason to keep auth in front when exposed.
-- A follow-up **MCP wrapper** is sketched in [docs/future-mcp.md](docs/future-mcp.md).
+- The **MCP wrapper** above was designed in [docs/future-mcp.md](docs/future-mcp.md), kept as its
+  design/decision record.
 - For agent integration details, see [AGENTS.md](AGENTS.md).
 - A non-Docker, per-file CLI version lives in `../mdreview` (writes feedback to a file next to
   the source). This service is the networked, multi-session form.

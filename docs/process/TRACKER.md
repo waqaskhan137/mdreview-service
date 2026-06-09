@@ -3,13 +3,12 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-09. mcp-wrapper (sprint-04) closed; G7 PASS. On dev awaiting promotion. 3 epics on main.
+Last updated: 2026-06-09. sprint-05 (landing-page) closed at G7 (staff-critic PASS); MR-020 remainder carried (user DNS step). On dev awaiting promotion.
 
 ## Active sprint
 
-**sprint-04 — MCP wrapper** (`closed`, 2026-06-09). Epic: `mcp-wrapper`. G7 PASS; 4/4 done. Awaits promotion.
-sprint-01/02/03 shipped to main (PR #1, #2).
-Progress: 7/7 done — all committed tickets complete; sprint pending G7 close.
+**sprint-05 — landing-page** (`closed`, 2026-06-09). Epic: `landing-page`. G7 PASS; MR-019 done, MR-020 carried (blocked on user DNS; resume sequence in ticket). Awaits promotion.
+sprint-01/02/03/04 shipped to main (PR #1, #2, #3).
 
 ## ready
 
@@ -45,10 +44,19 @@ _none_
 | MR-016 | tools/call dispatch → HTTP | svc | P1 | sprint-04 |
 | MR-017 | mcp_smoke.py — stdlib smoke harness | svc | P1 | sprint-04 |
 | MR-018 | Docs — MCP wrapper | docs | P2 | sprint-04 |
+| MR-019 | Author buildless landing page (site/index.html) with dashboard tokens, static demo, CNAME | ui | P1 | sprint-05 |
 
 ## blocked
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-020 | Publish to GitHub Pages — gh-pages pipeline, runbook, README URL (blocked: user DNS record pending; resume sequence in ticket) | infra | P1 | sprint-05 |
+
+## backlog
+
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-021 | Replace static demo with animated GIF of the review loop (drop-in) and re-publish | ui | P2 | — (next cycle) |
 
 ## Epics
 
@@ -57,4 +65,5 @@ _none_
 | review-dashboard | done (merged to main 2026-06-08, PR #1) | G1 passed 2026-06-08 | sprint-01 |
 | process-hardening | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
 | process-hardening-2 | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
-| mcp-wrapper | done (sprint-04 closed, G7 PASS) | G1 passed 2026-06-09 (2 rounds) | sprint-04 |
+| mcp-wrapper | done (merged to main 2026-06-09, PR #3) | G1 passed 2026-06-09 (2 rounds) | sprint-04 |
+| landing-page | active (sprint-05 closed, G7 PASS; MR-020 remainder + MR-021 carry to next cycle) | G1 passed 2026-06-09 (2 rounds) | sprint-05 |
