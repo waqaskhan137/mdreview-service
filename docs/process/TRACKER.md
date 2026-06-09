@@ -3,11 +3,11 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-09. sprint-05 (landing-page) closed at G7 and merged to main (PR #4). MR-020 remainder in flight: DNS added, awaiting GitHub HTTPS cert; then README URL.
+Last updated: 2026-06-09. sprint-05 (landing-page) closed at G7, merged to main (PR #4), and MR-020's carry-over discharged same-day: the page is LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
-**sprint-05 — landing-page** (`closed`, 2026-06-09; merged to main, PR #4). Epic: `landing-page`. G7 PASS; MR-019 done, MR-020 carried (DNS record now added by owner; HTTPS cert + README URL pending per ticket resume sequence).
+**sprint-05 — landing-page** (`closed`, 2026-06-09; merged to main, PR #4). Epic: `landing-page`. G7 PASS; MR-019 done, MR-020 done (carry-over discharged: DNS added, cert issued, HTTPS enforced, README URL recorded). MR-021 (GIF demo) remains backlog.
 sprint-01/02/03/04/05 shipped to main (PR #1, #2, #3, #4).
 
 ## ready
@@ -45,12 +45,11 @@ _none_
 | MR-017 | mcp_smoke.py — stdlib smoke harness | svc | P1 | sprint-04 |
 | MR-018 | Docs — MCP wrapper | docs | P2 | sprint-04 |
 | MR-019 | Author buildless landing page (site/index.html) with dashboard tokens, static demo, CNAME | ui | P1 | sprint-05 |
+| MR-020 | Publish to GitHub Pages — gh-pages pipeline, runbook, README URL (live at mdreview.waqasrana.space, HTTPS enforced) | infra | P1 | sprint-05 |
 
 ## blocked
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-020 | Publish to GitHub Pages — gh-pages pipeline, runbook, README URL (blocked: user DNS record pending; resume sequence in ticket) | infra | P1 | sprint-05 |
+_none_
 
 ## backlog
 
@@ -66,4 +65,4 @@ _none_
 | process-hardening | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
 | process-hardening-2 | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
 | mcp-wrapper | done (merged to main 2026-06-09, PR #3) | G1 passed 2026-06-09 (2 rounds) | sprint-04 |
-| landing-page | active (merged to main 2026-06-09, PR #4; MR-020 remainder + MR-021 carry to next cycle) | G1 passed 2026-06-09 (2 rounds) | sprint-05 |
+| landing-page | done (merged to main 2026-06-09, PR #4; live at mdreview.waqasrana.space; MR-021 GIF demo in backlog) | G1 passed 2026-06-09 (2 rounds) | sprint-05 |

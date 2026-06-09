@@ -4,6 +4,9 @@ A containerized markdown review microservice. An agent POSTs markdown, gets back
 for a human, and polls feedback over HTTP. One service handles many reviews, isolated by id.
 No per-process spawning, no shared filesystem with the agent.
 
+**Landing page:** [mdreview.waqasrana.space](https://mdreview.waqasrana.space/) (served from the
+`gh-pages` branch; source in `site/`).
+
 Stdlib Python only (tiny image, no pip installs). Self-contained: the Mermaid and marked
 renderers are vendored and served from `/static`, so the browser needs no CDN.
 
