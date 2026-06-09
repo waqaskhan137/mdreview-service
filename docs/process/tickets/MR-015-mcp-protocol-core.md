@@ -1,13 +1,13 @@
 ---
 id: MR-015
 title: mcp_server.py — stdio JSON-RPC core (initialize, notifications/initialized, tools/list)
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-04
 epic: mcp-wrapper
 depends_on: []
-branch:
+branch: dev (new file mcp_server.py)
 created: 2026-06-09
 updated: 2026-06-09
 ---
@@ -42,11 +42,22 @@ the MCP envelope/handshake against the authoritative MCP spec before writing the
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-09` — new `mcp_server.py` (stdlib only): newline-delimited JSON-RPC 2.0 over stdio with
+  isolated `read_messages`/`write_message`; `initialize` (echoes client protocolVersion if
+  supported else offers `2025-06-18`, capabilities `{tools:{}}`, serverInfo `mdreview-mcp`);
+  `notifications/initialized` and other notifications get no response; `tools/list` returns all 8
+  static tool schemas; `ping` -> `{}`; unknown method -> `-32601`. `tools/call` dispatch is MR-016
+  (currently unknown-method). Stdout flushed per response; loop exits on stdin EOF. Protocol
+  grounded against the MCP spec rev 2025-06-18 (lifecycle + tools) via WebFetch.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-09` — `python3 -m py_compile mcp_server.py` OK. Piped `initialize` +
+  `notifications/initialized` + `tools/list` with **no service running**: exactly 2 responses (the
+  notification got none); `initialize` returned `protocolVersion 2025-06-18`, `capabilities
+  {tools:{}}`, `serverInfo.name mdreview-mcp`; `tools/list` returned the exact 8 tool names each
+  with a description + object `inputSchema`. Unknown method -> `-32601`. Service-unchanged
+  base-relative diff (app.py/UI/Docker/compose) is empty.
 
 ## Follow-ups
 
