@@ -9,7 +9,7 @@ Protocol grounded against the MCP spec rev 2025-06-18 (lifecycle + tools).
 
   initialize                -> {protocolVersion, capabilities:{tools:{}}, serverInfo}
   notifications/initialized -> (no response)
-  tools/list                -> {tools:[...8 schemas]}
+  tools/list                -> {tools:[...10 schemas]}
   tools/call                -> {content:[{type:text,text}], isError?}   (dispatch: MR-016)
 
 Run:  MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py
@@ -26,7 +26,7 @@ BASE = os.environ.get("MDREVIEW_BASE", "http://localhost:8137").rstrip("/")
 
 _ID = {"type": "string", "description": "the opaque review id"}
 
-# The 8 tools, 1:1 with the HTTP API. Static metadata served by tools/list.
+# The 10 tools, 1:1 with the HTTP API. Static metadata served by tools/list.
 TOOLS = [
     {
         "name": "create_review",
@@ -85,6 +85,27 @@ TOOLS = [
     {
         "name": "delete_review",
         "description": "Delete a review and its data.",
+        "inputSchema": {"type": "object", "properties": {"id": _ID}, "required": ["id"]},
+    },
+    {
+        "name": "attach_asset",
+        "description": "Attach an image (base64) to a review so the viewer serves and renders it. "
+                       "Pass `name` as the exact src the draft uses (e.g. \"/assets/x.png\" or "
+                       "\"fig/y.svg\"); attach once — it survives every update_source revision, so "
+                       "you never resend the bytes. Returns the stored name and the served url.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": _ID,
+                "name": {"type": "string", "description": "the draft <img> src this asset backs (the match key)"},
+                "content_b64": {"type": "string", "description": "the file bytes, base64-encoded"},
+            },
+            "required": ["id", "name", "content_b64"],
+        },
+    },
+    {
+        "name": "list_assets",
+        "description": "List a review's attached assets (name, stored name, served url, bytes, ctype).",
         "inputSchema": {"type": "object", "properties": {"id": _ID}, "required": ["id"]},
     },
 ]
@@ -163,6 +184,11 @@ def route(name, args):
         return "GET", "/api/reviews/%s/history" % args["id"], None
     if name == "delete_review":
         return "DELETE", "/api/reviews/%s" % args["id"], None
+    if name == "attach_asset":
+        return "POST", "/api/reviews/%s/assets" % args["id"], {
+            "name": args["name"], "content_b64": args["content_b64"]}
+    if name == "list_assets":
+        return "GET", "/api/reviews/%s/assets" % args["id"], None
     return None  # unreachable (caller checks TOOL_NAMES first)
 
 

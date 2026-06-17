@@ -16,7 +16,6 @@ sprint-01/02/03/04/05 shipped to main (PR #1, #2, #3, #4).
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
-| MR-024 | MCP `attach_asset` + `list_assets` tools | svc | P0 | sprint-06 |
 | MR-025 | Viewer rewrites local/relative/site-root `<img src>` to served asset URLs | ui | P0 | sprint-06 |
 | MR-026 | Docs sweep: README API table, CLAUDE.md contract, MCP docstring (math + assets) | docs | P1 | sprint-06 |
 
@@ -54,6 +53,7 @@ _none_
 | MR-020 | Publish to GitHub Pages — gh-pages pipeline, runbook, README URL (live at mdreview.waqasrana.space, HTTPS enforced) | infra | P1 | sprint-05 |
 | MR-022 | KaTeX math render (marked-extension; binary `_read_bytes` + static content-types) | ui | P0 | sprint-06 |
 | MR-023 | Per-review asset storage + manifest + `POST/GET /assets`, `GET /asset/{stored}` (base64) | svc | P0 | sprint-06 |
+| MR-024 | MCP `attach_asset` + `list_assets` tools | svc | P0 | sprint-06 |
 
 ## blocked
 
