@@ -5,8 +5,8 @@ created: 2026-06-18
 source: requirements/rich-rendering.md
 gate: passed 2026-06-18  # G1 (Plan Gate): passed (round 2, staff-critic PASS) — tickets unblocked
 review: reviews/rich-rendering-plan-review-2026-06-18.md, reviews/rich-rendering-plan-review-2026-06-18-r2.md
-related_sprints: []    # sprint-06 anticipated
-related_tickets: []    # empty until G1 passes and tickets are created
+related_sprints: [sprint-06]
+related_tickets: [MR-022, MR-023, MR-024, MR-025, MR-026]
 ---
 
 # Rich Rendering Plan
