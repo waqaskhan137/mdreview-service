@@ -54,6 +54,34 @@ def _read(path, default=""):
         return default
 
 
+def _read_bytes(path, default=b""):
+    """Binary read for assets served verbatim (fonts, images, css).
+
+    The text _read above decodes utf-8 and raises on the first font/image byte;
+    binary-served routes (/static/*, the asset GET) must use this instead.
+    """
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except FileNotFoundError:
+        return default
+
+
+# Content types for files served out of static/ (and, by extension, asset bytes whose
+# type we infer). Anything unlisted falls back to application/octet-stream.
+_CTYPES = {
+    ".js": "text/javascript",
+    ".css": "text/css",
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
+    ".ttf": "font/ttf",
+}
+
+
+def _ctype_for(name):
+    return _CTYPES.get(os.path.splitext(name)[1].lower(), "application/octet-stream")
+
+
 def _read_json(path, default):
     try:
         with open(path, encoding="utf-8") as f:
@@ -335,8 +363,8 @@ class H(BaseHTTPRequestHandler):
             fn = mo.group(1)
             p = os.path.join(HERE, "static", fn)
             if os.path.isfile(p):
-                ctype = "text/javascript" if fn.endswith(".js") else "application/octet-stream"
-                return self._send(200, _read(p), ctype)
+                # binary read: KaTeX ships .woff2 fonts + .css that the utf-8 _read crashes on
+                return self._send(200, _read_bytes(p), _ctype_for(fn))
             return self._send(404, "not found", "text/plain")
 
         self._json(404, {"error": "no route", "method": m, "path": path})
