@@ -14,9 +14,7 @@ sprint-01/02/03/04/05 shipped to main (PR #1, #2, #3, #4).
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-026 | Docs sweep: README API table, CLAUDE.md contract, MCP docstring (math + assets) | docs | P1 | sprint-06 |
+_none_
 
 ## in-progress
 
@@ -54,6 +52,7 @@ _none_
 | MR-023 | Per-review asset storage + manifest + `POST/GET /assets`, `GET /asset/{stored}` (base64) | svc | P0 | sprint-06 |
 | MR-024 | MCP `attach_asset` + `list_assets` tools | svc | P0 | sprint-06 |
 | MR-025 | Viewer rewrites local/relative/site-root `<img src>` to served asset URLs | ui | P0 | sprint-06 |
+| MR-026 | Docs sweep: README API table, CLAUDE.md contract, AGENTS.md + MCP docstring (math + assets) | docs | P1 | sprint-06 |
 
 ## blocked
 

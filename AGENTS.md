@@ -65,10 +65,16 @@ mcp_server.py`; wire it into your client's `mcpServers` as a stdio command (see 
 
 Tools map 1:1 to the API: `create_review` (with optional `project`/`session`/`source_path`
 provenance), `list_reviews`, `get_review`, `get_feedback`, `get_status`, `update_source`,
-`get_history` (optional `round`), `delete_review`. The same workflow applies — `create_review`,
-hand the human the `review_url`, poll `get_status`/`get_feedback`, then `update_source`. A failed
-call returns an `isError` result; an unknown tool name is a `-32602` error. Set
-`MDREVIEW_PUBLIC_BASE` on the service so the `review_url` you hand a human is reachable.
+`get_history` (optional `round`), `attach_asset` (id, name, content_b64), `list_assets` (id),
+`delete_review`. The same workflow applies — `create_review`, hand the human the `review_url`,
+poll `get_status`/`get_feedback`, then `update_source`. A failed call returns an `isError` result;
+an unknown tool name is a `-32602` error. Set `MDREVIEW_PUBLIC_BASE` on the service so the
+`review_url` you hand a human is reachable.
+
+The viewer renders **LaTeX math** (inline `$…$` / `\(…\)`, display `$$…$$` / `\[…\]`; prose/currency
+`$` stays literal) and Mermaid. For **images** with a local/relative/site-root `src`, `attach_asset`
+the bytes once (base64, keyed by the exact draft `src`); they survive every `update_source` and the
+viewer repoints the `<img>` — see `CLAUDE.md` "Rich content: math and images".
 
 ## Why this shape
 
