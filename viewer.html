@@ -205,6 +205,28 @@ function setupKatex(){
 const ID=location.pathname.split('/').filter(Boolean).pop();
 const API='/api/reviews/'+ID;
 
+// Point <img> sources at attached assets the service now hosts. The agent attached the draft's
+// images to the review, so a site-root (/assets/x.png) or source-relative (../img/y.svg) src is
+// matched to an attached asset — by full draft src first, then basename — and repointed at the
+// served stored-name URL (%2F-free). Absolute http(s)/protocol-relative/data: srcs and unmatched
+// local srcs are left untouched (no regression, no source.md mutation).
+async function rewriteAssetImages(root){
+  const imgs=[...root.querySelectorAll('img')];
+  if(!imgs.length)return;
+  let assets=[];
+  try{ assets=((await fetch(API+'/assets').then(r=>r.json()))||{}).assets||[]; }catch(e){ return; }
+  if(!assets.length)return;
+  const base=s=>s.split(/[?#]/)[0].split('/').pop();
+  const byName=new Map(), byBase=new Map();
+  for(const a of assets){ byName.set(a.name,a); const b=base(a.name); if(!byBase.has(b))byBase.set(b,a); }
+  for(const img of imgs){
+    const src=img.getAttribute('src')||'';
+    if(!src||/^(https?:|data:|\/\/)/i.test(src))continue;
+    const m=byName.get(src)||byBase.get(base(src));
+    if(m&&m.url)img.src=m.url;
+  }
+}
+
 async function boot(){
   setupKatex();   // register the math marked-extension once, before any marked.parse()
   initMermaid();
@@ -240,6 +262,7 @@ async function load(){
   const dm=$("#docmeta");if(dm)dm.textContent=words.toLocaleString()+" words  ·  ~"+Math.max(1,Math.round(words/200))+" min read";
   const html=window.marked?marked.parse(md):("<pre>"+escapeHtml(md)+"</pre>");
   const art=$("#article");art.innerHTML=html;
+  await rewriteAssetImages(art);   // repoint local <img> at served assets before reparenting
   numberBlocks();
   await renderMermaid();
   reconcile();
