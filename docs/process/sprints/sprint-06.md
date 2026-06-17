@@ -24,11 +24,11 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-022 | Binary `_read_bytes` + static-route swap; vendor KaTeX; widen `/static/` content-types; render math | ui | P0 | ready |
-| MR-023 | Per-review asset storage + manifest + `POST/GET /assets`, `GET /asset/{stored}` (base64) | svc | P0 | ready |
-| MR-024 | MCP `attach_asset` + `list_assets` tools | svc | P0 | ready |
-| MR-025 | Viewer rewrites local/relative/site-root `<img src>` to served asset URLs | ui | P0 | ready |
-| MR-026 | Docs sweep: README API table, CLAUDE.md contract, MCP docstring | docs | P1 | ready |
+| MR-022 | Binary `_read_bytes` + static-route swap; vendor KaTeX; widen `/static/` content-types; render math | ui | P0 | done |
+| MR-023 | Per-review asset storage + manifest + `POST/GET /assets`, `GET /asset/{stored}` (base64) | svc | P0 | done |
+| MR-024 | MCP `attach_asset` + `list_assets` tools | svc | P0 | done |
+| MR-025 | Viewer rewrites local/relative/site-root `<img src>` to served asset URLs | ui | P0 | done |
+| MR-026 | Docs sweep: README API table, CLAUDE.md contract, MCP docstring | docs | P1 | done |
 
 The former local-dir `{name,path}` asset-read form is **cut** to backlog (S5); base64 delivers both
 P0s. P1 (theme awareness, SVG/animation doc line) and P2 (footnotes, syntax highlighting) are
