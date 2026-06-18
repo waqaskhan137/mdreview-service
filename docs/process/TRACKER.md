@@ -3,11 +3,11 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-18. sprint-07 (theme-awareness) **closed at G7 (staff-critic PASS) and merged to main (PR #6)** — neutral image mat live on `main`. sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-18. sprint-08 (render-fidelity) opened (G6) — MR-028–030 committed (footnotes + syntax highlighting). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
-_none active_ — sprint-07 merged to main (PR #6); `dev` and `main` aligned.
+**sprint-08 — render-fidelity** (`active`, opened 2026-06-18). Epic: `render-fidelity` (G1 passed, 2 rounds). Goal: render GFM footnotes + syntax-highlighted fenced code in the viewer (vendored marked-footnote + highlight.js, dual-scheme theme, mermaid skipped). Committed: MR-028 (footnotes), MR-029 (highlighting), MR-030 (docs). Viewer + vendored static/ only.
 
 **sprint-07 — theme-awareness** (`closed`, 2026-06-18; merged to main, PR #6). Epic: `theme-awareness` (G1 passed 2 rounds; G7 PASS). Shipped MR-027: a near-white mat behind `#article img` + `.histdoc img` so light-authored figures stay legible on a dark review pane (excludes mermaid/katex; CSS-only). Inverse case (dark-authored/white-on-transparent figures) is an accepted non-goal (luminance heuristic backlog).
 
@@ -18,7 +18,11 @@ sprint-01/02/03/04/05/06/07 shipped to main (PR #1, #2, #3, #4, #5, #6).
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-028 | Vendor `marked-footnote`; render GFM footnotes (refs + ordered back-ref section) | ui | P2 | sprint-08 |
+| MR-029 | Vendor highlight.js (common) + `marked-highlight` + dual-scheme theme; highlight fenced code (skip mermaid) | ui | P2 | sprint-08 |
+| MR-030 | Docs — footnotes + syntax highlighting render in the viewer | docs | P2 | sprint-08 |
 
 ## in-progress
 
@@ -80,3 +84,4 @@ _none_
 | landing-page | done (merged to main 2026-06-09, PR #4; live at mdreview.waqasrana.space; MR-021 GIF demo in backlog) | G1 passed 2026-06-09 (2 rounds) | sprint-05 |
 | rich-rendering | done (merged to main 2026-06-18, PR #5) | G1 passed 2026-06-18 (2 rounds) | sprint-06 |
 | theme-awareness | done (merged to main 2026-06-18, PR #6) | G1 passed 2026-06-18 (2 rounds) | sprint-07 |
+| render-fidelity | active (G1 cleared; MR-028–030 ready) | G1 passed 2026-06-18 (2 rounds) | sprint-08 |

@@ -5,8 +5,8 @@ created: 2026-06-18
 source: requirements/render-fidelity.md
 gate: passed 2026-06-18  # G1 (Plan Gate): passed (round 2, staff-critic PASS) — tickets unblocked
 review: reviews/render-fidelity-plan-review-2026-06-18.md, reviews/render-fidelity-plan-review-2026-06-18-r2.md
-related_sprints: []    # sprint-08 once the sprint opens
-related_tickets: []    # empty until G1 passes and tickets are created
+related_sprints: [sprint-08]
+related_tickets: [MR-028, MR-029, MR-030]
 ---
 
 # Render fidelity — footnotes + syntax highlighting
