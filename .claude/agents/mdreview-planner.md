@@ -37,7 +37,12 @@ contract; your plan is the artifact that clears **Gate G1**.
 ## Project footguns your plan MUST respect (call them out explicitly)
 1. **Stdlib-only, zero pip.** No new runtime dependency is acceptable — the small image and
    "no installs" are load-bearing. Anything you would reach a library for must be vendored into
-   `static/` or written by hand. Say so if the feature tempts a dependency.
+   `static/` or written by hand. Say so if the feature tempts a dependency. **Prefer pinning and
+   including an upstream file unmodified** (a `<script>`/`<link>` global, like marked/mermaid/KaTeX/
+   highlight.js) over a hand-curated or hand-edited derivative — pinned-upstream assets ship clean,
+   hand-derived ones are where defects hide (render-fidelity: 3 pinned deps clean, the 1 hand-built
+   CSS regressed). Verify a vendored browser-global actually attaches and composes **in a browser**,
+   not just in `node require` (the math epic broke on exactly that node-vs-browser gap).
 2. **Overwrite-based persistence.** `PUT /source` overwrites `source.md`; `POST /feedback`
    overwrites `notes.json`/`feedback.md`. There is **no history** unless a feature adds it. If
    your design depends on prior state, plan the snapshot/append explicitly.
@@ -106,6 +111,15 @@ contract; your plan is the artifact that clears **Gate G1**.
      but the regression on white-on-transparent figures, 238→5, was asserted from prose and became
      the blocker). If asymmetric, name the unfixed/regressed direction a non-goal in the plan and
      **show it in a verification fixture** so it's signed off, not discovered post-ship.
+   - **A hand-derived asset is its own failure surface — verify its OUTPUT, not just the design.**
+     When the implementer will hand-transform a vendored asset (strip/concatenate a CSS theme, edit a
+     minified file, hand-curate a subset), validating the *design choice* (e.g. "github-dark reads on
+     the dark pane") does **not** validate the *transform*. Call out in the plan's verification that
+     the derived artifact must be checked on its own output — and prefer **pinning and including the
+     upstream file unmodified** over hand-editing; if a hand-edit is unavoidable, isolate it to the
+     smallest possible change and verify the result, not the intent. (render-fidelity G7: a CSS strip
+     regex orphaned `pre codecode` and made `.hljs-doctag` invisible on the dark pane; the theme
+     *choice* was measured, the *strip* was not — caught only by a `getComputedStyle` check.)
 3. **Surface clarifying questions + explicit assumptions FIRST**, in an "Assumptions & open
    questions" section. Tag each question **load-bearing** (changes the design) or **minor**, and
    give the best-effort assumption you are planning against with a one-line justification. You are
