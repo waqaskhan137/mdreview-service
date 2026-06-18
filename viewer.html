@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview</title>
 <link rel="stylesheet" href="/static/katex.min.css">
+<link rel="stylesheet" href="/static/hljs-github.css">
 <style>
   :root{--bg:#fafaf9;--text:#1a1a1a;--muted:#6b6b6b;--accent:#0f766e;--rule:#e6e4e0;--noteline:#e0a800;}
   @media (prefers-color-scheme: dark){:root{--bg:#111;--text:#f1efec;--muted:#9a9a9a;--accent:#2dd4bf;--rule:#2a2a2a;--noteline:#d4a017;}}
@@ -152,6 +153,8 @@
 <script src="/static/mermaid.min.js"></script>
 <script src="/static/katex.min.js"></script>
 <script src="/static/marked-footnote.umd.js"></script>
+<script src="/static/highlight.min.js"></script>
+<script src="/static/marked-highlight.umd.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 let META={name:"file.md",path:""};
@@ -221,6 +224,19 @@ function setupMarked(){
   // GFM footnotes: window.markedFootnote IS the factory; refs -> ordered back-ref section.
   var mf=window.markedFootnote;
   if(typeof mf==='function') marked.use(mf());
+  // Syntax highlighting (highlight.js): window.markedHighlight is a NAMESPACE object whose
+  // .markedHighlight is the factory (a bare markedHighlight() throws). The guard wraps the actual
+  // call, so a missing asset degrades silently. The sync highlight callback keeps marked.parse
+  // synchronous; mermaid blocks are returned raw so renderMermaid() still makes them diagrams.
+  var mh=window.markedHighlight && window.markedHighlight.markedHighlight;
+  if(mh && window.hljs) marked.use(mh({
+    langPrefix:'hljs language-',
+    highlight(code, lang){
+      if(lang==='mermaid') return code;
+      if(lang && hljs.getLanguage(lang)) return hljs.highlight(code, {language:lang}).value;
+      return hljs.highlightAuto(code).value;
+    }
+  }));
 }
 
 const ID=location.pathname.split('/').filter(Boolean).pop();
