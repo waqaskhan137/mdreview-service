@@ -1,7 +1,7 @@
 ---
 id: MR-027
 title: Viewer — neutral light mat behind #article img + .histdoc img (theme-safe images; excludes mermaid/katex)
-status: ready
+status: done
 layer: ui
 priority: P1
 sprint: sprint-07
@@ -23,25 +23,25 @@ white-on-transparent figures) is an accepted non-goal — see the plan.
 
 ## Acceptance criteria
 
-- [ ] **The mat.** A CSS rule in `viewer.html`'s top `<style>` gives `#article img, .histdoc img` a
+- [x] **The mat.** A CSS rule in `viewer.html`'s top `<style>` gives `#article img, .histdoc img` a
       near-white `background` (literal `#fafaf9`, the existing light `--bg` value), `padding` (~8px),
       and `border-radius` (8px, matching the existing card radius), keeping `max-width:100%`. This
       extends the existing `#article img{max-width:100%}` rule (`viewer.html:~29`), not a new construct.
-- [ ] **Image-only scope (no regression).** The selector matches only `<img>`; it must NOT match
+- [x] **Image-only scope (no regression).** The selector matches only `<img>`; it must NOT match
       `.mermaid svg` (inline `<svg>`, `viewer.html:~35`) or `.katex` spans. A code comment above the
       rule states it must stay image-only (a later edit must not widen it to `#article > *` and break
       Mermaid's dark theme).
-- [ ] **History modal covered.** `.histdoc img` (the version-history modal draft render, sibling of
+- [x] **History modal covered.** `.histdoc img` (the version-history modal draft render, sibling of
       `.wrap` — `showRound()`) gets the same mat. (Per the plan, this arm isn't render-smokeable at
       first paint — the modal is closed in a `--dump-dom` load — so it's verified by rule presence +
       `showRound()` inspection, optionally a manual open-modal screenshot.)
-- [ ] **No `color-scheme`.** Do NOT add `color-scheme` to `:root`/`html`/`body` or a
+- [x] **No `color-scheme`.** Do NOT add `color-scheme` to `:root`/`html`/`body` or a
       `<meta name="color-scheme">` — measured not to reach `<img>` SVGs (plan's design-fork table).
-- [ ] **No service/DOM change.** `app.py`, routes, storage, `meta.json`, `mcp_server.py` untouched;
+- [x] **No service/DOM change.** `app.py`, routes, storage, `meta.json`, `mcp_server.py` untouched;
       no JS image-wrapping in `render()`/`numberBlocks()`. CSS-only + a comment.
-- [ ] **Default-safe.** A document with no `<img>` renders byte-identical to today on both panes
+- [x] **Default-safe.** A document with no `<img>` renders byte-identical to today on both panes
       (the rule matches nothing) — proven by the no-image screenshot.
-- [ ] **GATING render evidence (both panes), from the rebuilt throwaway container (:8138):**
+- [x] **GATING render evidence (both panes), from the rebuilt throwaway container (:8138):**
       `scripts/render-smoke.sh "$BASE/review/$ID" 'img' '#article' '.mermaid'` → all `ok` (≥1);
       light AND dark screenshots (`--blink-settings=preferredColorScheme=1`/`=0`) of a fixture page
       with a light-authored raster, a light SVG, a **white-on-transparent SVG** (the named non-goal,
@@ -49,10 +49,10 @@ white-on-transparent figures) is an accepted non-goal — see the plan.
       `reviews/sprint-07-render-evidence-2026-06-18/`. Dark screenshot must show: light figures
       legible on the mat (fix), the transparent figure invisible (documented non-goal), Mermaid still
       dark-themed (no regression).
-- [ ] **Docs note rides inside this ticket** (no separate docs-sweep): a one-line behavior note where
+- [x] **Docs note rides inside this ticket** (no separate docs-sweep): a one-line behavior note where
       warranted (e.g. README/CLAUDE viewer-rendering note that images render on a neutral mat;
       light-authored figures are the supported direction). Keep it minimal.
-- [ ] Local validation: `python3 -m py_compile app.py` (sanity); `docker build`; the render-smoke +
+- [x] Local validation: `python3 -m py_compile app.py` (sanity); `docker build`; the render-smoke +
       both-pane screenshots + no-image regression shot above.
 
 ## Notes / context
@@ -69,11 +69,37 @@ white-on-transparent figures) is an accepted non-goal — see the plan.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-18` — **viewer.html:** extended the existing `#article img{max-width:100%}` rule
+  (`viewer.html:29`) to `#article img, .histdoc img{max-width:100%;background:#fafaf9;padding:8px;
+  border-radius:8px;}` with a comment forbidding widening past `<img>` (mermaid `.mermaid svg` and
+  KaTeX `.katex` theme themselves; an `<img>` is opaque; host `color-scheme` can't reach an
+  `<img>`-loaded SVG). `#fafaf9` = the existing light `--bg` so the mat reads as "paper" and blends
+  on the light pane. CSS-only; no `color-scheme`, no `<meta>`, no JS wrapping, no `app.py`/route/
+  storage/MCP change.
+- `2026-06-18` — **CLAUDE.md:** one-line note (images render on a neutral mat; light-authored
+  figures are the supported direction; white-on-transparent is the unsupported direction). Docs note
+  rides inside this ticket (no docs-sweep).
+- Files: `viewer.html`, `CLAUDE.md`.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-18` — `python3 -m py_compile app.py` OK; `docker build` OK; validated from the rebuilt
+  throwaway container (`:8138`, never compose/:8139).
+- `2026-06-18` — `scripts/render-smoke.sh '<id>' 'img' '#article' '.mermaid'` → all ok (img 3 /
+  #article 1 / .mermaid 1).
+- `2026-06-18` — **Both-pane screenshots** (headless Chrome `--blink-settings=preferredColorScheme=
+  1/0`), fixture = light-opaque (A), transparent+dark-strokes (B = the bug), white-on-transparent
+  (C = non-goal), mermaid. Saved under `reviews/sprint-07-render-evidence-2026-06-18/`:
+  - **dark** (`review-theme-dark.png`, the core artifact): A legible on mat; **B legible on the mat
+    (the fix — would be invisible black-on-dark without it)**; C washed-out/invisible (the named
+    non-goal, shown for sign-off); **mermaid dark-themed with NO mat** (no regression).
+  - **light** (`review-theme-light.png`): mat blends near-seamlessly with the `#fafaf9` pane (no
+    harsh seam); A/B legible; mermaid light/default theme.
+- `2026-06-18` — **No-image regression** (`review-noimg-dark.png`): a prose-only doc on a dark pane —
+  the `img` selector matches nothing, render unchanged.
+- `.histdoc img` arm: covered by the rule; not render-smokeable at first paint (history modal is
+  closed in a `--dump-dom` load), verified by rule presence + `showRound()` path inspection (per the
+  plan's stated weaker-evidence caveat).
 
 ## Follow-ups
 

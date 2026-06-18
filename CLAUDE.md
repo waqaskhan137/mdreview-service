@@ -61,6 +61,9 @@ viewer matches by full src then basename and repoints the `<img>` — your `sour
 rewritten. Absolute `http(s)` and `data:` images already work as-is (data-URIs are fine for tiny
 assets, but attach is the way for anything real — you don't resend the blob through `PUT /source`).
 Animated/filtered SVGs (CSS/SMIL, `feTurbulence`) render once reachable; attaching is all they need.
+Images render on a neutral light mat so a light-authored figure stays legible on a dark review pane;
+a figure drawn for a dark background (white-on-transparent) is the unsupported direction and can look
+washed out — author figures light-background-first.
 
 ## Detecting "the human is done"
 

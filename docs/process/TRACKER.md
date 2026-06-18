@@ -16,9 +16,7 @@ sprint-01/02/03/04/05/06 shipped to main (PR #1, #2, #3, #4, #5).
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-027 | Viewer — neutral light mat behind `#article img` + `.histdoc img` (theme-safe images) | ui | P1 | sprint-07 |
+_none_
 
 ## in-progress
 
@@ -57,6 +55,7 @@ _none_
 | MR-024 | MCP `attach_asset` + `list_assets` tools | svc | P0 | sprint-06 |
 | MR-025 | Viewer rewrites local/relative/site-root `<img src>` to served asset URLs | ui | P0 | sprint-06 |
 | MR-026 | Docs sweep: README API table, CLAUDE.md contract, AGENTS.md + MCP docstring (math + assets) | docs | P1 | sprint-06 |
+| MR-027 | Viewer — neutral light mat behind `#article img` + `.histdoc img` (theme-safe images) | ui | P1 | sprint-07 |
 
 ## blocked
 
