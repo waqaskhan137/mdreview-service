@@ -3,14 +3,16 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-18. sprint-06 (rich-rendering) opened (G6) — MR-022–026 committed (math + asset serving, the two P0s). sprint-05 (landing-page) closed at G7, merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-18. sprint-06 (rich-rendering) **closed at G7 (staff-critic PASS)** — math (KaTeX) + asset attach/serve shipped on `dev`, awaiting the standing dev→main PR (G8). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
-**sprint-06 — rich-rendering** (`active`, opened 2026-06-18). Epic: `rich-rendering` (G1 passed, 2 rounds). Goal: render math (KaTeX) + serve attached local/relative images in the viewer, over HTTP and MCP. Committed: MR-022 (math), MR-023 (asset storage), MR-024 (MCP), MR-025 (viewer img rewrite), MR-026 (docs sweep). The local-dir `path` read form is cut to backlog (S5).
+_none active_ — sprint-06 closed; work sits on `dev` pending the G8 merge.
+
+**sprint-06 — rich-rendering** (`closed`, 2026-06-18). Epic: `rich-rendering` (G1 passed 2 rounds; G7 PASS). Shipped the two P0s: math rendering (KaTeX marked-extension) + per-review asset attach/serve over HTTP & MCP + viewer `<img>` rewrite. MR-022–026 all `done`; local-dir `path` read form cut to backlog (S5). On `dev`, not yet merged to main.
 
 **sprint-05 — landing-page** (`closed`, 2026-06-09; merged to main, PR #4). Epic: `landing-page`. G7 PASS; MR-019 done, MR-020 done (carry-over discharged: DNS added, cert issued, HTTPS enforced, README URL recorded). MR-021 (GIF demo) remains backlog.
-sprint-01/02/03/04/05 shipped to main (PR #1, #2, #3, #4).
+sprint-01/02/03/04/05 shipped to main (PR #1, #2, #3, #4); sprint-06 on `dev`.
 
 ## ready
 
@@ -73,4 +75,4 @@ _none_
 | process-hardening-2 | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
 | mcp-wrapper | done (merged to main 2026-06-09, PR #3) | G1 passed 2026-06-09 (2 rounds) | sprint-04 |
 | landing-page | done (merged to main 2026-06-09, PR #4; live at mdreview.waqasrana.space; MR-021 GIF demo in backlog) | G1 passed 2026-06-09 (2 rounds) | sprint-05 |
-| rich-rendering | active (G1 cleared; tickets MR-022–026 ready) | G1 passed 2026-06-18 (2 rounds) | sprint-06 |
+| rich-rendering | done (G7 PASS 2026-06-18; on `dev`, pending G8 merge) | G1 passed 2026-06-18 (2 rounds) | sprint-06 |

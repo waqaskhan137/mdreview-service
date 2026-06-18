@@ -1,6 +1,6 @@
 ---
 epic: rich-rendering
-status: active         # draft | active | done  (stays draft until G1 passes)
+status: done           # draft | active | done  (stays draft until G1 passes)
 created: 2026-06-18
 source: requirements/rich-rendering.md
 gate: passed 2026-06-18  # G1 (Plan Gate): passed (round 2, staff-critic PASS) — tickets unblocked
