@@ -76,6 +76,10 @@ never resend blobs). The viewer rewrites local/relative/site-root `<img src>` to
 so a math- and image-heavy draft renders in review the way it does on the published site. base64 is
 the only transport; the served `url` keys on the hash name (no encoded slashes), so it survives a
 reverse proxy. Assets are review-scoped (not history-snapshotted) and removed with the review.
+Like the rest of the service, asset serving inherits the **no-auth, id-only** posture: bytes are
+served with the content-type inferred from the attached `name`, so treat an attached asset like the
+draft's own HTML — don't attach bytes you wouldn't trust in `source.md`. (Responses carry
+`X-Content-Type-Options: nosniff`; keep auth in front if you expose the service.)
 
 Feedback `notes[]` entries look like:
 `{"num": "3", "quote": "...", "note": "tighten this", "addressed": false}`,
