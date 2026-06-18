@@ -5,8 +5,8 @@ created: 2026-06-18
 source: requirements/theme-awareness.md
 gate: passed 2026-06-18  # G1 (Plan Gate): passed (round 2, staff-critic PASS) — tickets unblocked
 review: reviews/theme-awareness-plan-review-2026-06-18.md, reviews/theme-awareness-plan-review-2026-06-18-r2.md
-related_sprints: []    # sprint-07 once committed
-related_tickets: []    # empty until G1 passes and tickets are created
+related_sprints: [sprint-07]
+related_tickets: [MR-027]
 ---
 
 # Theme awareness in the review viewer — Plan
