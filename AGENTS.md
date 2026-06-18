@@ -71,7 +71,8 @@ poll `get_status`/`get_feedback`, then `update_source`. A failed call returns an
 an unknown tool name is a `-32602` error. Set `MDREVIEW_PUBLIC_BASE` on the service so the
 `review_url` you hand a human is reachable.
 
-The viewer renders **LaTeX math** (inline `$…$` / `\(…\)`, display `$$…$$` / `\[…\]`; prose/currency
+The viewer renders **GFM footnotes** (`[^id]` → ordered back-ref section) and **syntax-highlighted**
+fenced code (dual-scheme, both panes), plus **LaTeX math** (inline `$…$` / `\(…\)`, display `$$…$$` / `\[…\]`; prose/currency
 `$` stays literal) and Mermaid. For **images** with a local/relative/site-root `src`, `attach_asset`
 the bytes once (base64, keyed by the exact draft `src`); they survive every `update_source` and the
 viewer repoints the `<img>` — see `CLAUDE.md` "Rich content: math and images".

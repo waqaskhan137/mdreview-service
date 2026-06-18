@@ -43,6 +43,9 @@ draft reviews as it will publish:
   POST the markdown.
 - **Mermaid** ```` ```mermaid ```` fenced blocks render, and YAML front matter is stripped (not shown
   as text). Both already work.
+- **GFM footnotes** (`[^id]` refs + `[^id]: …` definitions) render as superscript links to an ordered
+  back-reference section, and **fenced code** (```` ```python ````) is syntax-highlighted (a
+  dual-scheme theme that reads on light and dark panes; unlabelled code is best-effort auto-detected).
 - **Images** with a **site-root (`/assets/x.png`), relative (`../img/y.svg`), or bare** src won't
   load on their own — the service has your document, not your asset directory. **Attach the bytes
   once** and the viewer serves and rewrites the `<img>` for you:
