@@ -3,11 +3,13 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-18. sprint-07 (theme-awareness) opened (G6) — MR-027 committed (neutral image mat for dark panes). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-18. sprint-07 (theme-awareness) **closed at G7 (staff-critic PASS)** — neutral image mat shipped on `dev`, awaiting the standing dev→main PR (G8). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
-**sprint-07 — theme-awareness** (`active`, opened 2026-06-18). Epic: `theme-awareness` (G1 passed, 2 rounds). Goal: a neutral light mat behind `#article img` + `.histdoc img` so light-authored figures stay legible on a dark review pane (excludes mermaid/katex). Committed: MR-027 (ui). Inverse case (dark-authored figures) is an accepted non-goal (luminance heuristic backlog).
+_none active_ — sprint-07 closed; work sits on `dev` pending the G8 merge.
+
+**sprint-07 — theme-awareness** (`closed`, 2026-06-18). Epic: `theme-awareness` (G1 passed 2 rounds; G7 PASS). Shipped MR-027: a near-white mat behind `#article img` + `.histdoc img` so light-authored figures stay legible on a dark review pane (excludes mermaid/katex; CSS-only). Inverse case (dark-authored/white-on-transparent figures) is an accepted non-goal (luminance heuristic backlog). On `dev`, not yet merged to main.
 
 **sprint-06 — rich-rendering** (`closed`, 2026-06-18; merged to main, PR #5). Epic: `rich-rendering` (G1 passed 2 rounds; G7 PASS). Shipped the two P0s: math rendering (KaTeX marked-extension) + per-review asset attach/serve over HTTP & MCP + viewer `<img>` rewrite. MR-022–026 all `done`; local-dir `path` read form cut to backlog (S5).
 
@@ -77,4 +79,4 @@ _none_
 | mcp-wrapper | done (merged to main 2026-06-09, PR #3) | G1 passed 2026-06-09 (2 rounds) | sprint-04 |
 | landing-page | done (merged to main 2026-06-09, PR #4; live at mdreview.waqasrana.space; MR-021 GIF demo in backlog) | G1 passed 2026-06-09 (2 rounds) | sprint-05 |
 | rich-rendering | done (merged to main 2026-06-18, PR #5) | G1 passed 2026-06-18 (2 rounds) | sprint-06 |
-| theme-awareness | active (G1 cleared; MR-027 ready) | G1 passed 2026-06-18 (2 rounds) | sprint-07 |
+| theme-awareness | done (G7 PASS 2026-06-18; on `dev`, pending G8 merge) | G1 passed 2026-06-18 (2 rounds) | sprint-07 |
