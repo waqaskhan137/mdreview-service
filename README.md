@@ -7,10 +7,12 @@ No per-process spawning, no shared filesystem with the agent.
 **Landing page:** [mdreview.waqasrana.space](https://mdreview.waqasrana.space/) (served from the
 `gh-pages` branch; source in `site/`).
 
-Stdlib Python only (tiny image, no pip installs). Self-contained: the marked, Mermaid, and KaTeX
-renderers are vendored and served from `/static`, so the browser needs no CDN. The viewer renders
-Markdown, Mermaid diagrams, and **LaTeX math** — inline `$…$` / `\(…\)` and display `$$…$$` /
-`\[…\]`, matching a Jekyll/MathJax site (prose/currency `$` is left literal).
+Stdlib Python only (tiny image, no pip installs). Self-contained: the marked, Mermaid, KaTeX,
+highlight.js, and footnote renderers are vendored and served from `/static`, so the browser needs no
+CDN. The viewer renders Markdown the way a Jekyll/MathJax site does: **LaTeX math** (inline `$…$` /
+`\(…\)`, display `$$…$$` / `\[…\]`; prose/currency `$` left literal), **Mermaid** diagrams, **GFM
+footnotes** (`[^id]` refs → an ordered back-ref section), and **syntax-highlighted** fenced code (a
+dual-scheme theme that reads on light and dark panes).
 
 ## Run
 

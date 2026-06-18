@@ -29,6 +29,15 @@ Precondition: every committed ticket is `done`.
      `reviews/sprint-NN-render-evidence-YYYY-MM-DD/` (a 200 is not proof a JS page renders). A
      docs/infra-only sprint that touches no product page skips this per-page step but still owes
      the rebuild + curl smoke above.
+   - **(new) For theme/color work, a node-count smoke + a screenshot are not enough — add a
+     `getComputedStyle` check.** `render-smoke.sh` only counts elements, and a screenshot only catches
+     what the fixture happens to contain: a token can be *present and rendered* yet invisible
+     (wrong/black color on its pane). For any change that touches token colors or a theme (e.g. a
+     highlight theme, a dark-pane rule), assert the **computed color** of a high-risk node on the
+     at-risk pane (drive headless Chrome with `--blink-settings=preferredColorScheme=0/1` and read
+     `getComputedStyle(el).color`), and use a fixture that actually contains the risky token.
+     (render-fidelity G7: `.hljs-doctag` rendered but computed black-on-dark — invisible; node-count
+     and the screenshot both passed, only the computed-style check caught it.)
    - If any touched page fails to render -> **park** (do not pass G7): `## BLOCKED` note in the sprint +
      epic, draft `[BLOCKED]` PR, arm the retro marker, run Phase 10.
 2. **Independent review (staff-critic):** spawn `staff-critic` (reviewer != implementer) on the
