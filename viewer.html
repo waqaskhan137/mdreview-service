@@ -34,6 +34,13 @@
      drafts. Supported direction: light-authored figures; a dark/transparent figure on the mat is a
      known non-goal (it can go invisible) — see epics/theme-awareness-plan.md. */
   #article img, .histdoc img{max-width:100%;background:#fafaf9;padding:8px;border-radius:8px;}
+  /* GFM footnotes: marked-footnote appends a footnotes section at the end of the article, led by a
+     screen-reader-only heading. The viewer has no .sr-only rule otherwise, so without the clip rule
+     below that heading renders as a full-size accent banner. */
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;padding:0;margin:-1px;}
+  #article .footnotes{margin-top:32px;border-top:1px solid var(--rule);padding-top:6px;font-size:15px;color:var(--muted);}
+  #article .footnotes ol{padding-left:1.2em;}
+  #article sup a,#article .footnotes a{color:var(--accent);text-decoration:none;}
   #article hr{border:none;border-top:1px solid var(--rule);margin:8px 0;}
   #doctitle{font-size:38px;line-height:1.15;letter-spacing:-.02em;margin:10px 0 6px;font-weight:700;}
   #doctitle:empty{display:none;}
@@ -144,6 +151,7 @@
 <script src="/static/marked.min.js"></script>
 <script src="/static/mermaid.min.js"></script>
 <script src="/static/katex.min.js"></script>
+<script src="/static/marked-footnote.umd.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 let META={name:"file.md",path:""};
@@ -183,11 +191,14 @@ function katexHTML(tex, display){
   try{ return katex.renderToString(tex, {displayMode:display, throwOnError:false}); }
   catch(e){ return (display?'$$':'$')+escapeHtml(tex)+(display?'$$':'$'); }
 }
-let _katexReady=false;
-function setupKatex(){
-  if(_katexReady||!window.marked||!window.katex)return;
-  _katexReady=true;
-  marked.use({extensions:[
+// Register marked extensions once, before any marked.parse(). Each feature is guarded on its own
+// global, so a missing vendored asset degrades to today's behavior instead of throwing (default-safe).
+let _markedReady=false;
+function setupMarked(){
+  if(_markedReady||!window.marked)return;
+  _markedReady=true;
+  // Math (KaTeX): inline $…$ / \(…\), display $$…$$ / \[…\].
+  if(window.katex) marked.use({extensions:[
     { name:'blockMath', level:'block',
       start(src){ const m=src.match(/\$\$|\\\[/); return m?m.index:undefined; },
       tokenizer(src){
@@ -207,6 +218,9 @@ function setupKatex(){
       },
       renderer(t){ return katexHTML(t.text, false); } },
   ]});
+  // GFM footnotes: window.markedFootnote IS the factory; refs -> ordered back-ref section.
+  var mf=window.markedFootnote;
+  if(typeof mf==='function') marked.use(mf());
 }
 
 const ID=location.pathname.split('/').filter(Boolean).pop();
@@ -235,7 +249,7 @@ async function rewriteAssetImages(root){
 }
 
 async function boot(){
-  setupKatex();   // register the math marked-extension once, before any marked.parse()
+  setupMarked();  // register marked extensions (math, footnotes, …) once, before any marked.parse()
   initMermaid();
   META=await fetch(API).then(r=>r.json()).catch(()=>({}));
   DOC="mdreview:"+ID;
