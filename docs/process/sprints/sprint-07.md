@@ -23,7 +23,7 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-027 | Viewer — neutral light mat behind `#article img` + `.histdoc img` (excludes mermaid/katex) | ui | P1 | ready |
+| MR-027 | Viewer — neutral light mat behind `#article img` + `.histdoc img` (excludes mermaid/katex) | ui | P1 | done |
 
 Single-ticket sprint (the plan resolved to one focused CSS change). No P2/MR-021 work committed.
 
