@@ -92,6 +92,20 @@ contract; your plan is the artifact that clears **Gate G1**.
    symbol exists. **Cite gates and process sections by name** (e.g. "the G7 pass-condition row",
    "the Definition of Done section"), never by line number — process docs grow and numeric
    anchors drift (they went stale in two cycles running). Reserve line numbers for code.
+   - **Measure render-observable forks; don't argue them.** When a design choice turns on actual
+     browser/library behavior — does host `color-scheme` reach an `<img>`-loaded SVG? does `marked`
+     consume a delimiter before your post-pass sees it? does a CSS mat help or hurt a given figure? —
+     settle it with a 2-minute screenshot / `--dump-dom` / `node` probe and record the outcome as a
+     small result **table** in the plan, not a prose argument. Prose-plausible-but-wrong is exactly
+     how a bad assumption reaches G1 (rich-rendering: the auto-render post-pass was sound on paper,
+     broken in the browser, caught only at G4).
+   - **When the fix is asymmetric, measure BOTH directions before you scope it.** A fix that helps
+     one case often hurts the inverse. Measure the inverse with the same rigor as the main case
+     before claiming what it fixes — a symmetric claim backed by a one-sided measurement is a
+     recurring G1 blocker (theme-awareness: the light mat was measured rigorously for light-on-dark
+     but the regression on white-on-transparent figures, 238→5, was asserted from prose and became
+     the blocker). If asymmetric, name the unfixed/regressed direction a non-goal in the plan and
+     **show it in a verification fixture** so it's signed off, not discovered post-ship.
 3. **Surface clarifying questions + explicit assumptions FIRST**, in an "Assumptions & open
    questions" section. Tag each question **load-bearing** (changes the design) or **minor**, and
    give the best-effort assumption you are planning against with a one-line justification. You are
