@@ -26,7 +26,14 @@
   #article pre{background:rgba(127,127,127,.1);padding:14px;border-radius:8px;overflow:auto;font-size:14px;}
   #article code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em;}
   #article a{color:var(--accent);}
-  #article img{max-width:100%;}
+  /* Images get a near-white "paper" mat so a light-authored figure stays legible on a dark pane
+     instead of smearing into it (theme-awareness / MR-027). Keep this IMAGE-ONLY — never widen to
+     #article > *: mermaid (.mermaid svg, inline, JS-themed) and KaTeX (.katex spans) theme
+     themselves and a mat would fight them; an <img> is an opaque box we can't introspect, and the
+     pane's color-scheme can't reach an <img>-loaded SVG. .histdoc img covers the history-modal
+     drafts. Supported direction: light-authored figures; a dark/transparent figure on the mat is a
+     known non-goal (it can go invisible) — see epics/theme-awareness-plan.md. */
+  #article img, .histdoc img{max-width:100%;background:#fafaf9;padding:8px;border-radius:8px;}
   #article hr{border:none;border-top:1px solid var(--rule);margin:8px 0;}
   #doctitle{font-size:38px;line-height:1.15;letter-spacing:-.02em;margin:10px 0 6px;font-weight:700;}
   #doctitle:empty{display:none;}

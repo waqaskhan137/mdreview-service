@@ -11,6 +11,12 @@ Precondition: every committed ticket is `done`.
    - **(new)** the sprint file's committed-ticket table / close-gate checkboxes are updated to
      match the ticket frontmatter;
    - **(new)** `TRACKER.md` rows are moved to the section matching each ticket's `status`.
+   - **(new) Scope any `main...dev` diff-check against `origin/main`, not local `main`.** Local
+     `main` goes stale once a prior cycle's standing PR merges on GitHub but you never `git checkout
+     main`/pull. `git fetch origin main` first, then diff `origin/main...dev` (or the sprint's commit
+     range) — otherwise the scope check shows the *previous* cycle's work too and the critic chases a
+     phantom (theme-awareness G7 NIT: local `main` was behind, so `git diff main...dev` carried all
+     of sprint-06). Tell the critic to scope against `origin/main` in its prompt.
    **Not in this step:** setting `close_review:`, setting `status: closed`, or writing the retro —
    those stay in **Phase 8**, because `close_review:` names the review file the critic *produces*
    and cannot exist before the critic runs.

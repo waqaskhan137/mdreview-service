@@ -66,6 +66,20 @@ contract; your plan is the artifact that clears **Gate G1**.
    to that `COPY`, and the `ui` ticket that introduces the asset **must carry that infra change**
    — otherwise the rebuilt container serves an empty 200 (the sprint-01 bug, fixed in commit
    `1326462`). Call this out in the plan whenever a feature adds a served file.
+10. **No `do_HEAD` — HEAD requests 501.** The `BaseHTTPRequestHandler` defines only
+    `do_GET/POST/PUT/DELETE/OPTIONS`, so a `HEAD` (e.g. `curl -sI`) returns a 501 `text/html` error
+    page, **not** the real headers. Any verification step that checks a response's `Content-Type`,
+    `Content-Length`, or other header (e.g. confirming a `.woff2`/asset is served as `font/woff2`)
+    must use a **GET header-dump** — `curl -sD - -o /dev/null <url>` — never `curl -sI`. Write the
+    AC with the GET form; an AC that ships `curl -sI` checks the 501 page and silently mis-verifies.
+    (sprint-06 lesson: the rich-rendering plan's `curl -sI` font-MIME checks were corrected to GET
+    header-dumps at G4.)
+11. **`render-smoke.sh` is a flat matcher, not a CSS engine.** Its selectors support only `tag`,
+    `.class`, `tag.class[.class…]`, and `#id` — **no descendant combinators, attributes, or
+    pseudo-classes**. A selector with a space (e.g. `#article img`) is rejected as bad usage (exit
+    2), not a render miss. When an AC asserts a node *inside* a container, give two separate
+    selectors (`'img' '#article'`), not `'#article img'`. (sprint-06 lesson: `#article img` in an
+    AC failed loud and was split into `img` + `#article`.)
 
 ## Method
 1. **Capture vs locate.** If handed a brief, the verbatim source belongs in
@@ -78,6 +92,20 @@ contract; your plan is the artifact that clears **Gate G1**.
    symbol exists. **Cite gates and process sections by name** (e.g. "the G7 pass-condition row",
    "the Definition of Done section"), never by line number — process docs grow and numeric
    anchors drift (they went stale in two cycles running). Reserve line numbers for code.
+   - **Measure render-observable forks; don't argue them.** When a design choice turns on actual
+     browser/library behavior — does host `color-scheme` reach an `<img>`-loaded SVG? does `marked`
+     consume a delimiter before your post-pass sees it? does a CSS mat help or hurt a given figure? —
+     settle it with a 2-minute screenshot / `--dump-dom` / `node` probe and record the outcome as a
+     small result **table** in the plan, not a prose argument. Prose-plausible-but-wrong is exactly
+     how a bad assumption reaches G1 (rich-rendering: the auto-render post-pass was sound on paper,
+     broken in the browser, caught only at G4).
+   - **When the fix is asymmetric, measure BOTH directions before you scope it.** A fix that helps
+     one case often hurts the inverse. Measure the inverse with the same rigor as the main case
+     before claiming what it fixes — a symmetric claim backed by a one-sided measurement is a
+     recurring G1 blocker (theme-awareness: the light mat was measured rigorously for light-on-dark
+     but the regression on white-on-transparent figures, 238→5, was asserted from prose and became
+     the blocker). If asymmetric, name the unfixed/regressed direction a non-goal in the plan and
+     **show it in a verification fixture** so it's signed off, not discovered post-ship.
 3. **Surface clarifying questions + explicit assumptions FIRST**, in an "Assumptions & open
    questions" section. Tag each question **load-bearing** (changes the design) or **minor**, and
    give the best-effort assumption you are planning against with a one-line justification. You are

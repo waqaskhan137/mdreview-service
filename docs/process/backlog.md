@@ -15,6 +15,26 @@ entry to a line or two with enough context to pick up later.
   plan). The shipped server is stdlib-only by design; a separate, clearly-optional SDK-based variant
   could track the spec automatically at the cost of a dependency. Its own epic if pursued.
 
+## From the rich-rendering brief (sprint-06) — deferred P1/P2
+
+The agent's real-review feedback (`requirements/rich-rendering.md`) had more than the two P0s we
+shipped. These were scoped out by the user and are the natural next thread:
+
+- **Theme awareness (P1)** — *highest-value remainder, same real-review report.* An image that
+  assumes a light background looks wrong on a dark review pane (the agent: "exactly the bug we just
+  hit on the site"). Want: render the doc/images on a consistent neutral card regardless of pane
+  theme, **or** set the host `color-scheme` so `@media (prefers-color-scheme)` inside `<img>` SVGs
+  fires and theme-aware diagrams adapt. Focused `ui` change to `viewer.html`. Its own small sprint.
+- **Footnotes (P2)** — GFM footnotes show as text; marked core needs an extension. **Now cheap:**
+  sprint-06 established the marked-extension pattern (`setupKatex` in `viewer.html`), so a footnote
+  extension is the same shape. `ui`.
+- **Syntax highlighting (P2)** — fenced code isn't highlighted; no highlighter is bundled. Vendor a
+  small highlighter into `static/` (same stdlib-vendoring approach as KaTeX/marked/mermaid) and wire
+  it into the render path. `ui`+`infra` (a new `static/` file, copied by the existing `COPY static/`).
+- **Local-dir `{name,path}` asset read (cut at S5)** — the server-side-file-read attach form, cut
+  from sprint-06 for the no-auth posture. If revived: **must** ship the `os.path.realpath(root) +
+  os.sep` boundary check + negative-path ACs (see `rich-rendering-plan.md` Risks). Low priority.
+
 ## Ideas (ungroomed)
 
 - **process-hardening-3 (tiny)** — from the `mcp-wrapper` retro: (a) `[agent]` give the planner a
