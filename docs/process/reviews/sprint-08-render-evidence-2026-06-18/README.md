@@ -20,3 +20,12 @@ highlighted code); table renders.
 
 **`review-light.png`** (preferredColorScheme=1) — github-light token colors on the light pre
 background; same structure.
+
+## G7 fix (SHOULD-1) — `review-doctag-dark.png`
+
+The G7 critic found that the CSS-strip regex orphaned `pre code`/`code` from the upstream
+`pre code.hljs{…}` base rules, gluing `pre codecode` onto the first token selector in each block —
+which dropped `.hljs-doctag` to default black (invisible on dark). Fixed by regenerating
+`hljs-github.css` to remove the **full** base-rule selectors. `review-doctag-dark.png` shows a
+JSDoc `/** @param … */` fence on the dark pane with `@param` (`.hljs-doctag`) rendered red
+(`#ff7b72`) and legible. CSS values confirmed: light `.hljs-doctag` `#d73a49`, dark `#ff7b72`.

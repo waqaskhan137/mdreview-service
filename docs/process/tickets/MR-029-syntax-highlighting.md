@@ -116,6 +116,16 @@ of render-fidelity. Depends on MR-028 only to avoid a trivial `setupMarked()`/he
 - **Default-safe:** a no-code doc emits no `.hljs` (highlight only touches fenced code); `marked.parse`
   stays synchronous with all three extensions (math + footnote + highlight) registered.
 
+## G7 fix
+
+- `2026-06-18` — **SHOULD-1 (G7 close review):** the CSS-strip regex matched only the `.hljs{…}`
+  fragment of upstream `pre code.hljs{…}` / `code.hljs{…}` base rules, orphaning `pre code`/`code`
+  into `pre codecode` glued onto the first token selector — which dropped `.hljs-doctag` to default
+  black (invisible on the dark pane; reachable via a JSDoc `/** @param */` fence). Fixed: regenerated
+  `static/hljs-github.css` removing the **full** base-rule selectors (`[…]\.hljs\{…\}`). Verified in
+  the rebuilt container: served CSS now sets `.hljs-doctag` `color:#d73a49` (light) / `#ff7b72`
+  (dark); render-smoke still green; `review-doctag-dark.png` shows `@param` red + legible on dark.
+
 ## Follow-ups
 
 - A different dual theme is a drop-in `hljs-github.css` swap if github isn't preferred.
