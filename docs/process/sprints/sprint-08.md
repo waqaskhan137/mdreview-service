@@ -25,9 +25,9 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-028 | Vendor `marked-footnote`; render GFM footnotes (refs + ordered back-ref section) | ui | P2 | ready |
-| MR-029 | Vendor highlight.js (common) + `marked-highlight` + dual-scheme theme; highlight fenced code (skip mermaid) | ui | P2 | ready |
-| MR-030 | Docs — footnotes + syntax highlighting render in the viewer | docs | P2 | ready |
+| MR-028 | Vendor `marked-footnote`; render GFM footnotes (refs + ordered back-ref section) | ui | P2 | done |
+| MR-029 | Vendor highlight.js (common) + `marked-highlight` + dual-scheme theme; highlight fenced code (skip mermaid) | ui | P2 | done |
+| MR-030 | Docs — footnotes + syntax highlighting render in the viewer | docs | P2 | done |
 
 All vendored assets (~136 KB total) are committed into `static/` and served by the existing route —
 no `app.py` / `Dockerfile` change. MR-021, the cut local-dir asset read, and the infra backlog items
