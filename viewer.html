@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview</title>
+<link rel="stylesheet" href="/static/katex.min.css">
 <style>
   :root{--bg:#fafaf9;--text:#1a1a1a;--muted:#6b6b6b;--accent:#0f766e;--rule:#e6e4e0;--noteline:#e0a800;}
   @media (prefers-color-scheme: dark){:root{--bg:#111;--text:#f1efec;--muted:#9a9a9a;--accent:#2dd4bf;--rule:#2a2a2a;--noteline:#d4a017;}}
@@ -135,6 +136,7 @@
 <div id="toast"></div>
 <script src="/static/marked.min.js"></script>
 <script src="/static/mermaid.min.js"></script>
+<script src="/static/katex.min.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 let META={name:"file.md",path:""};
@@ -163,11 +165,70 @@ async function renderMermaid(){
     try{await mermaid.run({querySelector:'#article .mermaid'});}catch(e){console.warn('mermaid render failed',e);}
   }
 }
+// Math rendering: a marked extension tokenizes math DURING the markdown parse and renders it
+// to HTML with KaTeX. It must run inside marked, not as a post-pass: marked strips the
+// backslashes from \(...\) / \[...\] (turning them into literal parens/brackets) and can mangle
+// $...$ internals, and KaTeX's auto-render bare-$ scan pairs prose dollars (rendering "$5 and
+// $10" as math). The tokenizers below match Jekyll/MathJax delimiters — inline $...$ and \(...\),
+// display $$...$$ and \[...\] — with a no-whitespace-hugging rule on $...$ so prose/currency/lone
+// $ stays literal; code spans and fenced blocks are skipped by marked's own tokenizer.
+function katexHTML(tex, display){
+  try{ return katex.renderToString(tex, {displayMode:display, throwOnError:false}); }
+  catch(e){ return (display?'$$':'$')+escapeHtml(tex)+(display?'$$':'$'); }
+}
+let _katexReady=false;
+function setupKatex(){
+  if(_katexReady||!window.marked||!window.katex)return;
+  _katexReady=true;
+  marked.use({extensions:[
+    { name:'blockMath', level:'block',
+      start(src){ const m=src.match(/\$\$|\\\[/); return m?m.index:undefined; },
+      tokenizer(src){
+        let m=/^\$\$([\s\S]+?)\$\$/.exec(src);
+        if(m) return {type:'blockMath', raw:m[0], text:m[1].trim(), display:true};
+        m=/^\\\[([\s\S]+?)\\\]/.exec(src);
+        if(m) return {type:'blockMath', raw:m[0], text:m[1].trim(), display:true};
+      },
+      renderer(t){ return katexHTML(t.text, true); } },
+    { name:'inlineMath', level:'inline',
+      start(src){ const m=src.match(/\$[^\s$]|\\\(/); return m?m.index:undefined; },
+      tokenizer(src){
+        let m=/^\\\(([\s\S]+?)\\\)/.exec(src);
+        if(m) return {type:'inlineMath', raw:m[0], text:m[1].trim(), display:false};
+        m=/^\$([^\s$](?:[^$\n]*[^\s$])?)\$/.exec(src);
+        if(m) return {type:'inlineMath', raw:m[0], text:m[1], display:false};
+      },
+      renderer(t){ return katexHTML(t.text, false); } },
+  ]});
+}
 
 const ID=location.pathname.split('/').filter(Boolean).pop();
 const API='/api/reviews/'+ID;
 
+// Point <img> sources at attached assets the service now hosts. The agent attached the draft's
+// images to the review, so a site-root (/assets/x.png) or source-relative (../img/y.svg) src is
+// matched to an attached asset — by full draft src first, then basename — and repointed at the
+// served stored-name URL (%2F-free). Absolute http(s)/protocol-relative/data: srcs and unmatched
+// local srcs are left untouched (no regression, no source.md mutation).
+async function rewriteAssetImages(root){
+  const imgs=[...root.querySelectorAll('img')];
+  if(!imgs.length)return;
+  let assets=[];
+  try{ assets=((await fetch(API+'/assets').then(r=>r.json()))||{}).assets||[]; }catch(e){ return; }
+  if(!assets.length)return;
+  const base=s=>s.split(/[?#]/)[0].split('/').pop();
+  const byName=new Map(), byBase=new Map();
+  for(const a of assets){ byName.set(a.name,a); const b=base(a.name); if(!byBase.has(b))byBase.set(b,a); }
+  for(const img of imgs){
+    const src=img.getAttribute('src')||'';
+    if(!src||/^(https?:|data:|\/\/)/i.test(src))continue;
+    const m=byName.get(src)||byBase.get(base(src));
+    if(m&&m.url)img.src=m.url;
+  }
+}
+
 async function boot(){
+  setupKatex();   // register the math marked-extension once, before any marked.parse()
   initMermaid();
   META=await fetch(API).then(r=>r.json()).catch(()=>({}));
   DOC="mdreview:"+ID;
@@ -201,6 +262,7 @@ async function load(){
   const dm=$("#docmeta");if(dm)dm.textContent=words.toLocaleString()+" words  ·  ~"+Math.max(1,Math.round(words/200))+" min read";
   const html=window.marked?marked.parse(md):("<pre>"+escapeHtml(md)+"</pre>");
   const art=$("#article");art.innerHTML=html;
+  await rewriteAssetImages(art);   // repoint local <img> at served assets before reparenting
   numberBlocks();
   await renderMermaid();
   reconcile();

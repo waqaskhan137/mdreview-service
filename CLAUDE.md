@@ -33,6 +33,35 @@ curl -s -X PUT "$BASE/api/reviews/<id>/source" -H 'Content-Type: application/jso
 curl -s -X DELETE "$BASE/api/reviews/<id>"
 ```
 
+## Rich content: math and images
+
+The viewer renders math and diagrams the way a Jekyll/MathJax site does, so a math- or image-heavy
+draft reviews as it will publish:
+
+- **Math** renders client-side (KaTeX): inline `$…$` / `\(…\)`, display `$$…$$` / `\[…\]`. A lone or
+  currency `$` in prose (`$5 and $10`) stays literal, as does `$` inside code. Nothing to do — just
+  POST the markdown.
+- **Mermaid** ```` ```mermaid ```` fenced blocks render, and YAML front matter is stripped (not shown
+  as text). Both already work.
+- **Images** with a **site-root (`/assets/x.png`), relative (`../img/y.svg`), or bare** src won't
+  load on their own — the service has your document, not your asset directory. **Attach the bytes
+  once** and the viewer serves and rewrites the `<img>` for you:
+
+```bash
+# attach an image, keyed by the EXACT src the draft uses (base64 body). Survives every PUT /source.
+b64=$(base64 -i fig/plot.png | tr -d '\n')
+curl -s -X POST "$BASE/api/reviews/<id>/assets" -H 'Content-Type: application/json' \
+  -d "{\"name\":\"fig/plot.png\",\"content_b64\":\"$b64\"}"
+# -> {"name":"fig/plot.png","stored":"<hash>.png","url":".../asset/<hash>.png","bytes":...,"ctype":"image/png"}
+curl -s "$BASE/api/reviews/<id>/assets"   # list what's attached
+```
+
+Attach under the same `name` as the `src` in your markdown (full path, or a unique basename); the
+viewer matches by full src then basename and repoints the `<img>` — your `source.md` is never
+rewritten. Absolute `http(s)` and `data:` images already work as-is (data-URIs are fine for tiny
+assets, but attach is the way for anything real — you don't resend the blob through `PUT /source`).
+Animated/filtered SVGs (CSS/SMIL, `feTurbulence`) render once reachable; attaching is all they need.
+
 ## Detecting "the human is done"
 
 There is no explicit "submit" from the human; feedback streams as they type. Practical options:
@@ -59,7 +88,7 @@ same content as a readable block per note. Use whichever you prefer.
 
 `mcp_server.py` is a thin, stdlib-only stdio MCP server (JSON-RPC 2.0, spec rev `2025-06-18`)
 exposing the API as tools (`create_review`, `list_reviews`, `get_review`, `get_feedback`,
-`get_status`, `update_source`, `get_history`, `delete_review`). Run
+`get_status`, `update_source`, `get_history`, `attach_asset`, `list_assets`, `delete_review`). Run
 `MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py`; smoke with `mcp_smoke.py`. It wraps a
 running service and adds no state. Set `MDREVIEW_PUBLIC_BASE` on the service so a relayed
 `review_url` is reachable. See `README.md` and `docs/future-mcp.md`.

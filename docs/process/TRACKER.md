@@ -3,12 +3,16 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-09. sprint-05 (landing-page) closed at G7 (staff-critic PASS); MR-020 remainder carried (user DNS step). On dev awaiting promotion.
+Last updated: 2026-06-18. sprint-06 (rich-rendering) **closed at G7 (staff-critic PASS)** — math (KaTeX) + asset attach/serve shipped on `dev`, awaiting the standing dev→main PR (G8). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
-**sprint-05 — landing-page** (`closed`, 2026-06-09). Epic: `landing-page`. G7 PASS; MR-019 done, MR-020 carried (blocked on user DNS; resume sequence in ticket). Awaits promotion.
-sprint-01/02/03/04 shipped to main (PR #1, #2, #3).
+_none active_ — sprint-06 closed; work sits on `dev` pending the G8 merge.
+
+**sprint-06 — rich-rendering** (`closed`, 2026-06-18). Epic: `rich-rendering` (G1 passed 2 rounds; G7 PASS). Shipped the two P0s: math rendering (KaTeX marked-extension) + per-review asset attach/serve over HTTP & MCP + viewer `<img>` rewrite. MR-022–026 all `done`; local-dir `path` read form cut to backlog (S5). On `dev`, not yet merged to main.
+
+**sprint-05 — landing-page** (`closed`, 2026-06-09; merged to main, PR #4). Epic: `landing-page`. G7 PASS; MR-019 done, MR-020 done (carry-over discharged: DNS added, cert issued, HTTPS enforced, README URL recorded). MR-021 (GIF demo) remains backlog.
+sprint-01/02/03/04/05 shipped to main (PR #1, #2, #3, #4); sprint-06 on `dev`.
 
 ## ready
 
@@ -45,12 +49,16 @@ _none_
 | MR-017 | mcp_smoke.py — stdlib smoke harness | svc | P1 | sprint-04 |
 | MR-018 | Docs — MCP wrapper | docs | P2 | sprint-04 |
 | MR-019 | Author buildless landing page (site/index.html) with dashboard tokens, static demo, CNAME | ui | P1 | sprint-05 |
+| MR-020 | Publish to GitHub Pages — gh-pages pipeline, runbook, README URL (live at mdreview.waqasrana.space, HTTPS enforced) | infra | P1 | sprint-05 |
+| MR-022 | KaTeX math render (marked-extension; binary `_read_bytes` + static content-types) | ui | P0 | sprint-06 |
+| MR-023 | Per-review asset storage + manifest + `POST/GET /assets`, `GET /asset/{stored}` (base64) | svc | P0 | sprint-06 |
+| MR-024 | MCP `attach_asset` + `list_assets` tools | svc | P0 | sprint-06 |
+| MR-025 | Viewer rewrites local/relative/site-root `<img src>` to served asset URLs | ui | P0 | sprint-06 |
+| MR-026 | Docs sweep: README API table, CLAUDE.md contract, AGENTS.md + MCP docstring (math + assets) | docs | P1 | sprint-06 |
 
 ## blocked
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-020 | Publish to GitHub Pages — gh-pages pipeline, runbook, README URL (blocked: user DNS record pending; resume sequence in ticket) | infra | P1 | sprint-05 |
+_none_
 
 ## backlog
 
@@ -66,4 +74,5 @@ _none_
 | process-hardening | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
 | process-hardening-2 | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
 | mcp-wrapper | done (merged to main 2026-06-09, PR #3) | G1 passed 2026-06-09 (2 rounds) | sprint-04 |
-| landing-page | active (sprint-05 closed, G7 PASS; MR-020 remainder + MR-021 carry to next cycle) | G1 passed 2026-06-09 (2 rounds) | sprint-05 |
+| landing-page | done (merged to main 2026-06-09, PR #4; live at mdreview.waqasrana.space; MR-021 GIF demo in backlog) | G1 passed 2026-06-09 (2 rounds) | sprint-05 |
+| rich-rendering | done (G7 PASS 2026-06-18; on `dev`, pending G8 merge) | G1 passed 2026-06-18 (2 rounds) | sprint-06 |

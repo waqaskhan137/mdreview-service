@@ -58,8 +58,9 @@ def main():
     tools = out[1].get("result", {}).get("tools", [])
     names = {t.get("name") for t in tools}
     expected = {"create_review", "list_reviews", "get_review", "get_feedback",
-                "get_status", "update_source", "get_history", "delete_review"}
-    check("tools/list returns exactly the 8 tools", names == expected)
+                "get_status", "update_source", "get_history", "delete_review",
+                "attach_asset", "list_assets"}
+    check("tools/list returns exactly the 10 tools", names == expected)
     check("each tool has a description + object inputSchema",
           all(t.get("description") and t.get("inputSchema", {}).get("type") == "object" for t in tools))
 
@@ -90,6 +91,32 @@ def main():
         except Exception:
             pass
         check("update_source round-trip -> revision >= 1", isinstance(rev, int) and rev >= 1)
+
+        # attach_asset -> list_assets round-trip (a 1x1 png by base64)
+        pix = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQ"
+               "DwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+        out = drive(base + [{"jsonrpc": "2.0", "id": 8, "method": "tools/call",
+                             "params": {"name": "attach_asset",
+                                        "arguments": {"id": rid, "name": "/assets/pixel.png",
+                                                      "content_b64": pix}}}])
+        att = out[-1].get("result", {})
+        stored = None
+        try:
+            stored = json.loads(att["content"][0]["text"]).get("stored")
+        except Exception:
+            pass
+        check("attach_asset -> stored sha1+ext, isError false",
+              bool(stored) and not att.get("isError"))
+        out = drive(base + [{"jsonrpc": "2.0", "id": 9, "method": "tools/call",
+                             "params": {"name": "list_assets", "arguments": {"id": rid}}}])
+        listed = []
+        try:
+            listed = json.loads(out[-1]["result"]["content"][0]["text"]).get("assets", [])
+        except Exception:
+            pass
+        check("list_assets -> includes the attached asset's stored name",
+              any(a.get("stored") == stored for a in listed))
+
         # clean up the smoke review
         drive(base + [{"jsonrpc": "2.0", "id": 5, "method": "tools/call",
                        "params": {"name": "delete_review", "arguments": {"id": rid}}}])

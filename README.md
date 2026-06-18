@@ -4,8 +4,13 @@ A containerized markdown review microservice. An agent POSTs markdown, gets back
 for a human, and polls feedback over HTTP. One service handles many reviews, isolated by id.
 No per-process spawning, no shared filesystem with the agent.
 
-Stdlib Python only (tiny image, no pip installs). Self-contained: the Mermaid and marked
-renderers are vendored and served from `/static`, so the browser needs no CDN.
+**Landing page:** [mdreview.waqasrana.space](https://mdreview.waqasrana.space/) (served from the
+`gh-pages` branch; source in `site/`).
+
+Stdlib Python only (tiny image, no pip installs). Self-contained: the marked, Mermaid, and KaTeX
+renderers are vendored and served from `/static`, so the browser needs no CDN. The viewer renders
+Markdown, Mermaid diagrams, and **LaTeX math** — inline `$…$` / `\(…\)` and display `$$…$$` /
+`\[…\]`, matching a Jekyll/MathJax site (prose/currency `$` is left literal).
 
 ## Run
 
@@ -46,6 +51,9 @@ Feedback and source persist in the `/data` volume across restarts.
 | GET | `/api/reviews/{id}/status` | | `{source_updated, feedback_updated}` |
 | GET | `/api/reviews/{id}/history` | | `{rounds[]}` — `{round, ts, notes_total, notes_addressed}`, newest first |
 | GET | `/api/reviews/{id}/history/{n}` | | one round: `{source, feedback, notes[], ...round meta}` |
+| POST | `/api/reviews/{id}/assets` | `{name, content_b64}` | `{name, stored, url, bytes, ctype}` — attach an image (base64) the viewer serves at `url` |
+| GET | `/api/reviews/{id}/assets` | | `{assets[]}` — `{name, stored, url, bytes, ctype, ts}` per attached asset |
+| GET | `/api/reviews/{id}/asset/{stored}` | | the asset bytes (binary, with its stored content-type) |
 | GET | `/review/{id}` | | viewer HTML (human opens) |
 | GET | `/healthz` | | `{ok}` |
 
@@ -60,6 +68,18 @@ unaffected.
 **History:** each `PUT /source` archives the outgoing draft plus the feedback it accumulated as a
 numbered round under `{id}/history/round-{N}/`, and bumps `revision`. Past rounds are read-only
 via the history routes; the viewer exposes them behind its **History** button.
+
+**Assets (images):** attach a draft's images to a review once with `POST /assets` — base64 body,
+keyed by the exact `src` the draft uses (e.g. `/assets/x.png` or `fig/y.svg`). The bytes are stored
+under the review by a content-hash name and **survive every `PUT /source` revision** (attach once,
+never resend blobs). The viewer rewrites local/relative/site-root `<img src>` to the served `url`,
+so a math- and image-heavy draft renders in review the way it does on the published site. base64 is
+the only transport; the served `url` keys on the hash name (no encoded slashes), so it survives a
+reverse proxy. Assets are review-scoped (not history-snapshotted) and removed with the review.
+Like the rest of the service, asset serving inherits the **no-auth, id-only** posture: bytes are
+served with the content-type inferred from the attached `name`, so treat an attached asset like the
+draft's own HTML — don't attach bytes you wouldn't trust in `source.md`. (Responses carry
+`X-Content-Type-Options: nosniff`; keep auth in front if you expose the service.)
 
 Feedback `notes[]` entries look like:
 `{"num": "3", "quote": "...", "note": "tighten this", "addressed": false}`,
@@ -102,9 +122,9 @@ Example MCP client config (stdio):
 
 **Tools (1:1 with the HTTP API):** `create_review` (markdown, title?, project?, session?,
 source_path?), `list_reviews`, `get_review` (id), `get_feedback` (id), `get_status` (id),
-`update_source` (id, markdown), `get_history` (id, round?), `delete_review` (id). A failed call
-(bad/expired id, service down) returns an `isError: true` result; an unknown tool name is a
-JSON-RPC `-32602` error.
+`update_source` (id, markdown), `get_history` (id, round?), `attach_asset` (id, name, content_b64),
+`list_assets` (id), `delete_review` (id). A failed call (bad/expired id, service down) returns an
+`isError: true` result; an unknown tool name is a JSON-RPC `-32602` error.
 
 **Reachable `review_url`.** The wrapper relays the service's `review_url`, which the service
 derives from the request `Host` header unless `MDREVIEW_PUBLIC_BASE` is set. So a human handed the

@@ -1,7 +1,7 @@
 ---
 id: MR-020
 title: Publish to GitHub Pages — gh-pages pipeline, one-time Pages/DNS/HTTPS runbook, record canonical URL in README
-status: blocked
+status: done
 layer: infra
 priority: P1
 sprint: sprint-05
@@ -9,7 +9,7 @@ epic: landing-page
 depends_on: [MR-019]
 branch:
 created: 2026-06-09
-updated: 2026-06-09
+updated: 2026-06-09  # done: DNS added by owner, cert issued, HTTPS enforced, README URL recorded
 ---
 
 ## Goal
@@ -46,7 +46,7 @@ one-time human steps. Record the canonical URL in the README only once the live 
         .hero .demo img.demo-img .curl-flow .run-it .mcp .repo-link
       curl -s https://mdreview.waqasrana.space/CNAME     # mdreview.waqasrana.space
       ```
-- [ ] README records the canonical URL — **only after** the verification block passes (the README
+- [x] README records the canonical URL — **only after** the verification block passes (the README
       must never assert a URL that 404s). This is the folded DoD docs change, not deferred.
 - [x] Local validation passes: `python3 -m py_compile app.py` (untouched).
 
@@ -84,7 +84,7 @@ one-time human steps. Record the canonical URL in the README only once the live 
      record overrides the wildcard once added.
   4. HTTPS enforce — **pending on (3)** (cert can only issue once DNS points at GitHub):
      `gh api -X PUT repos/waqaskhan137/mdreview-service/pages -F https_enforced=true`.
-- `2026-06-09` — **BLOCKER (status: blocked):** the unmet prerequisite is step (3), a record only
+- `2026-06-09` — **BLOCKER (status: done):** the unmet prerequisite is step (3), a record only
   the domain owner can add. **Resume sequence once DNS is added:**
   ```bash
   dig +short CNAME mdreview.waqasrana.space        # expect: waqaskhan137.github.io.
@@ -110,6 +110,17 @@ one-time human steps. Record the canonical URL in the README only once the live 
 - `2026-06-09` — `python3 -m py_compile app.py` OK (untouched).
 - `2026-06-09` — README canonical-URL edit **deliberately NOT made** (AC gates it on the live
   verification passing; the URL would 404 today). It is part of the resume sequence above.
+- `2026-06-09 (later)` — **Unblocked and completed.** The owner added the DNS record
+  (`dig` resolves `mdreview.waqasrana.space` -> `waqaskhan137.github.io.` -> GitHub Pages IPs).
+  Cert issuance was stuck on a retry backoff (GitHub's first attempts ran while DNS still hit
+  the wildcard's `72.62.4.70`); a detach/re-attach of the custom domain via
+  `gh api -X PUT .../pages` forced a fresh attempt and Let's Encrypt issued
+  `CN=mdreview.waqasrana.space` within minutes. **Full verification block green:**
+  `curl -sI https://mdreview.waqasrana.space/` -> `HTTP/2 200`; live
+  `scripts/render-smoke.sh https://mdreview.waqasrana.space/ ...` -> 7/7 selectors ok;
+  `gh api .../pages` -> `cname` set, `status: built`; `https_enforced: true` set via API.
+  README canonical URL recorded (top of README, linking the landing page + naming `gh-pages` /
+  `site/` as its source). All ACs met; the sprint-05 carry-over is discharged same-day.
 
 ## Follow-ups
 

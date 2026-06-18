@@ -18,6 +18,8 @@ API
   GET    /static/{file}                                       -> assets (marked/mermaid)
   GET    /healthz                                             -> {ok}
 """
+import base64
+import hashlib
 import json
 import os
 import re
@@ -52,6 +54,43 @@ def _read(path, default=""):
             return f.read()
     except FileNotFoundError:
         return default
+
+
+def _read_bytes(path, default=b""):
+    """Binary read for assets served verbatim (fonts, images, css).
+
+    The text _read above decodes utf-8 and raises on the first font/image byte;
+    binary-served routes (/static/*, the asset GET) must use this instead.
+    """
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except FileNotFoundError:
+        return default
+
+
+# Content types for files served out of static/ and for attached asset bytes (the type is
+# inferred from the attached name's extension). Anything unlisted -> application/octet-stream.
+_CTYPES = {
+    ".js": "text/javascript",
+    ".css": "text/css",
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
+    ".ttf": "font/ttf",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".webp": "image/webp",
+    ".avif": "image/avif",
+    ".bmp": "image/bmp",
+    ".ico": "image/x-icon",
+}
+
+
+def _ctype_for(name):
+    return _CTYPES.get(os.path.splitext(name)[1].lower(), "application/octet-stream")
 
 
 def _read_json(path, default):
@@ -144,6 +183,49 @@ def create_review(markdown, title, project="", source_path="", session=""):
     return rid
 
 
+# ---- assets ----
+# Per review, raw bytes live under _dir(rid)/assets/<stored> and a manifest at assets.json
+# (siblings of source.md/history/, untouched by snapshot_round, so assets survive every PUT
+# /source). The stored name is sha1(bytes)[:16] + the sanitized original extension: it can
+# never contain '/', '..' or NUL, so it is path-traversal-proof by construction and dedupes
+# identical bytes. The human-supplied name is kept only as a manifest match field; it never
+# appears in a filesystem path or a served URL.
+_EXT_RE = re.compile(r"\.[A-Za-z0-9]{1,8}$")
+
+
+def _assets_dir(rid):
+    return os.path.join(_dir(rid), "assets")
+
+
+def _assets_manifest(rid):
+    return os.path.join(_dir(rid), "assets.json")
+
+
+def list_assets(rid):
+    return _read_json(_assets_manifest(rid), [])
+
+
+def _stored_name(name, data):
+    mo = _EXT_RE.search(name or "")
+    ext = mo.group(0).lower() if mo else ""
+    return hashlib.sha1(data).hexdigest()[:16] + ext
+
+
+def attach_asset(rid, name, data):
+    """Store bytes under a content-hash name and upsert the manifest. Caller holds _lock."""
+    ad = _assets_dir(rid)
+    os.makedirs(ad, exist_ok=True)
+    stored = _stored_name(name, data)
+    with open(os.path.join(ad, stored), "wb") as f:
+        f.write(data)
+    entry = {"name": name, "stored": stored, "bytes": len(data),
+             "ctype": _ctype_for(name), "ts": time.time()}
+    manifest = [e for e in _read_json(_assets_manifest(rid), []) if e.get("name") != name]
+    manifest.append(entry)
+    _write(_assets_manifest(rid), json.dumps(manifest))
+    return entry
+
+
 class H(BaseHTTPRequestHandler):
     server_version = "mdreview/1.0"
 
@@ -158,6 +240,7 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
@@ -322,6 +405,51 @@ class H(BaseHTTPRequestHandler):
             out["notes"] = _read_json(os.path.join(rd, "notes.json"), [])
             return self._json(200, out)
 
+        mo = re.fullmatch(r"/api/reviews/" + RID + r"/assets", path)
+        if mo:
+            rid = mo.group(1)
+            if not _exists(rid):
+                return self._json(404, {"error": "not found"})
+            base = self._base()
+            if m == "GET":
+                out = []
+                for e in list_assets(rid):
+                    d = dict(e)
+                    d["url"] = f"{base}/api/reviews/{rid}/asset/{e['stored']}"
+                    out.append(d)
+                return self._json(200, {"assets": out})
+            if m == "POST":
+                b = self._body_json()
+                name = b.get("name", "")
+                c64 = b.get("content_b64")
+                if not name or not c64:
+                    return self._json(400, {"error": "name and content_b64 required"})
+                try:
+                    data = base64.b64decode(c64, validate=True)
+                except (ValueError, TypeError):
+                    return self._json(400, {"error": "content_b64 is not valid base64"})
+                with _lock:
+                    entry = attach_asset(rid, name, data)
+                return self._json(201, {
+                    "name": entry["name"], "stored": entry["stored"],
+                    "url": f"{base}/api/reviews/{rid}/asset/{entry['stored']}",
+                    "bytes": entry["bytes"], "ctype": entry["ctype"],
+                })
+
+        mo = re.fullmatch(r"/api/reviews/" + RID + r"/asset/([A-Za-z0-9._-]+)", path)
+        if mo and m == "GET":
+            rid, stored = mo.group(1), mo.group(2)
+            if not _exists(rid):
+                return self._json(404, {"error": "not found"})
+            # resolve via the manifest only; never path-join the request segment
+            entry = next((e for e in list_assets(rid) if e.get("stored") == stored), None)
+            if not entry:
+                return self._send(404, "asset not found", "text/plain")
+            p = os.path.join(_assets_dir(rid), stored)
+            if not os.path.isfile(p):
+                return self._send(404, "asset not found", "text/plain")
+            return self._send(200, _read_bytes(p), entry.get("ctype") or _ctype_for(stored))
+
         mo = re.fullmatch(r"/review/" + RID, path)
         if mo and m == "GET":
             rid = mo.group(1)
@@ -335,8 +463,8 @@ class H(BaseHTTPRequestHandler):
             fn = mo.group(1)
             p = os.path.join(HERE, "static", fn)
             if os.path.isfile(p):
-                ctype = "text/javascript" if fn.endswith(".js") else "application/octet-stream"
-                return self._send(200, _read(p), ctype)
+                # binary read: KaTeX ships .woff2 fonts + .css that the utf-8 _read crashes on
+                return self._send(200, _read_bytes(p), _ctype_for(fn))
             return self._send(404, "not found", "text/plain")
 
         self._json(404, {"error": "no route", "method": m, "path": path})

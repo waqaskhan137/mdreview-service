@@ -1,6 +1,6 @@
 ---
 epic: landing-page
-status: active         # draft | active | done  (stays draft until G1 passes)
+status: done           # shipped: merged to main (PR #4), live at https://mdreview.waqasrana.space/ (MR-021 GIF demo remains backlog)
 created: 2026-06-09
 source: requirements/landing-page.md
 gate: passed 2026-06-09   # G1 (Plan Gate): staff-critic r2 PASS
