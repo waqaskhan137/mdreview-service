@@ -23,6 +23,7 @@ Run:  MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py
 import os
 import sys
 import json
+import base64
 import urllib.request
 import urllib.error
 
@@ -120,18 +121,23 @@ TOOLS = [
     },
     {
         "name": "attach_asset",
-        "description": "Attach an image (base64) to a review so the viewer serves and renders it. "
-                       "Pass `name` as the exact src the draft uses (e.g. \"/assets/x.png\" or "
-                       "\"fig/y.svg\"); attach once — it survives every update_source revision, so "
-                       "you never resend the bytes. Returns the stored name and the served url.",
+        "description": "Attach an image to a review so the viewer serves and renders it. "
+                       "PREFER `path`: pass a local file path and this server reads + encodes the "
+                       "bytes itself, so you never emit base64 through your context (the right way for "
+                       "anything bigger than a tiny icon — a 38KB SVG is ~50K chars of base64 you "
+                       "should NOT hand-carry). Use `content_b64` only if the file isn't on this "
+                       "machine. Pass `name` as the exact src the draft uses (e.g. \"/assets/x.png\" "
+                       "or \"fig/y.svg\"); attach once — it survives every update_source revision. "
+                       "Returns the stored name and the served url.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "id": _ID,
                 "name": {"type": "string", "description": "the draft <img> src this asset backs (the match key)"},
-                "content_b64": {"type": "string", "description": "the file bytes, base64-encoded"},
+                "path": {"type": "string", "description": "local file path the server reads + base64-encodes (preferred)"},
+                "content_b64": {"type": "string", "description": "the file bytes, base64-encoded (use only if no local path)"},
             },
-            "required": ["id", "name", "content_b64"],
+            "required": ["id", "name"],
         },
     },
     {
@@ -274,8 +280,17 @@ def route(name, args):
     if name == "delete_review":
         return "DELETE", "/api/reviews/%s" % args["id"], None
     if name == "attach_asset":
-        return "POST", "/api/reviews/%s/assets" % args["id"], {
-            "name": args["name"], "content_b64": args["content_b64"]}
+        b64 = args.get("content_b64")
+        if not b64 and args.get("path"):
+            # read + encode locally so the bytes never pass through the agent's context
+            try:
+                with open(os.path.expanduser(args["path"]), "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode("ascii")
+            except OSError as e:
+                raise ToolError("attach_asset cannot read path %r: %s" % (args["path"], e))
+        if not b64:
+            raise ToolError("attach_asset needs `path` (preferred) or `content_b64`")
+        return "POST", "/api/reviews/%s/assets" % args["id"], {"name": args["name"], "content_b64": b64}
     if name == "list_assets":
         return "GET", "/api/reviews/%s/assets" % args["id"], None
     if name == "list_comments":

@@ -86,7 +86,7 @@ mcp_server.py`; wire it into your client's `mcpServers` as a stdio command (see 
 
 Tools map 1:1 to the API (15): `create_review` (with optional `project`/`session`/`source_path`
 provenance), `list_reviews`, `get_review`, `get_source`, `get_feedback`, `get_status`, `update_source`,
-`get_history` (optional `round`), `attach_asset` (id, name, content_b64), `list_assets` (id),
+`get_history` (optional `round`), `attach_asset` (id, name, path|content_b64), `list_assets` (id),
 `delete_review`, and the comment tools `list_comments` (`document_id`, `status?`=open),
 `get_comment`, `reply_to_comment`, `resolve_comment` (`justification?`) — `document_id` is the
 review id, and there is **no `reopen` tool** (reopen is the reviewer's UI action). The same workflow

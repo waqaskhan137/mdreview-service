@@ -59,6 +59,13 @@ curl -s -X POST "$BASE/api/reviews/<id>/assets" -H 'Content-Type: application/js
 curl -s "$BASE/api/reviews/<id>/assets"   # list what's attached
 ```
 
+**Over MCP, pass `path`, not base64.** Call `attach_asset(id, name, path="fig/plot.png")` — the
+local MCP wrapper reads and encodes the file itself, so the bytes never pass through your context.
+Do **not** hand-carry `content_b64` for anything bigger than a tiny icon (a 38KB SVG is ~50K chars of
+base64 you'll corrupt). Over raw HTTP with a shell, the `base64 file | curl` recipe above does the
+same — the bytes go file→pipe→service, never through your tokens. `content_b64` is the last resort
+(no local file, no shell).
+
 Attach under the same `name` as the `src` in your markdown (full path, or a unique basename); the
 viewer matches by full src then basename and repoints the `<img>` — your `source.md` is never
 rewritten. Absolute `http(s)` and `data:` images already work as-is (data-URIs are fine for tiny

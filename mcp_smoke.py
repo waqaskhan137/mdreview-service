@@ -125,6 +125,24 @@ def main():
             pass
         check("attach_asset -> stored sha1+ext, isError false",
               bool(stored) and not att.get("isError"))
+
+        # attach_asset by PATH: the wrapper reads + encodes the file locally (no base64 in context)
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
+            tf.write(__import__("base64").b64decode(pix)); tmp_png = tf.name
+        out = drive(base + [{"jsonrpc": "2.0", "id": 11, "method": "tools/call",
+                             "params": {"name": "attach_asset",
+                                        "arguments": {"id": rid, "name": "/assets/by-path.png",
+                                                      "path": tmp_png}}}])
+        ap = out[-1].get("result", {})
+        path_stored = None
+        try:
+            path_stored = json.loads(ap["content"][0]["text"]).get("stored")
+        except Exception:
+            pass
+        os.unlink(tmp_png)
+        check("attach_asset by path -> wrapper reads the file, stored returned, isError false",
+              bool(path_stored) and not ap.get("isError"))
         out = drive(base + [{"jsonrpc": "2.0", "id": 9, "method": "tools/call",
                              "params": {"name": "list_assets", "arguments": {"id": rid}}}])
         listed = []
