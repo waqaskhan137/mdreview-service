@@ -380,17 +380,23 @@ function threadHtml(c){
 // wrap the comment's quoted text (within a single text node) in a highlight keyed by comment_id
 function highlightComment(c){
   const qt=c.anchor&&c.anchor.quoted_text;if(!qt)return null;
-  const blk=document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]');if(!blk)return null;
-  const w=document.createTreeWalker(blk,NodeFilter.SHOW_TEXT);let node;
-  while(node=w.nextNode()){
-    const idx=node.nodeValue.indexOf(qt);
-    if(idx>=0){
-      const r=document.createRange();r.setStart(node,idx);r.setEnd(node,idx+qt.length);
-      const mk=document.createElement('mark');mk.className='cmt';mk.dataset.id=c.comment_id;
-      try{r.surroundContents(mk);return mk;}catch(e){return null;}
+  // prefer the authored block_num; if it's absent or doesn't match (e.g. an agent-authored comment
+  // that only knows the quoted text — block_num is a rendered-viewer concept it can't supply), scan
+  // every block for the phrase so it still anchors + highlights.
+  const named=document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]');
+  const blks=named?[named]:[...document.querySelectorAll('.blk')];
+  for(const blk of blks){
+    const w=document.createTreeWalker(blk,NodeFilter.SHOW_TEXT);let node;
+    while(node=w.nextNode()){
+      const idx=node.nodeValue.indexOf(qt);
+      if(idx>=0){
+        const r=document.createRange();r.setStart(node,idx);r.setEnd(node,idx+qt.length);
+        const mk=document.createElement('mark');mk.className='cmt';mk.dataset.id=c.comment_id;
+        try{r.surroundContents(mk);return mk;}catch(e){return null;}
+      }
     }
   }
-  return null; // spans inline tags / not found -> fall back to block anchor
+  return null; // not found / spans inline tags -> gutter card with no inline highlight
 }
 function focusPair(id){
   document.querySelectorAll('.gcard.active,mark.cmt.active').forEach(e=>e.classList.remove('active'));
@@ -411,9 +417,13 @@ function renderAll(){
   G.innerHTML='';
   active.forEach(c=>{
     const mk=highlightComment(c);
-    const blk=document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]');if(blk)blk.classList.add('has-comment');
+    // anchor the card + margin bar to the block the highlight actually landed in (an agent-authored
+    // comment may have no block_num — derive it from the highlight).
+    const blk=mk?mk.closest('.blk'):document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]');
+    if(blk)blk.classList.add('has-comment');
+    const ref=(blk&&blk.dataset.num)||c.anchor.block_num||'';
     const card=document.createElement('div');card.className='gcard';card.dataset.id=c.comment_id;
-    card.innerHTML='<div class="ghead"><span class="gref">#'+esc(c.anchor.block_num||'')+'</span> <span class="gq">'+esc(qsnippet(c))+'</span></div>'+
+    card.innerHTML='<div class="ghead"><span class="gref">'+(ref?'#'+esc(ref):'')+'</span> <span class="gq">'+esc(qsnippet(c))+'</span></div>'+
       threadHtml(c)+
       '<div class="greply"><textarea placeholder="Reply…"></textarea><button class="btn" data-act="reply">Reply</button></div>';
     card._anchor=mk||blk;G.appendChild(card);
