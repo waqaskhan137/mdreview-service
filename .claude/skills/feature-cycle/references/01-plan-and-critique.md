@@ -35,6 +35,14 @@ G1 requires a recorded **independent** review (reviewer != author). Two valid re
 - the **`staff-critic`** agent (global), or
 - the **product owner** (the user) — e.g. notes left in the mdreview viewer itself.
 
+**Right-size the critique to the brief.** Keep every gate, but a highly-prescriptive **single-file
+`ui`** brief (the design already decided — exact values, behaviors) does not need a full
+re-decomposition: point the `staff-critic` at the **design forks the planner had to resolve** and the
+**verification recipe** (does it prove the dense/interaction/theme claims, with the right capture
+flags?), not at re-litigating settled requirements. The value on those briefs is the measured forks
+and a correct evidence plan (dashboard-redesign G1: the only condition was a wrong capture flag), not
+ceremony.
+
 Loop (max 3 rounds, then park):
 
 1. Spawn `staff-critic` on `epics/<slug>-plan.md`. It writes

@@ -61,6 +61,14 @@ contract; your plan is the artifact that clears **Gate G1**.
    rather than a hard-coded `<=NNNpx` value you have not measured. (Sprint-01 lesson: a ~820px
    gutter threshold was geometrically wrong — a 284px gutter cannot fit at 820px — and was
    reconciled to a fit-based test at G7.)
+   - **Capture a themed/dark pane with `prefers-color-scheme` emulation, NEVER `--force-dark-mode`.**
+     When you write verification commands for a pane-adaptive page (`@media (prefers-color-scheme)`),
+     emulate the pane with `--blink-settings=preferredColorScheme=0` (dark) / `=1` (light), or CDP
+     `Emulation.setEmulatedMedia`. `--force-dark-mode` is Chrome's auto-invert filter (NOT scheme
+     emulation), and **bare headless Chrome resolves *dark* by default** — so a no-flag "light" shot
+     plus a `--force-dark-mode` "dark" shot both come out wrong and the both-pane proof is vacuous.
+     (Recurred into a plan's verification at G1 twice running because the lesson only lived in the
+     close-and-ship reference; it belongs here, where you write the commands.)
 7. **Conventions:** dates `Europe/London`; commits keep the `Co-Authored-By: Claude` trailer and
    reference the ticket ID; the validation gate is `python3 -m py_compile app.py` (+ `docker
    build` for infra, render-smoke for ui). There is no test framework.

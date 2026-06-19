@@ -56,6 +56,14 @@ Still open from that thread:
   (it rode the last two cycles on a per-cycle note). Two small edits; groom only if the meta-thread
   is worth re-opening.
 
+- **`scripts/` CDP interaction-evidence helper** (from the dashboard-redesign retro, `[feature]`).
+  sprint-09 drove Chrome over CDP (Node built-in `WebSocket`, no install) to capture *interaction*
+  states (click expand/collapse, Delete-with-confirm) + *measure* column counts / computed styles —
+  beyond the single-shot `render-smoke.sh` + screenshot. Promote that one-off driver to a checked-in,
+  parameterized helper (`scripts/cdp-shot.mjs <url> <out-dir> <captures.json>`) so interaction-only
+  evidence becomes gate-verifiable instead of trust-and-file-check. Pairs with / may subsume the
+  "Automated post-interaction render evidence" item below. Its own small `infra` ticket.
+
 - **Automated post-interaction render evidence** (from sprint-01 G7, SHOULD-FIX #2). Current
   render-smoke is headless-Chrome single-shot (first paint) + a `--dump-dom` node assertion. A
   small scripted interaction (add a note, assert the gutter card appears without reload; resize,
