@@ -1,13 +1,13 @@
 ---
 id: MR-036
 title: Viewer — threaded role-distinct gutter cards (keyed on comment_id), authoring → POST /comments, retire legacy author surfaces, Resolved panel + reopen, comments_updated live-reload
-status: ready
+status: done
 layer: ui
 priority: P1
 sprint: sprint-11
 epic: comment-resolution
 depends_on: [MR-033, MR-034]
-branch:
+branch: dev
 created: 2026-06-19
 updated: 2026-06-19
 ---
@@ -73,13 +73,36 @@ it (plan BLOCKER-1, SHOULD-3). Live-reload so an agent's MCP action shows up in 
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-19` — rewrote `viewer.html`'s inline JS from the single-`note` model onto threaded
+  server-side comments as the **one author surface**. The selection popover + block-number click now
+  `POST /comments`; the gutter renders thread cards (`.gcard` → `.ghead` + `.gthread` of
+  `.gentry.reviewer`/`.gentry.agent` role-distinct entries + a reply box → `POST .../reply`); a docked
+  **Resolved panel** (`#resolved` + `.resolved-count` + `.rcard` with a Reopen control →
+  `POST .../reopen`). **Retired:** `#panel`/`#items`, `buildMd`/Collect `#modal`, `#toggle`, and the
+  `save`/`sync` → `POST /feedback` path (no viewer code writes `notes.json`); `#count` counts open
+  comments. Cards/highlights key on **`comment_id`** (`data-id`), not the array index. `poll()` now
+  watches `comments_updated` and re-renders **both** the gutter and the Resolved panel; the second
+  MR-006 `<script>` block was folded in and removed. Dropped the legacy-note seed (backlog). Dark
+  theme via existing `prefers-color-scheme` vars; no Dockerfile change (inline).
 
 ## Validation
 
-_How this was verified._
+- `2026-06-19` — `python3 -m py_compile app.py` OK; `docker build` OK; rebuilt throwaway :8138.
+  **render-smoke** (VTB 3000): `.gcard`(1) `.gentry`(3) `.gentry.reviewer`(2) `.gentry.agent`(1)
+  `#resolved`(1) `.resolved-count`(1) `mark.cmt`(1) `.rcard`(1) — all ≥1. **CDP harness** (Node
+  built-in WebSocket, 1500px wide) — **15/15 PASS**: data-id all `/^c[A-Za-z0-9]{10}$/`; legacy
+  `#panel`/`#items`/`#collect`/`#modal`/`#toggle` gone; reviewer vs agent backgrounds distinct
+  (`rgba(212,160,23,.09)` vs `rgba(45,212,191,.1)`); selection raised "+ comment" → **POSTed
+  `/comments`, NOT `/feedback`** → new `.gcard`; out-of-band resolve (simulating MCP — no UI resolve
+  button by design) on poll removed the highlight + moved the card to `#resolved` with count++; reviewer
+  Reopen restored the highlight + card and count--; a reply to an already-resolved comment re-rendered
+  its thread in `#resolved` (SHOULD-4). **Screenshots** (both panes via `setEmulatedMedia`
+  prefers-color-scheme, never `--force-dark-mode`; body bg light `rgb(250,250,249)` / dark `rgb(17,17,17)`)
+  under `reviews/sprint-11-render-evidence-2026-06-19/comments-{light,dark}.png`.
 
 ## Follow-ups
 
 - A comment-thread markdown export (former Collect) → backlog. A manual viewer resolve affordance →
   backlog (touches role attribution; out of this epic).
+- Minor: when the Resolved panel is toggled open, it overlays the lower active gutter cards
+  (both dock bottom-right). Cosmetic; a left/stacked placement is a polish follow-up.

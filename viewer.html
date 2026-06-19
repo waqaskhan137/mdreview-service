@@ -66,22 +66,10 @@
   #dock{position:fixed;right:18px;bottom:18px;z-index:55;font-family:-apple-system,sans-serif;}
   #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--rule);border-radius:30px;padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
   #count{font-size:13px;color:var(--muted);}
-  #synced{font-size:12px;color:var(--accent);}
-  #panel{display:none;position:fixed;right:18px;bottom:70px;z-index:55;width:380px;max-height:62vh;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:14px;font-family:-apple-system,sans-serif;}
-  #panel h3{margin:0 0 10px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
-  .item{border-top:1px solid var(--rule);padding:10px 0;font-size:13.5px;}
-  .item.addressed{opacity:.5;text-decoration:line-through;}
-  .item .ref{color:var(--accent);font-weight:600;}
-  .item .qt{color:var(--muted);font-style:italic;display:block;margin:2px 0 4px;}
-  .item .x{float:right;color:var(--muted);cursor:pointer;border:none;background:none;font-size:15px;}
   #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--accent);color:#fff;font-family:-apple-system,sans-serif;font-size:13px;padding:8px 16px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
-  #modal{display:none;position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.45);align-items:center;justify-content:center;}
-  #modalbox{width:min(680px,92vw);max-height:80vh;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;padding:18px;}
-  #modal textarea{flex:1;min-height:300px;width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;border:1px solid var(--rule);border-radius:8px;padding:12px;background:var(--bg);color:var(--text);}
-  /* MR-006: Google-Docs style margin comments */
+  /* MR-006/MR-036: Google-Docs style margin comments (threaded) */
   #gutter{position:absolute;top:0;width:284px;z-index:5;display:none;}
-  body.gutter-on #toggle{display:none;}
-  body.gutter-on #panel{display:none !important;}
+  body.gutter-on #cmtbtn{display:none;}
   .gcard{position:absolute;width:284px;background:var(--bg);border:1px solid var(--rule);border-left:3px solid var(--noteline);border-radius:8px;padding:10px 28px 10px 12px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;line-height:1.4;box-shadow:0 1px 6px rgba(0,0,0,.06);transition:top .18s ease,box-shadow .15s,border-color .15s;cursor:pointer;}
   .gcard:hover,.gcard.active{box-shadow:0 5px 18px rgba(0,0,0,.18);border-left-color:var(--accent);}
   .gcard .gref{color:var(--accent);font-weight:700;}
@@ -102,6 +90,34 @@
   #histview ul{margin:4px 0;padding-left:1.2em;}
   .histdoc{border:1px solid var(--rule);border-radius:8px;padding:12px 14px;font-family:Charter,Georgia,serif;font-size:15px;line-height:1.5;max-height:38vh;overflow:auto;}
   .histbtnrow{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+  /* MR-036: a block carrying an open comment gets the margin bar + dot */
+  .blk.has-comment{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(212,160,23,.07);}
+  .blk.has-comment .num::after{content:" \25CF";color:var(--noteline);}
+  /* MR-036: threaded comment cards (gutter when wide, docked panel when narrow) */
+  .gcard{cursor:default;padding:9px 11px;}
+  .gcard .ghead,.rcard .ghead{display:flex;gap:6px;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;}
+  .gthread{display:flex;flex-direction:column;gap:5px;}
+  .gentry{border-left:3px solid var(--rule);background:rgba(127,127,127,.05);border-radius:4px;padding:4px 8px;}
+  .gentry.reviewer{border-left-color:var(--noteline);background:rgba(212,160,23,.09);}
+  .gentry.agent{border-left-color:var(--accent);background:rgba(45,212,191,.10);}
+  .gentry .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted);margin-right:5px;}
+  .gentry.reviewer .grole{color:var(--noteline);}
+  .gentry.agent .grole{color:var(--accent);}
+  .gentry .gtext{color:var(--text);white-space:pre-wrap;}
+  .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
+  .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font-family:-apple-system,sans-serif;font-size:12.5px;border:1px solid var(--rule);border-radius:5px;padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
+  .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
+  /* Resolved history panel */
+  #resolved{display:none;position:fixed;right:18px;bottom:70px;z-index:55;width:380px;max-height:64vh;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:14px;font-family:-apple-system,sans-serif;}
+  #resolved h3{margin:0 0 6px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
+  .resolved-count{color:var(--accent);font-weight:700;}
+  #resempty{color:var(--muted);font-size:13px;}
+  .rcard{border-top:1px solid var(--rule);padding:11px 0;font-size:13px;}
+  .rcard .gref{color:var(--accent);font-weight:700;}
+  .rcard .gq{color:var(--muted);font-style:italic;font-size:12px;}
+  /* narrow fallback: the active-comment gutter docks bottom-right with static cards */
+  #gutter.docked{position:fixed;right:18px;bottom:70px;top:auto!important;left:auto!important;width:360px;max-height:64vh;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:12px;display:block;z-index:55;}
+  #gutter.docked .gcard{position:static;width:auto;margin-bottom:8px;box-shadow:none;}
 </style>
 </head>
 <body>
@@ -109,43 +125,39 @@
   <p class="topbar">mdreview &middot; inline feedback</p>
   <p class="filename" id="filename">loading...</p>
   <div class="howto">
-    <b>Select text</b> to attach a note to those words, or <b>click a paragraph number</b> in the
-    left margin to comment on the whole block. Notes auto-save to a file the AI reads. When the AI
-    edits the file, this page updates itself and strikes through notes it has addressed.
+    <b>Select text</b> to start a comment on those words, or <b>click a paragraph number</b> in the
+    left margin to comment on the whole block. Comments are <b>threads</b> the AI reads over MCP — it
+    can reply or mark them <b>resolved</b>. Resolved comments move to the <b>Resolved</b> panel, where
+    you can reopen them. This page live-updates as the AI acts.
   </div>
   <h1 id="doctitle"></h1>
   <div id="docmeta"></div>
   <div id="article">Loading...</div>
 </div>
 
-<button id="addbtn">+ note</button>
+<button id="addbtn">+ comment</button>
 <div id="pop">
   <div class="q" id="popq"></div>
-  <textarea id="popnote" placeholder="Your feedback on this..."></textarea>
-  <div class="row"><button class="btn" id="popcancel">Cancel</button><button class="btn primary" id="popsave">Save note</button></div>
+  <textarea id="popnote" placeholder="Your comment on this..."></textarea>
+  <div class="row"><button class="btn" id="popcancel">Cancel</button><button class="btn primary" id="popsave">Comment</button></div>
 </div>
 
 <div id="dock"><div id="dockbar">
-  <span id="count">0 notes</span><span id="synced"></span>
-  <button class="btn" id="toggle">Show</button>
+  <span id="count">0 open</span>
+  <button class="btn" id="cmtbtn">Comments</button>
+  <button class="btn" id="resbtn">Resolved 0</button>
   <button class="btn" id="histbtn">History</button>
-  <button class="btn primary" id="collect">Collect / copy</button>
 </div></div>
-<div id="panel"><h3>Your notes</h3><div id="items"></div></div>
 <div id="gutter"></div>
+<div id="resolved">
+  <h3>Resolved <span class="resolved-count">0</span></h3>
+  <div id="resitems"></div>
+  <div id="resempty">No resolved comments yet.</div>
+</div>
 <div id="histmodal"><div id="histbox">
   <h3>Version history</h3>
   <div id="histbody"></div>
   <div class="histbtnrow"><button class="btn" id="histclose">Close</button></div>
-</div></div>
-
-<div id="modal"><div id="modalbox">
-  <div style="font-family:-apple-system,sans-serif;font-size:13px;color:var(--muted);margin-bottom:8px;">This is what the AI reads (also written to the feedback file automatically). Copy if you want.</div>
-  <textarea id="modaltext" readonly></textarea>
-  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
-    <button class="btn" id="modalclose">Close</button>
-    <button class="btn primary" id="copybtn">Copy</button>
-  </div>
 </div></div>
 
 <div id="toast"></div>
@@ -158,11 +170,11 @@
 <script>
 const $=s=>document.querySelector(s);
 let META={name:"file.md",path:""};
-let DOC="mdreview";
 let docTitle="";
-let notes=[];
-let cur=null;
-let lastMtime=0;
+let comments=[];        // the shared server-side comment threads (GET /comments)
+let cur=null;           // pending anchor while authoring a comment
+let lastSrc=0;          // source_updated (doc live-reload)
+let lastCmt=0;          // comments_updated (thread live-reload)
 
 function toast(msg){const t=$("#toast");t.textContent=msg;t.style.opacity=1;clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.opacity=0,1800);}
 function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
@@ -268,19 +280,17 @@ async function boot(){
   setupMarked();  // register marked extensions (math, footnotes, …) once, before any marked.parse()
   initMermaid();
   META=await fetch(API).then(r=>r.json()).catch(()=>({}));
-  DOC="mdreview:"+ID;
   $("#filename").textContent=META.title||('review '+ID);
   document.title="mdreview · "+(META.title||ID);
-  notes=JSON.parse(localStorage.getItem(DOC)||"[]");
-  // prefer server-side notes if present and local is empty
-  if(!notes.length){try{const d=await fetch(API+'/feedback').then(r=>r.json());const sv=d.notes;if(Array.isArray(sv)&&sv.length)notes=sv;}catch(e){}}
+  await fetchComments();   // the shared server-side comments are the single feedback surface
   await load();
   poll();
 }
 
 async function load(){
   let md=await fetch(API+'/source',{cache:'no-store'}).then(r=>r.text());
-  lastMtime=await fetch(API+'/status').then(r=>r.json()).then(s=>s.source_updated).catch(()=>0);
+  const st=await fetch(API+'/status').then(r=>r.json()).catch(()=>({}));
+  lastSrc=st.source_updated||0;lastCmt=st.comments_updated||0;
   // extract YAML front matter (for the title) and strip it
   let title="";
   const fm=md.match(/^﻿?\s*---\r?\n([\s\S]*?)\r?\n---\s*/);
@@ -302,8 +312,7 @@ async function load(){
   await rewriteAssetImages(art);   // repoint local <img> at served assets before reparenting
   numberBlocks();
   await renderMermaid();
-  reconcile();
-  render();
+  renderAll();
 }
 
 function numberBlocks(){
@@ -319,46 +328,136 @@ function numberBlocks(){
     const num=document.createElement('span');num.className="num";num.title="comment on this block";num.textContent=n;
     blk.appendChild(num);blk.appendChild(el);
     art.appendChild(blk);
-    num.onclick=()=>openPop({num:String(n),quote:'(whole block)'});
+    num.onclick=()=>openPop({block_num:String(n),quoted_text:''});
   });
 }
 
-// after a reload, relocate notes by their quoted text; flag the rest addressed
-function reconcile(){
-  const blocks=[...document.querySelectorAll('.blk')];
-  notes.forEach(nt=>{
-    if(nt.quote==='(whole block)'){nt.addressed=false;return;}
-    const hit=blocks.find(b=>b.innerText.includes(nt.quote));
-    if(hit){nt.num=hit.dataset.num;nt.addressed=false;}
-    else{nt.addressed=true;}
+// --- comment actions: every human-author path writes the shared comment store ---
+async function fetchComments(){
+  try{const d=await fetch(API+'/comments',{cache:'no-store'}).then(r=>r.json());comments=(d&&d.comments)||[];}
+  catch(e){}
+}
+async function createComment(anchor,text){
+  try{
+    await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({anchor:anchor,text:text})});
+    await fetchComments();renderAll();toast('Comment added');
+  }catch(e){toast('Could not save comment');}
+}
+async function replyTo(cid,text){
+  if(!text)return;
+  try{
+    await fetch(API+'/comments/'+cid+'/reply',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text:text,role:'reviewer'})});
+    await fetchComments();renderAll();
+  }catch(e){toast('Reply failed');}
+}
+async function reopenComment(cid,text){
+  try{
+    await fetch(API+'/comments/'+cid+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(text?{text:text}:{})});
+    await fetchComments();renderAll();toast('Reopened');
+  }catch(e){toast('Reopen failed');}
+}
+
+// --- rendering: active threads in the gutter, resolved ones in the Resolved panel ---
+const esc=escapeHtml;
+function qsnippet(c){const q=(c.anchor&&c.anchor.quoted_text)||'';return q?'"'+q+'"':'(whole block)';}
+function threadHtml(c){
+  return '<div class="gthread">'+((c.thread||[]).map(e=>{
+    const role=e.role==='agent'?'agent':'reviewer';
+    return '<div class="gentry '+role+'"><span class="grole">'+esc(role)+'</span><span class="gtext">'+esc(e.text||'')+'</span></div>';
+  }).join(''))+'</div>';
+}
+// wrap the comment's quoted text (within a single text node) in a highlight keyed by comment_id
+function highlightComment(c){
+  const qt=c.anchor&&c.anchor.quoted_text;if(!qt)return null;
+  const blk=document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]');if(!blk)return null;
+  const w=document.createTreeWalker(blk,NodeFilter.SHOW_TEXT);let node;
+  while(node=w.nextNode()){
+    const idx=node.nodeValue.indexOf(qt);
+    if(idx>=0){
+      const r=document.createRange();r.setStart(node,idx);r.setEnd(node,idx+qt.length);
+      const mk=document.createElement('mark');mk.className='cmt';mk.dataset.id=c.comment_id;
+      try{r.surroundContents(mk);return mk;}catch(e){return null;}
+    }
+  }
+  return null; // spans inline tags / not found -> fall back to block anchor
+}
+function focusPair(id){
+  document.querySelectorAll('.gcard.active,mark.cmt.active').forEach(e=>e.classList.remove('active'));
+  const c=document.querySelector('.gcard[data-id="'+id+'"]');
+  const m=document.querySelector('mark.cmt[data-id="'+id+'"]');
+  if(c)c.classList.add('active');
+  if(m){m.classList.add('active');m.scrollIntoView({block:'center',behavior:'smooth'});}
+  else if(c)c.scrollIntoView({block:'center',behavior:'smooth'});
+}
+function renderAll(){
+  const A=$("#article"),G=$("#gutter");if(!A)return;
+  // unwrap existing highlights so anchors re-resolve cleanly
+  A.querySelectorAll('mark.cmt').forEach(m=>{const p=m.parentNode;while(m.firstChild)p.insertBefore(m.firstChild,m);p.removeChild(m);p.normalize();});
+  document.querySelectorAll('.blk').forEach(b=>b.classList.remove('has-comment'));
+  const active=(comments||[]).filter(c=>c.status!=='resolved');
+  const resolved=(comments||[]).filter(c=>c.status==='resolved');
+  // active -> gutter thread cards (+ highlight)
+  G.innerHTML='';
+  active.forEach(c=>{
+    const mk=highlightComment(c);
+    const blk=document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]');if(blk)blk.classList.add('has-comment');
+    const card=document.createElement('div');card.className='gcard';card.dataset.id=c.comment_id;
+    card.innerHTML='<div class="ghead"><span class="gref">#'+esc(c.anchor.block_num||'')+'</span> <span class="gq">'+esc(qsnippet(c))+'</span></div>'+
+      threadHtml(c)+
+      '<div class="greply"><textarea placeholder="Reply…"></textarea><button class="btn" data-act="reply">Reply</button></div>';
+    card._anchor=mk||blk;G.appendChild(card);
   });
-}
-
-function blockText(num){const b=document.querySelector('.blk[data-num="'+num+'"]');return b?b.innerText.replace(/^\d+\s*/,'').trim():'';}
-function blockHeading(num){const b=document.querySelector('.blk[data-num="'+num+'"]');return b?b.dataset.heading||'':'';}
-
-function save(){localStorage.setItem(DOC,JSON.stringify(notes));render();sync();}
-function sync(){
-  fetch(API+'/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({markdown:buildMd(),notes:notes})})
-   .then(r=>{if(r.ok){const s=$("#synced");s.textContent=' · saved';clearTimeout(window._st);window._st=setTimeout(()=>s.textContent='',1500);}}).catch(()=>{});
-}
-
-function render(){
-  const active=notes.filter(n=>!n.addressed).length;
-  $("#count").textContent=active+(active===1?" note":" notes")+(notes.length>active?" ("+(notes.length-active)+" done)":"");
-  document.querySelectorAll('.blk').forEach(b=>b.classList.remove('has-note'));
-  const items=$("#items");items.innerHTML="";
-  notes.forEach((n,i)=>{
-    if(!n.addressed){const b=document.querySelector('.blk[data-num="'+n.num+'"]');if(b)b.classList.add('has-note');}
-    const d=document.createElement('div');d.className="item"+(n.addressed?" addressed":"");
-    const q=n.quote==='(whole block)'?'(whole block)':'"'+n.quote+'"';
-    d.innerHTML='<button class="x" data-i="'+i+'">&times;</button><span class="ref">#'+n.num+'</span> <span class="qt">'+escapeHtml(q)+'</span>'+escapeHtml(n.note);
-    items.appendChild(d);
+  // resolved -> Resolved panel cards (+ reopen)
+  const RI=$("#resitems");RI.innerHTML='';
+  resolved.forEach(c=>{
+    const r=document.createElement('div');r.className='rcard';r.dataset.id=c.comment_id;
+    r.innerHTML='<div class="ghead"><span class="gref">#'+esc(c.anchor.block_num||'')+'</span> <span class="gq">'+esc(qsnippet(c))+'</span></div>'+
+      threadHtml(c)+
+      '<div class="reopenbox"><textarea placeholder="Optional reply when reopening…"></textarea><button class="btn" data-act="reopen">Reopen</button></div>';
+    RI.appendChild(r);
   });
-  items.querySelectorAll('.x').forEach(x=>x.onclick=()=>{notes.splice(+x.dataset.i,1);save();});
+  $("#resempty").style.display=resolved.length?'none':'block';
+  // counts
+  $("#count").textContent=active.length+' open'+(resolved.length?' · '+resolved.length+' resolved':'');
+  $("#resbtn").textContent='Resolved '+resolved.length;
+  document.querySelector('.resolved-count').textContent=resolved.length;
+  // wire reply / reopen / focus-pair
+  G.querySelectorAll('.gcard').forEach(card=>{
+    const rb=card.querySelector('[data-act=reply]');
+    rb.onclick=e=>{e.stopPropagation();const ta=card.querySelector('textarea');const v=ta.value.trim();if(v)replyTo(card.dataset.id,v);};
+    card.querySelector('textarea').onclick=e=>e.stopPropagation();
+    card.onclick=()=>focusPair(card.dataset.id);
+  });
+  RI.querySelectorAll('.rcard [data-act=reopen]').forEach(b=>{
+    b.onclick=e=>{e.stopPropagation();const ta=b.parentNode.querySelector('textarea');reopenComment(b.closest('.rcard').dataset.id,ta.value.trim());};
+  });
+  A.querySelectorAll('mark.cmt').forEach(m=>m.onclick=()=>focusPair(m.dataset.id));
+  layoutComments();
 }
+function layoutComments(){
+  const A=$("#article"),G=$("#gutter");if(!A||!G)return;
+  const rect=A.getBoundingClientRect();
+  const wide=window.innerWidth>=rect.right+320;          // only when the gutter fits beside the doc
+  document.body.classList.toggle('gutter-on',wide);
+  if(wide){
+    G.classList.remove('docked');G.style.display='block';G.style.top='0px';G.style.width='284px';
+    G.style.left=(rect.left+window.scrollX+rect.width+24)+'px';
+    const cards=[...G.querySelectorAll('.gcard')].map(c=>{
+      let top=0;const a=c._anchor;if(a){const r=a.getBoundingClientRect();top=r.top+window.scrollY;}
+      return {c,top};
+    }).sort((x,y)=>x.top-y.top);
+    let prev=0;cards.forEach(o=>{const t=Math.max(o.top,prev+10);o.c.style.top=t+'px';prev=t+o.c.offsetHeight;});
+  }else{
+    G.querySelectorAll('.gcard').forEach(c=>c.style.top='');
+    if(!G.classList.contains('docked'))G.style.display='none';   // narrow: hidden unless toggled docked
+  }
+}
+window.addEventListener('resize',()=>{try{layoutComments();}catch(e){}});
 
-// selection -> add button
+// selection -> "+ comment" button (the single author surface: a highlight starts a comment)
 const addbtn=$("#addbtn");
 $("#article").addEventListener('mouseup',e=>{
   setTimeout(()=>{
@@ -366,7 +465,7 @@ $("#article").addEventListener('mouseup',e=>{
     if(!t){addbtn.style.display='none';return;}
     let node=sel.anchorNode;while(node&&node.nodeType!==1)node=node.parentNode;
     const blk=node&&node.closest('.blk');if(!blk){addbtn.style.display='none';return;}
-    cur={num:blk.dataset.num,quote:t.length>180?t.slice(0,180)+'...':t};
+    cur={block_num:blk.dataset.num,quoted_text:t.length>180?t.slice(0,180)+'...':t};
     addbtn.style.left=(e.pageX-10)+'px';addbtn.style.top=(e.pageY+12)+'px';addbtn.style.display='block';
   },1);
 });
@@ -374,7 +473,7 @@ addbtn.onclick=()=>{addbtn.style.display='none';openPop(cur);};
 
 function openPop(c){
   cur=c;
-  $("#popq").textContent=(c.quote==='(whole block)'?'Block #'+c.num+' (whole paragraph)':'#'+c.num+': "'+c.quote+'"');
+  $("#popq").textContent=(c.quoted_text===''?'Block #'+c.block_num+' (whole paragraph)':'#'+c.block_num+': "'+c.quoted_text+'"');
   $("#popnote").value="";
   const pop=$("#pop");pop.style.display='block';
   pop.style.left=Math.max(12,Math.min(window.innerWidth-342,window.innerWidth/2-165))+'px';
@@ -384,147 +483,62 @@ function openPop(c){
 $("#popcancel").onclick=()=>$("#pop").style.display='none';
 $("#popsave").onclick=()=>{
   const v=$("#popnote").value.trim();if(!v)return;
-  notes.push({num:cur.num,quote:cur.quote,note:v,addressed:false});save();
+  createComment({quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null},v);
   $("#pop").style.display='none';window.getSelection().removeAllRanges();
 };
 
-$("#toggle").onclick=()=>{const p=$("#panel");const show=p.style.display!=='block';p.style.display=show?'block':'none';$("#toggle").textContent=show?'Hide':'Show';};
+// dock toggles: #cmtbtn docks the active-comment gutter on narrow screens; #resbtn the Resolved panel
+$("#cmtbtn").onclick=()=>{
+  const g=$("#gutter");const show=!g.classList.contains('docked');
+  $("#resolved").style.display='none';
+  g.classList.toggle('docked',show);
+  g.style.display=show?'block':(document.body.classList.contains('gutter-on')?'block':'none');
+};
+$("#resbtn").onclick=()=>{
+  const r=$("#resolved");const show=r.style.display!=='block';
+  r.style.display=show?'block':'none';
+  if(show){const g=$("#gutter");g.classList.remove('docked');if(!document.body.classList.contains('gutter-on'))g.style.display='none';}
+};
 
-function buildMd(){
-  let o='# Feedback on '+(docTitle||ID)+'\n';
-  o+='Generated '+new Date().toLocaleString()+' . '+notes.length+' notes ('+notes.filter(n=>n.addressed).length+' addressed).\n\n';
-  if(!notes.length){o+='(no notes yet)\n';return o;}
-  const sorted=[...notes].sort((a,b)=>(a.addressed-b.addressed)||(a.num-b.num));
-  sorted.forEach(n=>{
-    o+='## Block #'+n.num+(n.addressed?' (ADDRESSED)':'')+(blockHeading(n.num)?'  (under: '+blockHeading(n.num)+')':'')+'\n';
-    o+='> '+(n.quote==='(whole block)'?'(whole block)':n.quote)+'\n';
-    const ctx=blockText(n.num);
-    if(ctx)o+='context: '+ctx.slice(0,140)+(ctx.length>140?'...':'')+'\n';
-    o+='FEEDBACK: '+n.note+'\n\n';
-  });
-  return o;
-}
-$("#collect").onclick=()=>{$("#modaltext").value=buildMd();$("#modal").style.display='flex';};
-$("#modalclose").onclick=()=>$("#modal").style.display='none';
-$("#copybtn").onclick=async()=>{const t=$("#modaltext");t.select();try{await navigator.clipboard.writeText(t.value);}catch(e){document.execCommand('copy');}$("#copybtn").textContent='Copied!';setTimeout(()=>$("#copybtn").textContent='Copy',1400);};
-
-// live-reload: poll status; if the source changed, re-render and reconcile notes
+// live-reload: a source change re-renders the doc; a comment change re-renders the threads (so an
+// agent's MCP reply/resolve appears in the open browser without a manual refresh)
 function poll(){
   setInterval(async()=>{
     try{
-      const m=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json()).then(s=>s.source_updated);
-      if(m&&m!==lastMtime){await load();toast('Draft updated by AI — notes reconciled');}
+      const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
+      if(s.source_updated&&s.source_updated!==lastSrc){await fetchComments();await load();toast('Draft updated by AI');}
+      else if(s.comments_updated&&s.comments_updated!==lastCmt){lastCmt=s.comments_updated;await fetchComments();renderAll();}
     }catch(e){}
   },2000);
 }
 
+// --- version history (read-only) ---
+async function openHistory(){
+  const body=$("#histbody");body.innerHTML='Loading...';$("#histmodal").style.display='flex';
+  try{
+    const d=await fetch(API+'/history').then(r=>r.json());const rounds=(d&&d.rounds)||[];
+    if(!rounds.length){body.innerHTML='<p style="color:var(--muted)">No earlier versions yet. A version is saved each time the AI pushes a revised draft.</p>';return;}
+    body.innerHTML='<div class="histlist">'+rounds.map(r=>'<button class="histitem" data-n="'+r.round+'">v'+r.round+' &middot; '+r.notes_total+' notes'+(r.notes_addressed?' ('+r.notes_addressed+' done)':'')+' &middot; '+new Date(r.ts*1000).toLocaleString()+'</button>').join('')+'</div><div id="histview"></div>';
+    body.querySelectorAll('.histitem').forEach(b=>b.onclick=()=>showRound(b.dataset.n));
+  }catch(e){body.innerHTML='Could not load history.';}
+}
+async function showRound(n){
+  const v=$("#histview");v.innerHTML='Loading...';
+  try{
+    const d=await fetch(API+'/history/'+n).then(r=>r.json());
+    const html=window.marked?marked.parse(d.source||''):esc(d.source||'');
+    const nl=(d.notes||[]).map(x=>'<li><b>#'+x.num+'</b> '+esc(x.note)+'</li>').join('');
+    v.innerHTML='<h4>v'+n+' draft</h4><div class="histdoc">'+html+'</div>'+(nl?'<h4>notes that round</h4><ul>'+nl+'</ul>':'');
+  }catch(e){v.innerHTML='Could not load that version.';}
+}
+$("#histbtn").onclick=openHistory;
+$("#histclose").onclick=()=>$("#histmodal").style.display='none';
+$("#histmodal").onclick=e=>{if(e.target.id==='histmodal')$("#histmodal").style.display='none';};
+
+// catch the first paint regardless of async load timing
+[250,800,1600].forEach(t=>setTimeout(()=>{try{renderAll();}catch(e){}},t));
+
 boot();
-</script>
-<script>
-/* MR-006: Google-Docs style margin comments + version history.
-   Self-contained layer over the existing notes model. Reuses the globals
-   `notes`, `render`, `save`, `API` declared above (shared global scope). */
-(function(){
-  const art=()=>document.getElementById('article');
-  const gutter=()=>document.getElementById('gutter');
-  const esc=s=>(s||'').replace(/[&<>]/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[x]));
-
-  // wrap the exact quoted text (within a single text node) in a highlight
-  function highlightNote(n,i){
-    if(n.quote==='(whole block)')return null;
-    const blk=document.querySelector('.blk[data-num="'+n.num+'"]');
-    if(!blk)return null;
-    const w=document.createTreeWalker(blk,NodeFilter.SHOW_TEXT);
-    let node;
-    while(node=w.nextNode()){
-      const idx=node.nodeValue.indexOf(n.quote);
-      if(idx>=0){
-        const r=document.createRange();
-        r.setStart(node,idx);r.setEnd(node,idx+n.quote.length);
-        const mk=document.createElement('mark');mk.className='cmt';mk.dataset.id=i;
-        try{r.surroundContents(mk);return mk;}catch(e){return null;}
-      }
-    }
-    return null; // spans inline tags / not found -> fall back to block anchor
-  }
-  function focusPair(id){
-    document.querySelectorAll('.gcard.active,mark.cmt.active').forEach(e=>e.classList.remove('active'));
-    const c=document.querySelector('.gcard[data-id="'+id+'"]');
-    const m=document.querySelector('mark.cmt[data-id="'+id+'"]');
-    if(c)c.classList.add('active');
-    if(m){m.classList.add('active');m.scrollIntoView({block:'center',behavior:'smooth'});}
-    else if(c)c.scrollIntoView({block:'center',behavior:'smooth'});
-  }
-  function renderComments(){
-    const A=art(),G=gutter();if(!A||!G)return;
-    A.querySelectorAll('mark.cmt').forEach(m=>{const p=m.parentNode;while(m.firstChild)p.insertBefore(m.firstChild,m);p.removeChild(m);p.normalize();});
-    G.innerHTML='';
-    (notes||[]).forEach((n,i)=>{
-      let anchor=null;
-      if(!n.addressed){const mk=highlightNote(n,i);anchor=mk||document.querySelector('.blk[data-num="'+n.num+'"]');}
-      const card=document.createElement('div');
-      card.className='gcard'+(n.addressed?' addressed':'');card.dataset.id=i;
-      const q=n.quote==='(whole block)'?'(whole block)':'"'+n.quote+'"';
-      card.innerHTML='<button class="gx" data-i="'+i+'" title="delete">&times;</button>'+
-        '<span class="gref">#'+n.num+'</span> <span class="gq">'+esc(q)+'</span>'+
-        '<div class="gnote">'+esc(n.note)+'</div>';
-      card._anchor=anchor;G.appendChild(card);
-    });
-    G.querySelectorAll('.gx').forEach(x=>x.onclick=e=>{e.stopPropagation();notes.splice(+x.dataset.i,1);save();});
-    G.querySelectorAll('.gcard').forEach(c=>c.onclick=()=>focusPair(c.dataset.id));
-    A.querySelectorAll('mark.cmt').forEach(m=>m.onclick=()=>focusPair(m.dataset.id));
-    layoutComments();
-  }
-  function layoutComments(){
-    const A=art(),G=gutter();if(!A||!G)return;
-    const rect=A.getBoundingClientRect();
-    const wide=window.innerWidth>=rect.right+300;            // only when the gutter fits
-    document.body.classList.toggle('gutter-on',wide);
-    if(!wide){G.style.display='none';return;}
-    G.style.display='block';
-    G.style.top='0px';
-    G.style.left=(rect.left+window.scrollX+rect.width+24)+'px';
-    const active=[...G.querySelectorAll('.gcard:not(.addressed)')].map(c=>{
-      let top=0;const a=c._anchor;
-      if(a){const r=a.getBoundingClientRect();top=r.top+window.scrollY;}
-      return {c,top};
-    }).sort((x,y)=>x.top-y.top);
-    let prev=0;
-    active.forEach(o=>{const t=Math.max(o.top,prev+10);o.c.style.top=t+'px';prev=t+o.c.offsetHeight;});
-    [...G.querySelectorAll('.gcard.addressed')].forEach(c=>{const t=prev+22;c.style.top=t+'px';prev=t+c.offsetHeight;});
-  }
-  // re-render comments whenever the doc/notes re-render
-  const _render=render;
-  render=function(){ _render.apply(this,arguments); try{renderComments();}catch(e){console.warn('comments',e);} };
-  window.addEventListener('resize',()=>{try{layoutComments();}catch(e){}});
-  // catch the first paint regardless of async load timing
-  [250,800,1600].forEach(t=>setTimeout(()=>{try{renderComments();}catch(e){}},t));
-
-  // version history (read-only)
-  const $h=s=>document.querySelector(s);
-  async function openHistory(){
-    const body=$h('#histbody');body.innerHTML='Loading...';$h('#histmodal').style.display='flex';
-    try{
-      const d=await fetch(API+'/history').then(r=>r.json());
-      const rounds=(d&&d.rounds)||[];
-      if(!rounds.length){body.innerHTML='<p style="color:var(--muted)">No earlier versions yet. A version is saved each time the AI pushes a revised draft.</p>';return;}
-      body.innerHTML='<div class="histlist">'+rounds.map(r=>'<button class="histitem" data-n="'+r.round+'">v'+r.round+' &middot; '+r.notes_total+' notes'+(r.notes_addressed?' ('+r.notes_addressed+' done)':'')+' &middot; '+new Date(r.ts*1000).toLocaleString()+'</button>').join('')+'</div><div id="histview"></div>';
-      body.querySelectorAll('.histitem').forEach(b=>b.onclick=()=>showRound(b.dataset.n));
-    }catch(e){body.innerHTML='Could not load history.';}
-  }
-  async function showRound(n){
-    const v=$h('#histview');v.innerHTML='Loading...';
-    try{
-      const d=await fetch(API+'/history/'+n).then(r=>r.json());
-      const html=window.marked?marked.parse(d.source||''):esc(d.source||'');
-      const nl=(d.notes||[]).map(x=>'<li><b>#'+x.num+'</b> '+esc(x.note)+'</li>').join('');
-      v.innerHTML='<h4>v'+n+' draft</h4><div class="histdoc">'+html+'</div>'+(nl?'<h4>notes that round</h4><ul>'+nl+'</ul>':'');
-    }catch(e){v.innerHTML='Could not load that version.';}
-  }
-  document.getElementById('histbtn').onclick=openHistory;
-  document.getElementById('histclose').onclick=()=>$h('#histmodal').style.display='none';
-  $h('#histmodal').onclick=e=>{if(e.target.id==='histmodal')$h('#histmodal').style.display='none';};
-})();
 </script>
 </body>
 </html>
