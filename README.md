@@ -56,6 +56,7 @@ Feedback and source persist in the `/data` volume across restarts.
 | GET | `/api/reviews/{id}/comments` | `?status=open\|resolved\|reopened\|all` (default `all`) | `{comments[]}` — the threaded comments |
 | POST | `/api/reviews/{id}/comments` | `{anchor{quoted_text, block_num?, start?, end?}, text, role?}` | `{comment}` (201; reviewer authors) |
 | GET | `/api/reviews/{id}/comments/{cid}` | | `{comment}` — full `thread[]` + `status_history[]` |
+| DELETE | `/api/reviews/{id}/comments/{cid}` | | `{deleted}` — hard-remove a junk comment (`404` if missing); distinct from resolve |
 | POST | `/api/reviews/{id}/comments/{cid}/reply` | `{text, role?}` | `{comment}` — append a reply; status unchanged |
 | POST | `/api/reviews/{id}/comments/{cid}/resolve` | `{justification?}` | `{comment}` — agent resolves (`409` if not open/reopened) |
 | POST | `/api/reviews/{id}/comments/{cid}/reopen` | `{text?}` | `{comment}` — reviewer reopens (`409` if not resolved) |
@@ -144,12 +145,13 @@ Example MCP client config (stdio):
 }
 ```
 
-**Tools (1:1 with the HTTP API, 17):** `create_review` (markdown, title?, project?, session?,
+**Tools (1:1 with the HTTP API, 18):** `create_review` (markdown, title?, project?, session?,
 source_path?), `list_reviews`, `get_review` (id), `get_source` (id), `get_feedback` (id), `get_status` (id),
 `update_source` (id, markdown), `get_history` (id, round?), `attach_asset` (id, name, path|content_b64),
 `list_assets` (id), `delete_review` (id), `server_info`, `create_comment` (author a comment), and the **comment** tools `list_comments` (document_id, status?=open), `get_comment` (document_id,
 comment_id), `reply_to_comment` (document_id, comment_id, text), `resolve_comment` (document_id,
-comment_id, justification?). `document_id` is the review id.
+comment_id, justification?), `delete_comment` (document_id, comment_id — hard-remove a junk comment).
+`document_id` is the review id.
 There is **no `reopen` tool** — reopen is the reviewer's UI action (a convention on the no-auth
 service, not an enforced boundary); after a reopen the agent sees the comment again via
 `list_comments`. The agent workflow (`list_comments(status="open")` first; reply to discuss, resolve

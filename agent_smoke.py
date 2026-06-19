@@ -153,8 +153,8 @@ def main():
 
     # which wrapper version is this run proving? (local tool, no HTTP)
     info, _ = call(2, "server_info", {})
-    ok_info = isinstance(info, dict) and info.get("tool_count") == 17 and info.get("tools_hash")
-    check("server_info: 17 tools + tools_hash", bool(ok_info))
+    ok_info = isinstance(info, dict) and info.get("tool_count") == 18 and info.get("tools_hash")
+    check("server_info: 18 tools + tools_hash", bool(ok_info))
     if ok_info:
         print("  ..  proving tools_hash=%s" % info["tools_hash"])
 

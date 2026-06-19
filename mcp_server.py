@@ -9,7 +9,7 @@ Protocol grounded against the MCP spec rev 2025-06-18 (lifecycle + tools).
 
   initialize                -> {protocolVersion, capabilities:{tools:{}}, serverInfo}
   notifications/initialized -> (no response)
-  tools/list                -> {tools:[...17 schemas]}
+  tools/list                -> {tools:[...18 schemas]}
   tools/call                -> {content:[{type:text,text}], isError?}   (dispatch: MR-016)
 
 Comment workflow (MR-035): list_comments / get_comment / reply_to_comment / resolve_comment let an
@@ -57,7 +57,7 @@ _ID = {"type": "string", "description": "the opaque review id"}
 _DOCID = {"type": "string", "description": "the review id the comments belong to (the document_id)"}
 _CID = {"type": "string", "description": "the comment id (cXXXXXXXXXX)"}
 
-# The 17 tools, 1:1 with the HTTP API. Static metadata served by tools/list.
+# The 18 tools, 1:1 with the HTTP API. Static metadata served by tools/list.
 TOOLS = [
     {
         "name": "create_review",
@@ -239,6 +239,19 @@ TOOLS = [
         },
     },
     {
+        "name": "delete_comment",
+        "description": "HARD-delete a comment (and its whole thread) — for cleaning up a junk/mistaken "
+                       "comment. This is different from resolve_comment: resolve just hides a real "
+                       "comment in the Resolved panel; delete removes it entirely and irreversibly. "
+                       "Use it only on a comment you created by mistake, never to dismiss the "
+                       "reviewer's feedback (resolve that).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"document_id": _DOCID, "comment_id": _CID},
+            "required": ["document_id", "comment_id"],
+        },
+    },
+    {
         "name": "server_info",
         "description": "Report THIS running MCP server's identity: name, version, protocol_version, "
                        "tools_hash, tool_count, tool_names — so you can see what the *running* process "
@@ -375,6 +388,8 @@ def route(name, args):
         return "GET", "/api/reviews/%s/comments?status=%s" % (args["document_id"], status), None
     if name == "get_comment":
         return "GET", "/api/reviews/%s/comments/%s" % (args["document_id"], args["comment_id"]), None
+    if name == "delete_comment":
+        return "DELETE", "/api/reviews/%s/comments/%s" % (args["document_id"], args["comment_id"]), None
     if name == "reply_to_comment":
         return "POST", "/api/reviews/%s/comments/%s/reply" % (args["document_id"], args["comment_id"]), \
             {"text": args["text"], "role": "agent"}

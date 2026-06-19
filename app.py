@@ -16,6 +16,7 @@ API
   GET    /api/reviews/{id}/comments   ?status=open|resolved|reopened|all  -> {comments}
   POST   /api/reviews/{id}/comments   {anchor, text, role?}   -> {comment}  (201; reviewer authors)
   GET    /api/reviews/{id}/comments/{cid}                     -> {comment}  (full thread + status_history)
+  DELETE /api/reviews/{id}/comments/{cid}                     -> {deleted}  (hard-remove a junk comment)
   POST   /api/reviews/{id}/comments/{cid}/reply   {text}      -> {comment}  (append; status unchanged)
   POST   /api/reviews/{id}/comments/{cid}/resolve {justification?} -> {comment}  (agent resolves; 409 if not open/reopened)
   POST   /api/reviews/{id}/comments/{cid}/reopen  {text?}     -> {comment}  (reviewer reopens; 409 if not resolved)
@@ -589,14 +590,24 @@ class H(BaseHTTPRequestHandler):
                 return self._json(201, c)
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/comments/(c[A-Za-z0-9]{10})", path)
-        if mo and m == "GET":
+        if mo and m in ("GET", "DELETE"):
             rid, cid = mo.group(1), mo.group(2)
             if not _exists(rid):
                 return self._json(404, {"error": "not found"})
-            c = _find_comment(list_comments(rid), cid)
-            if not c:
-                return self._json(404, {"error": "no such comment"})
-            return self._json(200, c)
+            if m == "GET":
+                c = _find_comment(list_comments(rid), cid)
+                if not c:
+                    return self._json(404, {"error": "no such comment"})
+                return self._json(200, c)
+            # DELETE: hard-remove a comment (junk cleanup) — distinct from resolve, which only hides it.
+            with _lock:
+                arr = _read_json(_comments_path(rid), [])
+                kept = [x for x in arr if x.get("comment_id") != cid]
+                if len(kept) == len(arr):
+                    return self._json(404, {"error": "no such comment"})
+                _write_comments(rid, kept)
+                bump(rid, "comments_updated")
+            return self._json(200, {"deleted": cid})
 
         mo = re.fullmatch(
             r"/api/reviews/" + RID + r"/comments/(c[A-Za-z0-9]{10})/(reply|resolve|reopen)", path)
