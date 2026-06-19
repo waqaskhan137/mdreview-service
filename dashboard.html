@@ -29,11 +29,12 @@
   /* one continuous zero-gutter grid (flat is the default) */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;}
 
-  /* compact cell: 2 lines (title; meta) collapsed, click to expand */
-  .card{position:relative;background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:7px 9px;display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:border-color .12s,transform .06s,box-shadow .12s;}
+  /* compact cell: the whole tile is a link to the review; a hover trash icon deletes */
+  .card{position:relative;background:var(--card);border:1px solid var(--rule);border-radius:8px;transition:border-color .12s,transform .06s,box-shadow .12s;}
   .card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.07);}
   .card.is-hidden{display:none;}
-  .card .title{font-size:13.5px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:86px;}
+  .cardlink{display:flex;flex-direction:column;gap:4px;padding:7px 9px;color:inherit;text-decoration:none;cursor:pointer;}
+  .card .title{font-size:13.5px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:28px;}
   .meta{display:flex;flex-wrap:wrap;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
   .ptag{display:inline-flex;align-items:center;gap:3px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);}
   .ptag .pname{overflow:hidden;text-overflow:ellipsis;}
@@ -44,17 +45,11 @@
   .pill.resolved{color:#fff;background:var(--accent);border-color:transparent;}
   .badge{border-radius:6px;padding:1px 6px;background:rgba(127,127,127,.12);font-size:10.5px;}
   .rev{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
-  /* full path: single line ellipsis, only when expanded */
-  .card .path{display:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .card.expanded .path{display:block;}
-  .card .path:empty{display:none;}
-  /* actions: top-right, only on hover or expanded; never stacked full-width */
-  .actions{position:absolute;top:6px;right:8px;display:flex;gap:4px;opacity:0;pointer-events:none;transition:opacity .12s;}
-  .card:hover .actions,.card.expanded .actions{opacity:1;pointer-events:auto;}
-  .btn{font:inherit;font-size:11.5px;border-radius:6px;padding:3px 9px;cursor:pointer;border:1px solid var(--rule);background:var(--bg);color:var(--text);text-decoration:none;line-height:1.4;}
-  .btn.open{background:var(--accent);color:#fff;border-color:var(--accent);}
-  .btn.del{color:var(--muted);}
-  .btn.del:hover{color:#c0392b;border-color:#c0392b;}
+  /* delete: hover-revealed trash icon, top-right (a sibling of the link, not inside it) */
+  .del{position:absolute;top:5px;right:6px;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;opacity:0;transition:opacity .12s,color .12s,background .12s;}
+  .card:hover .del{opacity:1;}
+  .del:hover{color:#c0392b;background:rgba(192,57,43,.12);}
+  .del:focus-visible{opacity:1;outline:2px solid var(--accent);outline-offset:1px;}
 
   /* grouped mode (toggle on): project sections + collapsible groups; in-cell ptag hidden (header shows it) */
   #list.grouped .ptag{display:none;}
@@ -102,6 +97,7 @@
 <script>
 const $=s=>document.querySelector(s);
 const FOLDER='<svg class="ico" viewBox="0 0 16 16" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M1.5 4.2c0-.55.45-1 1-1h3l1 1.2h6c.55 0 1 .45 1 1v6c0 .55-.45 1-1 1H2.5c-.55 0-1-.45-1-1V4.2z"/></svg>';
+const TRASH='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
 function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function rel(ts){
   if(!ts)return "";
@@ -131,21 +127,18 @@ function card(r){
   const rev=(r.revision||0)>0?`<span class="badge rev">v${r.revision}</span>`:"";
   const t=esc(r.title||r.id), pr=esc(r.project||""), pa=esc(r.source_path||"");
   const ptag=pr?`<span class="ptag" title="${pr}">${FOLDER}<span class="pname">${pr}</span></span>`:"";
-  return `<div class="card" role="button" tabindex="0" aria-expanded="false"
-      data-title="${t}" data-project="${pr}" data-path="${pa}" data-status="${status}">
-    <div class="actions">
-      <a class="btn open" href="/review/${encodeURIComponent(r.id)}">Open</a>
-      <button class="btn del" data-id="${esc(r.id)}" data-title="${t}" aria-label="Delete">Delete</button>
-    </div>
-    <div class="title">${t}</div>
-    <div class="meta">
-      ${ptag}
-      <span class="pill ${status}">${status}</span>
-      <span class="badge">${noteLabel(r)}</span>
-      ${rev}
-      <span class="date">${rel(r.created)}</span>
-    </div>
-    <div class="path">${pa}</div>
+  return `<div class="card" data-title="${t}" data-project="${pr}" data-path="${pa}" data-status="${status}">
+    <a class="cardlink" href="/review/${encodeURIComponent(r.id)}">
+      <div class="title">${t}</div>
+      <div class="meta">
+        ${ptag}
+        <span class="pill ${status}">${status}</span>
+        <span class="badge">${noteLabel(r)}</span>
+        ${rev}
+        <span class="date">${rel(r.created)}</span>
+      </div>
+    </a>
+    <button class="del" data-id="${esc(r.id)}" data-title="${t}" aria-label="Delete ${t}">${TRASH}</button>
   </div>`;
 }
 
@@ -250,17 +243,16 @@ function setGroup(sec, collapse){
   sec.querySelector('.group-header').setAttribute('aria-expanded', String(!collapse));
   if(collapse) collapsed.add(sec.dataset.project); else collapsed.delete(sec.dataset.project);
 }
-function toggleCard(c){ const ex=c.classList.toggle('expanded'); c.setAttribute('aria-expanded', String(ex)); }
-
 document.addEventListener('click', async e=>{
-  const del=e.target.closest('.btn.del');
+  const del=e.target.closest('.del');
   if(del){
+    e.preventDefault();
     if(!confirm(`Delete review "${del.dataset.title}"? This cannot be undone.`))return;
     await fetch('/api/reviews/'+encodeURIComponent(del.dataset.id),{method:'DELETE'}).catch(()=>{});
     load();
     return;
   }
-  if(e.target.closest('a'))return;                                  // Open link → default navigation
+  if(e.target.closest('a'))return;                                  // the tile is a link → opens the review
   if(e.target.closest('#groupToggle')){ grouped=!grouped; render(); return; }
   const gh=e.target.closest('.group-header');
   if(gh){ const sec=gh.closest('.project'); setGroup(sec, !sec.classList.contains('collapsed')); return; }
@@ -268,19 +260,12 @@ document.addEventListener('click', async e=>{
   if(chip){ statusFilter=chip.dataset.status; document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active', c===chip)); applyFilter(); return; }
   if(e.target.closest('#expandAll')){ document.querySelectorAll('.project').forEach(s=>setGroup(s,false)); return; }
   if(e.target.closest('#collapseAll')){ document.querySelectorAll('.project').forEach(s=>setGroup(s,true)); return; }
-  const c=e.target.closest('.card');
-  if(c){
-    if(e.target.closest('a, button'))return;                       // never toggle from an action control
-    if(window.getSelection && String(window.getSelection()).length)return;  // don't toggle on text selection
-    toggleCard(c);
-  }
 });
+// keyboard: Enter/Space toggles a focused group header (the tile is a native link — Enter opens it)
 document.addEventListener('keydown', e=>{
   if(e.key!=='Enter' && e.key!==' ')return;
   const gh=e.target.closest('.group-header');
-  if(gh){ e.preventDefault(); const sec=gh.closest('.project'); setGroup(sec, !sec.classList.contains('collapsed')); return; }
-  const c=e.target.closest('.card');
-  if(c && !e.target.closest('a, button')){ e.preventDefault(); toggleCard(c); }
+  if(gh){ e.preventDefault(); const sec=gh.closest('.project'); setGroup(sec, !sec.classList.contains('collapsed')); }
 });
 $("#search").addEventListener('input', applyFilter);
 load();
