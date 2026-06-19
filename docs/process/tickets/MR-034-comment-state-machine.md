@@ -25,8 +25,8 @@ comment-aware `GET /feedback`/dashboard projections from MR-033.
       `apply_comment_transition(rid, cid, action, by, text=None)`, called under `_lock`, used by every
       route below — the viewer route and the MCP-backed route share this one implementation.
 - [ ] **Routes** (rows in the `/comments` family from MR-033):
-      `POST .../comments/{cid}/reply` `{text,author?,role?}` → `200 {comment}` (append, status
-      unchanged); `POST .../comments/{cid}/resolve` `{justification?}` (role forced `agent`) →
+      `POST .../comments/{cid}/reply` `{text, role?}` → `200 {comment}` (append, status
+      unchanged; empty `text` → `400`); `POST .../comments/{cid}/resolve` `{justification?}` (role forced `agent`) →
       `200 {comment}` / `409`; `POST .../comments/{cid}/reopen` `{text?}` (role forced `reviewer`) →
       `200 {comment}` / `409`.
 - [ ] **Legal transitions + writes** per the plan table: reply legal in **every** state (open/reopened/

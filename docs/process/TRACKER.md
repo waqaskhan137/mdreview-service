@@ -3,16 +3,15 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-19. **sprint-11 (comment-resolution) is ACTIVE** — the largest epic to date (svc comment store + state machine, 4 MCP tools, viewer threads/Resolved-panel/reopen). G1 passed 2 rounds (staff-critic PASS, `reviews/comment-resolution-plan-review-2026-06-19.md`); MR-033–037 all `done` (svc store/state-machine/MCP/viewer/docs), board reconciled, awaiting the G7 close review. sprint-10 (dashboard-density) **closed as an out-of-cycle exception** — a direct flat continuous-grid redesign (+ group-by toggle) shipped to `dev` per the user's "make the change without the cycle" request; G1 passed, **G7 waived** (render-validated, not critic-gated). Awaiting the standing dev→main PR. sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-19. **sprint-11 (comment-resolution) CLOSED at G7 (staff-critic PASS)** — the largest epic to date shipped to `dev`: svc comment store + `open→resolved→reopened` state machine, 4 MCP tools (14 total), viewer threads/Resolved-panel/reopen, docs. G1 passed 2 rounds; G7 PASS (0 BLOCKER/0 SHOULD/2 NIT, both NITs fixed in-sprint). **Awaiting the standing dev→main PR.** sprint-10 (dashboard-density) **closed as an out-of-cycle exception** — a direct flat continuous-grid redesign (+ group-by toggle) shipped to `dev` per the user's "make the change without the cycle" request; G1 passed, **G7 waived** (render-validated, not critic-gated). Awaiting the standing dev→main PR. sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
-**sprint-11 — comment-resolution** (`active`, started 2026-06-19). Epic: `comment-resolution`
-(G1 passed 2 rounds, staff-critic PASS). **All 5 committed tickets `done`** (MR-033 svc store +
-comment-aware reads, MR-034 svc state machine, MR-035 MCP tools, MR-036 viewer threads/Resolved/
-reopen, MR-037 docs) — board reconciled; awaiting the **G7 staff-critic close review**.
+_none active_ — **sprint-11 (comment-resolution) closed at G7** (staff-critic PASS,
+`reviews/sprint-11-close-review-2026-06-19.md`). All 5 tickets `done` on `dev`; no carry-overs.
+Pending the standing `dev → main` PR (G8).
 
-_(sprint-10 closed out-of-cycle; that work on `dev` is still pending the G8 merge.)_
+_(sprint-10 also closed out-of-cycle; its work on `dev` rides the same pending PR.)_
 
 **sprint-10 — dashboard-density** (`closed` out-of-cycle, 2026-06-19). Epic: `dashboard-density` (G1 passed 2 rounds; **G7 waived by user exception**). Shipped MR-032's density CSS **within a direct flat continuous-grid redesign** (commit `0f44c1b`): one packed grid (newest-first, project-as-inline-tag, zero gutters) is now the default, with a "Group by project" toggle to the grouped sections (which keep the MR-032 density). `dashboard.html` only. Render-validated via CDP; not independently G7-reviewed.
 
@@ -104,4 +103,4 @@ _none_
 | render-fidelity | done (merged to main 2026-06-18, PR #7) | G1 passed 2026-06-18 (2 rounds) | sprint-08 |
 | dashboard-redesign | done (merged to main 2026-06-19, PR #8) | G1 passed 2026-06-19 (2 rounds) | sprint-09 |
 | dashboard-density | active (G1 cleared; MR-032 ready) | G1 passed 2026-06-19 (2 rounds) | sprint-10 |
-| comment-resolution | active (G1 cleared; MR-033–037 ready) | G1 passed 2026-06-19 (2 rounds) | sprint-11 |
+| comment-resolution | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-11 |

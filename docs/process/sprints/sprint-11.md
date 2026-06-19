@@ -1,11 +1,11 @@
 ---
 id: sprint-11
 name: comment-resolution
-status: active
+status: closed
 start: 2026-06-19
 end: 2026-06-19
 goal: Ship the Google-Docs comment-resolution workflow — shared server-side comment store + state machine, four MCP tools, and the viewer threads/Resolved-panel/reopen — preserving existing commenting by evolving it onto comments and keeping GET /feedback + the dashboard live (comment-aware).
-close_review:
+close_review: reviews/sprint-11-close-review-2026-06-19.md
 ---
 
 ## Goal
@@ -47,15 +47,32 @@ so the viewer's CDP test can drive a real agent resolve over MCP.
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+- `2026-06-19` — **Closed at G7 (staff-critic PASS).** All five tickets shipped to `dev` in
+  dependency order. The load-bearing G1 fork (one comment store, viewer authoring evolves onto
+  comments, legacy read paths kept live by read-time projection) held up: the close review
+  independently confirmed both G1 BLOCKERs shipped — exactly one viewer author surface (no
+  `notes.json` write remains) and `GET /feedback`/dashboard stay comment-aware (never "0/awaiting"
+  with open comments; `notes.json` on disk never rewritten).
+- **Validation:** `py_compile` + `docker build`; `mcp_smoke` (14 tools + comment round-trip, 22
+  assertions); `render-smoke` (8 DOM selectors) + a Node-CDP harness (15 interaction checks:
+  authoring posts `/comments` not `/feedback`; resolve-on-poll → Resolved panel; reopen restores;
+  reply-to-resolved re-renders; role colors differ; `comment_id` keying); dual-pane screenshots
+  under `reviews/sprint-11-render-evidence-2026-06-19/`.
+- **G7 findings:** 0 BLOCKER / 0 SHOULD / 2 NIT — both NITs fixed in-sprint (empty-reply → 400;
+  MR-034 AC reply-body wording). See the close review's Resolution log.
+- **Carry-overs:** none. **Backlog spun off:** legacy-note client seed (server-side idempotent
+  `POST /comments/seed` if ever wanted); comment-thread markdown export (former Collect); a manual
+  viewer resolve affordance; Resolved-panel placement polish (it overlays lower gutter cards when
+  open).
 
 ## Close gate (G7)
 
 The sprint cannot be marked `closed` until:
 
-- [ ] every committed ticket is `done` or explicitly carried over (note where);
-- [ ] a **staff-critic sprint-close review** exists at
-      `reviews/sprint-11-close-review-YYYY-MM-DD.md`, verifying shipped work against each ticket's
+- [x] every committed ticket is `done` or explicitly carried over (note where) — MR-033–037 all `done`;
+      no carry-overs;
+- [x] a **staff-critic sprint-close review** exists at
+      `reviews/sprint-11-close-review-2026-06-19.md`, verifying shipped work against each ticket's
       acceptance criteria, **including a render smoke** of `viewer.html` (MR-036), and its findings are
-      resolved or carried;
-- [ ] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
+      resolved or carried — **PASS**, 2 NITs resolved in-sprint;
+- [x] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.

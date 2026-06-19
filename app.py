@@ -328,8 +328,10 @@ def apply_comment_transition(rid, cid, action, by, text=None):
     cur = c.get("status")
     if action == "reply":
         # legal in every state (incl. resolved — discussion without un-resolving); status unchanged.
+        if not (text and text.strip()):
+            return 400, {"error": "reply text required"}
         role = by if by in ("reviewer", "agent") else "reviewer"
-        c["thread"].append({"author": role, "role": role, "text": text or "", "ts": now})
+        c["thread"].append({"author": role, "role": role, "text": text, "ts": now})
     elif action == "resolve":
         if cur not in ("open", "reopened"):
             return 409, {"error": "comment is not open/reopened", "status": cur}
