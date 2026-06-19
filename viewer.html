@@ -27,6 +27,10 @@
   #article pre{background:rgba(127,127,127,.1);padding:14px;border-radius:8px;overflow:auto;font-size:14px;}
   #article code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em;}
   #article a{color:var(--accent);}
+  #article table{border-collapse:collapse;width:100%;margin:8px 0;font-size:15px;line-height:1.45;display:block;overflow-x:auto;}
+  #article th,#article td{border:1px solid var(--rule);padding:6px 10px;text-align:left;vertical-align:top;}
+  #article th{background:rgba(127,127,127,.1);font-weight:600;}
+  #article tr:nth-child(even) td{background:rgba(127,127,127,.04);}
   /* Images get a near-white "paper" mat so a light-authored figure stays legible on a dark pane
      instead of smearing into it (theme-awareness / MR-027). Keep this IMAGE-ONLY — never widen to
      #article > *: mermaid (.mermaid svg, inline, JS-themed) and KaTeX (.katex spans) theme
