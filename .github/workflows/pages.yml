@@ -1,0 +1,36 @@
+name: Deploy landing page to Pages
+
+# Single source of truth: site/ lives on main; this Action publishes it to GitHub Pages.
+# No gh-pages branch, no local worktree — edit site/, push to main, it deploys.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# one deploy at a time; let an in-flight run finish (don't cancel a publish)
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site          # the whole static site: index.html, demo.png, CNAME
+      - id: deployment
+        uses: actions/deploy-pages@v4
