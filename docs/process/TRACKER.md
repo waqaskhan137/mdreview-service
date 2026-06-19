@@ -3,14 +3,14 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-19. **sprint-11 (comment-resolution) is ACTIVE** — the largest epic to date (svc comment store + state machine, 4 MCP tools, viewer threads/Resolved-panel/reopen). G1 passed 2 rounds (staff-critic PASS, `reviews/comment-resolution-plan-review-2026-06-19.md`); MR-033–037 committed, all `ready`. sprint-10 (dashboard-density) **closed as an out-of-cycle exception** — a direct flat continuous-grid redesign (+ group-by toggle) shipped to `dev` per the user's "make the change without the cycle" request; G1 passed, **G7 waived** (render-validated, not critic-gated). Awaiting the standing dev→main PR. sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-19. **sprint-11 (comment-resolution) is ACTIVE** — the largest epic to date (svc comment store + state machine, 4 MCP tools, viewer threads/Resolved-panel/reopen). G1 passed 2 rounds (staff-critic PASS, `reviews/comment-resolution-plan-review-2026-06-19.md`); MR-033–037 all `done` (svc store/state-machine/MCP/viewer/docs), board reconciled, awaiting the G7 close review. sprint-10 (dashboard-density) **closed as an out-of-cycle exception** — a direct flat continuous-grid redesign (+ group-by toggle) shipped to `dev` per the user's "make the change without the cycle" request; G1 passed, **G7 waived** (render-validated, not critic-gated). Awaiting the standing dev→main PR. sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
 **sprint-11 — comment-resolution** (`active`, started 2026-06-19). Epic: `comment-resolution`
-(G1 passed 2 rounds, staff-critic PASS). Committed: MR-033 (svc store + comment-aware reads) →
-MR-034 (svc state machine) → {MR-035 (MCP tools), MR-036 (viewer threads/Resolved/reopen)} →
-MR-037 (docs). Implementing.
+(G1 passed 2 rounds, staff-critic PASS). **All 5 committed tickets `done`** (MR-033 svc store +
+comment-aware reads, MR-034 svc state machine, MR-035 MCP tools, MR-036 viewer threads/Resolved/
+reopen, MR-037 docs) — board reconciled; awaiting the **G7 staff-critic close review**.
 
 _(sprint-10 closed out-of-cycle; that work on `dev` is still pending the G8 merge.)_
 
@@ -29,13 +29,7 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-033 | Comment store + `POST/GET /comments` + `GET /comments/{cid}` + `comments_updated` + comment-aware `GET /feedback` & `summary()` | svc | P1 | sprint-11 |
-| MR-034 | Comment state machine — reply/resolve/reopen routes, `status_history`, 409 on illegal transitions | svc | P1 | sprint-11 |
-| MR-035 | MCP tools `list_comments`/`get_comment`/`reply_to_comment`/`resolve_comment` + descriptions + `mcp_smoke` round-trip | svc | P1 | sprint-11 |
-| MR-036 | Viewer — threaded `comment_id`-keyed gutter cards, authoring → `POST /comments`, retire legacy author surfaces, Resolved panel + reopen, live-reload | ui | P1 | sprint-11 |
-| MR-037 | Docs sweep — README/CLAUDE/AGENTS/future-mcp + MCP docstring 10→14 + comment-aware feedback/dashboard | docs | P2 | sprint-11 |
+_none_
 
 ## in-progress
 
@@ -80,6 +74,11 @@ _none_
 | MR-030 | Docs — footnotes + syntax highlighting render in the viewer | docs | P2 | sprint-08 |
 | MR-031 | Redesign `dashboard.html` — dense grid, collapsible cards, sticky search, collapsible groups (preserve open/delete/version/notes) | ui | P1 | sprint-09 |
 | MR-032 | Dashboard density → shipped within a direct flat continuous-grid redesign + group-by toggle (out-of-cycle; G7 waived) | ui | P1 | sprint-10 |
+| MR-033 | Comment store (`comments.json`) + `POST/GET /comments` + `GET /comments/{cid}` + `comments_updated` + comment-aware `GET /feedback`/`summary()` | svc | P1 | sprint-11 |
+| MR-034 | Comment state machine — reply/resolve/reopen routes, `status_history`, 409 on illegal transitions | svc | P1 | sprint-11 |
+| MR-035 | MCP tools `list_comments`/`get_comment`/`reply_to_comment`/`resolve_comment` + descriptions + `mcp_smoke` round-trip (14 tools) | svc | P1 | sprint-11 |
+| MR-036 | Viewer — threaded `comment_id`-keyed gutter cards, authoring → `POST /comments`, retire legacy author surfaces, Resolved panel + reopen, live-reload | ui | P1 | sprint-11 |
+| MR-037 | Docs sweep — README/CLAUDE/AGENTS/future-mcp + MCP docstring 10→14 + comment-aware feedback/dashboard | docs | P2 | sprint-11 |
 
 ## blocked
 
