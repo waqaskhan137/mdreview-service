@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview — human-in-the-loop markdown review for AI agents</title>
-<meta name="description" content="An agent POSTs markdown, a human annotates it in the browser, the agent polls the feedback and pushes revisions. One containerized service, many isolated reviews. Speaks HTTP and MCP.">
+<meta name="description" content="An agent POSTs markdown, a human leaves threaded comments in the browser, the agent reads them over HTTP or MCP, replies, resolves, and pushes revisions. Math, diagrams, and code render as they'll publish. One containerized service, many isolated reviews. 18 MCP tools.">
 <link rel="canonical" href="https://mdreview.waqasrana.space/">
 <style>
   :root{--bg:#fafaf9;--text:#1a1a1a;--muted:#6b6b6b;--accent:#0f766e;--rule:#e6e4e0;--noteline:#d4a017;--card:#fff;}
@@ -53,9 +53,11 @@
     <p class="brand">mdreview</p>
     <h1>Your agent writes the draft.<br>A human <em>reviews</em> it.</h1>
     <p class="what">mdreview is <strong>a containerized markdown review microservice</strong>: an
-    agent POSTs markdown, hands a human the returned URL, and polls feedback over HTTP while the
-    human annotates in the browser. One service handles any number of concurrent reviews, each
-    isolated by id — no shared files, no process juggling.</p>
+    agent POSTs markdown, hands a human the returned URL, and the human marks it up in the browser —
+    highlighting text into <strong>threaded comments</strong>. The agent reads those comments over
+    HTTP or MCP, replies, <strong>resolves</strong> them, and pushes revisions. Math, diagrams, and
+    code <strong>render as they'll publish</strong>. One service handles any number of concurrent
+    reviews, each isolated by id — no shared files, no process juggling.</p>
     <div class="ctas">
       <a class="btn primary" href="https://github.com/waqaskhan137/mdreview-service">View on GitHub</a>
       <a class="btn" href="#run-it">Run it locally</a>
@@ -66,12 +68,24 @@
     <h2>The review loop</h2>
     <figure>
       <div class="frame">
-        <img class="demo-img" src="demo.png" width="1280" height="1000"
-             alt="The mdreview viewer mid-review: a rendered markdown draft with a reviewer's margin note attached to a paragraph, and an earlier note shown struck through because the agent's revision already addressed it.">
+        <img class="demo-img" src="demo.png" width="1380" height="1000"
+             alt="The mdreview viewer mid-review: a markdown draft rendered with a Mermaid decision-flow diagram, a KaTeX equation, and syntax-highlighted code, plus a reviewer's highlighted phrase opening a margin comment thread and a 'Resolved' panel toggle.">
       </div>
-      <figcaption>A human annotates &rarr; the agent applies the edits and pushes a revision &rarr;
-      the page live-reloads and <span class="strike">addressed notes strike through</span>.</figcaption>
+      <figcaption>A human highlights text &rarr; a <strong>comment thread</strong>; the agent reads it
+      over MCP, replies, and <strong>resolves</strong> it (resolved threads move to the Resolved
+      panel). Math, Mermaid diagrams, and code render inline — the draft reviews as it ships.</figcaption>
     </figure>
+  </section>
+
+  <section class="render">
+    <h2>Renders like it'll publish</h2>
+    <p>The viewer renders the draft the way a Jekyll/MathJax site does, so a math- or diagram-heavy
+    draft reviews exactly as it will ship — not as raw markup:</p>
+    <p class="more"><strong>LaTeX math</strong> (<code>$…$</code> / <code>$$…$$</code>) &middot;
+    <strong>Mermaid diagrams</strong> (<code>```mermaid</code>) &middot;
+    <strong>GFM footnotes</strong> &middot; <strong>syntax-highlighted</strong> fenced code &middot;
+    <strong>images</strong> (attach once — they survive every revision). The MCP tools tell the agent
+    to author <em>to</em> this — a flow or decision tree as a Mermaid diagram, not ASCII art.</p>
   </section>
 
   <section class="curl-flow">
@@ -82,12 +96,14 @@ curl -X POST $BASE/api/reviews -d '{"title":"My draft","markdown":"# My draft\n.
 
 <span class="c"># 2 — hand review_url to a human; they annotate in the browser</span>
 
-<span class="c"># 3 — poll the feedback</span>
-curl $BASE/api/reviews/$id/feedback
+<span class="c"># 3 — read the threaded comments the human raised</span>
+curl $BASE/api/reviews/$id/comments?status=open
+<span class="out">     &rarr; reply to discuss, or resolve once you've addressed it</span>
 
 <span class="c"># 4 — apply the edits, push the revision (their page live-reloads)</span>
 curl -X PUT $BASE/api/reviews/$id/source -d '{"markdown":"# My draft\n...tightened..."}'</pre>
-    <p class="more">Every revision snapshots a history round, so earlier drafts and their feedback
+    <p class="more">Comments carry an <code>open &rarr; resolved &rarr; reopened</code> state machine the
+    service enforces; every revision snapshots a history round, so earlier drafts and their feedback
     stay recoverable. Full API table in the
     <a href="https://github.com/waqaskhan137/mdreview-service#api">README</a>.</p>
   </section>
@@ -102,10 +118,14 @@ curl -X PUT $BASE/api/reviews/$id/source -d '{"markdown":"# My draft\n...tighten
     </section>
 
     <section class="mcp">
-      <h2>Speaks MCP</h2>
-      <p>A thin, stdlib-only stdio MCP server (JSON-RPC&nbsp;2.0) ships in the repo, exposing the
-      review API as first-class tools — so an MCP-speaking agent plugs in without hand-rolling
-      HTTP. It wraps the running service and adds no state.</p>
+      <h2>Speaks MCP — 18 tools</h2>
+      <p>A thin, stdlib-only stdio MCP server (JSON-RPC&nbsp;2.0) ships in the repo as
+      <strong>18 first-class tools</strong>, so an MCP agent plugs in and self-serves without
+      hand-rolling HTTP: the review loop (<code>create_review</code> / <code>get_source</code> /
+      <code>update_source</code>), the full <strong>comment workflow</strong> (list / reply / resolve /
+      author / delete), image attach <strong>by path</strong> (no base64 through the model's context),
+      and <code>server_info</code> for staleness detection. It wraps the running service and adds no
+      state.</p>
       <p class="more">Tools and client config in the
       <a href="https://github.com/waqaskhan137/mdreview-service#mcp-server-optional">README</a>.</p>
     </section>
