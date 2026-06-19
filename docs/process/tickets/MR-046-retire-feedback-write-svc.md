@@ -1,7 +1,7 @@
 ---
 id: MR-046
 title: Retire the dead POST /feedback write (→ 410 Gone) + feedback_updated bump/initialiser; keep every reader
-status: in-progress
+status: done
 layer: svc
 priority: P2
 sprint: sprint-13
@@ -68,11 +68,29 @@ code on a no-auth service: nothing calls them, but the route still overwrites a 
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-19` — `app.py`, three surgical edits, readers untouched:
+  - POST arm of the `/feedback` route: replaced the write body (two `_write`s +
+    `bump(rid,"feedback_updated")`) with `return self._json(410, {"error": "gone, use comments"})`
+    — no `_body_json`, no `_lock`, no write, no bump. The GET arm above is byte-unchanged.
+  - `create_review`: removed the `"feedback_updated": 0` initialiser — new reviews lack the key.
+  - In-file API docstring: rewrote the `POST /feedback` line to `-> 410 (retired …)`; GET line kept.
+  - Confirmed untouched: `summary()` guard (`app.py:143`) + status derivation, `status` payload
+    `feedback_updated` default, `GET /feedback` notes union, `snapshot_round`, `GET /history`,
+    `feedback_url` in the create response.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-19` — `python3 -m py_compile app.py` → OK.
+- Ran the **new** `app.py` against a `docker cp` copy of the live `:8139` volume (45 reviews) on a
+  throwaway port — never composed over `:8139`:
+  - **Guard non-regression:** 31 empty reviews (`feedback_updated==0, notes_total==0`) → **0 flipped
+    off `awaiting`** (baseline on old `:8139` code was 31/31 awaiting). The guard's Pop-B job holds.
+  - **POST /feedback → 410** `{"error":"gone, use comments"}`; verified it wrote nothing (GET
+    `/feedback` `notes` still `[]` after a POST carrying a junk note).
+  - **Read path intact:** GET `/feedback` returns `markdown` + `notes`.
+  - **Back-compat:** fresh review's `/status` returns `feedback_updated: 0` (defaulted), its derived
+    status is `awaiting`, and its on-disk `meta.json` has **no** `feedback_updated` key.
+- Docs reflecting this behaviour change are carried by same-sprint **MR-047** (per DoD).
 
 ## Follow-ups
 
