@@ -1,11 +1,11 @@
 ---
 id: sprint-12
 name: mcp-agent-effectiveness
-status: active
+status: closed
 start: 2026-06-19
 end: 2026-06-19
 goal: Make the mdreview MCP self-serve for agents and PROVE it — a code-derived staleness signal (tools_hash + server_info + --print-version), a stdlib agent-loop render-proof harness, discoverability locked under test, and the two already-shipped viewer fixes retro-ticketed.
-close_review:
+close_review: reviews/sprint-12-close-review-2026-06-19.md
 ---
 
 ## Goal
@@ -41,15 +41,29 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+- `2026-06-19` — **Closed at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT accepted-no-change).**
+  The process critique landed structurally: the headline `agent_smoke.py` proves the agent loop renders
+  unaided (create → `attach_asset(path=…)` → asset served → `<img>` repointed → `naturalWidth>0`, zero
+  human curl, exit 0), and a stale MCP server is now *detectable* (`server_info` surfaces the running
+  `tools_hash`; a human/CI compares to `--print-version`; remedy = reconnect). The critic independently
+  re-ran both harnesses: `agent_smoke` PASS, `mcp_smoke` 34/34, `server_info` local with `BASE` on a
+  dead port, three-way hash identity `e6843ee24b2c`, `app.py` untouched.
+- **G1 conditions confirmed shipped:** honest staleness scoping (no surface claims the agent
+  self-detects — the only "self-detect" string is a negation); the Node built-in-`WebSocket` CDP render
+  check (no bespoke RFC6455 client).
+- **Carry-overs:** none. The two retro-tickets (MR-038/039) documented already-merged commits
+  (`dae815e`/`2ed9593`); the critic verified the `viewer.html` delta is exactly those, not new work.
+- **Backlog/non-goal spun off:** option (b) — the HTTP service publishing the *expected* wrapper hash
+  as an MCP-reachable comparand so an agent could self-detect — named a future option, not built.
 
 ## Close gate (G7)
 
 The sprint cannot be marked `closed` until:
 
-- [ ] every committed ticket is `done` or explicitly carried over (note where);
-- [ ] a **staff-critic sprint-close review** exists at
-      `reviews/sprint-12-close-review-YYYY-MM-DD.md`, verifying shipped work against each ticket's
-      acceptance criteria, **including `agent_smoke.py` PASS** (the epic's headline proof) and a
-      render-smoke of `viewer.html` (the retro-tickets), and its findings are resolved or carried;
-- [ ] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
+- [x] every committed ticket is `done` or explicitly carried over (note where) — MR-038–043 all `done`;
+      no carry-overs;
+- [x] a **staff-critic sprint-close review** exists at
+      `reviews/sprint-12-close-review-2026-06-19.md`, verifying shipped work against each ticket's
+      acceptance criteria, **including `agent_smoke.py` PASS** + a render-smoke of `viewer.html` — **PASS**,
+      1 NIT accepted-no-change;
+- [x] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
