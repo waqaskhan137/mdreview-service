@@ -1,13 +1,13 @@
 ---
 id: MR-034
 title: Comment state machine — reply/resolve/reopen routes, status_history, 409 on illegal transitions
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-11
 epic: comment-resolution
 depends_on: [MR-033]
-branch:
+branch: dev
 created: 2026-06-19
 updated: 2026-06-19
 ---
@@ -57,11 +57,25 @@ comment-aware `GET /feedback`/dashboard projections from MR-033.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-19` — `app.py`: added `apply_comment_transition(rid, cid, action, by, text=None)` — the
+  single writer (under `_lock`), returning `(code, payload)` (200/409/404). reply legal in every
+  state (append, status unchanged); resolve from open|reopened (optional justification appended as a
+  final agent entry, sets `resolved_by="agent"`/`resolved_at`, `409` otherwise); reopen from resolved
+  (optional reviewer reply, clears resolved fields, `409` otherwise). Added the combined
+  `POST /comments/{cid}/(reply|resolve|reopen)` route (role forced agent for resolve, reviewer for
+  reopen; reply role from body, default reviewer); `bump(comments_updated)` on success.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-19` — `python3 -m py_compile app.py` OK; rebuilt throwaway :8138; ran the epic plan's
+  MR-034 curl block. reply → `open`/thread 2; resolve+justification → `resolved`,
+  `resolved_by:"agent"`, `resolved_at` set, thread 3 (last role agent); double-resolve → **409**;
+  reopen → `reopened`, resolved fields cleared; reopen-non-resolved → **409**; silent resolve →
+  `resolved`; the `open→resolved→reopened→resolved` walk leaves `status_history` length **4**
+  (`[null→open, open→resolved, resolved→reopened, reopened→resolved]`) and `thread` length 4 (never
+  shrinks); missing id → **404**. **BLOCKER-2:** resolve flips the `GET /feedback` projection
+  `addressed`→true and the dashboard to `1/1 resolved`; reopen flips both back to `addressed`=false /
+  `1/0 feedback`.
 
 ## Follow-ups
 

@@ -312,6 +312,48 @@ def create_comment(rid, anchor, text, author=None, role="reviewer"):
     return c
 
 
+def apply_comment_transition(rid, cid, action, by, text=None):
+    """The single writer for comment state transitions, shared by the viewer and MCP routes so the
+    two can never diverge. Caller holds _lock.
+
+    Returns (http_code, payload): 200 + the updated comment on success; 409 + {error,status} on an
+    illegal transition (resolve a non-open/reopened, reopen a non-resolved); 404 + {error} when the
+    comment is missing. thread[] and status_history[] are append-only — never rewritten.
+    """
+    arr = _read_json(_comments_path(rid), [])
+    c = _find_comment(arr, cid)
+    if c is None:
+        return 404, {"error": "no such comment"}
+    now = time.time()
+    cur = c.get("status")
+    if action == "reply":
+        # legal in every state (incl. resolved — discussion without un-resolving); status unchanged.
+        role = by if by in ("reviewer", "agent") else "reviewer"
+        c["thread"].append({"author": role, "role": role, "text": text or "", "ts": now})
+    elif action == "resolve":
+        if cur not in ("open", "reopened"):
+            return 409, {"error": "comment is not open/reopened", "status": cur}
+        if text:  # optional justification, appended as the final agent entry before the flip
+            c["thread"].append({"author": "agent", "role": "agent", "text": text, "ts": now})
+        c["status"] = "resolved"
+        c["resolved_by"] = "agent"
+        c["resolved_at"] = now
+        c["status_history"].append({"from": cur, "to": "resolved", "by": "agent", "ts": now})
+    elif action == "reopen":
+        if cur != "resolved":
+            return 409, {"error": "comment is not resolved", "status": cur}
+        if text:  # optional reviewer reply, appended before the flip
+            c["thread"].append({"author": "reviewer", "role": "reviewer", "text": text, "ts": now})
+        c["status"] = "reopened"
+        c["resolved_by"] = None
+        c["resolved_at"] = None
+        c["status_history"].append({"from": cur, "to": "reopened", "by": "reviewer", "ts": now})
+    else:
+        return 400, {"error": "unknown action"}
+    _write_comments(rid, arr)
+    return 200, c
+
+
 class H(BaseHTTPRequestHandler):
     server_version = "mdreview/1.0"
 
@@ -553,6 +595,25 @@ class H(BaseHTTPRequestHandler):
             if not c:
                 return self._json(404, {"error": "no such comment"})
             return self._json(200, c)
+
+        mo = re.fullmatch(
+            r"/api/reviews/" + RID + r"/comments/(c[A-Za-z0-9]{10})/(reply|resolve|reopen)", path)
+        if mo and m == "POST":
+            rid, cid, action = mo.group(1), mo.group(2), mo.group(3)
+            if not _exists(rid):
+                return self._json(404, {"error": "not found"})
+            b = self._body_json()
+            if action == "reply":
+                by, text = b.get("role", "reviewer"), b.get("text", "")
+            elif action == "resolve":
+                by, text = "agent", b.get("justification")          # justification optional
+            else:                                                    # reopen
+                by, text = "reviewer", b.get("text")                 # reviewer reply optional
+            with _lock:
+                code, payload = apply_comment_transition(rid, cid, action, by, text)
+                if code == 200:
+                    bump(rid, "comments_updated")
+            return self._json(code, payload)
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/asset/([A-Za-z0-9._-]+)", path)
         if mo and m == "GET":
