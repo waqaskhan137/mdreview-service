@@ -1,13 +1,13 @@
 ---
 id: MR-040
 title: "MCP staleness signal — tools_hash + server_info tool + --print-version"
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-12
 epic: mcp-agent-effectiveness
 depends_on: []
-branch:
+branch: dev
 created: 2026-06-19
 updated: 2026-06-19
 ---
@@ -51,11 +51,23 @@ human/CI to compare).
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-19` — `mcp_server.py`: added `_tools_hash()` (sha256[:12] over `json.dumps(TOOLS,
+  sort_keys=True)` + `INSTRUCTIONS`); `SERVER_INFO["tools_hash"]` set from it (surfaced in
+  `initialize`'s `serverInfo`); a 16th tool `server_info` (no args) dispatched **locally** in
+  `handle_tools_call` before `route()` (reports the wrapper, no HTTP); `_server_info()` returning
+  `{name,version,protocol_version,tools_hash,tool_count,tool_names}`; a `--print-version` argv
+  short-circuit in `main()`; honest-scoping text in `INSTRUCTIONS` + the `server_info` description
+  (server signals, human/CI compares to `--print-version`, agent can't self-detect, remedy=reconnect).
+  Docstring 15→16; `mcp_smoke.py` count + `expected` set → 16 (kept green).
 
 ## Validation
 
-_How this was verified._
+- `2026-06-19` — `python3 -m py_compile mcp_server.py mcp_smoke.py` OK. `--print-version` →
+  `{"version":"0.1.0","tools_hash":"e6843ee24b2c"}`. **Local-dispatch AC (NIT-2):** drove `server_info`
+  over stdio with `MDREVIEW_BASE` pointed at a dead port (`localhost:1`) — succeeded, `isError:false`,
+  `tool_count:16`, `server_info` in names → proves it never touches HTTP. **Three-way hash identity
+  (NIT-1):** `serverInfo.tools_hash` == `server_info` tool's `tools_hash` == `--print-version`'s
+  `tools_hash` == `e6843ee24b2c`. Full `mcp_smoke` PASS against a throwaway :8155 container (16 tools).
 
 ## Follow-ups
 

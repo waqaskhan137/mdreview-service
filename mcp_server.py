@@ -9,7 +9,7 @@ Protocol grounded against the MCP spec rev 2025-06-18 (lifecycle + tools).
 
   initialize                -> {protocolVersion, capabilities:{tools:{}}, serverInfo}
   notifications/initialized -> (no response)
-  tools/list                -> {tools:[...15 schemas]}
+  tools/list                -> {tools:[...16 schemas]}
   tools/call                -> {content:[{type:text,text}], isError?}   (dispatch: MR-016)
 
 Comment workflow (MR-035): list_comments / get_comment / reply_to_comment / resolve_comment let an
@@ -24,6 +24,7 @@ import os
 import sys
 import json
 import base64
+import hashlib
 import urllib.request
 import urllib.error
 
@@ -43,14 +44,17 @@ INSTRUCTIONS = (
     "optional but recommended — the reviewer can reopen; you never reopen, that's their UI action). "
     "Watch comments_updated on get_status for thread changes. attach_asset makes a draft's images "
     "render. Operate only on reviews you created; the service has no auth (roles are attribution, not "
-    "security)."
+    "security). If a tool you expect is missing or misbehaves, the running server may be stale: "
+    "server_info reports its tools_hash, but you CANNOT conclude 'stale' from inside MCP — a human/CI "
+    "compares that hash to the repo's `python3 mcp_server.py --print-version` and reconnects the client "
+    "on a mismatch (the server signals staleness; it cannot reload itself)."
 )
 
 _ID = {"type": "string", "description": "the opaque review id"}
 _DOCID = {"type": "string", "description": "the review id the comments belong to (the document_id)"}
 _CID = {"type": "string", "description": "the comment id (cXXXXXXXXXX)"}
 
-# The 15 tools, 1:1 with the HTTP API. Static metadata served by tools/list.
+# The 16 tools, 1:1 with the HTTP API. Static metadata served by tools/list.
 TOOLS = [
     {
         "name": "create_review",
@@ -201,7 +205,42 @@ TOOLS = [
             "required": ["document_id", "comment_id"],
         },
     },
+    {
+        "name": "server_info",
+        "description": "Report THIS running MCP server's identity: name, version, protocol_version, "
+                       "tools_hash, tool_count, tool_names — so you can see what the *running* process "
+                       "exposes. This SURFACES the running server's identity; it does NOT by itself tell "
+                       "you the server is stale. To check staleness a human/CI compares this tools_hash "
+                       "to the repo's `python3 mcp_server.py --print-version`; on a mismatch, RECONNECT "
+                       "the MCP client (the server can signal, it cannot reload itself). An MCP-only "
+                       "agent cannot self-detect staleness — it has the running hash but no on-disk "
+                       "comparand over MCP.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
 ]
+
+
+def _tools_hash():
+    """sha256 (12 hex) over the agent-visible surface: the TOOLS schema + INSTRUCTIONS. Changes
+    automatically whenever a tool or the workflow text changes, so it can't silently drift from a
+    hand-bumped `version` string. One canonical input — every surface that reports a hash uses this."""
+    canon = json.dumps(TOOLS, sort_keys=True) + INSTRUCTIONS
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()[:12]
+
+
+SERVER_INFO["tools_hash"] = _tools_hash()   # surfaced in initialize's serverInfo + the server_info tool
+
+
+def _server_info():
+    """The running wrapper's own identity (no HTTP call — reports THIS process, not the service)."""
+    return {
+        "name": SERVER_INFO["name"],
+        "version": SERVER_INFO["version"],
+        "protocol_version": PROTOCOL_VERSION,
+        "tools_hash": SERVER_INFO["tools_hash"],
+        "tool_count": len(TOOLS),
+        "tool_names": sorted(t["name"] for t in TOOLS),
+    }
 
 
 # ---- JSON-RPC stdio framing (isolated so a spec change is a one-function fix) ----
@@ -315,6 +354,10 @@ def handle_tools_call(rid, params):
     args = params.get("arguments") or {}
     if name not in TOOL_NAMES:
         return _error(rid, -32602, "Unknown tool: %s" % name)   # protocol error
+    if name == "server_info":
+        # local: reports the wrapper's own identity, no HTTP — must work with no service/MDREVIEW_BASE
+        return _result(rid, {"content": [{"type": "text", "text": json.dumps(_server_info())}],
+                             "isError": False})
     try:
         method, path, body = route(name, args)
     except KeyError as e:
@@ -364,6 +407,10 @@ def dispatch(msg):
 
 
 def main():
+    if "--print-version" in sys.argv:
+        # on-disk comparand for staleness checks: print what THIS code would serve, then exit.
+        print(json.dumps({"version": SERVER_INFO["version"], "tools_hash": SERVER_INFO["tools_hash"]}))
+        return
     for msg in read_messages():
         try:
             dispatch(msg)

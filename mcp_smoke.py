@@ -63,8 +63,9 @@ def main():
     expected = {"create_review", "list_reviews", "get_review", "get_source", "get_feedback",
                 "get_status", "update_source", "get_history", "delete_review",
                 "attach_asset", "list_assets",
-                "list_comments", "get_comment", "reply_to_comment", "resolve_comment"}
-    check("tools/list returns exactly the 15 tools", names == expected)
+                "list_comments", "get_comment", "reply_to_comment", "resolve_comment",
+                "server_info"}
+    check("tools/list returns exactly the 16 tools", names == expected)
     check("each tool has a description + object inputSchema",
           all(t.get("description") and t.get("inputSchema", {}).get("type") == "object" for t in tools))
     # the comment tools must encode the agent workflow in their descriptions (the brief's expectations)
