@@ -1,13 +1,13 @@
 ---
 id: MR-041
 title: "agent_smoke.py — agent-loop render-proof (create→path-attach→repoint→naturalWidth>0)"
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-12
 epic: mcp-agent-effectiveness
 depends_on: [MR-040]
-branch:
+branch: dev
 created: 2026-06-19
 updated: 2026-06-19
 ---
@@ -50,11 +50,21 @@ an agent would** and proves the canonical image-embed loop **renders** with zero
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-19` — new `agent_smoke.py` (stdlib). Drives `mcp_server.py` over stdio (`drive()`/`call()`):
+  `server_info` → `create_review` (markdown referencing `/assets/plot.png`) → write a real 1×1 PNG to a
+  temp file → `attach_asset(path=…)` (the path branch, no base64 in context) → `delete_review` cleanup.
+  Layer (i) stdlib gate: asset `200`+`image/*` (urllib) + `<img>` repoint via headless `--dump-dom` +
+  `html.parser`. Layer (ii) render proof: `naturalWidth>0` via an embedded **Node built-in-`WebSocket`
+  CDP** check (`node_render`), gated by `node_with_websocket()` (Node ≥21 global WebSocket) +
+  `find_chrome()`; **fail-loud skip exit 3** if Chrome or Node absent. No bespoke WS client.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-19` — `python3 -m py_compile agent_smoke.py` OK. Against a throwaway `:8155` container:
+  **PASS (exit 0)** — `server_info` 16 tools `tools_hash=e6843ee24b2c`; create → path-attach → asset
+  `200 image/png` → `<img>` repointed (`--dump-dom`) → **`#article img naturalWidth>0` (nw=1) AND
+  src==asset**. Zero human curl. **Fail-loud skip verified:** with Node hidden (`PATH=/usr/bin:/bin`),
+  the gate still passes, the render half prints `SKIPPED`, exit **3** (never a silent pass).
 
 ## Follow-ups
 
