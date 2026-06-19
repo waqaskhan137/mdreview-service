@@ -26,10 +26,10 @@ A ticket counts as committed only when its `sprint:` field points here.
 |----|-------|-------|-----|--------|
 | MR-038 | Retro: GFM table CSS in the viewer (done-on-arrival, `dae815e`) | ui | P2 | done |
 | MR-039 | Retro: click-to-zoom lightbox in the viewer (done-on-arrival, `2ed9593`) | ui | P2 | done |
-| MR-040 | MCP staleness signal — `tools_hash` + `server_info` tool + `--print-version` | svc | P1 | ready |
-| MR-041 | `agent_smoke.py` — agent-loop render-proof (create→path-attach→repoint→naturalWidth>0) | svc | P1 | ready |
-| MR-042 | `mcp_smoke.py` — assert `server_info` + the discoverability contract | svc | P1 | ready |
-| MR-043 | Docs sweep — `server_info`/16-tool count + reconnect-on-stale guidance | docs | P2 | ready |
+| MR-040 | MCP staleness signal — `tools_hash` + `server_info` tool + `--print-version` | svc | P1 | done |
+| MR-041 | `agent_smoke.py` — agent-loop render-proof (create→path-attach→repoint→naturalWidth>0) | svc | P1 | done |
+| MR-042 | `mcp_smoke.py` — assert `server_info` + the discoverability contract | svc | P1 | done |
+| MR-043 | Docs sweep — `server_info`/16-tool count + reconnect-on-stale guidance | docs | P2 | done |
 
 ## Preferred execution order
 

@@ -3,14 +3,15 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) is ACTIVE** — make the MCP self-serve for agents and PROVE it: a code-derived staleness signal (`tools_hash` + `server_info` tool + `--print-version`), a stdlib `agent_smoke.py` render-proof harness, discoverability locked under test, + 2 retro-tickets for already-shipped viewer fixes. G1 passed 2 rounds (staff-critic PASS); MR-038/039 done-on-arrival, MR-040–043 ready. **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) is ACTIVE** — make the MCP self-serve for agents and PROVE it: a code-derived staleness signal (`tools_hash` + `server_info` tool + `--print-version`), a stdlib `agent_smoke.py` render-proof harness, discoverability locked under test, + 2 retro-tickets for already-shipped viewer fixes. G1 passed 2 rounds (staff-critic PASS); **all 6 tickets done** (MR-038–043), board reconciled, awaiting the G7 close review — `agent_smoke.py` proves the agent loop renders (`naturalWidth>0`) with no human curl. **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
 **sprint-12 — mcp-agent-effectiveness** (`active`, 2026-06-19). Epic: `mcp-agent-effectiveness`
-(G1 passed 2 rounds, staff-critic PASS). MR-038/039 (retro viewer fixes) `done`-on-arrival;
-MR-040 (svc staleness signal) → MR-041 (agent-loop render-proof) → {MR-042 (smoke discoverability),
-MR-043 (docs)} ready. Implementing.
+(G1 passed 2 rounds, staff-critic PASS). **All 6 tickets `done`** (MR-038/039 retro viewer fixes;
+MR-040 staleness signal `tools_hash`/`server_info`/`--print-version`; MR-041 `agent_smoke.py`
+render-proof — PASS, `naturalWidth>0`; MR-042 smoke discoverability lock; MR-043 docs) — board
+reconciled, awaiting the **G7 staff-critic close review**.
 
 _(sprint-11 comment-resolution + sprint-10 dashboard merged to main via PR #9.)_
 
@@ -29,12 +30,7 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-040 | MCP staleness signal — `tools_hash` + `server_info` tool + `--print-version` | svc | P1 | sprint-12 |
-| MR-041 | `agent_smoke.py` — agent-loop render-proof (create→path-attach→repoint→naturalWidth>0) | svc | P1 | sprint-12 |
-| MR-042 | `mcp_smoke.py` — assert `server_info` + the discoverability contract | svc | P1 | sprint-12 |
-| MR-043 | Docs sweep — `server_info`/16-tool count + reconnect-on-stale guidance | docs | P2 | sprint-12 |
+_none_
 
 ## in-progress
 
@@ -86,6 +82,10 @@ _none_
 | MR-037 | Docs sweep — README/CLAUDE/AGENTS/future-mcp + MCP docstring 10→14 + comment-aware feedback/dashboard | docs | P2 | sprint-11 |
 | MR-038 | Retro: GFM table CSS in the viewer (done-on-arrival, `dae815e`) | ui | P2 | sprint-12 |
 | MR-039 | Retro: click-to-zoom lightbox in the viewer (done-on-arrival, `2ed9593`) | ui | P2 | sprint-12 |
+| MR-040 | MCP staleness signal — `tools_hash` + `server_info` tool + `--print-version` | svc | P1 | sprint-12 |
+| MR-041 | `agent_smoke.py` — agent-loop render-proof (create→path-attach→repoint→naturalWidth>0) | svc | P1 | sprint-12 |
+| MR-042 | `mcp_smoke.py` — assert `server_info` + the discoverability contract | svc | P1 | sprint-12 |
+| MR-043 | Docs sweep — `server_info`/16-tool count + reconnect-on-stale guidance | docs | P2 | sprint-12 |
 
 ## blocked
 
