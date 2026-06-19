@@ -1,7 +1,7 @@
 ---
 id: MR-032
 title: Dashboard density — auto-fit row-fill + lone-card :has() cap + raise width cap to 2000px + trim whitespace
-status: ready
+status: done
 layer: ui
 priority: P1
 sprint: sprint-10
@@ -76,11 +76,25 @@ behavior preserved.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-19` — **Shipped within a direct, out-of-cycle dashboard redesign** (commit
+  `0f44c1b`). Mid-implementation, the user gave an **explicit "make the change without the cycle"**
+  exception for a larger redesign: replace the project-grouped default with **one flat continuous
+  grid** (auto-fill `minmax(240px,1fr)`, sorted by latest activity, project-as-inline-tag, zero
+  gutters), with a **"Group by project" toggle** that switches to grouped sections. MR-032's density
+  CSS is **incorporated into the grouped mode** (`#list.grouped .grid` → `auto-fit minmax(280px,1fr)`
+  + `.grid:has(.card:only-child){…560px}`) and the trimmed page/group spacing + `2000px` cap apply
+  globally. So MR-032's deliverable shipped; the flat-grid redesign on top did **not** go through
+  G1/G7 (the user's exception).
+- Files: `dashboard.html`.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-19` — `python3 -m py_compile app.py` OK; `docker build` OK; CDP-validated from a rebuilt
+  throwaway container on :8138: flat default = 1 grid / 13 cards / 13 project tags; expand reveals
+  path + actions; group-by toggle → 5 sections + Expand/Collapse-all; search filters; both panes
+  legible; Delete removes from DOM **and** `/api/reviews`; notes ("2 notes · 1 done") + version
+  ("v1") badges render. **Not gated by an independent G7 staff-critic review** (out-of-cycle per
+  user request).
 
 ## Follow-ups
 

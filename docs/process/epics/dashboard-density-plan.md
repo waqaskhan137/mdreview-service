@@ -1,6 +1,6 @@
 ---
 epic: dashboard-density
-status: active
+status: done   # shipped 2026-06-19 within a direct, out-of-cycle flat-grid redesign (user exception); G1 passed, G7 waived — see sprint-10
 created: 2026-06-19
 source: requirements/dashboard-density.md
 gate: passed 2026-06-19  # G1 passed (round 2, staff-critic PASS)

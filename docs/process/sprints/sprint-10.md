@@ -1,11 +1,11 @@
 ---
 id: sprint-10
 name: dashboard-density
-status: active
+status: closed
 start: 2026-06-19
-end: 2026-06-26
+end: 2026-06-19
 goal: Remove the dashboard's remaining wasted space — fill sparse rows (auto-fit + lone-card cap), tighten the top gap, raise the width cap to 2000px.
-close_review:          # reviews/sprint-10-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: none — out-of-cycle exception (user waived the gated close; no independent G7 staff-critic review). See Notes.
 ---
 
 ## Goal
@@ -33,19 +33,22 @@ Single-ticket sprint (a focused CSS refinement to the just-shipped `dashboard.ht
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+- `2026-06-19` — **Closed as an OUT-OF-CYCLE exception (user instruction).** Mid-implementation
+  (MR-032's density CSS was written + render-validated, pre-commit), the user explicitly said *"make
+  this exception, do not run the cycle, make the change without it"* and gave a **larger redesign
+  brief**: replace the project-grouped default with **one flat continuous packed grid** (newest-
+  activity first, project-as-inline-tag, zero gutters) plus a **"Group by project" toggle**. That
+  shipped **directly to `dev`** (commit `0f44c1b`), with MR-032's density CSS folded into the grouped
+  (toggle-on) mode.
+- **What this means for the gates:** MR-032's plan **passed G1** (2 rounds, `reviews/dashboard-density-plan-review-2026-06-19*.md`) and the shipped change was **render-validated by the implementer via CDP** (flat=1 grid/13 cards; expand/group-toggle/search/delete/notes/version all confirmed; both panes). It was **NOT** put through an independent **G7** staff-critic review — that gate was **waived by the user's exception**, recorded here honestly rather than faked. No `sprint-10-render-evidence-*` dir / close-review file exists.
+- **Carry-overs:** none — the dashboard-density scope is fully superseded by the shipped flat-grid redesign.
 
-## Close gate (G7)
+## Close gate (G7) — WAIVED (out-of-cycle exception)
 
-The sprint cannot be marked `closed` until:
+Normally a sprint cannot close without an independent G7 staff-critic review. The user **explicitly
+waived the cycle** for this change, so it shipped directly:
 
-- [ ] every committed ticket is `done` or explicitly carried over;
-- [ ] a **staff-critic sprint-close review** exists at
-      `reviews/sprint-10-close-review-YYYY-MM-DD.md`, verifying shipped work against MR-032's ACs;
-      since a product page (`dashboard.html`) is touched, it rebuilds the container, runs
-      `curl /healthz` + `/api/reviews`, **and** runs `scripts/render-smoke.sh` against `/`, with the
-      screenshot set (top-gap / sparse-row-fill / multisession / wide edge-to-edge / both panes via
-      `preferredColorScheme=0/1`) under `reviews/sprint-10-render-evidence-*`, **and re-exercises the
-      preserved functionality** (search/filter / chips / collapse-expand / Open / Delete on a
-      throwaway / version / notes) — not just the new density;
-- [ ] retro + carry-overs recorded above, and `close_review:` set in frontmatter.
+- [x] the committed ticket (MR-032) is `done` — its density CSS shipped within the direct redesign;
+- [~] **G7 staff-critic close review — WAIVED by user instruction** (no independent review; the change
+      was render-validated by the implementer via CDP, not gated by a critic);
+- [x] this Notes section records the exception + carry-overs; `close_review:` set to the waiver note.

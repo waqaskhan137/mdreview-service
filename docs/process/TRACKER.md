@@ -3,11 +3,13 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-19. sprint-10 (dashboard-density) opened (G6) — MR-032 committed (auto-fit row-fill + edge-to-edge density follow-up). sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-19. sprint-10 (dashboard-density) **closed as an out-of-cycle exception** — a direct flat continuous-grid redesign (+ group-by toggle) shipped to `dev` per the user's "make the change without the cycle" request; G1 passed, **G7 waived** (render-validated, not critic-gated). Awaiting the standing dev→main PR. sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
-**sprint-10 — dashboard-density** (`active`, opened 2026-06-19). Epic: `dashboard-density` (G1 passed, 2 rounds). Goal: remove the dashboard's remaining wasted space — `auto-fill`→`auto-fit` row-fill + a lone-card `:has()` cap, raise the width cap 1600→2000px, tighten the top gap + whitespace. Committed: MR-032 (ui). `dashboard.html` only; overrides the MR-031 A4 cap.
+_none active_ — sprint-10 closed (out-of-cycle); work on `dev` pending the G8 merge.
+
+**sprint-10 — dashboard-density** (`closed` out-of-cycle, 2026-06-19). Epic: `dashboard-density` (G1 passed 2 rounds; **G7 waived by user exception**). Shipped MR-032's density CSS **within a direct flat continuous-grid redesign** (commit `0f44c1b`): one packed grid (newest-first, project-as-inline-tag, zero gutters) is now the default, with a "Group by project" toggle to the grouped sections (which keep the MR-032 density). `dashboard.html` only. Render-validated via CDP; not independently G7-reviewed.
 
 **sprint-09 — dashboard-redesign** (`closed`, 2026-06-19; merged to main, PR #8). Epic: `dashboard-redesign` (G1 passed 2 rounds; G7 PASS). Shipped MR-031: `dashboard.html` rewritten into a dense, full-width (capped 1600px), searchable grid of collapsed click-to-expand cards with collapsible project groups; open/delete/version/notes + pane-adaptive theme preserved (CDP-verified). `dashboard.html` only.
 
@@ -22,9 +24,7 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-032 | Dashboard density — auto-fit row-fill + lone-card `:has()` cap + raise width cap to 2000px + trim whitespace | ui | P1 | sprint-10 |
+_none_
 
 ## in-progress
 
@@ -68,6 +68,7 @@ _none_
 | MR-029 | Syntax highlighting in the viewer (vendored highlight.js + marked-highlight; dual-scheme, skips mermaid) | ui | P2 | sprint-08 |
 | MR-030 | Docs — footnotes + syntax highlighting render in the viewer | docs | P2 | sprint-08 |
 | MR-031 | Redesign `dashboard.html` — dense grid, collapsible cards, sticky search, collapsible groups (preserve open/delete/version/notes) | ui | P1 | sprint-09 |
+| MR-032 | Dashboard density → shipped within a direct flat continuous-grid redesign + group-by toggle (out-of-cycle; G7 waived) | ui | P1 | sprint-10 |
 
 ## blocked
 
