@@ -63,9 +63,9 @@ def main():
     expected = {"create_review", "list_reviews", "get_review", "get_source", "get_feedback",
                 "get_status", "update_source", "get_history", "delete_review",
                 "attach_asset", "list_assets",
-                "list_comments", "get_comment", "reply_to_comment", "resolve_comment",
+                "create_comment", "list_comments", "get_comment", "reply_to_comment", "resolve_comment",
                 "server_info"}
-    check("tools/list returns exactly the 16 tools", names == expected)
+    check("tools/list returns exactly the 17 tools", names == expected)
     check("each tool has a description + object inputSchema",
           all(t.get("description") and t.get("inputSchema", {}).get("type") == "object" for t in tools))
     # the comment tools must encode the agent workflow in their descriptions (the brief's expectations)
@@ -110,8 +110,10 @@ def main():
     init_hash = init.get("serverInfo", {}).get("tools_hash")
     check("three-way tools_hash identity (serverInfo == server_info tool == --print-version)",
           bool(init_hash) and init_hash == tool_hash == disk_hash)
-    check("server_info tool reports tool_count == 16 (local dispatch, no service touched)",
-          isinstance(tool_hash, str) and json.loads(si[-1]["result"]["content"][0]["text"]).get("tool_count") == 16)
+    check("server_info tool reports tool_count == 17 (local dispatch, no service touched)",
+          isinstance(tool_hash, str) and json.loads(si[-1]["result"]["content"][0]["text"]).get("tool_count") == 17)
+    check("create_comment description: author a NEW comment anchored to quoted_text",
+          "quoted_text" in desc.get("create_comment", "") and "comment" in desc.get("create_comment", ""))
 
     # 2. happy-path envelope + round-trip (needs a running service)
     out = drive(base + [{"jsonrpc": "2.0", "id": 3, "method": "tools/call",
@@ -190,7 +192,31 @@ def main():
         check("list_assets -> includes the attached asset's stored name",
               any(a.get("stored") == stored for a in listed))
 
-        # comment round-trip: seed a comment over HTTP (create is reviewer-side), then exercise the
+        # create_comment via the MCP tool: an agent authors a comment anchored to a quote -> list shows it
+        cc = drive(base + [{"jsonrpc": "2.0", "id": 12, "method": "tools/call",
+                            "params": {"name": "create_comment",
+                                       "arguments": {"document_id": rid, "quoted_text": "revised",
+                                                     "text": "agent review note"}}}])
+        new_cid = None
+        try:
+            new_cid = json.loads(cc[-1]["result"]["content"][0]["text"]).get("comment_id")
+        except Exception:
+            pass
+        check("create_comment -> a new comment_id, isError false",
+              bool(new_cid) and not cc[-1].get("result", {}).get("isError"))
+        lc = drive(base + [{"jsonrpc": "2.0", "id": 13, "method": "tools/call",
+                            "params": {"name": "list_comments", "arguments": {"document_id": rid}}}])
+        listed_c = []
+        try:
+            listed_c = json.loads(lc[-1]["result"]["content"][0]["text"]).get("comments", [])
+        except Exception:
+            pass
+        check("create_comment round-trip -> list_comments shows it (anchored, role agent)",
+              any(c.get("comment_id") == new_cid
+                  and c.get("anchor", {}).get("quoted_text") == "revised"
+                  and (c.get("thread") or [{}])[0].get("role") == "agent" for c in listed_c))
+
+        # comment round-trip: seed a comment over HTTP (the viewer path), then exercise the
         # four agent tools (list -> get -> reply -> resolve) and the open/resolved filter.
         cid = None
         try:

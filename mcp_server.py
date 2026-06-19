@@ -9,7 +9,7 @@ Protocol grounded against the MCP spec rev 2025-06-18 (lifecycle + tools).
 
   initialize                -> {protocolVersion, capabilities:{tools:{}}, serverInfo}
   notifications/initialized -> (no response)
-  tools/list                -> {tools:[...16 schemas]}
+  tools/list                -> {tools:[...17 schemas]}
   tools/call                -> {content:[{type:text,text}], isError?}   (dispatch: MR-016)
 
 Comment workflow (MR-035): list_comments / get_comment / reply_to_comment / resolve_comment let an
@@ -54,7 +54,7 @@ _ID = {"type": "string", "description": "the opaque review id"}
 _DOCID = {"type": "string", "description": "the review id the comments belong to (the document_id)"}
 _CID = {"type": "string", "description": "the comment id (cXXXXXXXXXX)"}
 
-# The 16 tools, 1:1 with the HTTP API. Static metadata served by tools/list.
+# The 17 tools, 1:1 with the HTTP API. Static metadata served by tools/list.
 TOOLS = [
     {
         "name": "create_review",
@@ -148,6 +148,26 @@ TOOLS = [
         "name": "list_assets",
         "description": "List a review's attached assets (name, stored name, served url, bytes, ctype).",
         "inputSchema": {"type": "object", "properties": {"id": _ID}, "required": ["id"]},
+    },
+    {
+        "name": "create_comment",
+        "description": "Author a NEW comment on a document, anchored to a quoted phrase — use this to "
+                       "leave review feedback at a specific spot (you act as a reviewer). Pass "
+                       "`quoted_text` = the exact phrase from the source to anchor to (the viewer "
+                       "highlights it wherever it occurs) and `text` = your comment. Omit `quoted_text` "
+                       "for a document-level (unanchored) note. Attributed to `role` (default `agent`). "
+                       "After this, the reviewer (or you) can reply/resolve it like any thread.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "document_id": _DOCID,
+                "quoted_text": {"type": "string", "description": "exact phrase to anchor + highlight (omit for a doc-level note)"},
+                "text": {"type": "string", "description": "the comment body"},
+                "role": {"type": "string", "enum": ["agent", "reviewer"],
+                         "description": "attribution; default agent"},
+            },
+            "required": ["document_id", "text"],
+        },
     },
     {
         "name": "list_comments",
@@ -332,6 +352,10 @@ def route(name, args):
         return "POST", "/api/reviews/%s/assets" % args["id"], {"name": args["name"], "content_b64": b64}
     if name == "list_assets":
         return "GET", "/api/reviews/%s/assets" % args["id"], None
+    if name == "create_comment":
+        anchor = {"quoted_text": args["quoted_text"]} if args.get("quoted_text") else {}
+        return "POST", "/api/reviews/%s/comments" % args["document_id"], \
+            {"anchor": anchor, "text": args["text"], "role": args.get("role", "agent")}
     if name == "list_comments":
         # MCP default is open (per the brief); the HTTP route's own default is all.
         status = args.get("status", "open")
