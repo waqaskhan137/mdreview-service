@@ -1,6 +1,6 @@
 ---
 epic: dashboard-redesign
-status: active         # draft | active | done  (stays draft until G1 passes)
+status: done           # draft | active | done  (stays draft until G1 passes)
 created: 2026-06-19
 source: requirements/dashboard-redesign.md
 gate: passed 2026-06-19  # G1 (Plan Gate): passed (round 2, staff-critic PASS) — tickets unblocked
