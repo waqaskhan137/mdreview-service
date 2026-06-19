@@ -7,11 +7,12 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**sprint-13 — legacy-feedback-retire** (`active`, opened 2026-06-19). Epic: `legacy-feedback-retire`
-(G1 passed 2 rounds). Committed: MR-046 (svc — `POST /feedback` → 410 Gone, drop `feedback_updated`
-write; keep every reader) + MR-047 (docs sweep → `comments_updated`). svc-before-docs. No product
-page touched → G7 owes the container-rebuild + `curl /healthz` + `/api/reviews` smoke, not a
-render-smoke.
+_none active_ — **sprint-13 (legacy-feedback-retire) CLOSED at G7** (staff-critic PASS,
+`reviews/sprint-13-close-review-2026-06-19.md`; independent rebuild + smoke, every reader region
+byte-compared). MR-046 + MR-047 `done` on `dev`, no carry-overs. Shipped: `POST /feedback` → 410
+Gone (no write), `feedback_updated` writer dropped, docs steer agents to `comments_updated` — every
+reader and all 61 live notes/feedback files untouched. No `mcp_server.py` change → no MCP reconnect.
+**Pending the standing `dev → main` PR (G8).**
 
 _(previously)_ **sprint-12 (mcp-agent-effectiveness) closed at G7** (staff-critic PASS,
 `reviews/sprint-12-close-review-2026-06-19.md`). All 6 tickets `done` on `dev`; no carry-overs.
@@ -122,4 +123,4 @@ _none_
 | dashboard-density | active (G1 cleared; MR-032 ready) | G1 passed 2026-06-19 (2 rounds) | sprint-10 |
 | comment-resolution | done (merged to main 2026-06-19, PR #9) | G1 passed 2026-06-19 (2 rounds) | sprint-11 |
 | mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |
-| legacy-feedback-retire | active (G1 cleared 2 rounds; MR-046/MR-047 ready) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
+| legacy-feedback-retire | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |

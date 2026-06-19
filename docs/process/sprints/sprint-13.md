@@ -1,11 +1,11 @@
 ---
 id: sprint-13
 name: legacy-feedback-retire
-status: active
+status: closed
 start: 2026-06-19
 end: 2026-06-22
 goal: Retire the frozen POST /feedback write surface (→ 410 Gone) and the feedback_updated write, landing app.py + the agent docs together, while leaving every reader and all live data untouched.
-close_review:          # reviews/sprint-13-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: reviews/sprint-13-close-review-2026-06-19.md   # G7 PASS (staff-critic, independent rebuild + smoke)
 ---
 
 ## Goal
@@ -40,27 +40,39 @@ changed yet). Svc-before-docs.
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+**Closed 2026-06-19 — G7 PASS** (`reviews/sprint-13-close-review-2026-06-19.md`, staff-critic,
+independent: rebuilt the image + re-ran the full behavioural smoke, byte-compared every reader
+region against `e091509^`). Both committed tickets `done`; **no carry-overs.**
 
-- **G7 evidence owed is reduced:** this sprint touches **no product page** (`viewer.html` /
-  `dashboard.html` / `static/**` unchanged — `dashboard.html` is *read* by the design but not
-  edited), so per the G7 pass-condition row the close review owes the **container rebuild +
-  `curl /healthz` + `curl /api/reviews`** smoke, **not** a `scripts/render-smoke.sh` per-page DOM
-  assertion or screenshot. Stated here so the G7 reviewer does not flag a missing render-smoke as
-  non-compliance.
-- "Land together" (the brief's atomicity constraint) is satisfied at **sprint** granularity (both
-  tickets here, svc-before-docs), not commit granularity — single-deploy/no-CD, so the inter-ticket
-  window is internal-only.
+- **Shipped:** MR-046 (svc — `POST /feedback` → `410 Gone` with no write/`bump`; dropped the
+  `feedback_updated` initialiser; every reader byte-unchanged) + MR-047 (docs — "human is done" →
+  `comments_updated` in CLAUDE.md/AGENTS.md, dropped the README POST row, fixed `future-mcp.md:61`).
+  No `mcp_server.py` change (its `get_status` already leads with `comments_updated`) → no MCP
+  reconnect owed; the planned third ticket was dropped at G1.
+- **What went well:** the live-volume check (memory `legacy-notes-feedback-load-bearing`) kept the
+  read path intact — 31 empty reviews stay `awaiting`, 61 notes/feedback files untouched. G1 caught a
+  factually-wrong design-fork table (the guard protects Pop B / new-empty reviews, not the 12 `fu>0`
+  ones) before it became a wrong AC; the corrected AC tests a fresh review derives `awaiting`.
+- **G7 evidence owed was reduced** (recorded pre-review so the critic didn't flag it): no product
+  page touched (`viewer.html`/`dashboard.html`/`static/**` unchanged — `dashboard.html` is *read* by
+  the design, not edited), so the close owed the **container rebuild + `curl /healthz` +
+  `/api/reviews`** smoke, not a per-page render-smoke/screenshot. Evidence:
+  `reviews/sprint-13-close-smoke-2026-06-19.txt`.
+- **"Land together"** (the brief's atomicity constraint) was satisfied at **sprint** granularity
+  (both tickets here, svc-before-docs), not commit granularity — single-deploy/no-CD, so the
+  inter-ticket window was internal-only.
+- **G7 NITs (both discharged at close):** sprint `status`/`close_review`/retro were the actions the
+  PASS authorized (now set); the smoke-evidence `.txt` lives at repo-root `reviews/` per existing
+  convention (audit files too), cross-linked in the close review — no action.
 
 ## Close gate (G7)
 
 The sprint cannot be marked `closed` until:
 
-- [ ] every committed ticket is `done` or explicitly carried over (note where) — **MR-047 is a
-      docs-sweep, NOT carry-over eligible** (must be `done` before close);
-- [ ] a **staff-critic sprint-close review** exists at
-      `reviews/sprint-13-close-review-YYYY-MM-DD.md`, verifying shipped work against each ticket's
+- [x] every committed ticket is `done` or explicitly carried over (note where) — MR-046 + MR-047
+      both `done`; no carry-overs (MR-047 docs-sweep closed in-sprint as required);
+- [x] a **staff-critic sprint-close review** exists at
+      `reviews/sprint-13-close-review-2026-06-19.md`, verifying shipped work against each ticket's
       acceptance criteria, **including the container-rebuild + `curl /healthz` + `/api/reviews`
-      smoke** (no per-page render-smoke owed — no product page touched), and its findings are
-      resolved or carried;
-- [ ] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
+      smoke** (no per-page render-smoke owed — no product page touched) — **G7 PASS**, NITs discharged;
+- [x] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
