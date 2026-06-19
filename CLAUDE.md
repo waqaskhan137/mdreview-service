@@ -134,14 +134,23 @@ curl -s -X POST "$BASE/api/reviews/<id>/comments/<cid>/resolve" \
 ## Calling it over MCP (optional)
 
 `mcp_server.py` is a thin, stdlib-only stdio MCP server (JSON-RPC 2.0, spec rev `2025-06-18`)
-exposing the API as 15 tools (`create_review`, `list_reviews`, `get_review`, `get_source`, `get_feedback`,
-`get_status`, `update_source`, `get_history`, `attach_asset`, `list_assets`, `delete_review`, and
-the comment tools `list_comments`, `get_comment`, `reply_to_comment`, `resolve_comment` — there is
-**no `reopen` tool**, reopen is the reviewer's UI action). The comment tools take `document_id` (=
-the review id); their descriptions encode the workflow above. Run
+exposing the API as 16 tools (`create_review`, `list_reviews`, `get_review`, `get_source`, `get_feedback`,
+`get_status`, `update_source`, `get_history`, `attach_asset`, `list_assets`, `delete_review`,
+`server_info`, and the comment tools `list_comments`, `get_comment`, `reply_to_comment`,
+`resolve_comment` — there is **no `reopen` tool**, reopen is the reviewer's UI action). The comment
+tools take `document_id` (= the review id); their descriptions encode the workflow above. Run
 `MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py`; smoke with `mcp_smoke.py`. It wraps a
 running service and adds no state. Set `MDREVIEW_PUBLIC_BASE` on the service so a relayed
 `review_url` is reachable. See `README.md` and `docs/future-mcp.md`.
+
+**If a tool you expect is missing, the running MCP server is probably stale.** A stdio server loads
+its code + tool list once at process start; editing `mcp_server.py` does nothing until the client
+**reconnects**. To check: `server_info` reports the *running* wrapper's `tools_hash`/version; a
+**human/CI** compares it to the on-disk `python3 mcp_server.py --print-version` and reconnects the MCP
+client on a mismatch. The server can *signal* its identity but cannot reload itself, and an MCP-only
+agent has no on-disk comparand over MCP — so it surfaces its version for the human/CI to compare, it
+does not decide "stale" on its own. (This is why a render/HTTP change needs **no** reconnect — the
+wrapper just proxies — but a change to `mcp_server.py` itself does.)
 
 ## Why this shape
 

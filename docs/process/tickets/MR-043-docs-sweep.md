@@ -1,13 +1,13 @@
 ---
 id: MR-043
 title: "Docs sweep — server_info / 16-tool count + reconnect-on-stale guidance"
-status: ready
+status: done
 layer: docs
 priority: P2
 sprint: sprint-12
 epic: mcp-agent-effectiveness
 depends_on: [MR-040]
-branch:
+branch: dev
 created: 2026-06-19
 updated: 2026-06-19
 ---
@@ -40,11 +40,19 @@ carry-over-eligible — must be `done` before sprint-12 closes (G7).
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-19` — `CLAUDE.md`/`README.md`/`AGENTS.md`/`docs/future-mcp.md`: tool count 15→16 +
+  `server_info` added to each tool list (and a `server_info` row in future-mcp's table). Added a
+  **Staleness** paragraph to all four: `server_info` reports the running wrapper's `tools_hash`; a
+  **human/CI** compares it to `python3 mcp_server.py --print-version` and reconnects on a mismatch;
+  the server signals, it cannot reload itself; an HTTP/render change needs no reconnect, a
+  wrapper-code change does. Worded to avoid any "agent detects/self-detects staleness" claim.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-19` — `grep -l server_info` hits all four docs; `16`/`reconnect` present in each;
+  `grep -riE "agent (detects|can detect|self-detects) stale"` → **clean** (no positive self-detect
+  claim); `--print-version` attributed to human/CI. `python3 -m py_compile app.py mcp_server.py` OK;
+  `mcp_smoke` re-run against :8155 → **PASS** (no regression).
 
 ## Follow-ups
 
