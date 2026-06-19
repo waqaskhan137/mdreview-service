@@ -22,7 +22,6 @@ sprint-01/02/03/04/05/06/07/08 shipped to main (PR #1, #2, #3, #4, #5, #6, #7).
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
-| MR-031 | Redesign `dashboard.html` — dense full-width grid, collapsible cards, sticky search, collapsible project groups | ui | P1 | sprint-09 |
 
 ## in-progress
 
@@ -65,6 +64,7 @@ _none_
 | MR-028 | GFM footnotes in the viewer (vendored marked-footnote; refs + back-ref section) | ui | P2 | sprint-08 |
 | MR-029 | Syntax highlighting in the viewer (vendored highlight.js + marked-highlight; dual-scheme, skips mermaid) | ui | P2 | sprint-08 |
 | MR-030 | Docs — footnotes + syntax highlighting render in the viewer | docs | P2 | sprint-08 |
+| MR-031 | Redesign `dashboard.html` — dense grid, collapsible cards, sticky search, collapsible groups (preserve open/delete/version/notes) | ui | P1 | sprint-09 |
 
 ## blocked
 
