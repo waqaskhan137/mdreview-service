@@ -1,13 +1,13 @@
 ---
 id: MR-042
 title: "mcp_smoke.py — assert server_info + the discoverability contract"
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-12
 epic: mcp-agent-effectiveness
 depends_on: [MR-040]
-branch:
+branch: dev
 created: 2026-06-19
 updated: 2026-06-19
 ---
@@ -41,11 +41,20 @@ no production behavior change.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-19` — `mcp_smoke.py`: added discoverability + staleness assertions (all from the static
+  surface, no service): `attach_asset` desc steers to `path`; `get_source` desc says when to read;
+  `INSTRUCTIONS` names `attach_asset`/`get_source`/`list_comments`; `serverInfo.tools_hash` present;
+  `server_info` desc attributes the compare to a human/CI via `--print-version`; **no surface claims
+  the agent self-detects staleness**; **three-way `tools_hash` identity** (serverInfo == `server_info`
+  tool == `--print-version`); `server_info` `tool_count==16`. (The 16-tool count + `expected` set
+  landed with MR-040.)
 
 ## Validation
 
-_How this was verified._
+- `2026-06-19` — `python3 -m py_compile mcp_smoke.py` OK; `MDREVIEW_BASE=http://localhost:8155 python3
+  mcp_smoke.py` → **PASS** (all existing assertions + the 9 new ones green): 16 tools; path/get_source/
+  INSTRUCTIONS discoverability; `serverInfo.tools_hash`; human/CI-compare wording; no agent-self-detect
+  claim; three-way hash identity; `server_info` local dispatch reports `tool_count 16`.
 
 ## Follow-ups
 

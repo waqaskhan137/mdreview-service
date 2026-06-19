@@ -77,6 +77,42 @@ def main():
     check("resolve_comment description says justification optional + reviewer can reopen",
           "optional" in desc.get("resolve_comment", "") and "reopen" in desc.get("resolve_comment", ""))
 
+    # --- MR-042: staleness signal + discoverability (no service needed; all from the static surface) ---
+    instr = init.get("instructions", "").lower()
+    # discoverability — an agent reading tools/list + instructions can self-find the paths that tripped it
+    check("attach_asset description steers to `path`", "path" in desc.get("attach_asset", ""))
+    check("get_source description says when to read the draft",
+          "draft" in desc.get("get_source", "") or "source" in desc.get("get_source", ""))
+    check("INSTRUCTIONS name path-attach, get_source, and the comment loop",
+          "attach_asset" in instr and "get_source" in instr and "list_comments" in instr)
+    # staleness signal — surfaced via serverInfo + a server_info tool; honest scoping (SHOULD-1)
+    check("serverInfo carries a tools_hash", bool(init.get("serverInfo", {}).get("tools_hash")))
+    check("server_info description: human/CI compares to --print-version (not the agent)",
+          "--print-version" in desc.get("server_info", "") and (
+              "human" in desc.get("server_info", "") or "human/ci" in desc.get("server_info", "")))
+    check("no surface claims the agent self-detects staleness",
+          "agent detects stale" not in instr and "self-detect" not in instr
+          and "agent detects stale" not in desc.get("server_info", ""))
+    # three-way tools_hash identity: serverInfo == server_info tool == --print-version (one _tools_hash())
+    si = drive(base + [{"jsonrpc": "2.0", "id": 30, "method": "tools/call",
+                        "params": {"name": "server_info", "arguments": {}}}])
+    tool_hash = None
+    try:
+        tool_hash = json.loads(si[-1]["result"]["content"][0]["text"]).get("tools_hash")
+    except Exception:
+        pass
+    disk_hash = None
+    try:
+        pv = subprocess.run([sys.executable, SERVER, "--print-version"], capture_output=True, text=True, timeout=15)
+        disk_hash = json.loads(pv.stdout).get("tools_hash")
+    except Exception:
+        pass
+    init_hash = init.get("serverInfo", {}).get("tools_hash")
+    check("three-way tools_hash identity (serverInfo == server_info tool == --print-version)",
+          bool(init_hash) and init_hash == tool_hash == disk_hash)
+    check("server_info tool reports tool_count == 16 (local dispatch, no service touched)",
+          isinstance(tool_hash, str) and json.loads(si[-1]["result"]["content"][0]["text"]).get("tool_count") == 16)
+
     # 2. happy-path envelope + round-trip (needs a running service)
     out = drive(base + [{"jsonrpc": "2.0", "id": 3, "method": "tools/call",
                          "params": {"name": "create_review",
