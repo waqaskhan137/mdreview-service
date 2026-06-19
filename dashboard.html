@@ -8,48 +8,90 @@
   :root{--bg:#fafaf9;--text:#1a1a1a;--muted:#6b6b6b;--accent:#0f766e;--rule:#e6e4e0;--noteline:#d4a017;--card:#fff;}
   @media (prefers-color-scheme: dark){:root{--bg:#111;--text:#f1efec;--muted:#9a9a9a;--accent:#2dd4bf;--rule:#2a2a2a;--noteline:#d4a017;--card:#181817;}}
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5;}
-  .wrap{max-width:920px;margin:0 auto;padding:40px 24px 120px;}
-  header h1{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 4px;font-weight:600;}
-  header .lead{font-size:28px;font-weight:700;letter-spacing:-.02em;margin:0 0 2px;}
-  header .sub{color:var(--muted);font-size:13.5px;margin:0 0 28px;}
-  .project{margin:0 0 36px;}
-  .project>h2{font-size:18px;font-weight:700;margin:0 0 2px;display:flex;align-items:baseline;gap:8px;}
-  .project>h2 .pcount{font-size:12px;font-weight:500;color:var(--muted);}
-  .session{margin:14px 0 0;}
-  .session>h3{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--accent);text-transform:none;letter-spacing:0;margin:0 0 8px;font-weight:600;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.45;}
+
+  /* sticky search/filter bar */
+  .bar{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--rule);}
+  .bar-inner{max-width:1600px;margin:0 auto;padding:9px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .brand{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700;white-space:nowrap;}
+  #search{flex:1 1 220px;min-width:150px;font:inherit;font-size:13.5px;padding:7px 11px;border-radius:8px;border:1px solid var(--rule);background:var(--card);color:var(--text);}
+  #search:focus{outline:none;border-color:var(--accent);}
+  .chips{display:flex;gap:4px;}
+  .chip,.bulkbtn{font:inherit;font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--rule);background:var(--card);color:var(--muted);cursor:pointer;white-space:nowrap;}
+  .chip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .bulkbtn{color:var(--text);}
+  .bulkbtn:hover,.chip:hover{border-color:var(--accent);}
+
+  .wrap{max-width:1600px;margin:0 auto;padding:16px 24px 96px;}
+  .sub{color:var(--muted);font-size:13px;margin:2px 0 18px;}
+
+  /* collapsible project group */
+  .project{margin:0 0 14px;}
+  .project.is-hidden{display:none;}
+  .group-header{display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 4px;border-radius:6px;user-select:none;}
+  .group-header:hover{background:rgba(127,127,127,.07);}
+  .chev{display:inline-block;font-size:11px;color:var(--muted);transition:transform .15s;}
+  .project:not(.collapsed) .chev{transform:rotate(90deg);}
+  .gname{font-size:16px;font-weight:700;}
+  .pcount{font-size:11.5px;font-weight:600;color:var(--muted);background:rgba(127,127,127,.12);border-radius:20px;padding:1px 8px;}
+  .project.collapsed .group-body{display:none;}
+
+  .session{margin:8px 0 0;}
+  .session.is-hidden{display:none;}
+  .session>h3{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--accent);margin:6px 0 6px;font-weight:600;}
   .session>h3::before{content:"› ";color:var(--muted);}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
-  .card{background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:13px 14px;display:flex;flex-direction:column;gap:7px;transition:border-color .15s,transform .05s;}
-  .card:hover{border-color:var(--accent);}
-  .card .title{font-size:15px;font-weight:600;line-height:1.25;word-break:break-word;}
-  .card .path{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--muted);word-break:break-all;}
-  .card .path:empty{display:none;}
-  .meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin-top:2px;}
-  .pill{display:inline-flex;align-items:center;gap:4px;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600;border:1px solid var(--rule);}
+
+  /* dense grid, capped so columns top out at 5 (5×280 + 4×10 gap + 2×24 pad ≈ 1488; a 6th needs ~1778) */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;}
+
+  /* collapsed card = title + one meta row (~3 lines); click to expand */
+  .card{position:relative;background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;cursor:pointer;transition:border-color .12s,transform .06s,box-shadow .12s;}
+  .card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.07);}
+  .card.is-hidden{display:none;}
+  .card .title{font-size:14px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:86px;}
+  .meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11px;color:var(--muted);}
+  .pill{display:inline-flex;align-items:center;border-radius:20px;padding:1px 8px;font-size:10.5px;font-weight:600;border:1px solid var(--rule);}
   .pill.awaiting{color:var(--muted);}
   .pill.feedback{color:#7a5b00;background:rgba(212,160,23,.16);border-color:transparent;}
   @media (prefers-color-scheme: dark){.pill.feedback{color:#f0cb5a;}}
   .pill.resolved{color:#fff;background:var(--accent);border-color:transparent;}
-  .badge{border-radius:6px;padding:1px 6px;background:rgba(127,127,127,.12);font-size:11px;}
+  .badge{border-radius:6px;padding:1px 6px;background:rgba(127,127,127,.12);font-size:10.5px;}
   .rev{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
-  .actions{display:flex;gap:6px;margin-top:4px;}
-  .btn{flex:0 0 auto;font:inherit;font-size:12.5px;border-radius:6px;padding:5px 12px;cursor:pointer;border:1px solid var(--rule);background:var(--bg);color:var(--text);text-decoration:none;display:inline-block;}
+  /* full path: single line ellipsis, only when expanded */
+  .card .path{display:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .card.expanded .path{display:block;}
+  .card .path:empty{display:none;}
+  /* actions: top-right, only on hover or expanded */
+  .actions{position:absolute;top:7px;right:9px;display:flex;gap:4px;opacity:0;pointer-events:none;transition:opacity .12s;}
+  .card:hover .actions,.card.expanded .actions{opacity:1;pointer-events:auto;}
+  .btn{font:inherit;font-size:11.5px;border-radius:6px;padding:3px 9px;cursor:pointer;border:1px solid var(--rule);background:var(--bg);color:var(--text);text-decoration:none;line-height:1.4;}
   .btn.open{background:var(--accent);color:#fff;border-color:var(--accent);}
-  .btn.del{margin-left:auto;color:var(--muted);}
+  .btn.del{color:var(--muted);}
   .btn.del:hover{color:#c0392b;border-color:#c0392b;}
-  .empty{text-align:center;color:var(--muted);padding:80px 0;}
+
+  .empty,.noresults{text-align:center;color:var(--muted);padding:72px 0;}
+  .noresults{display:none;}
   .empty code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:rgba(127,127,127,.1);padding:2px 6px;border-radius:5px;}
 </style>
 </head>
 <body>
+<div class="bar">
+  <div class="bar-inner">
+    <span class="brand">mdreview · reviews</span>
+    <input id="search" type="search" placeholder="Search title, project, or path…" autocomplete="off">
+    <div class="chips" id="chips">
+      <button class="chip active" data-status="all">All</button>
+      <button class="chip" data-status="notes">Has notes</button>
+      <button class="chip" data-status="done">Done</button>
+    </div>
+    <button class="bulkbtn" id="expandAll">Expand all</button>
+    <button class="bulkbtn" id="collapseAll">Collapse all</button>
+  </div>
+</div>
 <div class="wrap">
-  <header>
-    <h1>mdreview</h1>
-    <p class="lead">Reviews</p>
-    <p class="sub" id="sub">Loading…</p>
-  </header>
+  <p class="sub" id="sub">Loading…</p>
   <div id="list"></div>
+  <div class="noresults" id="noresults">No reviews match your search.</div>
 </div>
 <script>
 const $=s=>document.querySelector(s);
@@ -68,36 +110,44 @@ function noteLabel(r){
   if(!t)return "no notes";
   return t+(t===1?" note":" notes")+(a?" · "+a+" done":"");
 }
-function card(r){
-  const status=r.status||"awaiting";
-  const rev=(r.revision||0)>0?`<span class="badge rev">v${r.revision}</span>`:"";
-  return `<div class="card">
-    <div class="title">${esc(r.title||r.id)}</div>
-    <div class="path">${esc(r.source_path||"")}</div>
-    <div class="meta">
-      <span class="pill ${status}">${status}</span>
-      <span class="badge">${noteLabel(r)}</span>
-      ${rev}
-      <span>${rel(r.created)}</span>
-    </div>
-    <div class="actions">
-      <a class="btn open" href="/review/${encodeURIComponent(r.id)}">Open</a>
-      <button class="btn del" data-id="${esc(r.id)}" data-title="${esc(r.title||r.id)}">Delete</button>
-    </div>
-  </div>`;
-}
 function groupBy(arr,key){
   const m=new Map();
   for(const r of arr){const k=r[key]||"";(m.get(k)||m.set(k,[]).get(k)).push(r);}
   return m;
 }
+// Collapsed card (title + one meta row). Path + actions hidden until expand/hover.
+function card(r){
+  const status=r.status||"awaiting";
+  const rev=(r.revision||0)>0?`<span class="badge rev">v${r.revision}</span>`:"";
+  const t=esc(r.title||r.id), pr=esc(r.project||""), pa=esc(r.source_path||"");
+  return `<div class="card" role="button" tabindex="0" aria-expanded="false"
+      data-title="${t}" data-project="${pr}" data-path="${pa}" data-status="${status}">
+    <div class="actions">
+      <a class="btn open" href="/review/${encodeURIComponent(r.id)}">Open</a>
+      <button class="btn del" data-id="${esc(r.id)}" data-title="${t}" aria-label="Delete">Delete</button>
+    </div>
+    <div class="title">${t}</div>
+    <div class="meta">
+      <span class="pill ${status}">${status}</span>
+      <span class="badge">${noteLabel(r)}</span>
+      ${rev}
+      <span class="date">${rel(r.created)}</span>
+    </div>
+    <div class="path">${pa}</div>
+  </div>`;
+}
+
+const collapsed = new Set();   // session-lifetime: project names that are collapsed (NOT persisted)
+let statusFilter = "all";
+
 async function load(){
   let data;
   try{ data=await fetch('/api/reviews',{cache:'no-store'}).then(r=>r.json()); }
   catch(e){ $("#sub").textContent="Could not reach the service."; return; }
   const reviews=(data&&data.reviews)||[];
+  const projects=new Set(reviews.map(r=>r.project||"Ungrouped")).size;
   $("#sub").textContent = reviews.length
-    ? `${reviews.length} review${reviews.length===1?"":"s"} across ${new Set(reviews.map(r=>r.project||"Ungrouped")).size} project${new Set(reviews.map(r=>r.project||"Ungrouped")).size===1?"":"s"}`
+    ? `${reviews.length} review${reviews.length===1?"":"s"} across ${projects} project${projects===1?"":"s"}`
     : "No reviews yet.";
   const list=$("#list");
   if(!reviews.length){
@@ -107,13 +157,17 @@ async function load(){
   // Project › Session › files. Ungrouped projects last; within, undated sessions first (no sub-header).
   const byProject=groupBy(reviews, "project");
   const projectNames=[...byProject.keys()].sort((a,b)=>{
-    if(a==="" )return 1; if(b==="")return -1; return a.localeCompare(b);
+    if(a==="")return 1; if(b==="")return -1; return a.localeCompare(b);
   });
   let html="";
   for(const p of projectNames){
     const items=byProject.get(p);
     const label=p||"Ungrouped";
-    html+=`<section class="project"><h2>${esc(label)} <span class="pcount">${items.length}</span></h2>`;
+    html+=`<section class="project" data-project="${esc(p)}">
+      <div class="group-header" role="button" tabindex="0" aria-expanded="true">
+        <span class="chev">▸</span><span class="gname">${esc(label)}</span><span class="pcount">${items.length}</span>
+      </div>
+      <div class="group-body">`;
     const bySession=groupBy(items, "session");
     const sessionNames=[...bySession.keys()].sort((a,b)=>{
       if(a==="")return -1; if(b==="")return 1; return a.localeCompare(b);
@@ -123,16 +177,90 @@ async function load(){
       if(s) html+=`<div class="session"><h3>${esc(s)}</h3><div class="grid">${cards}</div></div>`;
       else  html+=`<div class="session"><div class="grid">${cards}</div></div>`;
     }
-    html+=`</section>`;
+    html+=`</div></section>`;
   }
   list.innerHTML=html;
+  // re-apply session collapse state (survives a delete-triggered re-render) + current search
+  document.querySelectorAll('.project').forEach(sec=>{
+    if(collapsed.has(sec.dataset.project)){
+      sec.classList.add('collapsed');
+      sec.querySelector('.group-header').setAttribute('aria-expanded','false');
+    }
+  });
+  applyFilter();
 }
-document.addEventListener('click',async e=>{
-  const b=e.target.closest('.btn.del'); if(!b)return;
-  if(!confirm(`Delete review "${b.dataset.title}"? This cannot be undone.`))return;
-  await fetch('/api/reviews/'+encodeURIComponent(b.dataset.id),{method:'DELETE'}).catch(()=>{});
-  load();
+
+// Live client-side filter over the already-rendered cards; hides empty sessions + projects.
+function applyFilter(){
+  const q=($("#search").value||"").toLowerCase().trim();
+  document.querySelectorAll('.card').forEach(c=>{
+    const hay=(c.dataset.title+" "+c.dataset.project+" "+c.dataset.path).toLowerCase();
+    let show = !q || hay.includes(q);
+    if(show && statusFilter==="notes") show=(c.dataset.status==="feedback"||c.dataset.status==="resolved");
+    if(show && statusFilter==="done")  show=(c.dataset.status==="resolved");
+    c.classList.toggle('is-hidden', !show);
+  });
+  document.querySelectorAll('.session').forEach(s=>{
+    s.classList.toggle('is-hidden', !s.querySelector('.card:not(.is-hidden)'));
+  });
+  let anyVisible=false;
+  document.querySelectorAll('.project').forEach(p=>{
+    const has=!!p.querySelector('.card:not(.is-hidden)');
+    p.classList.toggle('is-hidden', !has);
+    if(has) anyVisible=true;
+  });
+  const list=$("#list");
+  const empty=list.querySelector('.empty');
+  $("#noresults").style.display=(!anyVisible && !empty)?"block":"none";
+}
+
+function setGroup(sec, collapse){
+  sec.classList.toggle('collapsed', collapse);
+  sec.querySelector('.group-header').setAttribute('aria-expanded', String(!collapse));
+  if(collapse) collapsed.add(sec.dataset.project); else collapsed.delete(sec.dataset.project);
+}
+function toggleCard(c){
+  const ex=c.classList.toggle('expanded');
+  c.setAttribute('aria-expanded', String(ex));
+}
+
+// one delegated click handler: delete, open(link), group toggle, chips, bulk, then card expand
+document.addEventListener('click', async e=>{
+  const del=e.target.closest('.btn.del');
+  if(del){
+    if(!confirm(`Delete review "${del.dataset.title}"? This cannot be undone.`))return;
+    await fetch('/api/reviews/'+encodeURIComponent(del.dataset.id),{method:'DELETE'}).catch(()=>{});
+    load();
+    return;
+  }
+  if(e.target.closest('a'))return;                       // Open link → default navigation
+  const gh=e.target.closest('.group-header');
+  if(gh){ const sec=gh.closest('.project'); setGroup(sec, !sec.classList.contains('collapsed')); return; }
+  const chip=e.target.closest('.chip');
+  if(chip){
+    statusFilter=chip.dataset.status;
+    document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active', c===chip));
+    applyFilter();
+    return;
+  }
+  if(e.target.closest('#expandAll')){ document.querySelectorAll('.project').forEach(s=>setGroup(s,false)); return; }
+  if(e.target.closest('#collapseAll')){ document.querySelectorAll('.project').forEach(s=>setGroup(s,true)); return; }
+  const c=e.target.closest('.card');
+  if(c){
+    if(e.target.closest('a, button'))return;             // never toggle from an action control
+    if(window.getSelection && String(window.getSelection()).length)return;  // don't toggle on text selection
+    toggleCard(c);
+  }
 });
+// keyboard parity: Enter/Space toggles a focused card or group, with the same action-control guard
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Enter' && e.key!==' ')return;
+  const gh=e.target.closest('.group-header');
+  if(gh){ e.preventDefault(); const sec=gh.closest('.project'); setGroup(sec, !sec.classList.contains('collapsed')); return; }
+  const c=e.target.closest('.card');
+  if(c && !e.target.closest('a, button')){ e.preventDefault(); toggleCard(c); }
+});
+$("#search").addEventListener('input', applyFilter);
 load();
 </script>
 </body>

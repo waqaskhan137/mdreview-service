@@ -15,25 +15,37 @@ entry to a line or two with enough context to pick up later.
   plan). The shipped server is stdlib-only by design; a separate, clearly-optional SDK-based variant
   could track the spec automatically at the cost of a dependency. Its own epic if pursued.
 
-## From the rich-rendering brief (sprint-06) — deferred P1/P2
+## From the rich-rendering brief (sprint-06) — status
 
-The agent's real-review feedback (`requirements/rich-rendering.md`) had more than the two P0s we
-shipped. These were scoped out by the user and are the natural next thread:
+The agent's real-review feedback (`requirements/rich-rendering.md`) had more than the two P0s. Most
+of it is now shipped:
 
-- **Theme awareness (P1)** — *highest-value remainder, same real-review report.* An image that
-  assumes a light background looks wrong on a dark review pane (the agent: "exactly the bug we just
-  hit on the site"). Want: render the doc/images on a consistent neutral card regardless of pane
-  theme, **or** set the host `color-scheme` so `@media (prefers-color-scheme)` inside `<img>` SVGs
-  fires and theme-aware diagrams adapt. Focused `ui` change to `viewer.html`. Its own small sprint.
-- **Footnotes (P2)** — GFM footnotes show as text; marked core needs an extension. **Now cheap:**
-  sprint-06 established the marked-extension pattern (`setupKatex` in `viewer.html`), so a footnote
-  extension is the same shape. `ui`.
-- **Syntax highlighting (P2)** — fenced code isn't highlighted; no highlighter is bundled. Vendor a
-  small highlighter into `static/` (same stdlib-vendoring approach as KaTeX/marked/mermaid) and wire
-  it into the render path. `ui`+`infra` (a new `static/` file, copied by the existing `COPY static/`).
+- ~~**Theme awareness (P1)**~~ — **SHIPPED** in `theme-awareness` / sprint-07 (PR #6): a near-white
+  image mat so light-authored figures stay legible on a dark pane.
+- ~~**Footnotes (P2)**~~ — **SHIPPED** in `render-fidelity` / sprint-08 (PR #7): vendored
+  `marked-footnote`.
+- ~~**Syntax highlighting (P2)**~~ — **SHIPPED** in `render-fidelity` / sprint-08 (PR #7): vendored
+  highlight.js (common) + `marked-highlight`, dual-scheme theme.
+
+Still open from that thread:
+
+- **Per-image luminance heuristic (P2/P3)** — the theme-awareness **non-goal**: a dark-authored /
+  white-on-transparent figure goes invisible on the light mat (measured 238→5). A per-image
+  luminance/contrast check ("this figure is dark-authored → no mat / dark mat") would close the
+  inverse direction. `ui`, non-trivial. Only if it bites in practice. (MR-027 follow-up.)
 - **Local-dir `{name,path}` asset read (cut at S5)** — the server-side-file-read attach form, cut
   from sprint-06 for the no-auth posture. If revived: **must** ship the `os.path.realpath(root) +
-  os.sep` boundary check + negative-path ACs (see `rich-rendering-plan.md` Risks). Low priority.
+  os.sep` boundary check + negative-path ACs (see `rich-rendering-plan.md` Risks). Low priority,
+  security-sensitive. (MR-023/MR-024 follow-up.)
+
+## Small hygiene / tech-debt (ungroomed)
+
+- **`do_HEAD` is unimplemented — HEAD → 501** (`app.py`). Harmless today (browsers GET fonts/css/
+  assets), but it means MIME checks must use a GET header-dump, and a `curl -sI` health probe would
+  see a 501. A 3-line `do_HEAD = do_GET`-style addition (header-only) would fix it. (MR-022 follow-up.)
+- **render-smoke has no descendant combinator** — `scripts/render-smoke.sh` only matches `tag`/
+  `.class`/`tag.class`/`#id`; `#article img` is rejected. Documented as footgun 11; a real CSS-engine
+  matcher is overkill, but worth a line in the script's usage. (MR-025 follow-up.)
 
 ## Ideas (ungroomed)
 
@@ -43,6 +55,14 @@ shipped. These were scoped out by the user and are the natural next thread:
   pre-G7 rail's "run + record the unconditional smoke" standing in Phase 6's docs/infra branch
   (it rode the last two cycles on a per-cycle note). Two small edits; groom only if the meta-thread
   is worth re-opening.
+
+- **`scripts/` CDP interaction-evidence helper** (from the dashboard-redesign retro, `[feature]`).
+  sprint-09 drove Chrome over CDP (Node built-in `WebSocket`, no install) to capture *interaction*
+  states (click expand/collapse, Delete-with-confirm) + *measure* column counts / computed styles —
+  beyond the single-shot `render-smoke.sh` + screenshot. Promote that one-off driver to a checked-in,
+  parameterized helper (`scripts/cdp-shot.mjs <url> <out-dir> <captures.json>`) so interaction-only
+  evidence becomes gate-verifiable instead of trust-and-file-check. Pairs with / may subsume the
+  "Automated post-interaction render evidence" item below. Its own small `infra` ticket.
 
 - **Automated post-interaction render evidence** (from sprint-01 G7, SHOULD-FIX #2). Current
   render-smoke is headless-Chrome single-shot (first paint) + a `--dump-dom` node assertion. A
