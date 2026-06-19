@@ -1,13 +1,13 @@
 ---
 id: MR-047
 title: Docs sweep — "human is done" → comments_updated (CLAUDE/AGENTS), drop POST /feedback from README, fix future-mcp.md
-status: ready
+status: done
 layer: docs
 priority: P2
 sprint: sprint-13
 epic: legacy-feedback-retire
 depends_on: [MR-046]
-branch:
+branch: dev
 created: 2026-06-19
 updated: 2026-06-19
 ---
@@ -57,11 +57,28 @@ before sprint-13 closes).
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-19` — four doc files edited (no `mcp_server.py` change, per the right-sizing decision):
+  - `CLAUDE.md` + `AGENTS.md` "Detecting the human is done": first bullet rewritten to watch
+    `comments_updated` (with a one-line note that `feedback_updated` is the retired pre-MR-036
+    write); "reply 'done'" option kept. Also added `comments_updated` to the `/status` snippet
+    comment (`:24`) in both.
+  - `README.md`: removed the `POST /api/reviews/{id}/feedback` write row from the API table; kept
+    the `GET /feedback` and `/status` rows exactly.
+  - `docs/future-mcp.md:61`: "the heuristic in `AGENTS.md` is unchanged" → "now watches
+    `comments_updated` (… retired …)". Line 36's `get_status` row left as-is (field still emitted).
 
 ## Validation
 
-_How this was verified._
+- `2026-06-19` — inspection ACs (docs layer; no `py_compile`/render-smoke owed):
+  - `grep` — both `CLAUDE.md` and `AGENTS.md` now say "watch `comments_updated`"; no "watch
+    `feedback_updated`" remains.
+  - `README.md` — 0 `POST /feedback` rows remain; GET + status rows intact.
+  - `docs/future-mcp.md` — no "unchanged" assertion left.
+  - `mcp_server.py` — confirmed `get_status` description already leads with "Watch comments_updated"
+    (`mcp_server.py:108–109`); **no change made, git diff clean → no MCP-client reconnect owed.**
+  - Sweep for other "poll `feedback_updated` to detect done" prose: none. The only surviving
+    `feedback_updated` mentions (`*/status` snippet comment, `future-mcp.md:36` table) are
+    read-shape — the field is still emitted — which is correct.
 
 ## Follow-ups
 

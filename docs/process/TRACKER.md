@@ -35,9 +35,7 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-047 | Docs sweep: "human is done" → `comments_updated`; drop `POST /feedback` README row; fix `future-mcp.md:61` | docs | P2 | sprint-13 |
+_none_
 
 ## in-progress
 
@@ -51,6 +49,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-047 | Docs sweep: "human is done" → `comments_updated`; drop `POST /feedback` README row; fix `future-mcp.md:61` | docs | P2 | sprint-13 |
 | MR-046 | Retire dead `POST /feedback` write (→ 410 Gone) + drop `feedback_updated` writer; keep every reader | svc | P2 | sprint-13 |
 | MR-001 | Persist provenance (project/source_path/session) on POST + meta | svc | P1 | sprint-01 |
 | MR-002 | summary() + list_reviews() + GET /api/reviews | svc | P1 | sprint-01 |
