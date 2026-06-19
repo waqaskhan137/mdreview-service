@@ -56,13 +56,15 @@ def main():
     check("initialize protocolVersion == 2025-06-18", init.get("protocolVersion") == "2025-06-18")
     check("capabilities are tools-only", init.get("capabilities") == {"tools": {}})
     check("serverInfo.name == mdreview-mcp", init.get("serverInfo", {}).get("name") == "mdreview-mcp")
+    check("initialize surfaces the workflow as instructions",
+          bool(init.get("instructions")) and "list_comments" in init.get("instructions", ""))
     tools = out[1].get("result", {}).get("tools", [])
     names = {t.get("name") for t in tools}
-    expected = {"create_review", "list_reviews", "get_review", "get_feedback",
+    expected = {"create_review", "list_reviews", "get_review", "get_source", "get_feedback",
                 "get_status", "update_source", "get_history", "delete_review",
                 "attach_asset", "list_assets",
                 "list_comments", "get_comment", "reply_to_comment", "resolve_comment"}
-    check("tools/list returns exactly the 14 tools", names == expected)
+    check("tools/list returns exactly the 15 tools", names == expected)
     check("each tool has a description + object inputSchema",
           all(t.get("description") and t.get("inputSchema", {}).get("type") == "object" for t in tools))
     # the comment tools must encode the agent workflow in their descriptions (the brief's expectations)
@@ -101,6 +103,12 @@ def main():
         except Exception:
             pass
         check("update_source round-trip -> revision >= 1", isinstance(rev, int) and rev >= 1)
+
+        # get_source returns the draft we just pushed (text content, not JSON)
+        out = drive(base + [{"jsonrpc": "2.0", "id": 10, "method": "tools/call",
+                             "params": {"name": "get_source", "arguments": {"id": rid}}}])
+        src = out[-1].get("result", {}).get("content", [{}])[0].get("text", "")
+        check("get_source -> the current draft markdown", "revised" in src)
 
         # attach_asset -> list_assets round-trip (a 1x1 png by base64)
         pix = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQ"

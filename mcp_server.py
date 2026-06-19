@@ -9,7 +9,7 @@ Protocol grounded against the MCP spec rev 2025-06-18 (lifecycle + tools).
 
   initialize                -> {protocolVersion, capabilities:{tools:{}}, serverInfo}
   notifications/initialized -> (no response)
-  tools/list                -> {tools:[...14 schemas]}
+  tools/list                -> {tools:[...15 schemas]}
   tools/call                -> {content:[{type:text,text}], isError?}   (dispatch: MR-016)
 
 Comment workflow (MR-035): list_comments / get_comment / reply_to_comment / resolve_comment let an
@@ -30,11 +30,26 @@ PROTOCOL_VERSION = "2025-06-18"   # MCP spec revision this server targets
 SERVER_INFO = {"name": "mdreview-mcp", "version": "0.1.0"}
 BASE = os.environ.get("MDREVIEW_BASE", "http://localhost:8137").rstrip("/")
 
+# Surfaced to the agent on `initialize` (MCP `instructions`) so the whole workflow reaches it, not
+# just per-tool blurbs.
+INSTRUCTIONS = (
+    "mdreview is human-in-the-loop markdown review. Loop: create_review(markdown) -> hand the "
+    "returned review_url to a human -> poll get_status (cheap) and read get_feedback / list_comments "
+    "when it changes -> apply the edits and update_source(id, markdown) (the human's page "
+    "live-reloads). get_source reads the current draft (e.g. when resuming a review you didn't keep "
+    "in memory). Comments are the primary feedback surface: call list_comments(status=\"open\") "
+    "FIRST, reply_to_comment to discuss, resolve_comment only when actually addressed (justification "
+    "optional but recommended — the reviewer can reopen; you never reopen, that's their UI action). "
+    "Watch comments_updated on get_status for thread changes. attach_asset makes a draft's images "
+    "render. Operate only on reviews you created; the service has no auth (roles are attribution, not "
+    "security)."
+)
+
 _ID = {"type": "string", "description": "the opaque review id"}
 _DOCID = {"type": "string", "description": "the review id the comments belong to (the document_id)"}
 _CID = {"type": "string", "description": "the comment id (cXXXXXXXXXX)"}
 
-# The 14 tools, 1:1 with the HTTP API. Static metadata served by tools/list.
+# The 15 tools, 1:1 with the HTTP API. Static metadata served by tools/list.
 TOOLS = [
     {
         "name": "create_review",
@@ -63,13 +78,21 @@ TOOLS = [
         "inputSchema": {"type": "object", "properties": {"id": _ID}, "required": ["id"]},
     },
     {
+        "name": "get_source",
+        "description": "Get a review's current source markdown — the draft you edit. Read it before "
+                       "applying feedback when you didn't keep the draft in memory (e.g. a resumed session).",
+        "inputSchema": {"type": "object", "properties": {"id": _ID}, "required": ["id"]},
+    },
+    {
         "name": "get_feedback",
-        "description": "Get a review's human feedback: structured notes plus the rendered markdown block.",
+        "description": "Get a review's human feedback: structured notes (now including a projection of "
+                       "the comments) plus the rendered markdown block. For the full threads use list_comments.",
         "inputSchema": {"type": "object", "properties": {"id": _ID}, "required": ["id"]},
     },
     {
         "name": "get_status",
-        "description": "Cheap poll: a review's source_updated and feedback_updated timestamps.",
+        "description": "Cheap poll: a review's source_updated, feedback_updated, and comments_updated "
+                       "timestamps. Watch comments_updated for new/changed comment threads.",
         "inputSchema": {"type": "object", "properties": {"id": _ID}, "required": ["id"]},
     },
     {
@@ -236,6 +259,8 @@ def route(name, args):
         return "GET", "/api/reviews", None
     if name == "get_review":
         return "GET", "/api/reviews/%s" % args["id"], None
+    if name == "get_source":
+        return "GET", "/api/reviews/%s/source" % args["id"], None
     if name == "get_feedback":
         return "GET", "/api/reviews/%s/feedback" % args["id"], None
     if name == "get_status":
@@ -295,6 +320,7 @@ def handle_initialize(rid, params):
         "protocolVersion": version,
         "capabilities": {"tools": {}},      # tools only — no resources, no prompts
         "serverInfo": SERVER_INFO,
+        "instructions": INSTRUCTIONS,       # the end-to-end workflow, surfaced to the agent
     })
 
 

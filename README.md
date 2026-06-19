@@ -144,8 +144,8 @@ Example MCP client config (stdio):
 }
 ```
 
-**Tools (1:1 with the HTTP API, 14):** `create_review` (markdown, title?, project?, session?,
-source_path?), `list_reviews`, `get_review` (id), `get_feedback` (id), `get_status` (id),
+**Tools (1:1 with the HTTP API, 15):** `create_review` (markdown, title?, project?, session?,
+source_path?), `list_reviews`, `get_review` (id), `get_source` (id), `get_feedback` (id), `get_status` (id),
 `update_source` (id, markdown), `get_history` (id, round?), `attach_asset` (id, name, content_b64),
 `list_assets` (id), `delete_review` (id), and the **comment** tools `list_comments` (document_id,
 status?=open), `get_comment` (document_id, comment_id), `reply_to_comment` (document_id, comment_id,

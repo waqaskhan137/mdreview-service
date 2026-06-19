@@ -127,7 +127,7 @@ curl -s -X POST "$BASE/api/reviews/<id>/comments/<cid>/resolve" \
 ## Calling it over MCP (optional)
 
 `mcp_server.py` is a thin, stdlib-only stdio MCP server (JSON-RPC 2.0, spec rev `2025-06-18`)
-exposing the API as 14 tools (`create_review`, `list_reviews`, `get_review`, `get_feedback`,
+exposing the API as 15 tools (`create_review`, `list_reviews`, `get_review`, `get_source`, `get_feedback`,
 `get_status`, `update_source`, `get_history`, `attach_asset`, `list_assets`, `delete_review`, and
 the comment tools `list_comments`, `get_comment`, `reply_to_comment`, `resolve_comment` — there is
 **no `reopen` tool**, reopen is the reviewer's UI action). The comment tools take `document_id` (=

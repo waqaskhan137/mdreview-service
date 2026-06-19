@@ -42,7 +42,7 @@ as a clearly separate, optional component with its own dependencies).
 | `reply_to_comment` | `POST /api/reviews/{id}/comments/{cid}/reply` | discuss without resolving |
 | `resolve_comment` | `POST /api/reviews/{id}/comments/{cid}/resolve` | agent resolves; `justification?`. No `reopen` tool — reviewer-only UI action |
 
-> The shipped server also exposes `attach_asset`/`list_assets` (images) — **14 tools** total. See
+> The shipped server also exposes `attach_asset`/`list_assets` (images) — **15 tools** total. See
 > `README.md` / `CLAUDE.md` for the current full set.
 
 ### Behavior to preserve
