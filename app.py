@@ -11,9 +11,15 @@ API
   DELETE /api/reviews/{id}                                    -> {deleted}
   GET    /api/reviews/{id}/source                             -> raw markdown
   PUT    /api/reviews/{id}/source     {markdown}              -> meta (agent applies edits; live-reloads viewer)
-  GET    /api/reviews/{id}/feedback                           -> {markdown, notes, ...meta}
+  GET    /api/reviews/{id}/feedback                           -> {markdown, notes, ...meta}  (notes = legacy notes + projected comments)
   POST   /api/reviews/{id}/feedback   {markdown, notes}       -> {ok}   (viewer saves here)
-  GET    /api/reviews/{id}/status                             -> {source_updated, feedback_updated}
+  GET    /api/reviews/{id}/comments   ?status=open|resolved|reopened|all  -> {comments}
+  POST   /api/reviews/{id}/comments   {anchor, text, role?}   -> {comment}  (201; reviewer authors)
+  GET    /api/reviews/{id}/comments/{cid}                     -> {comment}  (full thread + status_history)
+  POST   /api/reviews/{id}/comments/{cid}/reply   {text}      -> {comment}  (append; status unchanged)
+  POST   /api/reviews/{id}/comments/{cid}/resolve {justification?} -> {comment}  (agent resolves; 409 if not open/reopened)
+  POST   /api/reviews/{id}/comments/{cid}/reopen  {text?}     -> {comment}  (reviewer reopens; 409 if not resolved)
+  GET    /api/reviews/{id}/status                             -> {source_updated, feedback_updated, comments_updated}
   GET    /review/{id}                                         -> viewer HTML (human opens)
   GET    /static/{file}                                       -> assets (marked/mermaid)
   GET    /healthz                                             -> {ok}
@@ -28,7 +34,7 @@ import shutil
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("MDREVIEW_DATA", "/data")
@@ -118,11 +124,18 @@ def bump(rid, field):
 
 
 def summary(rid):
-    """meta augmented with note counts, revision, and a derived status."""
+    """meta augmented with note counts, revision, and a derived status.
+
+    Comment-aware: counts fold in comments (each counts toward total; a resolved comment counts
+    toward addressed) so the dashboard never shows "0 / awaiting" for a review with open comments.
+    A review with no comments derives exactly as before (the comment contribution is zero).
+    """
     m = dict(meta(rid))
     notes = _read_json(os.path.join(_dir(rid), "notes.json"), [])
-    total = len(notes)
-    addressed = sum(1 for n in notes if n.get("addressed"))
+    comments = list_comments(rid)
+    total = len(notes) + len(comments)
+    addressed = (sum(1 for n in notes if n.get("addressed"))
+                 + sum(1 for c in comments if c.get("status") == "resolved"))
     m["notes_total"] = total
     m["notes_addressed"] = addressed
     m["revision"] = m.get("revision", 0)
@@ -224,6 +237,79 @@ def attach_asset(rid, name, data):
     manifest.append(entry)
     _write(_assets_manifest(rid), json.dumps(manifest))
     return entry
+
+
+# ---- comments ----
+# Threaded, server-side comments live in _dir(rid)/comments.json (a sibling of notes.json,
+# untouched by snapshot_round). Each is the single source of truth for one review thread, shared
+# by the viewer and MCP; the state machine (open -> resolved -> reopened) is enforced server-side
+# (apply_comment_transition, below). thread[] and status_history[] are append-only; status is a
+# derived pointer. Legacy notes.json data on disk is never rewritten — but the agent/dashboard read
+# paths (GET /feedback, summary()) are made comment-aware by *read-time projection* so nothing the
+# human says is lost once viewer authoring moves onto comments.
+def _comments_path(rid):
+    return os.path.join(_dir(rid), "comments.json")
+
+
+def list_comments(rid, status="all"):
+    arr = _read_json(_comments_path(rid), [])
+    if status and status != "all":
+        return [c for c in arr if c.get("status") == status]
+    return arr
+
+
+def _write_comments(rid, arr):
+    """Whole-file write of the comment array. Caller holds _lock."""
+    _write(_comments_path(rid), json.dumps(arr))
+
+
+def _find_comment(arr, cid):
+    return next((c for c in arr if c.get("comment_id") == cid), None)
+
+
+def _comment_as_note(c):
+    """Read-time projection of one comment into the legacy {num,quote,note,addressed} note shape.
+
+    Pure (no write). Used to keep GET /feedback returning the human's live input once authoring
+    moves onto comments. `note` is the full thread, role-prefixed, so no entry is lost.
+    """
+    anc = c.get("anchor") or {}
+    thread = c.get("thread") or []
+    note = "\n".join("%s: %s" % (e.get("role", "reviewer"), e.get("text", "")) for e in thread)
+    return {
+        "num": anc.get("block_num", ""),
+        "quote": anc.get("quoted_text", ""),
+        "note": note,
+        "addressed": c.get("status") == "resolved",
+    }
+
+
+def create_comment(rid, anchor, text, author=None, role="reviewer"):
+    """Append a new open comment with one thread entry. Caller holds _lock."""
+    now = time.time()
+    role = role if role in ("reviewer", "agent") else "reviewer"
+    author = author or role
+    anchor = anchor or {}
+    c = {
+        "comment_id": "c" + secrets.token_hex(5),
+        "status": "open",
+        "anchor": {
+            "quoted_text": anchor.get("quoted_text", ""),
+            "block_num": anchor.get("block_num", ""),
+            "start": anchor.get("start"),
+            "end": anchor.get("end"),
+        },
+        "thread": [{"author": author, "role": role, "text": text or "", "ts": now}],
+        "created_by": author,
+        "created_at": now,
+        "resolved_by": None,
+        "resolved_at": None,
+        "status_history": [{"from": None, "to": "open", "by": author, "ts": now}],
+    }
+    arr = _read_json(_comments_path(rid), [])
+    arr.append(c)
+    _write_comments(rid, arr)
+    return c
 
 
 class H(BaseHTTPRequestHandler):
@@ -355,7 +441,11 @@ class H(BaseHTTPRequestHandler):
             if m == "GET":
                 out = dict(meta(rid))
                 out["markdown"] = _read(os.path.join(_dir(rid), "feedback.md"))
-                out["notes"] = _read_json(os.path.join(_dir(rid), "notes.json"), [])
+                # comment-aware: union of on-disk notes + a read-time projection of comments, so an
+                # agent's existing get_feedback path still returns the human's live input once
+                # authoring moves onto comments. notes.json on disk is never rewritten here.
+                out["notes"] = (_read_json(os.path.join(_dir(rid), "notes.json"), [])
+                                + [_comment_as_note(c) for c in list_comments(rid)])
                 return self._json(200, out)
             if m == "POST":
                 b = self._body_json()
@@ -374,6 +464,7 @@ class H(BaseHTTPRequestHandler):
             return self._json(200, {
                 "source_updated": mt.get("source_updated", 0),
                 "feedback_updated": mt.get("feedback_updated", 0),
+                "comments_updated": mt.get("comments_updated", 0),
             })
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/history", path)
@@ -435,6 +526,33 @@ class H(BaseHTTPRequestHandler):
                     "url": f"{base}/api/reviews/{rid}/asset/{entry['stored']}",
                     "bytes": entry["bytes"], "ctype": entry["ctype"],
                 })
+
+        mo = re.fullmatch(r"/api/reviews/" + RID + r"/comments", path)
+        if mo:
+            rid = mo.group(1)
+            if not _exists(rid):
+                return self._json(404, {"error": "not found"})
+            if m == "GET":
+                q = parse_qs(urlparse(self.path).query)
+                status = (q.get("status") or ["all"])[0] or "all"
+                return self._json(200, {"comments": list_comments(rid, status)})
+            if m == "POST":
+                b = self._body_json()
+                with _lock:
+                    c = create_comment(rid, b.get("anchor") or {}, b.get("text", ""),
+                                       b.get("author"), b.get("role", "reviewer"))
+                    bump(rid, "comments_updated")
+                return self._json(201, c)
+
+        mo = re.fullmatch(r"/api/reviews/" + RID + r"/comments/(c[A-Za-z0-9]{10})", path)
+        if mo and m == "GET":
+            rid, cid = mo.group(1), mo.group(2)
+            if not _exists(rid):
+                return self._json(404, {"error": "not found"})
+            c = _find_comment(list_comments(rid), cid)
+            if not c:
+                return self._json(404, {"error": "no such comment"})
+            return self._json(200, c)
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/asset/([A-Za-z0-9._-]+)", path)
         if mo and m == "GET":

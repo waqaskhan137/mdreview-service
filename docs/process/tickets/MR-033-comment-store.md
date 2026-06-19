@@ -1,13 +1,13 @@
 ---
 id: MR-033
 title: Comment store (comments.json) + POST/GET /comments + GET /comments/{cid} + comments_updated + comment-aware GET /feedback & summary()
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-11
 epic: comment-resolution
 depends_on: []
-branch:
+branch: dev
 created: 2026-06-19
 updated: 2026-06-19
 ---
@@ -66,11 +66,25 @@ by read-time projection** so nothing the human says is lost once viewer authorin
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-19` — `app.py`: added the `# ---- comments ----` helper section (`_comments_path`,
+  `list_comments(rid,status)`, `_write_comments`, `_find_comment`, `_comment_as_note`,
+  `create_comment`); made `summary()` and `GET /feedback` comment-aware (read-time projection, no
+  `notes.json` rewrite); added `comments_updated` to `GET /status`; added the
+  `GET/POST /comments` and `GET /comments/{cid}` routes (between the `/assets` and `/asset/{stored}`
+  blocks); `bump(rid,"comments_updated")` on create; module docstring API table updated. Import
+  `parse_qs` for the `?status=` filter.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-19` — `python3 -m py_compile app.py` OK. Rebuilt throwaway container `mdreview:cmt` on
+  :8138 (never :8139 / `docker compose`); ran the epic plan's MR-033 curl block: fresh review →
+  `{"comments":[]}`; `comments_updated` == 0 before / > 0 after; create → 201 `comment_id`
+  `cf57c7c43cb` (11 chars), `status:"open"`, `status_history:[{from:null,to:"open",by:"reviewer"}]`,
+  `resolved_by:null`. **BLOCKER-2:** `GET /feedback` projects the open comment into `notes[]`
+  (`quote:"target phrase"`, `addressed:false`, `note:"reviewer: clarify this"`) with no `notes.json`
+  on disk; dashboard reads `notes_total 1 / status feedback` (never `0/awaiting`). No-comment
+  back-compat re-verified: a plain review reads `notes []` and `0 / awaiting` exactly as before.
+  Missing comment → 404; `?status=open|resolved` filter works.
 
 ## Follow-ups
 
