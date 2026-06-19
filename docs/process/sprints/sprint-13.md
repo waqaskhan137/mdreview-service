@@ -25,8 +25,8 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-046 | Retire dead `POST /feedback` write (→ 410 Gone) + `feedback_updated` bump/initialiser; keep every reader | svc | P2 | ready |
-| MR-047 | Docs sweep: "human is done" → `comments_updated`; drop `POST /feedback` README row; fix `future-mcp.md:61` | docs | P2 | ready |
+| MR-046 | Retire dead `POST /feedback` write (→ 410 Gone) + `feedback_updated` bump/initialiser; keep every reader | svc | P2 | done |
+| MR-047 | Docs sweep: "human is done" → `comments_updated`; drop `POST /feedback` README row; fix `future-mcp.md:61` | docs | P2 | done |
 
 ## Preferred execution order
 
