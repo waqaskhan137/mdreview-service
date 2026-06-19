@@ -1,13 +1,13 @@
 ---
 id: MR-037
 title: Docs sweep — README API table (+/comments, /status.comments_updated), CLAUDE.md, AGENTS.md, future-mcp, MCP docstring 10→14, comment-aware feedback/dashboard
-status: ready
+status: done
 layer: docs
 priority: P2
 sprint: sprint-11
 epic: comment-resolution
 depends_on: [MR-033, MR-034, MR-035, MR-036]
-branch:
+branch: dev
 created: 2026-06-19
 updated: 2026-06-19
 ---
@@ -44,11 +44,21 @@ comment-aware. Docs-sweep is not carry-over-eligible: must be `done` before the 
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-19` — `README.md`: added the six `/comments` API rows + `comments_updated` on `/status`;
+  updated the `/feedback` row + status/counts note (comment-aware, union projection); new "Comments
+  (threaded resolution)" paragraph; MCP tools list → 14 with the four comment tools + the no-reopen
+  convention. `CLAUDE.md`: new "Comments (threaded resolution)" workflow section (list→reply→resolve,
+  never-reopen, attribution-not-auth), `notes[]`-now-projects-comments note, MCP list → 14.
+  `AGENTS.md`: same Comments section + tools-list → 14. `docs/future-mcp.md`: comment-tool rows +
+  `get_status`/`get_feedback` updates + a 14-tools note.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-19` — `python3 -m py_compile app.py mcp_server.py mcp_smoke.py` OK;
+  `MDREVIEW_BASE=http://localhost:8138 python3 mcp_smoke.py` → **PASS** (docs-only, re-run to prove no
+  regression). Greps: README has the `/comments` rows (7 hits) + `comments_updated` (2); the MCP
+  docstring reads `14 schemas`/`14 tools`; all four docs (`README`/`CLAUDE`/`AGENTS`/`future-mcp`)
+  reference `reply_to_comment`/`resolve_comment`.
 
 ## Follow-ups
 

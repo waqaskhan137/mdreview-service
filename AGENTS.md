@@ -43,7 +43,28 @@ There is no explicit "submit" from the human; feedback streams as they type. Pra
   signal.
 
 `notes` is the structured form (each has `num`, `quote`, `note`, `addressed`); `markdown` is the
-same content as a readable block per note. Use whichever you prefer.
+same content as a readable block per note. Use whichever you prefer. `notes[]` also includes a
+projection of the **comments** (below), so this read path keeps surfacing the human's live input.
+
+## Comments (threaded resolution)
+
+The viewer's primary feedback surface is **threaded comments** anchored to highlighted text, shared
+server-side with an `open → resolved → reopened` machine the service enforces. List → reply →
+resolve:
+
+```bash
+curl -s "$BASE/api/reviews/<id>/comments?status=open"   # list what the reviewer raised (default open)
+curl -s "$BASE/api/reviews/<id>/comments/<cid>"         # one full thread + status_history
+curl -s -X POST "$BASE/api/reviews/<id>/comments/<cid>/reply" \
+  -H 'Content-Type: application/json' -d '{"text":"clarifying question","role":"agent"}'
+curl -s -X POST "$BASE/api/reviews/<id>/comments/<cid>/resolve" \
+  -H 'Content-Type: application/json' -d '{"justification":"fixed in the next revision"}'  # justification optional
+```
+
+Always list `status="open"` first; reply to discuss, resolve only when actually addressed
+(justification optional but recommended). **You never reopen** — that's the reviewer's UI action;
+you'll see a reopened comment again via the list. Roles are attribution, not auth. Poll
+`comments_updated` (on `GET /status`) for thread changes.
 
 ## Discovering and revisiting reviews
 
@@ -63,12 +84,15 @@ HTTP. It is a thin, stdlib-only stdio server (JSON-RPC 2.0, spec rev `2025-06-18
 running service and adds no state. Run it as `MDREVIEW_BASE=http://localhost:8137 python3
 mcp_server.py`; wire it into your client's `mcpServers` as a stdio command (see `README.md`).
 
-Tools map 1:1 to the API: `create_review` (with optional `project`/`session`/`source_path`
+Tools map 1:1 to the API (14): `create_review` (with optional `project`/`session`/`source_path`
 provenance), `list_reviews`, `get_review`, `get_feedback`, `get_status`, `update_source`,
 `get_history` (optional `round`), `attach_asset` (id, name, content_b64), `list_assets` (id),
-`delete_review`. The same workflow applies — `create_review`, hand the human the `review_url`,
-poll `get_status`/`get_feedback`, then `update_source`. A failed call returns an `isError` result;
-an unknown tool name is a `-32602` error. Set `MDREVIEW_PUBLIC_BASE` on the service so the
+`delete_review`, and the comment tools `list_comments` (`document_id`, `status?`=open),
+`get_comment`, `reply_to_comment`, `resolve_comment` (`justification?`) — `document_id` is the
+review id, and there is **no `reopen` tool** (reopen is the reviewer's UI action). The same workflow
+applies — `create_review`, hand the human the `review_url`, poll `get_status`/`get_feedback` or
+`list_comments`, reply/resolve comments, then `update_source`. A failed call returns an `isError`
+result; an unknown tool name is a `-32602` error. Set `MDREVIEW_PUBLIC_BASE` on the service so the
 `review_url` you hand a human is reachable.
 
 The viewer renders **GFM footnotes** (`[^id]` → ordered back-ref section) and **syntax-highlighted**

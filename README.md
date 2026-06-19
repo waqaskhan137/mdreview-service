@@ -48,11 +48,17 @@ Feedback and source persist in the `/data` volume across restarts.
 | DELETE | `/api/reviews/{id}` | | `{deleted}` |
 | GET | `/api/reviews/{id}/source` | | raw markdown |
 | PUT | `/api/reviews/{id}/source` | `{markdown}` | meta (snapshots a history round, then live-reloads) |
-| GET | `/api/reviews/{id}/feedback` | | `{markdown, notes[], ...meta}` |
-| POST | `/api/reviews/{id}/feedback` | `{markdown, notes}` | `{ok}` (the viewer calls this) |
-| GET | `/api/reviews/{id}/status` | | `{source_updated, feedback_updated}` |
+| GET | `/api/reviews/{id}/feedback` | | `{markdown, notes[], ...meta}` — `notes[]` is legacy notes **plus a projection of the comments** (so this read path stays live) |
+| POST | `/api/reviews/{id}/feedback` | `{markdown, notes}` | `{ok}` (legacy notes write; the viewer now authors comments instead) |
+| GET | `/api/reviews/{id}/status` | | `{source_updated, feedback_updated, comments_updated}` |
 | GET | `/api/reviews/{id}/history` | | `{rounds[]}` — `{round, ts, notes_total, notes_addressed}`, newest first |
 | GET | `/api/reviews/{id}/history/{n}` | | one round: `{source, feedback, notes[], ...round meta}` |
+| GET | `/api/reviews/{id}/comments` | `?status=open\|resolved\|reopened\|all` (default `all`) | `{comments[]}` — the threaded comments |
+| POST | `/api/reviews/{id}/comments` | `{anchor{quoted_text, block_num?, start?, end?}, text, role?}` | `{comment}` (201; reviewer authors) |
+| GET | `/api/reviews/{id}/comments/{cid}` | | `{comment}` — full `thread[]` + `status_history[]` |
+| POST | `/api/reviews/{id}/comments/{cid}/reply` | `{text, role?}` | `{comment}` — append a reply; status unchanged |
+| POST | `/api/reviews/{id}/comments/{cid}/resolve` | `{justification?}` | `{comment}` — agent resolves (`409` if not open/reopened) |
+| POST | `/api/reviews/{id}/comments/{cid}/reopen` | `{text?}` | `{comment}` — reviewer reopens (`409` if not resolved) |
 | POST | `/api/reviews/{id}/assets` | `{name, content_b64}` | `{name, stored, url, bytes, ctype}` — attach an image (base64) the viewer serves at `url` |
 | GET | `/api/reviews/{id}/assets` | | `{assets[]}` — `{name, stored, url, bytes, ctype, ts}` per attached asset |
 | GET | `/api/reviews/{id}/asset/{stored}` | | the asset bytes (binary, with its stored content-type) |
@@ -65,7 +71,10 @@ group under "Ungrouped". The fields are stored in `meta.json`; existing reviews 
 unaffected.
 
 **Status** (in the list/dashboard) is derived per review: `awaiting` (no feedback yet),
-`feedback` (notes outstanding), `resolved` (all notes addressed).
+`feedback` (notes/comments outstanding), `resolved` (all notes addressed **and** all comments
+resolved). Counts (`notes_total`/`notes_addressed`) are comment-aware — an open comment counts
+toward the total, a resolved one toward addressed — so a review with live comments never reads as
+"0 / awaiting".
 
 **History:** each `PUT /source` archives the outgoing draft plus the feedback it accumulated as a
 numbered round under `{id}/history/round-{N}/`, and bumps `revision`. Past rounds are read-only
@@ -85,7 +94,20 @@ draft's own HTML — don't attach bytes you wouldn't trust in `source.md`. (Resp
 
 Feedback `notes[]` entries look like:
 `{"num": "3", "quote": "...", "note": "tighten this", "addressed": false}`,
-and `markdown` is the same feedback rendered as a readable block per note.
+and `markdown` is the same feedback rendered as a readable block per note. Each entry is either a
+legacy note or a **projected comment** (`note` = the thread, `addressed` = the comment is resolved).
+
+**Comments (threaded resolution).** A reviewer highlights text and starts a comment; it opens as a
+**thread** in the viewer margin. The agent (over HTTP or MCP) lists open comments, replies to discuss,
+or **resolves** one — optionally with a justification appended to the thread (`resolved_by`/`resolved_at`
+are recorded). A resolved comment leaves the active document and moves to a **Resolved** panel; the
+reviewer can **reopen** it (status back to `reopened`), after which the agent can resolve again. The
+`open → resolved → reopened` machine is enforced server-side, so the viewer and MCP share one state.
+`thread[]` and `status_history[]` are append-only (full history, never overwritten). A comment is
+`{comment_id, status, anchor{quoted_text, block_num, start, end}, thread[{author, role, text, ts}],
+created_by, created_at, resolved_by, resolved_at, status_history[]}`. Roles `reviewer`/`agent` are
+**attribution, not auth**; "reviewer-only reopen" and "no MCP reopen tool" are conventions on the
+no-auth service. Poll `comments_updated` (on `GET /status`) to live-reload threads.
 
 ## Config (env)
 
@@ -122,11 +144,18 @@ Example MCP client config (stdio):
 }
 ```
 
-**Tools (1:1 with the HTTP API):** `create_review` (markdown, title?, project?, session?,
+**Tools (1:1 with the HTTP API, 14):** `create_review` (markdown, title?, project?, session?,
 source_path?), `list_reviews`, `get_review` (id), `get_feedback` (id), `get_status` (id),
 `update_source` (id, markdown), `get_history` (id, round?), `attach_asset` (id, name, content_b64),
-`list_assets` (id), `delete_review` (id). A failed call (bad/expired id, service down) returns an
-`isError: true` result; an unknown tool name is a JSON-RPC `-32602` error.
+`list_assets` (id), `delete_review` (id), and the **comment** tools `list_comments` (document_id,
+status?=open), `get_comment` (document_id, comment_id), `reply_to_comment` (document_id, comment_id,
+text), `resolve_comment` (document_id, comment_id, justification?). `document_id` is the review id.
+There is **no `reopen` tool** — reopen is the reviewer's UI action (a convention on the no-auth
+service, not an enforced boundary); after a reopen the agent sees the comment again via
+`list_comments`. The agent workflow (`list_comments(status="open")` first; reply to discuss, resolve
+when addressed; justification optional but recommended) is encoded in the tool descriptions. A failed
+call (bad/expired id, service down) returns an `isError: true` result; an unknown tool name is a
+JSON-RPC `-32602` error.
 
 **Reachable `review_url`.** The wrapper relays the service's `review_url`, which the service
 derives from the request `Host` header unless `MDREVIEW_PUBLIC_BASE` is set. So a human handed the

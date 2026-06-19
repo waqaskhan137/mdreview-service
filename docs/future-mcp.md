@@ -32,11 +32,18 @@ as a clearly separate, optional component with its own dependencies).
 | `create_review` | `POST /api/reviews` | args: `markdown`, `title?`, `project?`, `source_path?`, `session?`; returns `id` + urls |
 | `list_reviews` | `GET /api/reviews` | returns the summaries (status, counts, revision) the dashboard uses |
 | `get_review` | `GET /api/reviews/{id}` | meta |
-| `get_feedback` | `GET /api/reviews/{id}/feedback` | `{markdown, notes[]}` |
-| `get_status` | `GET /api/reviews/{id}/status` | cheap poll: `{source_updated, feedback_updated}` |
+| `get_feedback` | `GET /api/reviews/{id}/feedback` | `{markdown, notes[]}` — `notes[]` now also projects the comments |
+| `get_status` | `GET /api/reviews/{id}/status` | cheap poll: `{source_updated, feedback_updated, comments_updated}` |
 | `update_source` | `PUT /api/reviews/{id}/source` | pushes applied edits; snapshots a history round, live-reloads the human's page |
 | `get_history` | `GET /api/reviews/{id}/history` (+ `/{n}`) | list rounds / fetch one past draft + its feedback |
 | `delete_review` | `DELETE /api/reviews/{id}` | cleanup |
+| `list_comments` | `GET /api/reviews/{id}/comments?status=` | `document_id` (=id), `status?`=open; the threaded comments |
+| `get_comment` | `GET /api/reviews/{id}/comments/{cid}` | one full thread + `status_history` |
+| `reply_to_comment` | `POST /api/reviews/{id}/comments/{cid}/reply` | discuss without resolving |
+| `resolve_comment` | `POST /api/reviews/{id}/comments/{cid}/resolve` | agent resolves; `justification?`. No `reopen` tool — reviewer-only UI action |
+
+> The shipped server also exposes `attach_asset`/`list_assets` (images) — **14 tools** total. See
+> `README.md` / `CLAUDE.md` for the current full set.
 
 ### Behavior to preserve
 
