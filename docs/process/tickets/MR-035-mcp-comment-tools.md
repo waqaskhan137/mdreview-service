@@ -1,13 +1,13 @@
 ---
 id: MR-035
 title: MCP tools — list_comments/get_comment/reply_to_comment/resolve_comment + agent-expectation descriptions + mcp_smoke round-trip
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-11
 epic: comment-resolution
 depends_on: [MR-033, MR-034]
-branch:
+branch: dev
 created: 2026-06-19
 updated: 2026-06-19
 ---
@@ -55,11 +55,24 @@ server instructions so the agent follows the workflow without extra prompting. N
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-19` — `mcp_server.py`: added `_DOCID`/`_CID` constants + the four tools
+  (`list_comments`/`get_comment`/`reply_to_comment`/`resolve_comment`, `document_id`=review id,
+  workflow encoded in descriptions); `route()` branches (list_comments MCP-defaults `status=open`
+  while the HTTP route defaults `all`; reply/resolve force `role=agent`; resolve omits an absent
+  `justification`); module docstring updated (14 tools + a comment-workflow paragraph). `mcp_smoke.py`:
+  `expected` set + count → 14, three description-guidance checks, and a comment round-trip (seed via
+  HTTP urllib → list/get/reply/resolve + open/resolved filter).
 
 ## Validation
 
-_How this was verified._
+- `2026-06-19` — `python3 -m py_compile app.py mcp_server.py mcp_smoke.py` OK;
+  `MDREVIEW_BASE=http://localhost:8138 python3 mcp_smoke.py` → **PASS (22 assertions)**: `tools/list`
+  returns exactly the 14 tools; the new descriptions carry the list-first / reply-without-resolving /
+  justification-optional-+-reopen guidance; round-trip — seed a comment over HTTP, then
+  `list_comments(open)` lists it, `get_comment` returns thread+status_history, `reply_to_comment`
+  grows the thread (status still open), `resolve_comment` → `status:"resolved"`,`resolved_by:"agent"`,
+  then it leaves `open` and appears in `resolved`. The MCP server is the local stdio wrapper; the
+  comment routes live in the rebuilt :8138 container.
 
 ## Follow-ups
 
