@@ -12,6 +12,7 @@ import os
 import sys
 import json
 import subprocess
+import urllib.request
 
 BASE = os.environ.get("MDREVIEW_BASE", "http://localhost:8137")
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -55,14 +56,25 @@ def main():
     check("initialize protocolVersion == 2025-06-18", init.get("protocolVersion") == "2025-06-18")
     check("capabilities are tools-only", init.get("capabilities") == {"tools": {}})
     check("serverInfo.name == mdreview-mcp", init.get("serverInfo", {}).get("name") == "mdreview-mcp")
+    check("initialize surfaces the workflow as instructions",
+          bool(init.get("instructions")) and "list_comments" in init.get("instructions", ""))
     tools = out[1].get("result", {}).get("tools", [])
     names = {t.get("name") for t in tools}
-    expected = {"create_review", "list_reviews", "get_review", "get_feedback",
+    expected = {"create_review", "list_reviews", "get_review", "get_source", "get_feedback",
                 "get_status", "update_source", "get_history", "delete_review",
-                "attach_asset", "list_assets"}
-    check("tools/list returns exactly the 10 tools", names == expected)
+                "attach_asset", "list_assets",
+                "list_comments", "get_comment", "reply_to_comment", "resolve_comment"}
+    check("tools/list returns exactly the 15 tools", names == expected)
     check("each tool has a description + object inputSchema",
           all(t.get("description") and t.get("inputSchema", {}).get("type") == "object" for t in tools))
+    # the comment tools must encode the agent workflow in their descriptions (the brief's expectations)
+    desc = {t["name"]: t.get("description", "").lower() for t in tools}
+    check("list_comments description says call it FIRST",
+          "first" in desc.get("list_comments", ""))
+    check("reply_to_comment description says reply WITHOUT resolving",
+          "without" in desc.get("reply_to_comment", ""))
+    check("resolve_comment description says justification optional + reviewer can reopen",
+          "optional" in desc.get("resolve_comment", "") and "reopen" in desc.get("resolve_comment", ""))
 
     # 2. happy-path envelope + round-trip (needs a running service)
     out = drive(base + [{"jsonrpc": "2.0", "id": 3, "method": "tools/call",
@@ -92,6 +104,12 @@ def main():
             pass
         check("update_source round-trip -> revision >= 1", isinstance(rev, int) and rev >= 1)
 
+        # get_source returns the draft we just pushed (text content, not JSON)
+        out = drive(base + [{"jsonrpc": "2.0", "id": 10, "method": "tools/call",
+                             "params": {"name": "get_source", "arguments": {"id": rid}}}])
+        src = out[-1].get("result", {}).get("content", [{}])[0].get("text", "")
+        check("get_source -> the current draft markdown", "revised" in src)
+
         # attach_asset -> list_assets round-trip (a 1x1 png by base64)
         pix = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQ"
                "DwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
@@ -116,6 +134,55 @@ def main():
             pass
         check("list_assets -> includes the attached asset's stored name",
               any(a.get("stored") == stored for a in listed))
+
+        # comment round-trip: seed a comment over HTTP (create is reviewer-side), then exercise the
+        # four agent tools (list -> get -> reply -> resolve) and the open/resolved filter.
+        cid = None
+        try:
+            req = urllib.request.Request(
+                "%s/api/reviews/%s/comments" % (BASE, rid),
+                data=json.dumps({"anchor": {"quoted_text": "smoke", "block_num": "1"},
+                                 "text": "please clarify"}).encode("utf-8"),
+                headers={"Content-Type": "application/json"}, method="POST")
+            with urllib.request.urlopen(req, timeout=30) as r:
+                cid = json.loads(r.read().decode("utf-8")).get("comment_id")
+        except Exception:
+            pass
+        check("seeded a comment via HTTP (comment_id present)", bool(cid))
+
+        if cid:
+            def call_tool(call_id, tool, arguments):
+                o = drive(base + [{"jsonrpc": "2.0", "id": call_id, "method": "tools/call",
+                                   "params": {"name": tool, "arguments": arguments}}])
+                r = o[-1].get("result", {})
+                try:
+                    return json.loads(r["content"][0]["text"]), r.get("isError")
+                except Exception:
+                    return None, r.get("isError")
+
+            lst, err = call_tool(20, "list_comments", {"document_id": rid})  # default open
+            check("list_comments(open) -> the seeded comment is listed, isError false",
+                  not err and isinstance(lst, dict)
+                  and any(c.get("comment_id") == cid for c in lst.get("comments", [])))
+            one, err = call_tool(21, "get_comment", {"document_id": rid, "comment_id": cid})
+            check("get_comment -> full thread (>=1 entry) + status_history",
+                  not err and isinstance(one, dict) and len(one.get("thread", [])) >= 1
+                  and len(one.get("status_history", [])) >= 1)
+            rep, err = call_tool(22, "reply_to_comment",
+                                 {"document_id": rid, "comment_id": cid, "text": "looking into it"})
+            check("reply_to_comment -> thread grows, status still open",
+                  not err and isinstance(rep, dict) and len(rep.get("thread", [])) == 2
+                  and rep.get("status") == "open")
+            res, err = call_tool(23, "resolve_comment", {"document_id": rid, "comment_id": cid})
+            check("resolve_comment -> status resolved, resolved_by agent",
+                  not err and isinstance(res, dict)
+                  and res.get("status") == "resolved" and res.get("resolved_by") == "agent")
+            op, _ = call_tool(24, "list_comments", {"document_id": rid, "status": "open"})
+            rv, _ = call_tool(25, "list_comments", {"document_id": rid, "status": "resolved"})
+            check("after resolve: excluded from open, included in resolved",
+                  isinstance(op, dict) and isinstance(rv, dict)
+                  and not any(c.get("comment_id") == cid for c in op.get("comments", []))
+                  and any(c.get("comment_id") == cid for c in rv.get("comments", [])))
 
         # clean up the smoke review
         drive(base + [{"jsonrpc": "2.0", "id": 5, "method": "tools/call",

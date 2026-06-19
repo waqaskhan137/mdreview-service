@@ -8,48 +8,36 @@
   :root{--bg:#fafaf9;--text:#1a1a1a;--muted:#6b6b6b;--accent:#0f766e;--rule:#e6e4e0;--noteline:#d4a017;--card:#fff;}
   @media (prefers-color-scheme: dark){:root{--bg:#111;--text:#f1efec;--muted:#9a9a9a;--accent:#2dd4bf;--rule:#2a2a2a;--noteline:#d4a017;--card:#181817;}}
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.45;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.4;}
 
-  /* sticky search/filter bar */
+  /* sticky toolbar */
   .bar{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--rule);}
-  .bar-inner{max-width:1600px;margin:0 auto;padding:9px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .bar-inner{max-width:2000px;margin:0 auto;padding:8px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .brand{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700;white-space:nowrap;}
   #search{flex:1 1 220px;min-width:150px;font:inherit;font-size:13.5px;padding:7px 11px;border-radius:8px;border:1px solid var(--rule);background:var(--card);color:var(--text);}
   #search:focus{outline:none;border-color:var(--accent);}
   .chips{display:flex;gap:4px;}
-  .chip,.bulkbtn{font:inherit;font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--rule);background:var(--card);color:var(--muted);cursor:pointer;white-space:nowrap;}
-  .chip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
-  .bulkbtn{color:var(--text);}
-  .bulkbtn:hover,.chip:hover{border-color:var(--accent);}
+  .chip,.tbtn{font:inherit;font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--rule);background:var(--card);color:var(--muted);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;}
+  .chip.active,.tbtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .tbtn{color:var(--text);}
+  .tbtn:hover,.chip:hover{border-color:var(--accent);}
+  .ico{flex:0 0 auto;vertical-align:-1px;}
 
-  .wrap{max-width:1600px;margin:0 auto;padding:16px 24px 96px;}
-  .sub{color:var(--muted);font-size:13px;margin:2px 0 18px;}
+  .wrap{max-width:2000px;margin:0 auto;padding:10px 16px 56px;}
+  .sub{color:var(--muted);font-size:12.5px;margin:0 0 8px;}
 
-  /* collapsible project group */
-  .project{margin:0 0 14px;}
-  .project.is-hidden{display:none;}
-  .group-header{display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 4px;border-radius:6px;user-select:none;}
-  .group-header:hover{background:rgba(127,127,127,.07);}
-  .chev{display:inline-block;font-size:11px;color:var(--muted);transition:transform .15s;}
-  .project:not(.collapsed) .chev{transform:rotate(90deg);}
-  .gname{font-size:16px;font-weight:700;}
-  .pcount{font-size:11.5px;font-weight:600;color:var(--muted);background:rgba(127,127,127,.12);border-radius:20px;padding:1px 8px;}
-  .project.collapsed .group-body{display:none;}
+  /* one continuous zero-gutter grid (flat is the default) */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;}
 
-  .session{margin:8px 0 0;}
-  .session.is-hidden{display:none;}
-  .session>h3{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--accent);margin:6px 0 6px;font-weight:600;}
-  .session>h3::before{content:"› ";color:var(--muted);}
-
-  /* dense grid, capped so columns top out at 5 (5×280 + 4×10 gap + 2×24 pad ≈ 1488; a 6th needs ~1778) */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;}
-
-  /* collapsed card = title + one meta row (~3 lines); click to expand */
-  .card{position:relative;background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;cursor:pointer;transition:border-color .12s,transform .06s,box-shadow .12s;}
+  /* compact cell: the whole tile is a link to the review; a hover trash icon deletes */
+  .card{position:relative;background:var(--card);border:1px solid var(--rule);border-radius:8px;transition:border-color .12s,transform .06s,box-shadow .12s;}
   .card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.07);}
   .card.is-hidden{display:none;}
-  .card .title{font-size:14px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:86px;}
-  .meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11px;color:var(--muted);}
+  .cardlink{display:flex;flex-direction:column;gap:4px;padding:7px 9px;color:inherit;text-decoration:none;cursor:pointer;}
+  .card .title{font-size:13.5px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:28px;}
+  .meta{display:flex;flex-wrap:wrap;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
+  .ptag{display:inline-flex;align-items:center;gap:3px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);}
+  .ptag .pname{overflow:hidden;text-overflow:ellipsis;}
   .pill{display:inline-flex;align-items:center;border-radius:20px;padding:1px 8px;font-size:10.5px;font-weight:600;border:1px solid var(--rule);}
   .pill.awaiting{color:var(--muted);}
   .pill.feedback{color:#7a5b00;background:rgba(212,160,23,.16);border-color:transparent;}
@@ -57,19 +45,31 @@
   .pill.resolved{color:#fff;background:var(--accent);border-color:transparent;}
   .badge{border-radius:6px;padding:1px 6px;background:rgba(127,127,127,.12);font-size:10.5px;}
   .rev{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
-  /* full path: single line ellipsis, only when expanded */
-  .card .path{display:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .card.expanded .path{display:block;}
-  .card .path:empty{display:none;}
-  /* actions: top-right, only on hover or expanded */
-  .actions{position:absolute;top:7px;right:9px;display:flex;gap:4px;opacity:0;pointer-events:none;transition:opacity .12s;}
-  .card:hover .actions,.card.expanded .actions{opacity:1;pointer-events:auto;}
-  .btn{font:inherit;font-size:11.5px;border-radius:6px;padding:3px 9px;cursor:pointer;border:1px solid var(--rule);background:var(--bg);color:var(--text);text-decoration:none;line-height:1.4;}
-  .btn.open{background:var(--accent);color:#fff;border-color:var(--accent);}
-  .btn.del{color:var(--muted);}
-  .btn.del:hover{color:#c0392b;border-color:#c0392b;}
+  /* delete: hover-revealed trash icon, top-right (a sibling of the link, not inside it) */
+  .del{position:absolute;top:5px;right:6px;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;opacity:0;transition:opacity .12s,color .12s,background .12s;}
+  .card:hover .del{opacity:1;}
+  .del:hover{color:#c0392b;background:rgba(192,57,43,.12);}
+  .del:focus-visible{opacity:1;outline:2px solid var(--accent);outline-offset:1px;}
 
-  .empty,.noresults{text-align:center;color:var(--muted);padding:72px 0;}
+  /* grouped mode (toggle on): project sections + collapsible groups; in-cell ptag hidden (header shows it) */
+  #list.grouped .ptag{display:none;}
+  #list.grouped .grid{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}
+  #list.grouped .grid:has(.card:only-child){grid-template-columns:minmax(280px,560px);}
+  .project{margin:0 0 10px;}
+  .project.is-hidden{display:none;}
+  .group-header{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 4px;border-radius:6px;user-select:none;}
+  .group-header:hover{background:rgba(127,127,127,.07);}
+  .chev{display:inline-block;font-size:11px;color:var(--muted);transition:transform .15s;}
+  .project:not(.collapsed) .chev{transform:rotate(90deg);}
+  .gname{font-size:15px;font-weight:700;}
+  .pcount{font-size:11.5px;font-weight:600;color:var(--muted);background:rgba(127,127,127,.12);border-radius:20px;padding:1px 8px;}
+  .project.collapsed .group-body{display:none;}
+  .session{margin:6px 0 0;}
+  .session.is-hidden{display:none;}
+  .session>h3{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--accent);margin:4px 0 5px;font-weight:600;}
+  .session>h3::before{content:"› ";color:var(--muted);}
+
+  .empty,.noresults{text-align:center;color:var(--muted);padding:64px 0;}
   .noresults{display:none;}
   .empty code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:rgba(127,127,127,.1);padding:2px 6px;border-radius:5px;}
 </style>
@@ -84,17 +84,20 @@
       <button class="chip" data-status="notes">Has notes</button>
       <button class="chip" data-status="done">Done</button>
     </div>
-    <button class="bulkbtn" id="expandAll">Expand all</button>
-    <button class="bulkbtn" id="collapseAll">Collapse all</button>
+    <button class="tbtn" id="groupToggle" aria-pressed="false">Group by project</button>
+    <button class="tbtn group-only" id="expandAll">Expand all</button>
+    <button class="tbtn group-only" id="collapseAll">Collapse all</button>
   </div>
 </div>
 <div class="wrap">
   <p class="sub" id="sub">Loading…</p>
-  <div id="list"></div>
+  <div id="list" class="flat"></div>
   <div class="noresults" id="noresults">No reviews match your search.</div>
 </div>
 <script>
 const $=s=>document.querySelector(s);
+const FOLDER='<svg class="ico" viewBox="0 0 16 16" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M1.5 4.2c0-.55.45-1 1-1h3l1 1.2h6c.55 0 1 .45 1 1v6c0 .55-.45 1-1 1H2.5c-.55 0-1-.45-1-1V4.2z"/></svg>';
+const TRASH='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
 function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function rel(ts){
   if(!ts)return "";
@@ -110,52 +113,78 @@ function noteLabel(r){
   if(!t)return "no notes";
   return t+(t===1?" note":" notes")+(a?" · "+a+" done":"");
 }
+// latest activity = newest of created / source_updated / feedback_updated
+function activity(r){return Math.max(r.created||0, r.source_updated||0, r.feedback_updated||0);}
 function groupBy(arr,key){
   const m=new Map();
   for(const r of arr){const k=r[key]||"";(m.get(k)||m.set(k,[]).get(k)).push(r);}
   return m;
 }
-// Collapsed card (title + one meta row). Path + actions hidden until expand/hover.
+// compact cell. The project tag lives inside the cell (replaces project headers in flat mode;
+// CSS hides it in grouped mode). Path + actions hidden until expand/hover.
 function card(r){
   const status=r.status||"awaiting";
   const rev=(r.revision||0)>0?`<span class="badge rev">v${r.revision}</span>`:"";
   const t=esc(r.title||r.id), pr=esc(r.project||""), pa=esc(r.source_path||"");
-  return `<div class="card" role="button" tabindex="0" aria-expanded="false"
-      data-title="${t}" data-project="${pr}" data-path="${pa}" data-status="${status}">
-    <div class="actions">
-      <a class="btn open" href="/review/${encodeURIComponent(r.id)}">Open</a>
-      <button class="btn del" data-id="${esc(r.id)}" data-title="${t}" aria-label="Delete">Delete</button>
-    </div>
-    <div class="title">${t}</div>
-    <div class="meta">
-      <span class="pill ${status}">${status}</span>
-      <span class="badge">${noteLabel(r)}</span>
-      ${rev}
-      <span class="date">${rel(r.created)}</span>
-    </div>
-    <div class="path">${pa}</div>
+  const ptag=pr?`<span class="ptag" title="${pr}">${FOLDER}<span class="pname">${pr}</span></span>`:"";
+  return `<div class="card" data-title="${t}" data-project="${pr}" data-path="${pa}" data-status="${status}">
+    <a class="cardlink" href="/review/${encodeURIComponent(r.id)}">
+      <div class="title">${t}</div>
+      <div class="meta">
+        ${ptag}
+        <span class="pill ${status}">${status}</span>
+        <span class="badge">${noteLabel(r)}</span>
+        ${rev}
+        <span class="date">${rel(r.created)}</span>
+      </div>
+    </a>
+    <button class="del" data-id="${esc(r.id)}" data-title="${t}" aria-label="Delete ${t}">${TRASH}</button>
   </div>`;
 }
 
-const collapsed = new Set();   // session-lifetime: project names that are collapsed (NOT persisted)
-let statusFilter = "all";
+let allReviews=[];
+let grouped=false;                 // session memory: flat (default) vs grouped — not persisted
+let statusFilter="all";
+const collapsed=new Set();         // collapsed project names (grouped mode), session-lifetime
 
 async function load(){
   let data;
   try{ data=await fetch('/api/reviews',{cache:'no-store'}).then(r=>r.json()); }
   catch(e){ $("#sub").textContent="Could not reach the service."; return; }
-  const reviews=(data&&data.reviews)||[];
-  const projects=new Set(reviews.map(r=>r.project||"Ungrouped")).size;
-  $("#sub").textContent = reviews.length
-    ? `${reviews.length} review${reviews.length===1?"":"s"} across ${projects} project${projects===1?"":"s"}`
-    : "No reviews yet.";
+  allReviews=(data&&data.reviews)||[];
+  render();
+}
+
+function render(){
   const list=$("#list");
-  if(!reviews.length){
+  const n=allReviews.length;
+  const projects=new Set(allReviews.map(r=>r.project||"Ungrouped")).size;
+  $("#sub").textContent = n
+    ? `${n} review${n===1?"":"s"} across ${projects} project${projects===1?"":"s"}`
+    : "No reviews yet.";
+  // toolbar: group-only controls visible only in grouped mode
+  document.querySelectorAll('.group-only').forEach(b=>b.style.display=grouped?"":"none");
+  $("#groupToggle").classList.toggle('active', grouped);
+  $("#groupToggle").setAttribute('aria-pressed', String(grouped));
+  if(!n){
+    list.className='flat';
     list.innerHTML=`<div class="empty">No reviews yet.<br><br>An agent creates one with <code>POST /api/reviews</code>.</div>`;
     return;
   }
-  // Project › Session › files. Ungrouped projects last; within, undated sessions first (no sub-header).
-  const byProject=groupBy(reviews, "project");
+  if(grouped){ list.className='grouped'; list.innerHTML=renderGrouped(allReviews); reapplyCollapse(); }
+  else       { list.className='flat';    list.innerHTML=renderFlat(allReviews); }
+  applyFilter();
+}
+
+// flat: one continuous grid of every review, newest activity first
+function renderFlat(reviews){
+  const sorted=reviews.slice().sort((a,b)=>activity(b)-activity(a));
+  return `<div class="grid">${sorted.map(card).join("")}</div>`;
+}
+
+// grouped (toggle on): Project › Session, collapsible project groups
+function renderGrouped(reviews){
+  const byProject=groupBy(reviews,"project");
   const projectNames=[...byProject.keys()].sort((a,b)=>{
     if(a==="")return 1; if(b==="")return -1; return a.localeCompare(b);
   });
@@ -168,29 +197,30 @@ async function load(){
         <span class="chev">▸</span><span class="gname">${esc(label)}</span><span class="pcount">${items.length}</span>
       </div>
       <div class="group-body">`;
-    const bySession=groupBy(items, "session");
+    const bySession=groupBy(items,"session");
     const sessionNames=[...bySession.keys()].sort((a,b)=>{
       if(a==="")return -1; if(b==="")return 1; return a.localeCompare(b);
     });
     for(const s of sessionNames){
-      const cards=bySession.get(s).sort((a,b)=>(b.created||0)-(a.created||0)).map(card).join("");
+      const cards=bySession.get(s).sort((a,b)=>activity(b)-activity(a)).map(card).join("");
       if(s) html+=`<div class="session"><h3>${esc(s)}</h3><div class="grid">${cards}</div></div>`;
       else  html+=`<div class="session"><div class="grid">${cards}</div></div>`;
     }
     html+=`</div></section>`;
   }
-  list.innerHTML=html;
-  // re-apply session collapse state (survives a delete-triggered re-render) + current search
+  return html;
+}
+
+function reapplyCollapse(){
   document.querySelectorAll('.project').forEach(sec=>{
     if(collapsed.has(sec.dataset.project)){
       sec.classList.add('collapsed');
       sec.querySelector('.group-header').setAttribute('aria-expanded','false');
     }
   });
-  applyFilter();
 }
 
-// Live client-side filter over the already-rendered cards; hides empty sessions + projects.
+// live filter over rendered cards (title/project/path) + status chip; hides empty groups in grouped mode
 function applyFilter(){
   const q=($("#search").value||"").toLowerCase().trim();
   document.querySelectorAll('.card').forEach(c=>{
@@ -200,18 +230,12 @@ function applyFilter(){
     if(show && statusFilter==="done")  show=(c.dataset.status==="resolved");
     c.classList.toggle('is-hidden', !show);
   });
-  document.querySelectorAll('.session').forEach(s=>{
-    s.classList.toggle('is-hidden', !s.querySelector('.card:not(.is-hidden)'));
-  });
-  let anyVisible=false;
-  document.querySelectorAll('.project').forEach(p=>{
-    const has=!!p.querySelector('.card:not(.is-hidden)');
-    p.classList.toggle('is-hidden', !has);
-    if(has) anyVisible=true;
-  });
-  const list=$("#list");
-  const empty=list.querySelector('.empty');
-  $("#noresults").style.display=(!anyVisible && !empty)?"block":"none";
+  if(grouped){
+    document.querySelectorAll('.session').forEach(s=>s.classList.toggle('is-hidden', !s.querySelector('.card:not(.is-hidden)')));
+    document.querySelectorAll('.project').forEach(p=>p.classList.toggle('is-hidden', !p.querySelector('.card:not(.is-hidden)')));
+  }
+  const any=document.querySelector('.card:not(.is-hidden)');
+  $("#noresults").style.display=(allReviews.length && !any)?"block":"none";
 }
 
 function setGroup(sec, collapse){
@@ -219,46 +243,29 @@ function setGroup(sec, collapse){
   sec.querySelector('.group-header').setAttribute('aria-expanded', String(!collapse));
   if(collapse) collapsed.add(sec.dataset.project); else collapsed.delete(sec.dataset.project);
 }
-function toggleCard(c){
-  const ex=c.classList.toggle('expanded');
-  c.setAttribute('aria-expanded', String(ex));
-}
-
-// one delegated click handler: delete, open(link), group toggle, chips, bulk, then card expand
 document.addEventListener('click', async e=>{
-  const del=e.target.closest('.btn.del');
+  const del=e.target.closest('.del');
   if(del){
+    e.preventDefault();
     if(!confirm(`Delete review "${del.dataset.title}"? This cannot be undone.`))return;
     await fetch('/api/reviews/'+encodeURIComponent(del.dataset.id),{method:'DELETE'}).catch(()=>{});
     load();
     return;
   }
-  if(e.target.closest('a'))return;                       // Open link → default navigation
+  if(e.target.closest('a'))return;                                  // the tile is a link → opens the review
+  if(e.target.closest('#groupToggle')){ grouped=!grouped; render(); return; }
   const gh=e.target.closest('.group-header');
   if(gh){ const sec=gh.closest('.project'); setGroup(sec, !sec.classList.contains('collapsed')); return; }
   const chip=e.target.closest('.chip');
-  if(chip){
-    statusFilter=chip.dataset.status;
-    document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active', c===chip));
-    applyFilter();
-    return;
-  }
+  if(chip){ statusFilter=chip.dataset.status; document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active', c===chip)); applyFilter(); return; }
   if(e.target.closest('#expandAll')){ document.querySelectorAll('.project').forEach(s=>setGroup(s,false)); return; }
   if(e.target.closest('#collapseAll')){ document.querySelectorAll('.project').forEach(s=>setGroup(s,true)); return; }
-  const c=e.target.closest('.card');
-  if(c){
-    if(e.target.closest('a, button'))return;             // never toggle from an action control
-    if(window.getSelection && String(window.getSelection()).length)return;  // don't toggle on text selection
-    toggleCard(c);
-  }
 });
-// keyboard parity: Enter/Space toggles a focused card or group, with the same action-control guard
+// keyboard: Enter/Space toggles a focused group header (the tile is a native link — Enter opens it)
 document.addEventListener('keydown', e=>{
   if(e.key!=='Enter' && e.key!==' ')return;
   const gh=e.target.closest('.group-header');
-  if(gh){ e.preventDefault(); const sec=gh.closest('.project'); setGroup(sec, !sec.classList.contains('collapsed')); return; }
-  const c=e.target.closest('.card');
-  if(c && !e.target.closest('a, button')){ e.preventDefault(); toggleCard(c); }
+  if(gh){ e.preventDefault(); const sec=gh.closest('.project'); setGroup(sec, !sec.classList.contains('collapsed')); }
 });
 $("#search").addEventListener('input', applyFilter);
 load();

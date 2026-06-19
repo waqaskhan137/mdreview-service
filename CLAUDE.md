@@ -78,7 +78,41 @@ There is no explicit "submit" from the human; feedback streams as they type. Pra
   signal.
 
 `notes` is the structured form (each has `num`, `quote`, `note`, `addressed`); `markdown` is the
-same content as a readable block per note. Use whichever you prefer.
+same content as a readable block per note. Use whichever you prefer. `notes[]` now also includes a
+**projection of the comments** (below) — each as `{num, quote, note, addressed}` (`note` = the
+thread, `addressed` = the comment is resolved) — so this read path keeps surfacing the human's live
+input even though the viewer authors comments now, not notes.
+
+## Comments (threaded resolution)
+
+The viewer's primary feedback surface is **threaded comments** (a reviewer highlights text → a
+thread). They live server-side (shared by the viewer and MCP), with an `open → resolved → reopened`
+state machine the service enforces. Your loop:
+
+```bash
+# 1. List what the reviewer raised (default open). document_id == the review id.
+curl -s "$BASE/api/reviews/<id>/comments?status=open"        # {"comments":[{comment_id,status,anchor,thread,...}]}
+curl -s "$BASE/api/reviews/<id>/comments/<cid>"              # one full thread + status_history
+
+# 2. Reply to discuss WITHOUT resolving (a question, a clarification):
+curl -s -X POST "$BASE/api/reviews/<id>/comments/<cid>/reply" \
+  -H 'Content-Type: application/json' -d '{"text":"Do you mean X or Y?","role":"agent"}'
+
+# 3. Resolve once you've actually addressed it. justification is OPTIONAL (appended to the thread,
+#    attributed to you) but recommended — the reviewer can reopen, so a clear note saves a round.
+curl -s -X POST "$BASE/api/reviews/<id>/comments/<cid>/resolve" \
+  -H 'Content-Type: application/json' -d '{"justification":"Fixed in the next revision."}'
+```
+
+- Always `list_comments(status="open")` first; only address what the reviewer raised. Use `reply`
+  for discussion, `resolve` only when the issue is genuinely fixed.
+- **You never reopen** — reopen is the reviewer's UI action. After a reviewer reopen, you see the
+  comment again via the list (status `reopened`/`open`) and can reply or resolve again.
+- Roles `reviewer`/`agent` are **attribution, not auth**; "reviewer-only reopen" is a convention on
+  the no-auth service, not an enforced boundary. Poll `comments_updated` (on `GET /status`) to know
+  when threads changed.
+- Resolving sets `resolved_by`/`resolved_at` and moves the thread to the viewer's Resolved panel;
+  `thread[]` and `status_history[]` are append-only (full history, never overwritten).
 
 ## Discovering and revisiting reviews
 
@@ -93,8 +127,11 @@ same content as a readable block per note. Use whichever you prefer.
 ## Calling it over MCP (optional)
 
 `mcp_server.py` is a thin, stdlib-only stdio MCP server (JSON-RPC 2.0, spec rev `2025-06-18`)
-exposing the API as tools (`create_review`, `list_reviews`, `get_review`, `get_feedback`,
-`get_status`, `update_source`, `get_history`, `attach_asset`, `list_assets`, `delete_review`). Run
+exposing the API as 15 tools (`create_review`, `list_reviews`, `get_review`, `get_source`, `get_feedback`,
+`get_status`, `update_source`, `get_history`, `attach_asset`, `list_assets`, `delete_review`, and
+the comment tools `list_comments`, `get_comment`, `reply_to_comment`, `resolve_comment` — there is
+**no `reopen` tool**, reopen is the reviewer's UI action). The comment tools take `document_id` (=
+the review id); their descriptions encode the workflow above. Run
 `MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py`; smoke with `mcp_smoke.py`. It wraps a
 running service and adds no state. Set `MDREVIEW_PUBLIC_BASE` on the service so a relayed
 `review_url` is reachable. See `README.md` and `docs/future-mcp.md`.
