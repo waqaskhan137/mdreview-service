@@ -3,13 +3,13 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-19. sprint-09 (dashboard-redesign) **closed at G7 (staff-critic PASS)** — dense/searchable dashboard shipped on `dev`, awaiting the standing dev→main PR (G8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-19. sprint-09 (dashboard-redesign) **closed at G7 (staff-critic PASS) and merged to main (PR #8)** — dense/searchable dashboard live on `main`. sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
-_none active_ — sprint-09 closed; work sits on `dev` pending the G8 merge.
+_none active_ — sprint-09 merged to main (PR #8); `dev` and `main` aligned.
 
-**sprint-09 — dashboard-redesign** (`closed`, 2026-06-19). Epic: `dashboard-redesign` (G1 passed 2 rounds; G7 PASS). Shipped MR-031: `dashboard.html` rewritten into a dense, full-width (capped 1600px), searchable grid of collapsed click-to-expand cards with collapsible project groups; open/delete/version/notes + pane-adaptive theme preserved (CDP-verified). `dashboard.html` only. On `dev`, not yet merged to main.
+**sprint-09 — dashboard-redesign** (`closed`, 2026-06-19; merged to main, PR #8). Epic: `dashboard-redesign` (G1 passed 2 rounds; G7 PASS). Shipped MR-031: `dashboard.html` rewritten into a dense, full-width (capped 1600px), searchable grid of collapsed click-to-expand cards with collapsible project groups; open/delete/version/notes + pane-adaptive theme preserved (CDP-verified). `dashboard.html` only.
 
 **sprint-08 — render-fidelity** (`closed`, 2026-06-18; merged to main, PR #7). Epic: `render-fidelity` (G1 passed 2 rounds; G7 PASS-WITH-CONDITIONS, resolved). Shipped MR-028 (GFM footnotes, vendored marked-footnote), MR-029 (syntax highlighting, vendored highlight.js common + marked-highlight, dual-scheme theme, mermaid skipped), MR-030 (docs). Viewer + vendored `static/` only.
 
@@ -18,7 +18,7 @@ _none active_ — sprint-09 closed; work sits on `dev` pending the G8 merge.
 **sprint-06 — rich-rendering** (`closed`, 2026-06-18; merged to main, PR #5). Epic: `rich-rendering` (G1 passed 2 rounds; G7 PASS). Shipped the two P0s: math rendering (KaTeX marked-extension) + per-review asset attach/serve over HTTP & MCP + viewer `<img>` rewrite. MR-022–026 all `done`; local-dir `path` read form cut to backlog (S5).
 
 **sprint-05 — landing-page** (`closed`, 2026-06-09; merged to main, PR #4). Epic: `landing-page`. G7 PASS; MR-019 done, MR-020 done (carry-over discharged: DNS added, cert issued, HTTPS enforced, README URL recorded). MR-021 (GIF demo) remains backlog.
-sprint-01/02/03/04/05/06/07/08 shipped to main (PR #1, #2, #3, #4, #5, #6, #7).
+sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7, #8).
 
 ## ready
 
@@ -90,4 +90,4 @@ _none_
 | rich-rendering | done (merged to main 2026-06-18, PR #5) | G1 passed 2026-06-18 (2 rounds) | sprint-06 |
 | theme-awareness | done (merged to main 2026-06-18, PR #6) | G1 passed 2026-06-18 (2 rounds) | sprint-07 |
 | render-fidelity | done (merged to main 2026-06-18, PR #7) | G1 passed 2026-06-18 (2 rounds) | sprint-08 |
-| dashboard-redesign | done (G7 PASS 2026-06-19; on `dev`, pending G8 merge) | G1 passed 2026-06-19 (2 rounds) | sprint-09 |
+| dashboard-redesign | done (merged to main 2026-06-19, PR #8) | G1 passed 2026-06-19 (2 rounds) | sprint-09 |
