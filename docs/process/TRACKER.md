@@ -3,11 +3,16 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-19. sprint-10 (dashboard-density) **closed as an out-of-cycle exception** — a direct flat continuous-grid redesign (+ group-by toggle) shipped to `dev` per the user's "make the change without the cycle" request; G1 passed, **G7 waived** (render-validated, not critic-gated). Awaiting the standing dev→main PR. sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-19. **sprint-11 (comment-resolution) is ACTIVE** — the largest epic to date (svc comment store + state machine, 4 MCP tools, viewer threads/Resolved-panel/reopen). G1 passed 2 rounds (staff-critic PASS, `reviews/comment-resolution-plan-review-2026-06-19.md`); MR-033–037 committed, all `ready`. sprint-10 (dashboard-density) **closed as an out-of-cycle exception** — a direct flat continuous-grid redesign (+ group-by toggle) shipped to `dev` per the user's "make the change without the cycle" request; G1 passed, **G7 waived** (render-validated, not critic-gated). Awaiting the standing dev→main PR. sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
-_none active_ — sprint-10 closed (out-of-cycle); work on `dev` pending the G8 merge.
+**sprint-11 — comment-resolution** (`active`, started 2026-06-19). Epic: `comment-resolution`
+(G1 passed 2 rounds, staff-critic PASS). Committed: MR-033 (svc store + comment-aware reads) →
+MR-034 (svc state machine) → {MR-035 (MCP tools), MR-036 (viewer threads/Resolved/reopen)} →
+MR-037 (docs). Implementing.
+
+_(sprint-10 closed out-of-cycle; that work on `dev` is still pending the G8 merge.)_
 
 **sprint-10 — dashboard-density** (`closed` out-of-cycle, 2026-06-19). Epic: `dashboard-density` (G1 passed 2 rounds; **G7 waived by user exception**). Shipped MR-032's density CSS **within a direct flat continuous-grid redesign** (commit `0f44c1b`): one packed grid (newest-first, project-as-inline-tag, zero gutters) is now the default, with a "Group by project" toggle to the grouped sections (which keep the MR-032 density). `dashboard.html` only. Render-validated via CDP; not independently G7-reviewed.
 
@@ -24,7 +29,13 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-033 | Comment store + `POST/GET /comments` + `GET /comments/{cid}` + `comments_updated` + comment-aware `GET /feedback` & `summary()` | svc | P1 | sprint-11 |
+| MR-034 | Comment state machine — reply/resolve/reopen routes, `status_history`, 409 on illegal transitions | svc | P1 | sprint-11 |
+| MR-035 | MCP tools `list_comments`/`get_comment`/`reply_to_comment`/`resolve_comment` + descriptions + `mcp_smoke` round-trip | svc | P1 | sprint-11 |
+| MR-036 | Viewer — threaded `comment_id`-keyed gutter cards, authoring → `POST /comments`, retire legacy author surfaces, Resolved panel + reopen, live-reload | ui | P1 | sprint-11 |
+| MR-037 | Docs sweep — README/CLAUDE/AGENTS/future-mcp + MCP docstring 10→14 + comment-aware feedback/dashboard | docs | P2 | sprint-11 |
 
 ## in-progress
 
@@ -94,3 +105,4 @@ _none_
 | render-fidelity | done (merged to main 2026-06-18, PR #7) | G1 passed 2026-06-18 (2 rounds) | sprint-08 |
 | dashboard-redesign | done (merged to main 2026-06-19, PR #8) | G1 passed 2026-06-19 (2 rounds) | sprint-09 |
 | dashboard-density | active (G1 cleared; MR-032 ready) | G1 passed 2026-06-19 (2 rounds) | sprint-10 |
+| comment-resolution | active (G1 cleared; MR-033–037 ready) | G1 passed 2026-06-19 (2 rounds) | sprint-11 |
