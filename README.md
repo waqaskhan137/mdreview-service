@@ -144,11 +144,10 @@ Example MCP client config (stdio):
 }
 ```
 
-**Tools (1:1 with the HTTP API, 16):** `create_review` (markdown, title?, project?, session?,
+**Tools (1:1 with the HTTP API, 17):** `create_review` (markdown, title?, project?, session?,
 source_path?), `list_reviews`, `get_review` (id), `get_source` (id), `get_feedback` (id), `get_status` (id),
 `update_source` (id, markdown), `get_history` (id, round?), `attach_asset` (id, name, path|content_b64),
-`list_assets` (id), `delete_review` (id), `server_info` (no args — the running wrapper's identity), and
-the **comment** tools `list_comments` (document_id, status?=open), `get_comment` (document_id,
+`list_assets` (id), `delete_review` (id), `server_info`, `create_comment` (author a comment), and the **comment** tools `list_comments` (document_id, status?=open), `get_comment` (document_id,
 comment_id), `reply_to_comment` (document_id, comment_id, text), `resolve_comment` (document_id,
 comment_id, justification?). `document_id` is the review id.
 There is **no `reopen` tool** — reopen is the reviewer's UI action (a convention on the no-auth

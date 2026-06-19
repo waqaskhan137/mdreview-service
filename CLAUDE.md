@@ -113,6 +113,10 @@ curl -s -X POST "$BASE/api/reviews/<id>/comments/<cid>/resolve" \
 
 - Always `list_comments(status="open")` first; only address what the reviewer raised. Use `reply`
   for discussion, `resolve` only when the issue is genuinely fixed.
+- You can also **author** a comment yourself with `create_comment(document_id, quoted_text, text,
+  role?="agent")` (or `POST /comments`) — to leave review feedback at a specific spot. `quoted_text`
+  is the exact phrase to anchor to; the viewer highlights it wherever it occurs (omit it for a
+  doc-level note). Agent-authored comments are tagged `agent` (distinct colour in the viewer).
 - **You never reopen** — reopen is the reviewer's UI action. After a reviewer reopen, you see the
   comment again via the list (status `reopened`/`open`) and can reply or resolve again.
 - Roles `reviewer`/`agent` are **attribution, not auth**; "reviewer-only reopen" is a convention on
@@ -134,9 +138,9 @@ curl -s -X POST "$BASE/api/reviews/<id>/comments/<cid>/resolve" \
 ## Calling it over MCP (optional)
 
 `mcp_server.py` is a thin, stdlib-only stdio MCP server (JSON-RPC 2.0, spec rev `2025-06-18`)
-exposing the API as 16 tools (`create_review`, `list_reviews`, `get_review`, `get_source`, `get_feedback`,
-`get_status`, `update_source`, `get_history`, `attach_asset`, `list_assets`, `delete_review`,
-`server_info`, and the comment tools `list_comments`, `get_comment`, `reply_to_comment`,
+exposing the API as 17 tools (`create_review`, `list_reviews`, `get_review`, `get_source`, `get_feedback`,
+`get_status`, `update_source`, `get_history`, `attach_asset`, `list_assets`, `delete_review`, `server_info`,
+`create_comment`, and the comment tools `create_comment` (author a comment), `list_comments`, `get_comment`, `reply_to_comment`,
 `resolve_comment` — there is **no `reopen` tool**, reopen is the reviewer's UI action). The comment
 tools take `document_id` (= the review id); their descriptions encode the workflow above. Run
 `MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py`; smoke with `mcp_smoke.py`. It wraps a
