@@ -3,11 +3,11 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-18. sprint-08 (render-fidelity) **closed at G7 (staff-critic PASS) and merged to main (PR #7)** — footnotes + syntax highlighting live on `main`. sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-19. sprint-09 (dashboard-redesign) opened (G6) — MR-031 committed (dense/searchable dashboard.html). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
-_none active_ — sprint-08 merged to main (PR #7); `dev` and `main` aligned.
+**sprint-09 — dashboard-redesign** (`active`, opened 2026-06-19). Epic: `dashboard-redesign` (G1 passed, 2 rounds). Goal: rewrite `dashboard.html` into a dense, full-width, searchable grid of collapsed click-to-expand cards with collapsible project groups; preserve open/delete/version/notes + pane-adaptive theme. Committed: MR-031 (ui). `dashboard.html` only.
 
 **sprint-08 — render-fidelity** (`closed`, 2026-06-18; merged to main, PR #7). Epic: `render-fidelity` (G1 passed 2 rounds; G7 PASS-WITH-CONDITIONS, resolved). Shipped MR-028 (GFM footnotes, vendored marked-footnote), MR-029 (syntax highlighting, vendored highlight.js common + marked-highlight, dual-scheme theme, mermaid skipped), MR-030 (docs). Viewer + vendored `static/` only.
 
@@ -22,6 +22,7 @@ sprint-01/02/03/04/05/06/07/08 shipped to main (PR #1, #2, #3, #4, #5, #6, #7).
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-031 | Redesign `dashboard.html` — dense full-width grid, collapsible cards, sticky search, collapsible project groups | ui | P1 | sprint-09 |
 
 ## in-progress
 
@@ -87,3 +88,4 @@ _none_
 | rich-rendering | done (merged to main 2026-06-18, PR #5) | G1 passed 2026-06-18 (2 rounds) | sprint-06 |
 | theme-awareness | done (merged to main 2026-06-18, PR #6) | G1 passed 2026-06-18 (2 rounds) | sprint-07 |
 | render-fidelity | done (merged to main 2026-06-18, PR #7) | G1 passed 2026-06-18 (2 rounds) | sprint-08 |
+| dashboard-redesign | active (G1 cleared; MR-031 ready) | G1 passed 2026-06-19 (2 rounds) | sprint-09 |
