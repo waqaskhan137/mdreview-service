@@ -42,8 +42,11 @@ INSTRUCTIONS = (
     "in memory). Comments are the primary feedback surface: call list_comments(status=\"open\") "
     "FIRST, reply_to_comment to discuss, resolve_comment only when actually addressed (justification "
     "optional but recommended — the reviewer can reopen; you never reopen, that's their UI action). "
-    "Watch comments_updated on get_status for thread changes. attach_asset makes a draft's images "
-    "render. Operate only on reviews you created; the service has no auth (roles are attribution, not "
+    "Watch comments_updated on get_status for thread changes. AUTHOR TO THE VIEWER'S RENDERER: it "
+    "renders Mermaid diagrams (```mermaid), LaTeX math ($…$/$$…$$), GFM footnotes, language-labelled "
+    "syntax-highlighted code, and images (attach_asset) — so a flow / decision tree / state machine / "
+    "architecture belongs in a ```mermaid diagram, NOT ASCII art or a plain ``` fence (which renders as "
+    "monospace text, not a picture). Operate only on reviews you created; the service has no auth (roles are attribution, not "
     "security). If a tool you expect is missing or misbehaves, the running server may be stale: "
     "server_info reports its tools_hash, but you CANNOT conclude 'stale' from inside MCP — a human/CI "
     "compares that hash to the repo's `python3 mcp_server.py --print-version` and reconnects the client "
@@ -59,6 +62,12 @@ TOOLS = [
     {
         "name": "create_review",
         "description": "Create a review from markdown; returns the id and the review/feedback urls. "
+                       "AUTHOR TO THE VIEWER'S RENDERER, don't dumb the markdown down: it renders GFM + "
+                       "**Mermaid diagrams** (```mermaid fenced blocks), **LaTeX math** ($…$ inline, "
+                       "$$…$$ display), **GFM footnotes**, **syntax-highlighted** fenced code (label the "
+                       "language), and **images** (attach via attach_asset). So a flow / decision-tree / "
+                       "state machine / architecture should be a ```mermaid diagram — NOT ASCII art or a "
+                       "plain ``` code block (a plain fence renders as monospace text, not a picture). "
                        "Optional project/session/source_path tag its provenance for the dashboard.",
         "inputSchema": {
             "type": "object",
@@ -102,7 +111,11 @@ TOOLS = [
     },
     {
         "name": "update_source",
-        "description": "Push a revised draft (applied edits). Snapshots a history round and live-reloads the human's page.",
+        "description": "Push a revised draft (applied edits). Snapshots a history round and live-reloads "
+                       "the human's page. Same authoring rule as create_review: use the viewer's "
+                       "renderer — a flow/decision-tree/architecture belongs in a ```mermaid block, "
+                       "math in $…$/$$…$$, code in a language-labelled fence — not ASCII art or a plain "
+                       "```  fence.",
         "inputSchema": {
             "type": "object",
             "properties": {"id": _ID, "markdown": {"type": "string", "description": "the new draft"}},

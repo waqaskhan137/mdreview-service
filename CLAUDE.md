@@ -36,7 +36,9 @@ curl -s -X DELETE "$BASE/api/reviews/<id>"
 ## Rich content: math and images
 
 The viewer renders math and diagrams the way a Jekyll/MathJax site does, so a math- or image-heavy
-draft reviews as it will publish:
+draft reviews as it will publish. **Author to it** — a flow / decision tree / state machine /
+architecture belongs in a ```mermaid block (not ASCII art or a plain ``` fence, which renders as
+monospace text); equations in `$…$`/`$$…$$`; label code fences for syntax highlighting:
 
 - **Math** renders client-side (KaTeX): inline `$…$` / `\(…\)`, display `$$…$$` / `\[…\]`. A lone or
   currency `$` in prose (`$5 and $10`) stays literal, as does `$` inside code. Nothing to do — just

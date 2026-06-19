@@ -85,6 +85,14 @@ def main():
           "draft" in desc.get("get_source", "") or "source" in desc.get("get_source", ""))
     check("INSTRUCTIONS name path-attach, get_source, and the comment loop",
           "attach_asset" in instr and "get_source" in instr and "list_comments" in instr)
+    # authoring discoverability — the agent must learn to author for the renderer (mermaid, math, …)
+    check("create_review description tells the agent to use the viewer renderer (mermaid/diagram)",
+          "mermaid" in desc.get("create_review", "") and (
+              "diagram" in desc.get("create_review", "") or "render" in desc.get("create_review", "")))
+    check("update_source description carries the same author-to-renderer rule",
+          "mermaid" in desc.get("update_source", ""))
+    check("INSTRUCTIONS tell the agent to author for the renderer (mermaid, not ASCII/plain fence)",
+          "mermaid" in instr and "ascii" in instr)
     # staleness signal — surfaced via serverInfo + a server_info tool; honest scoping (SHOULD-1)
     check("serverInfo carries a tools_hash", bool(init.get("serverInfo", {}).get("tools_hash")))
     check("server_info description: human/CI compares to --print-version (not the agent)",
