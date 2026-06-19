@@ -24,7 +24,7 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-031 | Redesign `dashboard.html` — dense full-width grid, collapsible cards, sticky search, collapsible project groups (preserve open/delete/version/notes) | ui | P1 | ready |
+| MR-031 | Redesign `dashboard.html` — dense full-width grid, collapsible cards, sticky search, collapsible project groups (preserve open/delete/version/notes) | ui | P1 | done |
 
 Single-ticket sprint (the plan resolved to one cohesive `dashboard.html` rewrite; a 2-ticket split is
 a recorded fallback only). No other backlog committed.
