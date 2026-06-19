@@ -144,18 +144,25 @@ Example MCP client config (stdio):
 }
 ```
 
-**Tools (1:1 with the HTTP API, 15):** `create_review` (markdown, title?, project?, session?,
+**Tools (1:1 with the HTTP API, 17):** `create_review` (markdown, title?, project?, session?,
 source_path?), `list_reviews`, `get_review` (id), `get_source` (id), `get_feedback` (id), `get_status` (id),
 `update_source` (id, markdown), `get_history` (id, round?), `attach_asset` (id, name, path|content_b64),
-`list_assets` (id), `delete_review` (id), and the **comment** tools `list_comments` (document_id,
-status?=open), `get_comment` (document_id, comment_id), `reply_to_comment` (document_id, comment_id,
-text), `resolve_comment` (document_id, comment_id, justification?). `document_id` is the review id.
+`list_assets` (id), `delete_review` (id), `server_info`, `create_comment` (author a comment), and the **comment** tools `list_comments` (document_id, status?=open), `get_comment` (document_id,
+comment_id), `reply_to_comment` (document_id, comment_id, text), `resolve_comment` (document_id,
+comment_id, justification?). `document_id` is the review id.
 There is **no `reopen` tool** — reopen is the reviewer's UI action (a convention on the no-auth
 service, not an enforced boundary); after a reopen the agent sees the comment again via
 `list_comments`. The agent workflow (`list_comments(status="open")` first; reply to discuss, resolve
 when addressed; justification optional but recommended) is encoded in the tool descriptions. A failed
 call (bad/expired id, service down) returns an `isError: true` result; an unknown tool name is a
 JSON-RPC `-32602` error.
+
+**Staleness.** A stdio MCP server loads its code + tool list once at process start; editing
+`mcp_server.py` does nothing until the client **reconnects**. `server_info` reports the *running*
+wrapper's `tools_hash`/version; a **human/CI** compares it to the on-disk `python3 mcp_server.py
+--print-version` and reconnects on a mismatch (the server can signal its identity but cannot reload
+itself; an HTTP/render change needs no reconnect — the wrapper just proxies — a change to
+`mcp_server.py` itself does).
 
 **Reachable `review_url`.** The wrapper relays the service's `review_url`, which the service
 derives from the request `Host` header unless `MDREVIEW_PUBLIC_BASE` is set. So a human handed the

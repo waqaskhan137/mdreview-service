@@ -36,7 +36,9 @@ curl -s -X DELETE "$BASE/api/reviews/<id>"
 ## Rich content: math and images
 
 The viewer renders math and diagrams the way a Jekyll/MathJax site does, so a math- or image-heavy
-draft reviews as it will publish:
+draft reviews as it will publish. **Author to it** — a flow / decision tree / state machine /
+architecture belongs in a ```mermaid block (not ASCII art or a plain ``` fence, which renders as
+monospace text); equations in `$…$`/`$$…$$`; label code fences for syntax highlighting:
 
 - **Math** renders client-side (KaTeX): inline `$…$` / `\(…\)`, display `$$…$$` / `\[…\]`. A lone or
   currency `$` in prose (`$5 and $10`) stays literal, as does `$` inside code. Nothing to do — just
@@ -113,6 +115,10 @@ curl -s -X POST "$BASE/api/reviews/<id>/comments/<cid>/resolve" \
 
 - Always `list_comments(status="open")` first; only address what the reviewer raised. Use `reply`
   for discussion, `resolve` only when the issue is genuinely fixed.
+- You can also **author** a comment yourself with `create_comment(document_id, quoted_text, text,
+  role?="agent")` (or `POST /comments`) — to leave review feedback at a specific spot. `quoted_text`
+  is the exact phrase to anchor to; the viewer highlights it wherever it occurs (omit it for a
+  doc-level note). Agent-authored comments are tagged `agent` (distinct colour in the viewer).
 - **You never reopen** — reopen is the reviewer's UI action. After a reviewer reopen, you see the
   comment again via the list (status `reopened`/`open`) and can reply or resolve again.
 - Roles `reviewer`/`agent` are **attribution, not auth**; "reviewer-only reopen" is a convention on
@@ -134,14 +140,23 @@ curl -s -X POST "$BASE/api/reviews/<id>/comments/<cid>/resolve" \
 ## Calling it over MCP (optional)
 
 `mcp_server.py` is a thin, stdlib-only stdio MCP server (JSON-RPC 2.0, spec rev `2025-06-18`)
-exposing the API as 15 tools (`create_review`, `list_reviews`, `get_review`, `get_source`, `get_feedback`,
-`get_status`, `update_source`, `get_history`, `attach_asset`, `list_assets`, `delete_review`, and
-the comment tools `list_comments`, `get_comment`, `reply_to_comment`, `resolve_comment` — there is
-**no `reopen` tool**, reopen is the reviewer's UI action). The comment tools take `document_id` (=
-the review id); their descriptions encode the workflow above. Run
+exposing the API as 17 tools (`create_review`, `list_reviews`, `get_review`, `get_source`, `get_feedback`,
+`get_status`, `update_source`, `get_history`, `attach_asset`, `list_assets`, `delete_review`, `server_info`,
+`create_comment`, and the comment tools `create_comment` (author a comment), `list_comments`, `get_comment`, `reply_to_comment`,
+`resolve_comment` — there is **no `reopen` tool**, reopen is the reviewer's UI action). The comment
+tools take `document_id` (= the review id); their descriptions encode the workflow above. Run
 `MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py`; smoke with `mcp_smoke.py`. It wraps a
 running service and adds no state. Set `MDREVIEW_PUBLIC_BASE` on the service so a relayed
 `review_url` is reachable. See `README.md` and `docs/future-mcp.md`.
+
+**If a tool you expect is missing, the running MCP server is probably stale.** A stdio server loads
+its code + tool list once at process start; editing `mcp_server.py` does nothing until the client
+**reconnects**. To check: `server_info` reports the *running* wrapper's `tools_hash`/version; a
+**human/CI** compares it to the on-disk `python3 mcp_server.py --print-version` and reconnects the MCP
+client on a mismatch. The server can *signal* its identity but cannot reload itself, and an MCP-only
+agent has no on-disk comparand over MCP — so it surfaces its version for the human/CI to compare, it
+does not decide "stale" on its own. (This is why a render/HTTP change needs **no** reconnect — the
+wrapper just proxies — but a change to `mcp_server.py` itself does.)
 
 ## Why this shape
 

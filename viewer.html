@@ -39,6 +39,9 @@
      drafts. Supported direction: light-authored figures; a dark/transparent figure on the mat is a
      known non-goal (it can go invisible) — see epics/theme-awareness-plan.md. */
   #article img, .histdoc img{max-width:100%;background:#fafaf9;padding:8px;border-radius:8px;}
+  #article img{cursor:zoom-in;}
+  #lightbox{display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);align-items:center;justify-content:center;cursor:zoom-out;padding:16px;}
+  #lightbox img{max-width:96vw;max-height:96vh;background:#fff;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.5);}
   /* GFM footnotes: marked-footnote appends a footnotes section at the end of the article, led by a
      screen-reader-only heading. The viewer has no .sr-only rule otherwise, so without the clip rule
      below that heading renders as a full-size accent banner. */
@@ -164,6 +167,7 @@
   <div class="histbtnrow"><button class="btn" id="histclose">Close</button></div>
 </div></div>
 
+<div id="lightbox"><img alt="zoomed figure"></div>
 <div id="toast"></div>
 <script src="/static/marked.min.js"></script>
 <script src="/static/mermaid.min.js"></script>
@@ -376,17 +380,23 @@ function threadHtml(c){
 // wrap the comment's quoted text (within a single text node) in a highlight keyed by comment_id
 function highlightComment(c){
   const qt=c.anchor&&c.anchor.quoted_text;if(!qt)return null;
-  const blk=document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]');if(!blk)return null;
-  const w=document.createTreeWalker(blk,NodeFilter.SHOW_TEXT);let node;
-  while(node=w.nextNode()){
-    const idx=node.nodeValue.indexOf(qt);
-    if(idx>=0){
-      const r=document.createRange();r.setStart(node,idx);r.setEnd(node,idx+qt.length);
-      const mk=document.createElement('mark');mk.className='cmt';mk.dataset.id=c.comment_id;
-      try{r.surroundContents(mk);return mk;}catch(e){return null;}
+  // prefer the authored block_num; if it's absent or doesn't match (e.g. an agent-authored comment
+  // that only knows the quoted text — block_num is a rendered-viewer concept it can't supply), scan
+  // every block for the phrase so it still anchors + highlights.
+  const named=document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]');
+  const blks=named?[named]:[...document.querySelectorAll('.blk')];
+  for(const blk of blks){
+    const w=document.createTreeWalker(blk,NodeFilter.SHOW_TEXT);let node;
+    while(node=w.nextNode()){
+      const idx=node.nodeValue.indexOf(qt);
+      if(idx>=0){
+        const r=document.createRange();r.setStart(node,idx);r.setEnd(node,idx+qt.length);
+        const mk=document.createElement('mark');mk.className='cmt';mk.dataset.id=c.comment_id;
+        try{r.surroundContents(mk);return mk;}catch(e){return null;}
+      }
     }
   }
-  return null; // spans inline tags / not found -> fall back to block anchor
+  return null; // not found / spans inline tags -> gutter card with no inline highlight
 }
 function focusPair(id){
   document.querySelectorAll('.gcard.active,mark.cmt.active').forEach(e=>e.classList.remove('active'));
@@ -407,9 +417,13 @@ function renderAll(){
   G.innerHTML='';
   active.forEach(c=>{
     const mk=highlightComment(c);
-    const blk=document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]');if(blk)blk.classList.add('has-comment');
+    // anchor the card + margin bar to the block the highlight actually landed in (an agent-authored
+    // comment may have no block_num — derive it from the highlight).
+    const blk=mk?mk.closest('.blk'):document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]');
+    if(blk)blk.classList.add('has-comment');
+    const ref=(blk&&blk.dataset.num)||c.anchor.block_num||'';
     const card=document.createElement('div');card.className='gcard';card.dataset.id=c.comment_id;
-    card.innerHTML='<div class="ghead"><span class="gref">#'+esc(c.anchor.block_num||'')+'</span> <span class="gq">'+esc(qsnippet(c))+'</span></div>'+
+    card.innerHTML='<div class="ghead"><span class="gref">'+(ref?'#'+esc(ref):'')+'</span> <span class="gq">'+esc(qsnippet(c))+'</span></div>'+
       threadHtml(c)+
       '<div class="greply"><textarea placeholder="Reply…"></textarea><button class="btn" data-act="reply">Reply</button></div>';
     card._anchor=mk||blk;G.appendChild(card);
@@ -538,6 +552,14 @@ async function showRound(n){
 $("#histbtn").onclick=openHistory;
 $("#histclose").onclick=()=>$("#histmodal").style.display='none';
 $("#histmodal").onclick=e=>{if(e.target.id==='histmodal')$("#histmodal").style.display='none';};
+
+// click a figure to zoom it full-screen; click anywhere / Esc to close
+document.addEventListener('click',e=>{
+  const img=e.target.closest('#article img');const lb=$("#lightbox");
+  if(img){lb.querySelector('img').src=img.currentSrc||img.src;lb.style.display='flex';}
+  else if(e.target.closest('#lightbox')){lb.style.display='none';}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$("#lightbox").style.display='none';});
 
 // catch the first paint regardless of async load timing
 [250,800,1600].forEach(t=>setTimeout(()=>{try{renderAll();}catch(e){}},t));

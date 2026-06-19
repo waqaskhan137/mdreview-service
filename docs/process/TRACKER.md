@@ -3,15 +3,16 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-19. **sprint-11 (comment-resolution) CLOSED at G7 (staff-critic PASS)** — the largest epic to date shipped to `dev`: svc comment store + `open→resolved→reopened` state machine, 4 MCP tools (14 total), viewer threads/Resolved-panel/reopen, docs. G1 passed 2 rounds; G7 PASS (0 BLOCKER/0 SHOULD/2 NIT, both NITs fixed in-sprint). **Awaiting the standing dev→main PR.** sprint-10 (dashboard-density) **closed as an out-of-cycle exception** — a direct flat continuous-grid redesign (+ group-by toggle) shipped to `dev` per the user's "make the change without the cycle" request; G1 passed, **G7 waived** (render-validated, not critic-gated). Awaiting the standing dev→main PR. sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
-_none active_ — **sprint-11 (comment-resolution) closed at G7** (staff-critic PASS,
-`reviews/sprint-11-close-review-2026-06-19.md`). All 5 tickets `done` on `dev`; no carry-overs.
-Pending the standing `dev → main` PR (G8).
+_none active_ — **sprint-12 (mcp-agent-effectiveness) closed at G7** (staff-critic PASS,
+`reviews/sprint-12-close-review-2026-06-19.md`). All 6 tickets `done` on `dev`; no carry-overs.
+The headline `agent_smoke.py` proves the agent loop renders unaided. Pending the standing
+`dev → main` PR (G8).
 
-_(sprint-10 also closed out-of-cycle; its work on `dev` rides the same pending PR.)_
+_(sprint-11 comment-resolution + sprint-10 dashboard already merged to main via PR #9.)_
 
 **sprint-10 — dashboard-density** (`closed` out-of-cycle, 2026-06-19). Epic: `dashboard-density` (G1 passed 2 rounds; **G7 waived by user exception**). Shipped MR-032's density CSS **within a direct flat continuous-grid redesign** (commit `0f44c1b`): one packed grid (newest-first, project-as-inline-tag, zero gutters) is now the default, with a "Group by project" toggle to the grouped sections (which keep the MR-032 density). `dashboard.html` only. Render-validated via CDP; not independently G7-reviewed.
 
@@ -78,6 +79,13 @@ _none_
 | MR-035 | MCP tools `list_comments`/`get_comment`/`reply_to_comment`/`resolve_comment` + descriptions + `mcp_smoke` round-trip (14 tools) | svc | P1 | sprint-11 |
 | MR-036 | Viewer — threaded `comment_id`-keyed gutter cards, authoring → `POST /comments`, retire legacy author surfaces, Resolved panel + reopen, live-reload | ui | P1 | sprint-11 |
 | MR-037 | Docs sweep — README/CLAUDE/AGENTS/future-mcp + MCP docstring 10→14 + comment-aware feedback/dashboard | docs | P2 | sprint-11 |
+| MR-038 | Retro: GFM table CSS in the viewer (done-on-arrival, `dae815e`) | ui | P2 | sprint-12 |
+| MR-039 | Retro: click-to-zoom lightbox in the viewer (done-on-arrival, `2ed9593`) | ui | P2 | sprint-12 |
+| MR-040 | MCP staleness signal — `tools_hash` + `server_info` tool + `--print-version` | svc | P1 | sprint-12 |
+| MR-041 | `agent_smoke.py` — agent-loop render-proof (create→path-attach→repoint→naturalWidth>0) | svc | P1 | sprint-12 |
+| MR-042 | `mcp_smoke.py` — assert `server_info` + the discoverability contract | svc | P1 | sprint-12 |
+| MR-043 | Docs sweep — `server_info`/16-tool count + reconnect-on-stale guidance | docs | P2 | sprint-12 |
+| MR-044 | `create_comment` MCP tool + viewer anchor-by-quoted-text (agents author review comments; 17 tools) | svc | P1 | — (out-of-cycle) |
 
 ## blocked
 
@@ -103,4 +111,5 @@ _none_
 | render-fidelity | done (merged to main 2026-06-18, PR #7) | G1 passed 2026-06-18 (2 rounds) | sprint-08 |
 | dashboard-redesign | done (merged to main 2026-06-19, PR #8) | G1 passed 2026-06-19 (2 rounds) | sprint-09 |
 | dashboard-density | active (G1 cleared; MR-032 ready) | G1 passed 2026-06-19 (2 rounds) | sprint-10 |
-| comment-resolution | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-11 |
+| comment-resolution | done (merged to main 2026-06-19, PR #9) | G1 passed 2026-06-19 (2 rounds) | sprint-11 |
+| mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |

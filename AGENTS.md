@@ -84,16 +84,21 @@ HTTP. It is a thin, stdlib-only stdio server (JSON-RPC 2.0, spec rev `2025-06-18
 running service and adds no state. Run it as `MDREVIEW_BASE=http://localhost:8137 python3
 mcp_server.py`; wire it into your client's `mcpServers` as a stdio command (see `README.md`).
 
-Tools map 1:1 to the API (15): `create_review` (with optional `project`/`session`/`source_path`
+Tools map 1:1 to the API (17): `create_review` (with optional `project`/`session`/`source_path`
 provenance), `list_reviews`, `get_review`, `get_source`, `get_feedback`, `get_status`, `update_source`,
 `get_history` (optional `round`), `attach_asset` (id, name, path|content_b64), `list_assets` (id),
-`delete_review`, and the comment tools `list_comments` (`document_id`, `status?`=open),
+`delete_review`, `server_info`, `create_comment`, and the comment tools `list_comments` (`document_id`, `status?`=open),
 `get_comment`, `reply_to_comment`, `resolve_comment` (`justification?`) — `document_id` is the
 review id, and there is **no `reopen` tool** (reopen is the reviewer's UI action). The same workflow
 applies — `create_review`, hand the human the `review_url`, poll `get_status`/`get_feedback` or
 `list_comments`, reply/resolve comments, then `update_source`. A failed call returns an `isError`
 result; an unknown tool name is a `-32602` error. Set `MDREVIEW_PUBLIC_BASE` on the service so the
 `review_url` you hand a human is reachable.
+
+If a tool you expect is missing, the running MCP server is probably **stale** — a stdio server loads
+its tools once at startup, so editing `mcp_server.py` needs a **reconnect**. `server_info` reports the
+running wrapper's `tools_hash`; a **human/CI** compares it to `python3 mcp_server.py --print-version`
+and reconnects on a mismatch (the server signals, it cannot reload itself).
 
 The viewer renders **GFM footnotes** (`[^id]` → ordered back-ref section) and **syntax-highlighted**
 fenced code (dual-scheme, both panes), plus **LaTeX math** (inline `$…$` / `\(…\)`, display `$$…$$` / `\[…\]`; prose/currency

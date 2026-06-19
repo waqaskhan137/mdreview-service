@@ -37,13 +37,21 @@ as a clearly separate, optional component with its own dependencies).
 | `update_source` | `PUT /api/reviews/{id}/source` | pushes applied edits; snapshots a history round, live-reloads the human's page |
 | `get_history` | `GET /api/reviews/{id}/history` (+ `/{n}`) | list rounds / fetch one past draft + its feedback |
 | `delete_review` | `DELETE /api/reviews/{id}` | cleanup |
+| `create_comment` | `POST /api/reviews/{id}/comments` | author a comment; `quoted_text` anchors+highlights (omit for doc-level), `role?`=agent |
 | `list_comments` | `GET /api/reviews/{id}/comments?status=` | `document_id` (=id), `status?`=open; the threaded comments |
 | `get_comment` | `GET /api/reviews/{id}/comments/{cid}` | one full thread + `status_history` |
 | `reply_to_comment` | `POST /api/reviews/{id}/comments/{cid}/reply` | discuss without resolving |
 | `resolve_comment` | `POST /api/reviews/{id}/comments/{cid}/resolve` | agent resolves; `justification?`. No `reopen` tool — reviewer-only UI action |
+| `server_info` | (local — no HTTP) | the running wrapper's `{name, version, protocol_version, tools_hash, tool_count, tool_names}`; for staleness detection |
 
-> The shipped server also exposes `attach_asset`/`list_assets` (images) — **15 tools** total. See
+> The shipped server also exposes `attach_asset`/`list_assets` (images) — **17 tools** total. See
 > `README.md` / `CLAUDE.md` for the current full set.
+
+**Staleness.** A stdio MCP server loads its code + tool list once at process start; editing
+`mcp_server.py` does nothing until the client **reconnects**. `server_info` reports the *running*
+wrapper's `tools_hash`; a **human/CI** compares it to the on-disk `python3 mcp_server.py
+--print-version` and reconnects on a mismatch (the server signals its identity, it cannot reload
+itself — an HTTP/render change needs no reconnect; a wrapper-code change does).
 
 ### Behavior to preserve
 

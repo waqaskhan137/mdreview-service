@@ -63,8 +63,9 @@ def main():
     expected = {"create_review", "list_reviews", "get_review", "get_source", "get_feedback",
                 "get_status", "update_source", "get_history", "delete_review",
                 "attach_asset", "list_assets",
-                "list_comments", "get_comment", "reply_to_comment", "resolve_comment"}
-    check("tools/list returns exactly the 15 tools", names == expected)
+                "create_comment", "list_comments", "get_comment", "reply_to_comment", "resolve_comment",
+                "server_info"}
+    check("tools/list returns exactly the 17 tools", names == expected)
     check("each tool has a description + object inputSchema",
           all(t.get("description") and t.get("inputSchema", {}).get("type") == "object" for t in tools))
     # the comment tools must encode the agent workflow in their descriptions (the brief's expectations)
@@ -75,6 +76,52 @@ def main():
           "without" in desc.get("reply_to_comment", ""))
     check("resolve_comment description says justification optional + reviewer can reopen",
           "optional" in desc.get("resolve_comment", "") and "reopen" in desc.get("resolve_comment", ""))
+
+    # --- MR-042: staleness signal + discoverability (no service needed; all from the static surface) ---
+    instr = init.get("instructions", "").lower()
+    # discoverability — an agent reading tools/list + instructions can self-find the paths that tripped it
+    check("attach_asset description steers to `path`", "path" in desc.get("attach_asset", ""))
+    check("get_source description says when to read the draft",
+          "draft" in desc.get("get_source", "") or "source" in desc.get("get_source", ""))
+    check("INSTRUCTIONS name path-attach, get_source, and the comment loop",
+          "attach_asset" in instr and "get_source" in instr and "list_comments" in instr)
+    # authoring discoverability — the agent must learn to author for the renderer (mermaid, math, …)
+    check("create_review description tells the agent to use the viewer renderer (mermaid/diagram)",
+          "mermaid" in desc.get("create_review", "") and (
+              "diagram" in desc.get("create_review", "") or "render" in desc.get("create_review", "")))
+    check("update_source description carries the same author-to-renderer rule",
+          "mermaid" in desc.get("update_source", ""))
+    check("INSTRUCTIONS tell the agent to author for the renderer (mermaid, not ASCII/plain fence)",
+          "mermaid" in instr and "ascii" in instr)
+    # staleness signal — surfaced via serverInfo + a server_info tool; honest scoping (SHOULD-1)
+    check("serverInfo carries a tools_hash", bool(init.get("serverInfo", {}).get("tools_hash")))
+    check("server_info description: human/CI compares to --print-version (not the agent)",
+          "--print-version" in desc.get("server_info", "") and (
+              "human" in desc.get("server_info", "") or "human/ci" in desc.get("server_info", "")))
+    check("no surface claims the agent self-detects staleness",
+          "agent detects stale" not in instr and "self-detect" not in instr
+          and "agent detects stale" not in desc.get("server_info", ""))
+    # three-way tools_hash identity: serverInfo == server_info tool == --print-version (one _tools_hash())
+    si = drive(base + [{"jsonrpc": "2.0", "id": 30, "method": "tools/call",
+                        "params": {"name": "server_info", "arguments": {}}}])
+    tool_hash = None
+    try:
+        tool_hash = json.loads(si[-1]["result"]["content"][0]["text"]).get("tools_hash")
+    except Exception:
+        pass
+    disk_hash = None
+    try:
+        pv = subprocess.run([sys.executable, SERVER, "--print-version"], capture_output=True, text=True, timeout=15)
+        disk_hash = json.loads(pv.stdout).get("tools_hash")
+    except Exception:
+        pass
+    init_hash = init.get("serverInfo", {}).get("tools_hash")
+    check("three-way tools_hash identity (serverInfo == server_info tool == --print-version)",
+          bool(init_hash) and init_hash == tool_hash == disk_hash)
+    check("server_info tool reports tool_count == 17 (local dispatch, no service touched)",
+          isinstance(tool_hash, str) and json.loads(si[-1]["result"]["content"][0]["text"]).get("tool_count") == 17)
+    check("create_comment description: author a NEW comment anchored to quoted_text",
+          "quoted_text" in desc.get("create_comment", "") and "comment" in desc.get("create_comment", ""))
 
     # 2. happy-path envelope + round-trip (needs a running service)
     out = drive(base + [{"jsonrpc": "2.0", "id": 3, "method": "tools/call",
@@ -153,7 +200,31 @@ def main():
         check("list_assets -> includes the attached asset's stored name",
               any(a.get("stored") == stored for a in listed))
 
-        # comment round-trip: seed a comment over HTTP (create is reviewer-side), then exercise the
+        # create_comment via the MCP tool: an agent authors a comment anchored to a quote -> list shows it
+        cc = drive(base + [{"jsonrpc": "2.0", "id": 12, "method": "tools/call",
+                            "params": {"name": "create_comment",
+                                       "arguments": {"document_id": rid, "quoted_text": "revised",
+                                                     "text": "agent review note"}}}])
+        new_cid = None
+        try:
+            new_cid = json.loads(cc[-1]["result"]["content"][0]["text"]).get("comment_id")
+        except Exception:
+            pass
+        check("create_comment -> a new comment_id, isError false",
+              bool(new_cid) and not cc[-1].get("result", {}).get("isError"))
+        lc = drive(base + [{"jsonrpc": "2.0", "id": 13, "method": "tools/call",
+                            "params": {"name": "list_comments", "arguments": {"document_id": rid}}}])
+        listed_c = []
+        try:
+            listed_c = json.loads(lc[-1]["result"]["content"][0]["text"]).get("comments", [])
+        except Exception:
+            pass
+        check("create_comment round-trip -> list_comments shows it (anchored, role agent)",
+              any(c.get("comment_id") == new_cid
+                  and c.get("anchor", {}).get("quoted_text") == "revised"
+                  and (c.get("thread") or [{}])[0].get("role") == "agent" for c in listed_c))
+
+        # comment round-trip: seed a comment over HTTP (the viewer path), then exercise the
         # four agent tools (list -> get -> reply -> resolve) and the open/resolved filter.
         cid = None
         try:
