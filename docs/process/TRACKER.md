@@ -7,7 +7,13 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-_none active_ — **sprint-12 (mcp-agent-effectiveness) closed at G7** (staff-critic PASS,
+**sprint-13 — legacy-feedback-retire** (`active`, opened 2026-06-19). Epic: `legacy-feedback-retire`
+(G1 passed 2 rounds). Committed: MR-046 (svc — `POST /feedback` → 410 Gone, drop `feedback_updated`
+write; keep every reader) + MR-047 (docs sweep → `comments_updated`). svc-before-docs. No product
+page touched → G7 owes the container-rebuild + `curl /healthz` + `/api/reviews` smoke, not a
+render-smoke.
+
+_(previously)_ **sprint-12 (mcp-agent-effectiveness) closed at G7** (staff-critic PASS,
 `reviews/sprint-12-close-review-2026-06-19.md`). All 6 tickets `done` on `dev`; no carry-overs.
 The headline `agent_smoke.py` proves the agent loop renders unaided. Pending the standing
 `dev → main` PR (G8).
@@ -29,7 +35,10 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-046 | Retire dead `POST /feedback` write (→ 410 Gone) + `feedback_updated` bump/initialiser; keep every reader | svc | P2 | sprint-13 |
+| MR-047 | Docs sweep: "human is done" → `comments_updated`; drop `POST /feedback` README row; fix `future-mcp.md:61` | docs | P2 | sprint-13 |
 
 ## in-progress
 
@@ -114,3 +123,4 @@ _none_
 | dashboard-density | active (G1 cleared; MR-032 ready) | G1 passed 2026-06-19 (2 rounds) | sprint-10 |
 | comment-resolution | done (merged to main 2026-06-19, PR #9) | G1 passed 2026-06-19 (2 rounds) | sprint-11 |
 | mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |
+| legacy-feedback-retire | active (G1 cleared 2 rounds; MR-046/MR-047 ready) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
