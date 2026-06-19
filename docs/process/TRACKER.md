@@ -86,6 +86,7 @@ _none_
 | MR-042 | `mcp_smoke.py` — assert `server_info` + the discoverability contract | svc | P1 | sprint-12 |
 | MR-043 | Docs sweep — `server_info`/16-tool count + reconnect-on-stale guidance | docs | P2 | sprint-12 |
 | MR-044 | `create_comment` MCP tool + viewer anchor-by-quoted-text (agents author review comments; 17 tools) | svc | P1 | — (out-of-cycle) |
+| MR-045 | `delete_comment` — hard-remove junk comments (DELETE route + 18th tool) | svc | P2 | — (out-of-cycle) |
 
 ## blocked
 
