@@ -39,6 +39,9 @@
      drafts. Supported direction: light-authored figures; a dark/transparent figure on the mat is a
      known non-goal (it can go invisible) — see epics/theme-awareness-plan.md. */
   #article img, .histdoc img{max-width:100%;background:#fafaf9;padding:8px;border-radius:8px;}
+  #article img{cursor:zoom-in;}
+  #lightbox{display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);align-items:center;justify-content:center;cursor:zoom-out;padding:16px;}
+  #lightbox img{max-width:96vw;max-height:96vh;background:#fff;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.5);}
   /* GFM footnotes: marked-footnote appends a footnotes section at the end of the article, led by a
      screen-reader-only heading. The viewer has no .sr-only rule otherwise, so without the clip rule
      below that heading renders as a full-size accent banner. */
@@ -164,6 +167,7 @@
   <div class="histbtnrow"><button class="btn" id="histclose">Close</button></div>
 </div></div>
 
+<div id="lightbox"><img alt="zoomed figure"></div>
 <div id="toast"></div>
 <script src="/static/marked.min.js"></script>
 <script src="/static/mermaid.min.js"></script>
@@ -538,6 +542,14 @@ async function showRound(n){
 $("#histbtn").onclick=openHistory;
 $("#histclose").onclick=()=>$("#histmodal").style.display='none';
 $("#histmodal").onclick=e=>{if(e.target.id==='histmodal')$("#histmodal").style.display='none';};
+
+// click a figure to zoom it full-screen; click anywhere / Esc to close
+document.addEventListener('click',e=>{
+  const img=e.target.closest('#article img');const lb=$("#lightbox");
+  if(img){lb.querySelector('img').src=img.currentSrc||img.src;lb.style.display='flex';}
+  else if(e.target.closest('#lightbox')){lb.style.display='none';}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$("#lightbox").style.display='none';});
 
 // catch the first paint regardless of async load timing
 [250,800,1600].forEach(t=>setTimeout(()=>{try{renderAll();}catch(e){}},t));
