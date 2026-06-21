@@ -50,6 +50,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-048 | MCP wrapper opens new `review_url` in default browser (opt-in `MDREVIEW_OPEN_BROWSER`) | svc | P3 | — (out-of-cycle) |
 | MR-047 | Docs sweep: "human is done" → `comments_updated`; drop `POST /feedback` README row; fix `future-mcp.md:61` | docs | P2 | sprint-13 |
 | MR-046 | Retire dead `POST /feedback` write (→ 410 Gone) + drop `feedback_updated` writer; keep every reader | svc | P2 | sprint-13 |
 | MR-001 | Persist provenance (project/source_path/session) on POST + meta | svc | P1 | sprint-01 |
