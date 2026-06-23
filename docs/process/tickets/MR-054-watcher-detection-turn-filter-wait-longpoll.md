@@ -142,11 +142,20 @@ container: no UI change, no Dockerfile change, no new `meta.json` key.
     the per-review `re.fullmatch(RID)` arm (exact-string match, so not shadowed; the per-review `{id}`
     GET still returns 200, smoke-confirmed). New `_wait()` handler: required `?since=<turn_updated>`
     edge cursor (missing ⇒ `now`, `=0` ⇒ backlog); returns only filter-matching rows with
-    `turn_updated > since`; else parks on `_lock.wait(remaining)` (releases the lock), re-checks under
-    the lock on wake via an O(1) `_last_change["rid"]` match (full `list_reviews()` only on entry and
-    on return); bounded by `WAIT_TIMEOUT_S` (env `MDREVIEW_WAIT_TIMEOUT_S`, default 25s; client
-    `?timeout=` capped to it); `200 {"reviews":[], "timeout":true}` on expiry.
+    `turn_updated > since`; else parks on `_lock.wait(remaining)` (releases the lock), re-runs the
+    predicate scan under the lock on wake; bounded by `WAIT_TIMEOUT_S` (env `MDREVIEW_WAIT_TIMEOUT_S`,
+    default 25s; client `?timeout=` capped to it); `200 {"reviews":[], "timeout":true}` on expiry.
   - `_to_float()` query-number helper added.
+- **Correctness deviation from the plan's `_last_change` rid-carry (rescan-on-wake instead).** The
+  plan pinned an O(1) per-wake optimization: record only the single most-recent changed `rid` and,
+  on wake, re-scan only if that rid matches the waiter's filter. That drops an edge under a rapid
+  flip: a matching flip A immediately followed by a non-matching flip B (before the woken waiter
+  re-acquires the lock) overwrites `_last_change` to B, so the waiter sees no match and re-parks,
+  missing A until the timeout (bounded delay, not a lost event — the next poll's baseline scan
+  catches it). Replaced with an unconditional `changed_rows()` re-scan on every wake: O(all-reviews)
+  per wake, but trivially cheap at this scale (a handful of reviews, one operator) and correct under
+  rapid flips. `_last_change` removed entirely (no dead state). Regression-guarded by a deterministic
+  rapid-double-flip smoke (below).
 - Files touched: `app.py`, `README.md`. No UI/Dockerfile/`meta.json`-key change (additive + default-safe).
 
 ## Validation
@@ -169,10 +178,16 @@ container: no UI change, no Dockerfile change, no new `meta.json` key.
     catch.
   - **Concurrent lock-release self-check** (~20-line script, scratchpad, not committed — the ticket
     does not ask for a `test_*.py`): parks a `/wait` in a thread, fires a concurrent `PUT /source`
-    against the same service → `OK: writer unblocked in 0.01s while a /wait was parked`, proving
+    against the same service → `OK: writer unblocked in 0.006s while a /wait was parked`, proving
     `Condition.wait()` releases `_lock`. (The plan's verbatim script POSTs to `/source`, which only
     accepts GET/PUT — a `POST` 404s; the writer was run as the intended `PUT /source`, the actual
     concurrent-writer the plan names.)
+  - **Smoke #5 (rapid double-flip edge — regression guard for the rescan-on-wake fix):** a waiter
+    parked on `wait?turn=agent&since=<cur>`; a matching flip (a new review → agent) fired immediately
+    followed by a non-matching write (reclaim of another review → reviewer); the waiter returned the
+    matching review in **0.41s**, not after the timeout — proving the wake re-scan catches the edge
+    the `_last_change` rid-carry would have dropped. Re-ran #1/#2/#4 + the lock-release check after the
+    fix: all green (`ALL SMOKES PASS`).
   - **Back-compat:** `GET /status` still carries `turn`/`turn_updated`; `GET /api/reviews/{id}`
     per-review meta still returns `200` (not shadowed by `/wait`); `since=0` returns the agent-turn
     backlog immediately (the explicit opt-in).

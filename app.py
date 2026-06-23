@@ -52,9 +52,6 @@ os.makedirs(DATA_DIR, exist_ok=True)
 _lock = threading.Condition()
 # Bounded server-side timeout for the /wait long-poll (seconds); a client ?timeout= is capped to it.
 WAIT_TIMEOUT_S = float(os.environ.get("MDREVIEW_WAIT_TIMEOUT_S", "25"))
-# The most recent turn-flip, recorded under _lock just before notify_all() so a woken /wait waiter
-# does an O(1) match (one meta(rid) read) instead of re-scanning every review per wake.
-_last_change = {"rid": None, "at": 0.0}
 RID = r"([A-Za-z0-9]{4,40})"
 
 
@@ -425,9 +422,10 @@ class H(BaseHTTPRequestHandler):
         safer degrade); since=0 is the explicit backlog opt-in.
 
         Parks on _lock.wait(timeout), which RELEASES _lock while blocked, so a concurrent writer is
-        never deadlocked behind a parked waiter. On wake it re-checks the predicate under the lock
-        (notify_all wakes every waiter and wait() can wake spuriously), doing an O(1) match on the
-        recorded changed rid rather than a full list_reviews() rescan per wake.
+        never deadlocked behind a parked waiter. On wake it re-runs the predicate scan under the lock
+        (notify_all wakes every waiter and wait() can wake spuriously). The scan is O(all-reviews),
+        but at this scale (a handful of reviews, one operator) that is trivially cheap, and re-scanning
+        is correct under rapid flips where carrying only the single last-changed rid could miss an edge.
         """
         qs = parse_qs(query)
         turn_q = qs.get("turn", [""])[0]
@@ -451,10 +449,8 @@ class H(BaseHTTPRequestHandler):
                 remaining = deadline - time.time()
                 if remaining <= 0:
                     return self._json(200, {"reviews": [], "timeout": True})
-                _lock.wait(remaining)                    # releases _lock while parked
-                rid = _last_change["rid"]                # O(1) match: only re-scan if the recorded
-                if rid is not None and matches(meta(rid)):  # changed rid matches this waiter's filter
-                    rows = changed_rows()
+                _lock.wait(remaining)   # releases _lock while parked
+                rows = changed_rows()   # re-scan on wake; cheap at this scale and correct under rapid flips
         return self._json(200, {"reviews": rows})
 
     def log_message(self, *a):
@@ -646,12 +642,9 @@ class H(BaseHTTPRequestHandler):
                     err = (400, {"error": "unrecognized handoff body"})
                 if err is None:
                     _write(p, json.dumps(mt))
-                    # MR-054: record the changed rid (O(1) match for woken /wait waiters) and notify,
-                    # both under the lock so the write and the wake are atomic — no flip is missed.
-                    # Notify on any successful write; the /wait predicate (turn_updated > since), not
-                    # the arm, decides whether a parked waiter actually returns.
-                    _last_change["rid"] = rid
-                    _last_change["at"] = now
+                    # MR-054: wake parked /wait waiters under the lock, so the write and the wake are
+                    # atomic and no flip is missed. notify_all on any successful write; the /wait
+                    # predicate (turn_updated > since), not the arm, decides who actually returns.
                     _lock.notify_all()
             if err:
                 return self._json(*err)
