@@ -58,7 +58,8 @@ itself — an HTTP/render change needs no reconnect; a wrapper-code change does)
 
 - **Provenance** flows straight through `create_review` (`project`/`session`/`source_path`).
 - **Polling** stays the agent's job: `get_status` is the cheap signal; `get_feedback` returns the
-  notes. The "human is done" heuristic in `AGENTS.md` is unchanged.
+  notes. The "human is done" heuristic in `AGENTS.md` now watches `comments_updated` (the
+  pre-MR-036 `feedback_updated` write was retired — see the `legacy-feedback-retire` epic).
 - **No auth** in the wrapper either; it inherits the trusted-network posture of the service.
 
 ## Out of scope for the wrapper

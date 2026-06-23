@@ -12,7 +12,7 @@ API
   GET    /api/reviews/{id}/source                             -> raw markdown
   PUT    /api/reviews/{id}/source     {markdown}              -> meta (agent applies edits; live-reloads viewer)
   GET    /api/reviews/{id}/feedback                           -> {markdown, notes, ...meta}  (notes = legacy notes + projected comments)
-  POST   /api/reviews/{id}/feedback   {markdown, notes}       -> {ok}   (viewer saves here)
+  POST   /api/reviews/{id}/feedback                           -> 410    (retired MR-036/MR-046; viewer authors comments — POST /comments)
   GET    /api/reviews/{id}/comments   ?status=open|resolved|reopened|all  -> {comments}
   POST   /api/reviews/{id}/comments   {anchor, text, role?}   -> {comment}  (201; reviewer authors)
   GET    /api/reviews/{id}/comments/{cid}                     -> {comment}  (full thread + status_history)
@@ -190,7 +190,7 @@ def create_review(markdown, title, project="", source_path="", session=""):
     _write(os.path.join(d, "notes.json"), "[]")
     _write(os.path.join(d, "meta.json"), json.dumps({
         "id": rid, "title": title or "", "created": now,
-        "source_updated": now, "feedback_updated": 0,
+        "source_updated": now,
         "project": project or "", "source_path": source_path or "",
         "session": session or "",
     }))
@@ -493,12 +493,12 @@ class H(BaseHTTPRequestHandler):
                                 + [_comment_as_note(c) for c in list_comments(rid)])
                 return self._json(200, out)
             if m == "POST":
-                b = self._body_json()
-                with _lock:
-                    _write(os.path.join(_dir(rid), "feedback.md"), b.get("markdown", ""))
-                    _write(os.path.join(_dir(rid), "notes.json"), json.dumps(b.get("notes", [])))
-                    bump(rid, "feedback_updated")
-                return self._json(200, {"ok": True})
+                # Retired (MR-046). The viewer wrote notes/feedback here until MR-036; it authors
+                # comments now (POST /comments). The write is gone — return an explicit 410 (not a
+                # silent 404 fall-through) so any straggler caller on this no-auth surface gets a
+                # clear "use comments" signal. No write, no bump: feedback_updated has no writer
+                # anymore. The GET arm above is unchanged — feedback.md/notes.json stay read-live.
+                return self._json(410, {"error": "gone, use comments"})
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/status", path)
         if mo and m == "GET":

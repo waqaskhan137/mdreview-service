@@ -1,0 +1,23 @@
+# sprint-13 (legacy-feedback-retire) G7 close smoke — rebuilt image, throwaway container :8147
+# date: 2026-06-19 (Europe/London) | image: mdreview-svc-sprint13 (docker build OK)
+# No product page touched (svc + docs only) → render-smoke NOT owed; rebuild + curl smoke per G7 row.
+
+## healthz
+{"ok": true}  <- HTTP 200
+
+## GET /api/reviews (empty fresh volume → sane JSON)
+{"reviews": []}  <- HTTP 200
+
+## shipped behaviour on the rebuilt image:
+created rid=fa492b9da8
+### POST /feedback → 410 Gone (MR-046; no write):
+{"error": "gone, use comments"}  <- HTTP 410
+### read path intact — GET /feedback keys + notes empty after the 410 POST:
+  keys ['markdown', 'notes'] | notes []
+### back-compat — fresh review /status feedback_updated defaults 0; derived status awaiting:
+  feedback_updated 0
+  fresh-review status: awaiting
+
+## py_compile gate (both edited modules):
+  app.py: OK
+  mcp_server.py: OK (unchanged this sprint)

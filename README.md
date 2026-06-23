@@ -49,7 +49,6 @@ Feedback and source persist in the `/data` volume across restarts.
 | GET | `/api/reviews/{id}/source` | | raw markdown |
 | PUT | `/api/reviews/{id}/source` | `{markdown}` | meta (snapshots a history round, then live-reloads) |
 | GET | `/api/reviews/{id}/feedback` | | `{markdown, notes[], ...meta}` — `notes[]` is legacy notes **plus a projection of the comments** (so this read path stays live) |
-| POST | `/api/reviews/{id}/feedback` | `{markdown, notes}` | `{ok}` (legacy notes write; the viewer now authors comments instead) |
 | GET | `/api/reviews/{id}/status` | | `{source_updated, feedback_updated, comments_updated}` |
 | GET | `/api/reviews/{id}/history` | | `{rounds[]}` — `{round, ts, notes_total, notes_addressed}`, newest first |
 | GET | `/api/reviews/{id}/history/{n}` | | one round: `{source, feedback, notes[], ...round meta}` |

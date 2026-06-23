@@ -7,7 +7,14 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-_none active_ — **sprint-12 (mcp-agent-effectiveness) closed at G7** (staff-critic PASS,
+_none active_ — **sprint-13 (legacy-feedback-retire) CLOSED at G7** (staff-critic PASS,
+`reviews/sprint-13-close-review-2026-06-19.md`; independent rebuild + smoke, every reader region
+byte-compared). MR-046 + MR-047 `done` on `dev`, no carry-overs. Shipped: `POST /feedback` → 410
+Gone (no write), `feedback_updated` writer dropped, docs steer agents to `comments_updated` — every
+reader and all 61 live notes/feedback files untouched. No `mcp_server.py` change → no MCP reconnect.
+**Pending the standing `dev → main` PR (G8).**
+
+_(previously)_ **sprint-12 (mcp-agent-effectiveness) closed at G7** (staff-critic PASS,
 `reviews/sprint-12-close-review-2026-06-19.md`). All 6 tickets `done` on `dev`; no carry-overs.
 The headline `agent_smoke.py` proves the agent loop renders unaided. Pending the standing
 `dev → main` PR (G8).
@@ -43,6 +50,10 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-049 | Viewer comment UX: reliable selection→comment button + markdown rendering in comment threads (XSS-safe) | ui | P2 | — (out-of-cycle) |
+| MR-048 | MCP wrapper opens new `review_url` in default browser (opt-in `MDREVIEW_OPEN_BROWSER`) | svc | P3 | — (out-of-cycle) |
+| MR-047 | Docs sweep: "human is done" → `comments_updated`; drop `POST /feedback` README row; fix `future-mcp.md:61` | docs | P2 | sprint-13 |
+| MR-046 | Retire dead `POST /feedback` write (→ 410 Gone) + drop `feedback_updated` writer; keep every reader | svc | P2 | sprint-13 |
 | MR-001 | Persist provenance (project/source_path/session) on POST + meta | svc | P1 | sprint-01 |
 | MR-002 | summary() + list_reviews() + GET /api/reviews | svc | P1 | sprint-01 |
 | MR-003 | Serve dashboard at /; move JSON descriptor to /api | svc | P1 | sprint-01 |
@@ -114,3 +125,4 @@ _none_
 | dashboard-density | active (G1 cleared; MR-032 ready) | G1 passed 2026-06-19 (2 rounds) | sprint-10 |
 | comment-resolution | done (merged to main 2026-06-19, PR #9) | G1 passed 2026-06-19 (2 rounds) | sprint-11 |
 | mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |
+| legacy-feedback-retire | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |

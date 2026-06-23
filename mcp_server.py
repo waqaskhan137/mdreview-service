@@ -19,6 +19,7 @@ once actually addressed. The agent never reopens — reopen is the reviewer's UI
 the comment reappears via list_comments. document_id == the review id.
 
 Run:  MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py
+      Set MDREVIEW_OPEN_BROWSER=1 to auto-open each new review_url in your default browser.
 """
 import os
 import sys
@@ -27,10 +28,15 @@ import base64
 import hashlib
 import urllib.request
 import urllib.error
+import webbrowser
 
 PROTOCOL_VERSION = "2025-06-18"   # MCP spec revision this server targets
 SERVER_INFO = {"name": "mdreview-mcp", "version": "0.1.0"}
 BASE = os.environ.get("MDREVIEW_BASE", "http://localhost:8137").rstrip("/")
+# Opt-in (MDREVIEW_OPEN_BROWSER): the local stdio wrapper opens a freshly created review_url in the
+# user's default browser, so an agent's create_review pops the page open instead of only printing a
+# link the human must copy. Off by default (CI/headless); affects create_review only.
+OPEN_IN_BROWSER = os.environ.get("MDREVIEW_OPEN_BROWSER", "").lower() in ("1", "true", "yes")
 
 # Surfaced to the agent on `initialize` (MCP `instructions`) so the whole workflow reaches it, not
 # just per-tool blurbs.
@@ -401,6 +407,22 @@ def route(name, args):
     return None  # unreachable (caller checks TOOL_NAMES first)
 
 
+def _open_review(text):
+    """Open a freshly created review_url in the local default browser (opt-in, MDREVIEW_OPEN_BROWSER).
+
+    Best-effort: swallows everything so it never raises into the JSON-RPC stream, and runs in the
+    local stdio wrapper so it reaches the user's own machine.
+    ponytail: assumes the launcher writes nothing to stdout (true for macOS `open`, our target). On a
+    console-browser/Linux setup, redirect fd 1 to devnull around the call so a spawned browser can't
+    corrupt the stdio protocol channel."""
+    try:
+        url = json.loads(text).get("review_url")
+        if url:
+            webbrowser.open(url)
+    except Exception:
+        pass
+
+
 def handle_tools_call(rid, params):
     name = params.get("name")
     args = params.get("arguments") or {}
@@ -417,6 +439,8 @@ def handle_tools_call(rid, params):
     try:
         text = http(method, path, body)
         _result(rid, {"content": [{"type": "text", "text": text}], "isError": False})
+        if name == "create_review" and OPEN_IN_BROWSER:
+            _open_review(text)   # opt-in local-browser pop, after the result is sent
     except ToolError as e:
         _result(rid, {"content": [{"type": "text", "text": str(e)}], "isError": True})
 

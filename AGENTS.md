@@ -21,7 +21,7 @@ resp=$(curl -s -X POST "$BASE/api/reviews" -H 'Content-Type: application/json' \
 # 2. Give review_url to the human. They open it and annotate.
 
 # 3. Poll for feedback. status_url is cheap; feedback_url returns the notes.
-curl -s "$BASE/api/reviews/<id>/status"     # {"source_updated":..., "feedback_updated":...}
+curl -s "$BASE/api/reviews/<id>/status"     # {"source_updated":..., "feedback_updated":..., "comments_updated":...}
 curl -s "$BASE/api/reviews/<id>/feedback"   # {"markdown":"...", "notes":[...], ...}
 
 # 4. Apply the edits, then push the new version (the human's page live-reloads,
@@ -37,8 +37,10 @@ curl -s -X DELETE "$BASE/api/reviews/<id>"
 
 There is no explicit "submit" from the human; feedback streams as they type. Practical options:
 
-- Poll `status_url` and watch `feedback_updated`. When it has not changed for a while (e.g. a
-  few minutes) and is non-zero, treat the round as complete.
+- Poll `status_url` and watch `comments_updated` — the live signal the viewer bumps as the human
+  comments. When it has not changed for a while (e.g. a few minutes) and is non-zero, treat the
+  round as complete. (`feedback_updated` is legacy: the pre-MR-036 notes write was retired, so
+  nothing bumps it anymore — watch `comments_updated` instead.)
 - Or just tell the human "reply 'done' when finished," and read `feedback_url` once on their
   signal.
 
