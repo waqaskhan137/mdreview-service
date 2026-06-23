@@ -1,11 +1,11 @@
 ---
 id: sprint-14
 name: agent-handoff-baton — Chunk 1 (server baton contract)
-status: active         # planning | active | closed
+status: closed         # planning | active | closed
 start: 2026-06-23
 end: 2026-06-24
 goal: Ship the server-side handoff baton contract (MR-051) — POST /handoff + 4 meta.json fields + /status surfacing — additive and invisible, so the viewer (MR-052) and agent (MR-053) surfaces can be built against it.
-close_review:          # reviews/sprint-14-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: reviews/sprint-14-close-review-2026-06-23.md
 ---
 
 ## Goal
@@ -37,14 +37,24 @@ _Filled in as the sprint runs and at close._
 
 - Chunk 1 of 3 (chunked delivery per product-owner request). MR-052 (viewer UI) and MR-053 (MCP +
   CLAUDE.md) are `ready` but committed to the next sprint after this one ships.
+- **Closed 2026-06-23. G7 PASS** (`reviews/sprint-14-close-review-2026-06-23.md`, staff-critic,
+  independent rebuild + 15-step smoke on a throwaway container, 0 BLOCKER / 0 SHOULD / 2 NITs). MR-051
+  `done`, **no carry-overs** (it was the only committed ticket). No product page was touched, so no
+  per-page DOM assertion/screenshot was owed; the container rebuild + `/healthz` + `/api/reviews`
+  smoke was done.
+- **Two NITs carried to MR-052 (next sprint), no rework here:** (1) `agent_status.at` is float
+  seconds — MR-052's staleness math (`now - at > N`) must use the same unit; (2) a non-JSON body
+  reaches the `400` via `_body_json()` coercing to `{}` then the `else` arm (the observable contract
+  is still a correct `400`; the swallow is the pre-existing repo convention).
+- **Epic stays `active`:** Chunk 1 shipped; MR-052 + MR-053 remain for the next sprint(s).
 
 ## Close gate (G7)
 
 The sprint cannot be marked `closed` until:
 
-- [ ] MR-051 is `done`;
-- [ ] a **staff-critic sprint-close review** exists at `reviews/sprint-14-close-review-YYYY-MM-DD.md`,
+- [x] MR-051 is `done`;
+- [x] a **staff-critic sprint-close review** exists at `reviews/sprint-14-close-review-2026-06-23.md`,
       verifying MR-051 against its acceptance criteria, including the container rebuild + `curl
       /healthz` + `/api/reviews` smoke (no product page touched this sprint — `svc`-only — so no
       per-page DOM assertion/screenshot is owed);
-- [ ] retro + carry-overs recorded above, and `close_review:` set in frontmatter.
+- [x] retro + carry-overs recorded above, and `close_review:` set in frontmatter.

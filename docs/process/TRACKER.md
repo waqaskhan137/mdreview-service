@@ -7,11 +7,12 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**sprint-14 (agent-handoff-baton — Chunk 1) ACTIVE** (opened 2026-06-23). Committed: **MR-051** only
-(server baton contract: `POST /handoff` + 4 `meta.json` fields + `/status` surfacing, additive).
-**MR-051 `done`** on `dev` (29/29 round-trip PASS) — awaiting the G7 sprint-close review. G1 PASSED
-(PASS-WITH-NITS, SHOULDs folded into ACs). MR-052/MR-053 are `ready`, committed to the next sprint
-after Chunk 1 ships.
+_none active_ — **sprint-14 (agent-handoff-baton — Chunk 1) CLOSED at G7 2026-06-23** (staff-critic
+PASS, `reviews/sprint-14-close-review-2026-06-23.md`; independent rebuild + 15-step smoke, 0 BLOCKER /
+0 SHOULD / 2 NITs). MR-051 `done` on `dev` (server baton contract: `POST /handoff` + 4 `meta.json`
+fields + `/status` surfacing, additive, ships invisibly). No carry-overs. **Awaiting the standing
+dev→main PR.** The `agent-handoff-baton` epic stays **active** — MR-052 (viewer UI) and MR-053 (MCP +
+CLAUDE.md) are `ready` for the next sprint (the 2 NITs are carried to MR-052).
 
 _(previously)_ **sprint-13 (legacy-feedback-retire) CLOSED at G7** (staff-critic PASS,
 `reviews/sprint-13-close-review-2026-06-19.md`; independent rebuild + smoke, every reader region
@@ -138,4 +139,4 @@ _none_
 | comment-resolution | done (merged to main 2026-06-19, PR #9) | G1 passed 2026-06-19 (2 rounds) | sprint-11 |
 | mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |
 | legacy-feedback-retire | done (merged to main 2026-06-23, PR #11; with MR-048 + MR-049) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
-| agent-handoff-baton | active (G1 PASS-WITH-NITS; MR-051/052/053 ready; sprint-14 = MR-051) | G1 passed 2026-06-23 | sprint-14 (Chunk 1) |
+| agent-handoff-baton | active (Chunk 1 done: sprint-14 CLOSED G7 PASS, MR-051 on `dev`; MR-052/053 ready for next sprint) | G1 passed 2026-06-23 | sprint-14 (Chunk 1, closed) |
