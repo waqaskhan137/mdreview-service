@@ -9,7 +9,8 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 **sprint-16 (agent-handoff-baton — Chunk 3, agent surface) ACTIVE** (opened 2026-06-23). Committed:
 **MR-053** only (`mcp_server.py` `hand_back` + `ping_working` tools over `/handoff` + `CLAUDE.md`
-contract; tool count 18→20, docs consolidation). Closing this sprint completes the epic.
+contract; tool count 18→20, docs consolidation). **MR-053 `done`** on `dev` (mcp_smoke 44/44, 20
+tools) — awaiting the G7 sprint-close review. Closing this sprint completes the epic (all 3 chunks).
 
 _(previously)_ **sprint-15 (agent-handoff-baton — Chunk 2, viewer turn UI) CLOSED at G7 2026-06-23**
 (staff-critic PASS, `reviews/sprint-15-close-review-2026-06-23.md`; independent rebuild-from-disk +
@@ -59,9 +60,7 @@ _none_
 
 ## in-progress
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-053 | Agent surface — `hand_back` + `ping_working` MCP tools + `CLAUDE.md` contract | svc | P2 | sprint-16 |
+_none_
 
 ## review
 
@@ -71,6 +70,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-053 | Agent surface — `hand_back` + `ping_working` MCP tools + `CLAUDE.md` contract (tools 18→20) | svc | P2 | sprint-16 |
 | MR-052 | Viewer turn UI — Send button + 6-state banner + reclaim + `lastTurn` poll | ui | P2 | sprint-15 |
 | MR-051 | Handoff baton contract — `POST /handoff` + 4 `meta.json` fields + `/status` surfacing (additive) | svc | P1 | sprint-14 |
 | MR-050 | Viewer — reviewer can delete their own un-engaged comment (no-agent-entry rule; inline 2-step confirm; issue #12) | ui | P2 | — (out-of-cycle) |
