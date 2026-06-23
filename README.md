@@ -43,7 +43,8 @@ Feedback and source persist in the `/data` volume across restarts.
 | GET | `/` | | **dashboard** HTML (or the descriptor JSON on `Accept: application/json`) |
 | GET | `/api` | | service descriptor JSON |
 | POST | `/api/reviews` | `{markdown, title?, project?, source_path?, session?}` | `{id, review_url, feedback_url, source_url, status_url}` |
-| GET | `/api/reviews` | | `{reviews[]}` — every review's meta + `notes_total`, `notes_addressed`, `revision`, `status` |
+| GET | `/api/reviews` | `?turn=agent` (optional, exact-match on the turn baton; empty/absent ⇒ all) | `{reviews[]}` — every review's meta + `notes_total`, `notes_addressed`, `revision`, `status`, `turn` |
+| GET | `/api/reviews/wait` | `?since=<turn_updated>` **required** (edge cursor; missing ⇒ `now`, `0` ⇒ backlog) · `?turn=agent` · `?timeout=<s>` (capped to server max ≈25s, `MDREVIEW_WAIT_TIMEOUT_S`) | `{reviews[]}` — **long-poll**: blocks until a baton flips *newer* than `since` (each row carries its `turn_updated`), or `{reviews:[], timeout:true}` on expiry |
 | GET | `/api/reviews/{id}` | | meta |
 | DELETE | `/api/reviews/{id}` | | `{deleted}` |
 | GET | `/api/reviews/{id}/source` | | raw markdown |

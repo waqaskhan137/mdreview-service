@@ -43,7 +43,15 @@ PORT = int(os.environ.get("PORT", "8080"))
 PUBLIC_BASE = os.environ.get("MDREVIEW_PUBLIC_BASE", "").rstrip("/")
 
 os.makedirs(DATA_DIR, exist_ok=True)
-_lock = threading.Lock()
+# Condition over the ONE global lock (MR-054). A Condition is itself a context manager that
+# acquires/releases its internal lock, so every existing `with _lock:` site is unchanged — the swap
+# from Lock() to Condition() is transparent. The /wait long-poll parks on _lock.wait(timeout) (which
+# releases the lock while blocked) and /handoff calls _lock.notify_all() after a write under the lock.
+# One Condition over one lock: never a second lock, or a flip could be missed / a writer could run
+# while a waiter holds the lock.
+_lock = threading.Condition()
+# Bounded server-side timeout for the /wait long-poll (seconds); a client ?timeout= is capped to it.
+WAIT_TIMEOUT_S = float(os.environ.get("MDREVIEW_WAIT_TIMEOUT_S", "25"))
 RID = r"([A-Za-z0-9]{4,40})"
 
 
@@ -113,6 +121,14 @@ def _write(path, text):
         f.write(text)
 
 
+def _to_float(s, default):
+    """Parse a query-string number, falling back to default on None/garbage (MR-054)."""
+    try:
+        return float(s)
+    except (TypeError, ValueError):
+        return default
+
+
 def meta(rid):
     return _read_json(os.path.join(_dir(rid), "meta.json"), {})
 
@@ -140,6 +156,9 @@ def summary(rid):
     m["notes_total"] = total
     m["notes_addressed"] = addressed
     m["revision"] = m.get("revision", 0)
+    # MR-054: legacy reviews with no turn key read as "reviewer" so the ?turn= filter is filterable,
+    # never None/absent (the additive-default-safe rule).
+    m["turn"] = m.get("turn", "reviewer")
     if not m.get("feedback_updated") and total == 0:
         m["status"] = "awaiting"
     elif total and addressed == total:
@@ -393,6 +412,47 @@ class H(BaseHTTPRequestHandler):
         host = self.headers.get("Host") or f"localhost:{PORT}"
         return f"http://{host}"
 
+    def _wait(self, query):
+        """Long-poll for baton flips NEWER than a required ?since= cursor (MR-054).
+
+        Edge-triggered, not level: returns only reviews matching the ?turn= filter whose
+        turn_updated > since. A review already at turn==agent with turn_updated <= since does NOT
+        return (the call blocks up to the bounded timeout), so the steady state of an agent working
+        never busy-loops the watcher. Missing since defaults to now() (block for the next flip, the
+        safer degrade); since=0 is the explicit backlog opt-in.
+
+        Parks on _lock.wait(timeout), which RELEASES _lock while blocked, so a concurrent writer is
+        never deadlocked behind a parked waiter. On wake it re-runs the predicate scan under the lock
+        (notify_all wakes every waiter and wait() can wake spuriously). The scan is O(all-reviews),
+        but at this scale (a handful of reviews, one operator) that is trivially cheap, and re-scanning
+        is correct under rapid flips where carrying only the single last-changed rid could miss an edge.
+        """
+        qs = parse_qs(query)
+        turn_q = qs.get("turn", [""])[0]
+        since_raw = qs.get("since", [None])[0]
+        # Missing since => now (block for the next flip), NOT since=0 (the explicit backlog opt-in).
+        since = time.time() if since_raw is None else _to_float(since_raw, 0.0)
+        client_timeout = _to_float(qs.get("timeout", [None])[0], WAIT_TIMEOUT_S)
+        timeout = max(0.0, min(client_timeout, WAIT_TIMEOUT_S))
+        deadline = time.time() + timeout
+
+        def matches(m):
+            return ((not turn_q or m.get("turn") == turn_q)
+                    and m.get("turn_updated", 0) > since)
+
+        def changed_rows():
+            return [r for r in list_reviews() if matches(r)]
+
+        with _lock:
+            rows = changed_rows()                       # baseline scan, once on entry
+            while not rows:
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    return self._json(200, {"reviews": [], "timeout": True})
+                _lock.wait(remaining)   # releases _lock while parked
+                rows = changed_rows()   # re-scan on wake; cheap at this scale and correct under rapid flips
+        return self._json(200, {"reviews": rows})
+
     def log_message(self, *a):
         pass
 
@@ -435,7 +495,21 @@ class H(BaseHTTPRequestHandler):
                               "text/html; charset=utf-8")
 
         if path == "/api/reviews" and m == "GET":
-            return self._json(200, {"reviews": list_reviews()})
+            reviews = list_reviews()
+            # MR-054: optional ?turn= filter. Filtered in Python after list_reviews() (summary() is
+            # where the turn default lands); an empty/absent value means no filter (return all),
+            # preserving today's behavior. No new field, no cross-review aggregation.
+            turn_q = parse_qs(urlparse(self.path).query).get("turn", [""])[0]
+            if turn_q:
+                reviews = [r for r in reviews if r.get("turn") == turn_q]
+            return self._json(200, {"reviews": reviews})
+
+        # MR-054: /wait long-poll. MUST precede the per-review RID arm — "wait" matches RID, so a
+        # later placement would be shadowed into a review-id lookup (404). Collection-level: blocks
+        # until a baton flips NEWER than the required ?since= cursor (an edge, not the steady-state
+        # level of turn==agent), or a bounded timeout elapses.
+        if path == "/api/reviews/wait" and m == "GET":
+            return self._wait(urlparse(self.path).query)
 
         if path == "/api/reviews" and m == "POST":
             b = self._body_json()
@@ -568,6 +642,10 @@ class H(BaseHTTPRequestHandler):
                     err = (400, {"error": "unrecognized handoff body"})
                 if err is None:
                     _write(p, json.dumps(mt))
+                    # MR-054: wake parked /wait waiters under the lock, so the write and the wake are
+                    # atomic and no flip is missed. notify_all on any successful write; the /wait
+                    # predicate (turn_updated > since), not the arm, decides who actually returns.
+                    _lock.notify_all()
             if err:
                 return self._json(*err)
             return self._json(200, meta(rid))
