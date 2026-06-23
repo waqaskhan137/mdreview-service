@@ -37,9 +37,7 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-050 | Viewer — let a reviewer delete a comment made by mistake (wire existing DELETE into UI; no-agent-entry rule) | ui | P2 | unscheduled (issue #12; scope APPROVED — r2 staff-critic READY) |
+_none_
 
 ## in-progress
 
@@ -53,6 +51,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-050 | Viewer — reviewer can delete their own un-engaged comment (no-agent-entry rule; inline 2-step confirm; issue #12) | ui | P2 | — (out-of-cycle) |
 | MR-049 | Viewer comment UX: reliable selection→comment button + markdown rendering in comment threads (XSS-safe) | ui | P2 | — (out-of-cycle) |
 | MR-048 | MCP wrapper opens new `review_url` in default browser (opt-in `MDREVIEW_OPEN_BROWSER`) | svc | P3 | — (out-of-cycle) |
 | MR-047 | Docs sweep: "human is done" → `comments_updated`; drop `POST /feedback` README row; fix `future-mcp.md:61` | docs | P2 | sprint-13 |

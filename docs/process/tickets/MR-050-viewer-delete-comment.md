@@ -1,13 +1,13 @@
 ---
 id: MR-050
 title: Viewer — let a reviewer delete a comment they made by mistake (wire the existing DELETE endpoint into the UI)
-status: ready          # scope APPROVED — independent r2 staff-critic verdict READY (docs/process/reviews/MR-050-scope-review-2026-06-23-r2.md; r1 READY-WITH-TWEAKS applied)
+status: done           # scope APPROVED (r2 staff-critic READY); implemented + validated on MR-050-viewer-delete-comment
 layer: ui
 priority: P2
-sprint:                # unscheduled — scoped/groomed, not yet committed to a sprint
+sprint:                # out-of-cycle (own branch), issue #12
 epic:                  # none — standalone bug/usability fix (GitHub issue #12)
 depends_on: []
-branch:
+branch: MR-050-viewer-delete-comment
 created: 2026-06-23
 updated: 2026-06-23
 ---
@@ -99,11 +99,33 @@ GitHub issue: #12.
 
 ## Work log
 
-_Not started — scoped + groomed for critique only._
+- `2026-06-23` — `viewer.html` only (no `app.py` change), per the approved scope:
+  - `deleteComment(cid)` action mirroring `replyTo`/`reopenComment`: `DELETE /comments/{cid}` →
+    `fetchComments()` → `renderAll()` → toast. **404 treated as success-equivalent** (re-fetch, card
+    drops); only 5xx/network keeps the card with `toast('Could not delete')`.
+  - Delete affordance rendered **only when the thread has no `agent` entry**
+    (`!(c.thread||[]).some(e=>e.role==='agent')`) — a muted `.gdel` button in the `.gcard` header,
+    visually secondary to Reply (red on hover, solid red when armed). Not added to `.rcard` (resolved
+    cards carry an agent entry, so they're non-deletable anyway).
+  - Inline two-step confirm ("Delete" → "Confirm delete?" → delete), auto-disarm after 3s.
+  - `let confirming` guard: set while a confirm is armed; `renderAll()` clears it (any full rebuild
+    drops the confirm); the 2s poll skips its re-render while `confirming` is set (extends the MR-049
+    `#addbtn`/`#pop` guard) so background agent activity can't wipe the pending confirm.
 
 ## Validation
 
-_Pending implementation._
+- `2026-06-23` — image `mdreview:mr050`, throwaway container; evidence under
+  `reviews/mr050-render-evidence-2026-06-23/` (screenshot + `validation.txt`). All three legs pass:
+  - **Presence** (`scripts/render-smoke.sh … .gcard .gdel`): `.gcard` 2 nodes, `.gdel` **1** node —
+    the agent-engaged comment correctly shows **no** delete button (no-agent-entry rule). (render-smoke
+    rejects attribute selectors, so presence asserts the `.gdel` class, not `[data-act=delete]`.)
+  - **Behaviour** (curl): `DELETE` → `{"deleted":cid}` → `GET /comments` no longer lists it → second
+    `DELETE` → 404.
+  - **Interaction** (headless Chrome / CDP click-through): before `{cards:2, delBtns:1, cardA:true,
+    markA:true}` → first click arms (`text:"Confirm delete?"`) → second click → after `{cards:1,
+    cardA:false, markA:false}`; `GET /comments` confirms the comment is gone. Card **and** its inline
+    `mark.cmt` highlight removed.
+  - `python3 -m py_compile app.py` n/a (no `app.py` change).
 
 ## Follow-ups
 
