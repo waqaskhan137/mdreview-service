@@ -7,7 +7,12 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-_none active_ — **sprint-13 (legacy-feedback-retire) CLOSED at G7** (staff-critic PASS,
+**sprint-14 (agent-handoff-baton — Chunk 1) ACTIVE** (opened 2026-06-23). Committed: **MR-051** only
+(server baton contract: `POST /handoff` + 4 `meta.json` fields + `/status` surfacing, additive). G1
+PASSED (PASS-WITH-NITS, SHOULDs folded into ACs). MR-052/MR-053 are `ready`, committed to the next
+sprint after Chunk 1 ships.
+
+_(previously)_ **sprint-13 (legacy-feedback-retire) CLOSED at G7** (staff-critic PASS,
 `reviews/sprint-13-close-review-2026-06-19.md`; independent rebuild + smoke, every reader region
 byte-compared). MR-046 + MR-047 `done` on `dev`, no carry-overs. Shipped: `POST /feedback` → 410
 Gone (no write), `feedback_updated` writer dropped, docs steer agents to `comments_updated` — every

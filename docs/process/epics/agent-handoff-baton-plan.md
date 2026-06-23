@@ -5,7 +5,7 @@ created: 2026-06-23
 source: requirements/agent-handoff-baton.md
 gate: passed 2026-06-23    # G1 (Plan Gate): PASS-WITH-NITS, no blockers (SHOULDs folded into ticket ACs)
 review: reviews/agent-handoff-baton-plan-review-2026-06-23.md
-related_sprints: []    # sprint-14 holds Chunk 1 (MR-051) only; Chunks 2/3 land in a later sprint
+related_sprints: [sprint-14]   # sprint-14 holds Chunk 1 (MR-051) only; Chunks 2/3 land in a later sprint
 related_tickets: [MR-051, MR-052, MR-053]
 ---
 
