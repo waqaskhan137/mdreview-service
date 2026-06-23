@@ -8,9 +8,10 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 ## Active sprint
 
 **sprint-14 (agent-handoff-baton — Chunk 1) ACTIVE** (opened 2026-06-23). Committed: **MR-051** only
-(server baton contract: `POST /handoff` + 4 `meta.json` fields + `/status` surfacing, additive). G1
-PASSED (PASS-WITH-NITS, SHOULDs folded into ACs). MR-052/MR-053 are `ready`, committed to the next
-sprint after Chunk 1 ships.
+(server baton contract: `POST /handoff` + 4 `meta.json` fields + `/status` surfacing, additive).
+**MR-051 `done`** on `dev` (29/29 round-trip PASS) — awaiting the G7 sprint-close review. G1 PASSED
+(PASS-WITH-NITS, SHOULDs folded into ACs). MR-052/MR-053 are `ready`, committed to the next sprint
+after Chunk 1 ships.
 
 _(previously)_ **sprint-13 (legacy-feedback-retire) CLOSED at G7** (staff-critic PASS,
 `reviews/sprint-13-close-review-2026-06-19.md`; independent rebuild + smoke, every reader region
@@ -44,7 +45,6 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
-| MR-051 | Handoff baton contract — `POST /handoff` + 4 `meta.json` fields + `/status` surfacing | svc | P1 | sprint-14 |
 | MR-052 | Viewer turn UI — Send button + 6-state banner + reclaim + `lastTurn` poll | ui | P2 | — (after sprint-14) |
 | MR-053 | Agent surface — `hand_back` + `ping_working` MCP tools + `CLAUDE.md` contract | svc | P2 | — (after sprint-14) |
 
@@ -60,6 +60,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-051 | Handoff baton contract — `POST /handoff` + 4 `meta.json` fields + `/status` surfacing (additive) | svc | P1 | sprint-14 |
 | MR-050 | Viewer — reviewer can delete their own un-engaged comment (no-agent-entry rule; inline 2-step confirm; issue #12) | ui | P2 | — (out-of-cycle) |
 | MR-049 | Viewer comment UX: reliable selection→comment button + markdown rendering in comment threads (XSS-safe) | ui | P2 | — (out-of-cycle) |
 | MR-048 | MCP wrapper opens new `review_url` in default browser (opt-in `MDREVIEW_OPEN_BROWSER`) | svc | P3 | — (out-of-cycle) |
