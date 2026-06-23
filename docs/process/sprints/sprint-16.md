@@ -1,11 +1,11 @@
 ---
 id: sprint-16
 name: agent-handoff-baton — Chunk 3 (agent surface: MCP tools + contract)
-status: active         # planning | active | closed
+status: closed         # planning | active | closed
 start: 2026-06-23
 end: 2026-06-24
 goal: Ship the agent-facing surface (MR-053) — hand_back + ping_working MCP tools over the /handoff route + the CLAUDE.md agent contract — completing the agent-handoff-baton epic (Chunks 1-3 all shipped).
-close_review:          # reviews/sprint-16-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: reviews/sprint-16-close-review-2026-06-23.md
 ---
 
 ## Goal
@@ -40,15 +40,24 @@ _Filled in as the sprint runs and at close._
   the MCP client to pick up `hand_back`/`ping_working` (pure HTTP/render changes — MR-051/MR-052 —
   needed no reconnect). The `mcp_smoke.py` run against a fresh process exercises the new tools without
   a client reconnect.
+- **Closed 2026-06-23. G7 PASS** (`reviews/sprint-16-close-review-2026-06-23.md`, staff-critic,
+  independent `py_compile` + `mcp_smoke` 44/44 + end-to-end baton drive over **both HTTP and MCP
+  stdio** (409 foreign-owner back-off; `hand_back` flips `turn`) + `/healthz`/`/api/reviews`;
+  `tools_hash` f265447b5a8c→a97fb4f09e7c; 0 BLOCKER / 0 SHOULD / 1 NIT). MR-053 `done`, **no
+  carry-overs**. The 1 NIT (smoke doesn't drive the 409 through the MCP tool path — covered by the
+  HTTP smoke + this review's stdio drive) is recorded, no action.
+- **EPIC COMPLETE.** All 3 chunks shipped on `dev`: MR-051 (server contract) + MR-052 (viewer UI) +
+  MR-053 (agent surface). The `agent-handoff-baton` epic is set `status: done`. Concurrent co-editing
+  (OT/CRDT) remains deferred as issue #16.
 
 ## Close gate (G7)
 
 The sprint cannot be marked `closed` until:
 
-- [ ] MR-053 is `done`;
-- [ ] a **staff-critic sprint-close review** exists at `reviews/sprint-16-close-review-YYYY-MM-DD.md`,
+- [x] MR-053 is `done`;
+- [x] a **staff-critic sprint-close review** exists at `reviews/sprint-16-close-review-2026-06-23.md`,
       verifying MR-053 against its acceptance criteria, including the container rebuild + `curl
       /healthz` + `/api/reviews` smoke + a `mcp_smoke.py` run (no product page touched this sprint —
       `svc`/`docs` — so no per-page DOM assertion/screenshot is owed);
-- [ ] retro + carry-overs recorded above, and `close_review:` set in frontmatter;
-- [ ] on close, the `agent-handoff-baton` **epic** frontmatter is set `status: done`.
+- [x] retro + carry-overs recorded above, and `close_review:` set in frontmatter;
+- [x] on close, the `agent-handoff-baton` **epic** frontmatter is set `status: done`.

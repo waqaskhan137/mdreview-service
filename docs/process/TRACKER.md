@@ -7,10 +7,12 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**sprint-16 (agent-handoff-baton — Chunk 3, agent surface) ACTIVE** (opened 2026-06-23). Committed:
-**MR-053** only (`mcp_server.py` `hand_back` + `ping_working` tools over `/handoff` + `CLAUDE.md`
-contract; tool count 18→20, docs consolidation). **MR-053 `done`** on `dev` (mcp_smoke 44/44, 20
-tools) — awaiting the G7 sprint-close review. Closing this sprint completes the epic (all 3 chunks).
+_none active_ — **EPIC `agent-handoff-baton` COMPLETE.** **sprint-16 (Chunk 3, agent surface) CLOSED
+at G7 2026-06-23** (staff-critic PASS, `reviews/sprint-16-close-review-2026-06-23.md`; independent
+`mcp_smoke` 44/44 + end-to-end baton drive over HTTP **and** MCP stdio, 0 BLOCKER / 0 SHOULD / 1 NIT).
+MR-053 `done` on `dev` (`hand_back` + `ping_working` MCP tools over `/handoff` + the `CLAUDE.md`
+agent contract; tools 18→20). No carry-overs. All 3 chunks shipped — **MR-051 + MR-052 + MR-053 in
+the standing dev→main PR #17.** Concurrent co-editing (OT/CRDT) deferred as issue #16.
 
 _(previously)_ **sprint-15 (agent-handoff-baton — Chunk 2, viewer turn UI) CLOSED at G7 2026-06-23**
 (staff-critic PASS, `reviews/sprint-15-close-review-2026-06-23.md`; independent rebuild-from-disk +
@@ -150,4 +152,4 @@ _none_
 | comment-resolution | done (merged to main 2026-06-19, PR #9) | G1 passed 2026-06-19 (2 rounds) | sprint-11 |
 | mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |
 | legacy-feedback-retire | done (merged to main 2026-06-23, PR #11; with MR-048 + MR-049) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
-| agent-handoff-baton | active (Chunk 1 done: sprint-14 CLOSED G7 PASS, MR-051 on `dev`; MR-052/053 ready for next sprint) | G1 passed 2026-06-23 | sprint-14 (Chunk 1, closed) |
+| agent-handoff-baton | done on `dev` (3 chunks: MR-051+MR-052+MR-053; sprints 14/15/16 CLOSED G7 PASS; PR #17 pending) | G1 passed 2026-06-23 | sprint-14/15/16 |
