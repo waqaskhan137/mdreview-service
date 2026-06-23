@@ -7,12 +7,15 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-_none active_ — **sprint-14 (agent-handoff-baton — Chunk 1) CLOSED at G7 2026-06-23** (staff-critic
+**sprint-15 (agent-handoff-baton — Chunk 2, viewer turn UI) ACTIVE** (opened 2026-06-23). Committed:
+**MR-052** only (`viewer.html`: Send button + 6-state banner + reclaim + `lastTurn` poll), built on
+the MR-051 baton contract. MR-053 (Chunk 3, MCP + CLAUDE.md) stays `ready` for a later sprint.
+
+_(previously)_ **sprint-14 (agent-handoff-baton — Chunk 1) CLOSED at G7 2026-06-23** (staff-critic
 PASS, `reviews/sprint-14-close-review-2026-06-23.md`; independent rebuild + 15-step smoke, 0 BLOCKER /
 0 SHOULD / 2 NITs). MR-051 `done` on `dev` (server baton contract: `POST /handoff` + 4 `meta.json`
-fields + `/status` surfacing, additive, ships invisibly). No carry-overs. **Awaiting the standing
-dev→main PR.** The `agent-handoff-baton` epic stays **active** — MR-052 (viewer UI) and MR-053 (MCP +
-CLAUDE.md) are `ready` for the next sprint (the 2 NITs are carried to MR-052).
+fields + `/status` surfacing, additive, ships invisibly). No carry-overs. **In the standing dev→main
+PR #17.** The `agent-handoff-baton` epic stays **active**.
 
 _(previously)_ **sprint-13 (legacy-feedback-retire) CLOSED at G7** (staff-critic PASS,
 `reviews/sprint-13-close-review-2026-06-19.md`; independent rebuild + smoke, every reader region
@@ -46,7 +49,7 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
-| MR-052 | Viewer turn UI — Send button + 6-state banner + reclaim + `lastTurn` poll | ui | P2 | — (after sprint-14) |
+| MR-052 | Viewer turn UI — Send button + 6-state banner + reclaim + `lastTurn` poll | ui | P2 | sprint-15 |
 | MR-053 | Agent surface — `hand_back` + `ping_working` MCP tools + `CLAUDE.md` contract | svc | P2 | — (after sprint-14) |
 
 ## in-progress

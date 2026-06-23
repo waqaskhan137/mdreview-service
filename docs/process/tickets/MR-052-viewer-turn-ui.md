@@ -4,7 +4,7 @@ title: Viewer turn UI — Send button + 6-state banner + reclaim + lastTurn poll
 status: ready          # backlog | ready | in-progress | review | done | blocked
 layer: ui              # svc | ui | infra | docs
 priority: P2
-sprint:                # scheduled into the sprint AFTER sprint-14 (Chunk 1 ships first)
+sprint: sprint-15
 epic: agent-handoff-baton
 depends_on: [MR-051]
 branch:                # MR-052-viewer-turn-ui, once work starts
