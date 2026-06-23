@@ -1,0 +1,14 @@
+{
+ "has_strong": true,
+ "has_code": true,
+ "has_em": true,
+ "li_count": 2,
+ "safe_link": true,
+ "js_link_present": false,
+ "live_raw_b": false,
+ "text_has_amp": true,
+ "text_has_rawtag": true,
+ "anchor_is_article": true,
+ "addbtn_before": "none",
+ "addbtn_after": "block"
+}
