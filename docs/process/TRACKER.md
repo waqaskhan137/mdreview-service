@@ -7,7 +7,15 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-_none active_ — **EPIC `agent-handoff-baton` COMPLETE.** **sprint-16 (Chunk 3, agent surface) CLOSED
+**sprint-17 (agent-watcher — C1: server support) ACTIVE** (2026-06-24 → 2026-06-27). Epic
+`agent-watcher` cleared G1 2026-06-24 (PASS-WITH-NITS, findings folded). Ships the three server-side
+primitives the (C2) watcher polls — a `?turn=agent` queue filter, a `/wait` long-poll (Condition over
+`_lock`, required `?since=<turn_updated>` edge cursor), and a stale-lease takeover on `/handoff
+{state:working}` — entirely inside the existing container (no UI, no Dockerfile change). Two tickets
+**MR-054** (detection) + **MR-055** (lease change, `depends_on: [MR-054]`), both `ready`. Execution
+order: MR-054 then MR-055.
+
+_(previously)_ **EPIC `agent-handoff-baton` COMPLETE.** **sprint-16 (Chunk 3, agent surface) CLOSED
 at G7 2026-06-23** (staff-critic PASS, `reviews/sprint-16-close-review-2026-06-23.md`; independent
 `mcp_smoke` 44/44 + end-to-end baton drive over HTTP **and** MCP stdio, 0 BLOCKER / 0 SHOULD / 1 NIT).
 MR-053 `done` on `dev` (`hand_back` + `ping_working` MCP tools over `/handoff` + the `CLAUDE.md`
@@ -58,7 +66,10 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-054 | Watcher detection — `?turn=agent` filter + `summary()` turn-default + `/wait` long-poll (Condition over `_lock`, required `?since=<turn_updated>` edge cursor) | svc | P1 | sprint-17 |
+| MR-055 | Stale-lease takeover on `/handoff {state:working}` (TTL single-source + reclaim-vs-takeover re-check) | svc | P1 | sprint-17 |
 
 ## in-progress
 
@@ -153,3 +164,4 @@ _none_
 | mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |
 | legacy-feedback-retire | done (merged to main 2026-06-23, PR #11; with MR-048 + MR-049) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
 | agent-handoff-baton | done on `dev` (3 chunks: MR-051+MR-052+MR-053; sprints 14/15/16 CLOSED G7 PASS; PR #17 pending) | G1 passed 2026-06-23 | sprint-14/15/16 |
+| agent-watcher | active (C1 cleared G1; MR-054 + MR-055 ready; C2/C3 decomposed at their own cycles) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1) |
