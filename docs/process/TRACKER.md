@@ -37,7 +37,11 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-051 | Handoff baton contract — `POST /handoff` + 4 `meta.json` fields + `/status` surfacing | svc | P1 | sprint-14 |
+| MR-052 | Viewer turn UI — Send button + 6-state banner + reclaim + `lastTurn` poll | ui | P2 | — (after sprint-14) |
+| MR-053 | Agent surface — `hand_back` + `ping_working` MCP tools + `CLAUDE.md` contract | svc | P2 | — (after sprint-14) |
 
 ## in-progress
 
@@ -128,3 +132,4 @@ _none_
 | comment-resolution | done (merged to main 2026-06-19, PR #9) | G1 passed 2026-06-19 (2 rounds) | sprint-11 |
 | mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |
 | legacy-feedback-retire | done (merged to main 2026-06-23, PR #11; with MR-048 + MR-049) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
+| agent-handoff-baton | active (G1 PASS-WITH-NITS; MR-051/052/053 ready; sprint-14 = MR-051) | G1 passed 2026-06-23 | sprint-14 (Chunk 1) |

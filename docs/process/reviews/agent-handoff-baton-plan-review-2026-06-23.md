@@ -5,7 +5,7 @@ reviewer: staff-critic
 independent: true
 timestamp: 2026-06-23
 verdict: PASS-WITH-NITS
-status: open
+status: resolved
 ---
 
 # G1 Plan-Gate Review — agent-handoff-baton
@@ -176,3 +176,21 @@ auth, no dashboard change). The plan adds no adjacent work. The one place the No
 - These are G2-grooming refinements for the planner to fold into the ticket ACs; they do **not** gate
   G1 and need no further review round. Set this review `status: resolved` once the planner has
   reflected SHOULD-1..3 into the MR-051/MR-052 acceptance criteria (NIT-1/2 optional).
+
+### Round 2 — 2026-06-23 (orchestrator, fold-in confirmed) — RESOLVED
+
+All five findings reflected in the ticket ACs (tickets created at G2):
+
+- **SHOULD-1** → MR-052 AC "Interaction proof": the node-CDP check is specified as a **timed,
+  multi-step drive across the 2s poll** (steps a–d), not a single navigate-and-read.
+- **SHOULD-2** → MR-051 AC "Dashboard status invariance": asserts a `turn=agent` review derives the
+  **same** `summary()` status/counts (`app.py:143-148`), `summary()` untouched, checked via
+  `GET /api/reviews` in the smoke.
+- **SHOULD-3** → MR-051 AC "Explicit dispatch precedence + malformed-body guard": pinned order
+  (reclaim → hand-back → flip → lease) so `{to:reviewer,by:reviewer,state:done}` is unambiguous, plus
+  a **`400`** on an unrecognized body with a negative smoke case.
+- **NIT-1** → MR-051 AC + Validation: `turn_updated` captured-and-compared **unchanged** across a
+  `{state:working}` renew.
+- **NIT-2** → MR-053 AC: lease-ping tool named **`ping_working`** (not `take_turn`).
+
+Verdict stands **PASS-WITH-NITS**; G1 cleared. Review **resolved**.
