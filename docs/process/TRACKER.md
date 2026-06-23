@@ -9,7 +9,9 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 **sprint-15 (agent-handoff-baton — Chunk 2, viewer turn UI) ACTIVE** (opened 2026-06-23). Committed:
 **MR-052** only (`viewer.html`: Send button + 6-state banner + reclaim + `lastTurn` poll), built on
-the MR-051 baton contract. MR-053 (Chunk 3, MCP + CLAUDE.md) stays `ready` for a later sprint.
+the MR-051 baton contract. **MR-052 `done`** on `dev` (render-smoke + 13/13 CDP interaction drive,
+screenshots under `reviews/sprint-15-render-evidence-2026-06-23/`) — awaiting the G7 sprint-close
+review. MR-053 (Chunk 3, MCP + CLAUDE.md) stays `ready` for a later sprint.
 
 _(previously)_ **sprint-14 (agent-handoff-baton — Chunk 1) CLOSED at G7 2026-06-23** (staff-critic
 PASS, `reviews/sprint-14-close-review-2026-06-23.md`; independent rebuild + 15-step smoke, 0 BLOCKER /
@@ -49,8 +51,7 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
-| MR-052 | Viewer turn UI — Send button + 6-state banner + reclaim + `lastTurn` poll | ui | P2 | sprint-15 |
-| MR-053 | Agent surface — `hand_back` + `ping_working` MCP tools + `CLAUDE.md` contract | svc | P2 | — (after sprint-14) |
+| MR-053 | Agent surface — `hand_back` + `ping_working` MCP tools + `CLAUDE.md` contract | svc | P2 | — (after sprint-15) |
 
 ## in-progress
 
@@ -64,6 +65,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-052 | Viewer turn UI — Send button + 6-state banner + reclaim + `lastTurn` poll | ui | P2 | sprint-15 |
 | MR-051 | Handoff baton contract — `POST /handoff` + 4 `meta.json` fields + `/status` surfacing (additive) | svc | P1 | sprint-14 |
 | MR-050 | Viewer — reviewer can delete their own un-engaged comment (no-agent-entry rule; inline 2-step confirm; issue #12) | ui | P2 | — (out-of-cycle) |
 | MR-049 | Viewer comment UX: reliable selection→comment button + markdown rendering in comment threads (XSS-safe) | ui | P2 | — (out-of-cycle) |
