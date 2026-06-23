@@ -13,6 +13,8 @@
   body{margin:0;background:var(--bg);color:var(--text);font-family:Charter,Georgia,Cambria,"Times New Roman",serif;font-size:20px;line-height:1.7;}
   .wrap{max-width:720px;margin:0 auto;padding:48px 24px 160px 64px;}
   .topbar{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;}
+  .topbar .home{color:inherit;text-decoration:none;}
+  .topbar .home:hover{color:var(--accent);}
   .filename{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--accent);margin:0 0 4px;text-transform:none;letter-spacing:0;}
   .howto{font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13.5px;line-height:1.6;color:var(--muted);background:rgba(127,127,127,.06);border:1px solid var(--rule);border-radius:8px;padding:11px 15px;margin:16px 0 36px;}
   .howto b{color:var(--text);}
@@ -142,7 +144,7 @@
 </head>
 <body>
 <div class="wrap">
-  <p class="topbar">mdreview &middot; inline feedback</p>
+  <p class="topbar"><a href="/" class="home" title="Back to all reviews">&larr; mdreview</a> &middot; inline feedback</p>
   <p class="filename" id="filename">loading...</p>
   <div class="howto">
     <b>Select text</b> to start a comment on those words, or <b>click a paragraph number</b> in the
