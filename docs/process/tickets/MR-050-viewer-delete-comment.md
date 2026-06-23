@@ -1,7 +1,7 @@
 ---
 id: MR-050
 title: Viewer — let a reviewer delete a comment they made by mistake (wire the existing DELETE endpoint into the UI)
-status: ready          # staff critique resolved (READY-WITH-TWEAKS applied) — docs/process/reviews/MR-050-scope-review-2026-06-23.md
+status: ready          # scope APPROVED — independent r2 staff-critic verdict READY (docs/process/reviews/MR-050-scope-review-2026-06-23-r2.md; r1 READY-WITH-TWEAKS applied)
 layer: ui
 priority: P2
 sprint:                # unscheduled — scoped/groomed, not yet committed to a sprint
@@ -87,6 +87,15 @@ GitHub issue: #12.
   `renderAll()`→`toast`). Add a `deleteComment` that calls `DELETE` then the same refresh.
 - This is the human/no-auth surface: roles are attribution, not auth — so any per-author restriction
   (fork #2) is a UX convention, not an enforced boundary.
+
+**Implementer guidance (from the r2 review — non-blocking, not gate conditions):**
+- The poll-skip guard fixes the *poll-driven* re-render, but `renderAll()` is also called directly by
+  a `source_updated` tick (`viewer.html:570`) and by the human's own reply/reopen. Apply the same
+  "delete-confirm pending" check to those paths too (or use a synchronous `confirm()`), or a pending
+  inline confirm could still be orphaned by one of them.
+- Treat a **404** on `DELETE` as **success-equivalent** (the agent already deleted it concurrently):
+  re-fetch + `renderAll()` so the card disappears, rather than showing a stuck `Could not delete`
+  error. A real failure (5xx / network) keeps the card.
 
 ## Work log
 
