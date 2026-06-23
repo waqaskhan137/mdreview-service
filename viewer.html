@@ -105,6 +105,10 @@
   /* MR-036: threaded comment cards (gutter when wide, docked panel when narrow) */
   .gcard{cursor:default;padding:9px 11px;}
   .gcard .ghead,.rcard .ghead{display:flex;gap:6px;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;}
+  /* MR-050: secondary, muted Delete affordance — only on the reviewer's own un-engaged comment */
+  .gcard .ghead .gdel{margin-left:auto;align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--muted);padding:1px 5px;border-radius:4px;}
+  .gcard .ghead .gdel:hover{color:#c0392b;background:rgba(192,57,43,.10);}
+  .gcard .ghead .gdel.armed{color:#fff;background:#c0392b;font-weight:600;}
   .gthread{display:flex;flex-direction:column;gap:5px;}
   .gentry{border-left:3px solid var(--rule);background:rgba(127,127,127,.05);border-radius:4px;padding:4px 8px;}
   .gentry.reviewer{border-left-color:var(--noteline);background:rgba(212,160,23,.09);}
@@ -198,6 +202,7 @@ let comments=[];        // the shared server-side comment threads (GET /comments
 let cur=null;           // pending anchor while authoring a comment
 let lastSrc=0;          // source_updated (doc live-reload)
 let lastCmt=0;          // comments_updated (thread live-reload)
+let confirming=null;    // comment_id with a pending inline delete-confirm (guards the poll re-render)
 
 function toast(msg){const t=$("#toast");t.textContent=msg;t.style.opacity=1;clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.opacity=0,1800);}
 function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
@@ -382,6 +387,16 @@ async function reopenComment(cid,text){
     await fetchComments();renderAll();toast('Reopened');
   }catch(e){toast('Reopen failed');}
 }
+async function deleteComment(cid){
+  // Hard-remove a comment the reviewer made by mistake (DELETE /comments/{cid}). A 404 means it's
+  // already gone (e.g. an agent deleted it concurrently) — treat as success and let the re-render
+  // drop the card. Only a real failure (5xx/network) keeps the card, with an error toast.
+  try{
+    const r=await fetch(API+'/comments/'+cid,{method:'DELETE'});
+    if(!r.ok&&r.status!==404){toast('Could not delete');return;}
+    await fetchComments();renderAll();toast('Comment deleted');
+  }catch(e){toast('Could not delete');}
+}
 
 // --- rendering: active threads in the gutter, resolved ones in the Resolved panel ---
 const esc=escapeHtml;
@@ -440,6 +455,7 @@ function focusPair(id){
 }
 function renderAll(){
   const A=$("#article"),G=$("#gutter");if(!A)return;
+  confirming=null;   // any full re-render rebuilds the cards, so a pending inline delete-confirm is gone
   // unwrap existing highlights so anchors re-resolve cleanly
   A.querySelectorAll('mark.cmt').forEach(m=>{const p=m.parentNode;while(m.firstChild)p.insertBefore(m.firstChild,m);p.removeChild(m);p.normalize();});
   document.querySelectorAll('.blk').forEach(b=>b.classList.remove('has-comment'));
@@ -455,7 +471,13 @@ function renderAll(){
     if(blk)blk.classList.add('has-comment');
     const ref=(blk&&blk.dataset.num)||c.anchor.block_num||'';
     const card=document.createElement('div');card.className='gcard';card.dataset.id=c.comment_id;
-    card.innerHTML='<div class="ghead"><span class="gref">'+(ref?'#'+esc(ref):'')+'</span> <span class="gq">'+esc(qsnippet(c))+'</span></div>'+
+    // Delete is offered ONLY when the thread has no agent entry — i.e. the reviewer's own un-engaged
+    // comment (the "I made a mistake" case). Once an agent has replied/resolved, the thread is
+    // engaged feedback; the human resolves/reopens it, never hard-deletes it (matches the
+    // delete_comment convention that warns agents off deleting real feedback).
+    const deletable=!(c.thread||[]).some(e=>e.role==='agent');
+    card.innerHTML='<div class="ghead"><span class="gref">'+(ref?'#'+esc(ref):'')+'</span> <span class="gq">'+esc(qsnippet(c))+'</span>'+
+      (deletable?'<button class="gdel" data-act="delete" title="Delete this comment — permanent, no undo">Delete</button>':'')+'</div>'+
       threadHtml(c)+
       '<div class="greply"><textarea placeholder="Reply…"></textarea><button class="btn" data-act="reply">Reply</button></div>';
     card._anchor=mk||blk;G.appendChild(card);
@@ -479,6 +501,17 @@ function renderAll(){
     const rb=card.querySelector('[data-act=reply]');
     rb.onclick=e=>{e.stopPropagation();const ta=card.querySelector('textarea');const v=ta.value.trim();if(v)replyTo(card.dataset.id,v);};
     card.querySelector('textarea').onclick=e=>e.stopPropagation();
+    // inline two-step delete: first click arms ("Confirm delete?"), second click deletes. While armed,
+    // `confirming` is set so the 2s poll skips its re-render (which would otherwise wipe the confirm);
+    // auto-disarm after 3s.
+    const del=card.querySelector('[data-act=delete]');
+    if(del)del.onclick=e=>{
+      e.stopPropagation();
+      const cid=card.dataset.id;
+      if(del.dataset.armed){deleteComment(cid);return;}
+      del.dataset.armed='1';del.textContent='Confirm delete?';del.classList.add('armed');confirming=cid;
+      clearTimeout(del._t);del._t=setTimeout(()=>{del.dataset.armed='';del.textContent='Delete';del.classList.remove('armed');if(confirming===cid)confirming=null;},3000);
+    };
     card.onclick=()=>focusPair(card.dataset.id);
   });
   RI.querySelectorAll('.rcard [data-act=reopen]').forEach(b=>{
@@ -564,7 +597,7 @@ function poll(){
     // Don't re-render the DOM out from under an in-progress comment gesture (button or popup open) —
     // re-rendering mid-selection is the secondary cause of "my highlight didn't take". Skip this tick;
     // the next one (2s) picks the update up once the human is done.
-    if(addbtn.style.display==='block'||$("#pop").style.display==='block')return;
+    if(addbtn.style.display==='block'||$("#pop").style.display==='block'||confirming)return;
     try{
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
       if(s.source_updated&&s.source_updated!==lastSrc){await fetchComments();await load();toast('Draft updated by AI');}

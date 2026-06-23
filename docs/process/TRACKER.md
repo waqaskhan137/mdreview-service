@@ -12,7 +12,8 @@ _none active_ — **sprint-13 (legacy-feedback-retire) CLOSED at G7** (staff-cri
 byte-compared). MR-046 + MR-047 `done` on `dev`, no carry-overs. Shipped: `POST /feedback` → 410
 Gone (no write), `feedback_updated` writer dropped, docs steer agents to `comments_updated` — every
 reader and all 61 live notes/feedback files untouched. No `mcp_server.py` change → no MCP reconnect.
-**Pending the standing `dev → main` PR (G8).**
+**Merged to main 2026-06-23 (PR #11)** — together with MR-048 (MCP wrapper browser-open) and MR-049
+(viewer comment UX: reliable selection→button + markdown comments + home link).
 
 _(previously)_ **sprint-12 (mcp-agent-effectiveness) closed at G7** (staff-critic PASS,
 `reviews/sprint-12-close-review-2026-06-19.md`). All 6 tickets `done` on `dev`; no carry-overs.
@@ -50,6 +51,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-050 | Viewer — reviewer can delete their own un-engaged comment (no-agent-entry rule; inline 2-step confirm; issue #12) | ui | P2 | — (out-of-cycle) |
 | MR-049 | Viewer comment UX: reliable selection→comment button + markdown rendering in comment threads (XSS-safe) | ui | P2 | — (out-of-cycle) |
 | MR-048 | MCP wrapper opens new `review_url` in default browser (opt-in `MDREVIEW_OPEN_BROWSER`) | svc | P3 | — (out-of-cycle) |
 | MR-047 | Docs sweep: "human is done" → `comments_updated`; drop `POST /feedback` README row; fix `future-mcp.md:61` | docs | P2 | sprint-13 |
@@ -125,4 +127,4 @@ _none_
 | dashboard-density | active (G1 cleared; MR-032 ready) | G1 passed 2026-06-19 (2 rounds) | sprint-10 |
 | comment-resolution | done (merged to main 2026-06-19, PR #9) | G1 passed 2026-06-19 (2 rounds) | sprint-11 |
 | mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |
-| legacy-feedback-retire | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
+| legacy-feedback-retire | done (merged to main 2026-06-23, PR #11; with MR-048 + MR-049) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |

@@ -1,0 +1,17 @@
+MR-050 viewer delete-comment — validation (2026-06-23), image mdreview:mr050, throwaway container.
+No product backend change (app.py untouched); DELETE /comments/{cid} + delete_comment (MR-045) pre-exist.
+
+PRESENCE (scripts/render-smoke.sh .gcard .gdel):  ok .gcard (2 nodes)  ok .gdel (1 node)  exit 0
+  -> 2 comments rendered, exactly 1 Delete affordance: the agent-engaged comment correctly has NONE
+     (no-agent-entry rule).
+
+BEHAVIOUR (curl round-trip):  DELETE -> {"deleted": <cid>} ; GET /comments no longer lists it ;
+  second DELETE -> HTTP 404.  (Mirrors MR-045's validation of the same route.)
+
+INTERACTION (headless Chrome over CDP — click-through, a 200 is not a render):
+  before: {cards:2, delBtns:1, cardA:true, markA:true}
+  first click -> armed: {armedAttr:true, text:"Confirm delete?"}      (inline two-step confirm)
+  second click -> after: {cards:1, cardA:false, markA:false}          (card AND inline mark.cmt gone)
+  server-side: cidA present in GET /comments == False
+  -> the 2s poll did not wipe the pending confirm (confirming-guard); delete removed card + highlight
+     and updated counts via the existing fetchComments()->renderAll() path.
