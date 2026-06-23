@@ -1,13 +1,13 @@
 ---
 id: MR-052
 title: Viewer turn UI — Send button + 6-state banner + reclaim + lastTurn poll
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: ui              # svc | ui | infra | docs
 priority: P2
 sprint: sprint-15
 epic: agent-handoff-baton
 depends_on: [MR-051]
-branch:                # MR-052-viewer-turn-ui, once work starts
+branch: MR-052-viewer-turn-ui
 created: 2026-06-23
 updated: 2026-06-23
 ---
@@ -69,11 +69,33 @@ contract MR-051 ships. `viewer.html` only; no `app.py`, no new served file, no d
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-23` — `viewer.html` only. **HTML:** a `#turnbanner` bar (`class="turnbanner"`, holding
+  `#turntext` + a `.reclaim` "Take back the turn" button) inserted after `#docmeta`; a primary
+  **Send to agent** button (`.sendagent`, `#sendbtn`) added to `#dockbar`. **CSS:** `.turnbanner`
+  (hidden until `.show`), `.btn.sendagent[disabled]`, `.turnbanner .reclaim`. **JS:** `STALE_S=180`
+  (`agent_status.at` is epoch **seconds**, per the sprint-14 NIT); `renderBanner(st)` — a **6-state
+  first-match** decision (agent rows key on `turn==='agent'`, reviewer rows on `agent_status.state`,
+  so no row shadows another), with the agent message rendered via `textContent` (no HTML injection);
+  `#sendbtn` → `POST /handoff {to:agent}` (then disabled + relabelled, re-enabled when a poll sees
+  `reviewer`); `#reclaimbtn` → `POST /handoff {to:reviewer,by:reviewer}`; `load()` sets `lastTurn` and
+  paints the banner on first load from the same `/status`; the 2s poll renders the banner every tick
+  from the **same** `/status` body **after** the source-change branch's `load()` (the ordering rule),
+  so the "Draft updated by AI" toast and the banner don't race, and staleness re-evaluates over time.
+  No `app.py`/MCP change; `viewer.html` already in `Dockerfile` (no COPY change).
 
 ## Validation
 
-_How this was verified._
+- `2026-06-23` — **render-smoke** (viewer served from disk): `.sendagent` / `.turnbanner` / `.reclaim`
+  each **1 node**, exit 0. **node-CDP interaction drive** (timed, across the real 2s poll) — **13/13
+  PASS**: (a) fresh reviewer → row 6 "Your turn", Send enabled, reclaim hidden; (b) click Send → row 1
+  "waiting", Send disabled, reclaim shown; scripted `{state:working}` → row 2 "Agent is working…" via
+  the poll; (c) click reclaim → reviewer row, Send re-enabled, reclaim hidden; (d) agent flip + `PUT
+  /source` + hand-back `{state:done,message}` → row 4 "Agent updated the draft: revised section. Your
+  turn." with the doc reloaded to the revised source (the source-push/toast path ran, banner **not**
+  clobbered — the ordering rule). Evidence under
+  `reviews/sprint-15-render-evidence-2026-06-23/` (`validation.txt` + `reviewer-fresh.png` +
+  `agent-working.png`). Rows 3 (stale, `>180s`) and 5 (blocked) share the same first-match branches as
+  rows 2/4; verified by inspection (a 3-minute wait / a `state:blocked` push are the only difference).
 
 ## Follow-ups
 
