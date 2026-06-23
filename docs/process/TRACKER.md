@@ -37,7 +37,9 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-050 | Viewer — let a reviewer delete a comment made by mistake (wire existing DELETE into UI; no-agent-entry rule) | ui | P2 | unscheduled (issue #12; scope reviewed) |
 
 ## in-progress
 
