@@ -64,8 +64,8 @@ def main():
                 "get_status", "update_source", "get_history", "delete_review",
                 "attach_asset", "list_assets",
                 "create_comment", "list_comments", "get_comment", "reply_to_comment", "resolve_comment",
-                "delete_comment", "server_info"}
-    check("tools/list returns exactly the 18 tools", names == expected)
+                "delete_comment", "hand_back", "ping_working", "server_info"}
+    check("tools/list returns exactly the 20 tools", names == expected)
     check("each tool has a description + object inputSchema",
           all(t.get("description") and t.get("inputSchema", {}).get("type") == "object" for t in tools))
     # the comment tools must encode the agent workflow in their descriptions (the brief's expectations)
@@ -76,6 +76,13 @@ def main():
           "without" in desc.get("reply_to_comment", ""))
     check("resolve_comment description says justification optional + reviewer can reopen",
           "optional" in desc.get("resolve_comment", "") and "reopen" in desc.get("resolve_comment", ""))
+    # MR-053: the turn-baton tools encode their workflow in their descriptions
+    check("hand_back description: returns the turn to the reviewer (done/blocked)",
+          "reviewer" in desc.get("hand_back", "") and (
+              "done" in desc.get("hand_back", "") or "blocked" in desc.get("hand_back", "")))
+    check("ping_working description: a lease that backs off on a foreign owner (409)",
+          "lease" in desc.get("ping_working", "") and (
+              "409" in desc.get("ping_working", "") or "back off" in desc.get("ping_working", "")))
 
     # --- MR-042: staleness signal + discoverability (no service needed; all from the static surface) ---
     instr = init.get("instructions", "").lower()
@@ -118,8 +125,8 @@ def main():
     init_hash = init.get("serverInfo", {}).get("tools_hash")
     check("three-way tools_hash identity (serverInfo == server_info tool == --print-version)",
           bool(init_hash) and init_hash == tool_hash == disk_hash)
-    check("server_info tool reports tool_count == 18 (local dispatch, no service touched)",
-          isinstance(tool_hash, str) and json.loads(si[-1]["result"]["content"][0]["text"]).get("tool_count") == 18)
+    check("server_info tool reports tool_count == 20 (local dispatch, no service touched)",
+          isinstance(tool_hash, str) and json.loads(si[-1]["result"]["content"][0]["text"]).get("tool_count") == 20)
     check("create_comment description: author a NEW comment anchored to quoted_text",
           "quoted_text" in desc.get("create_comment", "") and "comment" in desc.get("create_comment", ""))
 
@@ -150,6 +157,35 @@ def main():
         except Exception:
             pass
         check("update_source round-trip -> revision >= 1", isinstance(rev, int) and rev >= 1)
+
+        # MR-053: turn-baton tools — ping_working (claim the lease) then hand_back (return the turn)
+        out = drive(base + [{"jsonrpc": "2.0", "id": 40, "method": "tools/call",
+                             "params": {"name": "ping_working",
+                                        "arguments": {"document_id": rid, "owner": "ci-agent",
+                                                      "message": "on it"}}}])
+        pw = out[-1].get("result", {})
+        pw_owner = None
+        try:
+            pw_owner = json.loads(pw["content"][0]["text"]).get("agent_status", {}).get("owner")
+        except Exception:
+            pass
+        check("ping_working -> lease claimed (agent_status.owner set), isError false",
+              pw_owner == "ci-agent" and not pw.get("isError"))
+
+        out = drive(base + [{"jsonrpc": "2.0", "id": 41, "method": "tools/call",
+                             "params": {"name": "hand_back",
+                                        "arguments": {"document_id": rid,
+                                                      "message": "addressed in ci", "state": "done"}}}])
+        hb = out[-1].get("result", {})
+        hb_meta = {}
+        try:
+            hb_meta = json.loads(hb["content"][0]["text"])
+        except Exception:
+            pass
+        check("hand_back -> turn=reviewer, agent_status.state=done, isError false",
+              hb_meta.get("turn") == "reviewer"
+              and hb_meta.get("agent_status", {}).get("state") == "done"
+              and not hb.get("isError"))
 
         # get_source returns the draft we just pushed (text content, not JSON)
         out = drive(base + [{"jsonrpc": "2.0", "id": 10, "method": "tools/call",

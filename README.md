@@ -49,7 +49,8 @@ Feedback and source persist in the `/data` volume across restarts.
 | GET | `/api/reviews/{id}/source` | | raw markdown |
 | PUT | `/api/reviews/{id}/source` | `{markdown}` | meta (snapshots a history round, then live-reloads) |
 | GET | `/api/reviews/{id}/feedback` | | `{markdown, notes[], ...meta}` — `notes[]` is legacy notes **plus a projection of the comments** (so this read path stays live) |
-| GET | `/api/reviews/{id}/status` | | `{source_updated, feedback_updated, comments_updated}` |
+| GET | `/api/reviews/{id}/status` | | `{source_updated, feedback_updated, comments_updated, turn, turn_updated, handoff, agent_status}` |
+| POST | `/api/reviews/{id}/handoff` | `{to:"agent"}` · `{to:"reviewer", state, message}` · `{state:"working", owner, message?}` · `{to:"reviewer", by:"reviewer"}` | meta — the **turn baton**: flip to the agent, hand back (done/blocked), claim/renew the lease (`409` foreign owner), or reviewer reclaim; `400` on an unrecognized body |
 | GET | `/api/reviews/{id}/history` | | `{rounds[]}` — `{round, ts, notes_total, notes_addressed}`, newest first |
 | GET | `/api/reviews/{id}/history/{n}` | | one round: `{source, feedback, notes[], ...round meta}` |
 | GET | `/api/reviews/{id}/comments` | `?status=open\|resolved\|reopened\|all` (default `all`) | `{comments[]}` — the threaded comments |
@@ -144,12 +145,13 @@ Example MCP client config (stdio):
 }
 ```
 
-**Tools (1:1 with the HTTP API, 18):** `create_review` (markdown, title?, project?, session?,
+**Tools (20):** `create_review` (markdown, title?, project?, session?,
 source_path?), `list_reviews`, `get_review` (id), `get_source` (id), `get_feedback` (id), `get_status` (id),
 `update_source` (id, markdown), `get_history` (id, round?), `attach_asset` (id, name, path|content_b64),
-`list_assets` (id), `delete_review` (id), `server_info`, `create_comment` (author a comment), and the **comment** tools `list_comments` (document_id, status?=open), `get_comment` (document_id,
+`list_assets` (id), `delete_review` (id), `server_info`, `create_comment` (author a comment), the **comment** tools `list_comments` (document_id, status?=open), `get_comment` (document_id,
 comment_id), `reply_to_comment` (document_id, comment_id, text), `resolve_comment` (document_id,
-comment_id, justification?), `delete_comment` (document_id, comment_id — hard-remove a junk comment).
+comment_id, justification?), `delete_comment` (document_id, comment_id — hard-remove a junk comment),
+and the **turn-baton** tools `hand_back` (document_id, message, state?=done) and `ping_working` (document_id, owner, message?) — both map onto `POST /handoff`.
 `document_id` is the review id.
 There is **no `reopen` tool** — reopen is the reviewer's UI action (a convention on the no-auth
 service, not an enforced boundary); after a reopen the agent sees the comment again via

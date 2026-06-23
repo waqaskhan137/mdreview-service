@@ -63,7 +63,8 @@ _ID = {"type": "string", "description": "the opaque review id"}
 _DOCID = {"type": "string", "description": "the review id the comments belong to (the document_id)"}
 _CID = {"type": "string", "description": "the comment id (cXXXXXXXXXX)"}
 
-# The 18 tools, 1:1 with the HTTP API. Static metadata served by tools/list.
+# The 20 tools (mostly 1:1 with the HTTP API; hand_back + ping_working both map onto POST /handoff).
+# Static metadata served by tools/list.
 TOOLS = [
     {
         "name": "create_review",
@@ -258,6 +259,48 @@ TOOLS = [
         },
     },
     {
+        "name": "hand_back",
+        "description": "Hand the turn baton back to the reviewer after you've acted on their feedback. "
+                       "Sets turn=reviewer on the review so the viewer's banner flips to 'Agent updated "
+                       "the draft … your turn' (state=done) — or 'Agent needs you' (state=blocked) when "
+                       "you replied with a question instead of finishing. Call it when you're done "
+                       "(after update_source + reply/resolve on the comments you addressed) or when "
+                       "blocked. This is the AGENT's half of the loop; the human's 'Send to agent' and "
+                       "'Take back the turn' are viewer actions. For blocked, pair this with a comment "
+                       "reply asking the question — never reopen (reopen is the reviewer's UI action).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "document_id": _DOCID,
+                "message": {"type": "string",
+                            "description": "one-line summary shown in the reviewer's banner (e.g. 'addressed 3 comments, 1 question')"},
+                "state": {"type": "string", "enum": ["done", "blocked"],
+                          "description": "done (default) when finished; blocked when you need the reviewer"},
+            },
+            "required": ["document_id", "message"],
+        },
+    },
+    {
+        "name": "ping_working",
+        "description": "Claim or renew your lease on a review while you hold the turn. Find work by "
+                       "polling list_reviews / get_status for reviews you own with turn=='agent'; on "
+                       "one, call ping_working right away and then periodically while you work, so the "
+                       "viewer shows 'Agent is working…' instead of a stale 'Agent may have stopped' "
+                       "hint. `owner` is YOUR opaque session id; a review already leased by a DIFFERENT "
+                       "owner returns an error (HTTP 409) — back off and skip it (another agent holds "
+                       "it). Does NOT change whose turn it is.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "document_id": _DOCID,
+                "owner": {"type": "string",
+                          "description": "your opaque agent/session id; identifies who holds the lease"},
+                "message": {"type": "string", "description": "optional short status shown in the banner"},
+            },
+            "required": ["document_id", "owner"],
+        },
+    },
+    {
         "name": "server_info",
         "description": "Report THIS running MCP server's identity: name, version, protocol_version, "
                        "tools_hash, tool_count, tool_names — so you can see what the *running* process "
@@ -404,6 +447,14 @@ def route(name, args):
         if args.get("justification") is not None:
             body["justification"] = args["justification"]
         return "POST", "/api/reviews/%s/comments/%s/resolve" % (args["document_id"], args["comment_id"]), body
+    if name == "hand_back":
+        return "POST", "/api/reviews/%s/handoff" % args["document_id"], \
+            {"to": "reviewer", "state": args.get("state", "done"), "message": args["message"]}
+    if name == "ping_working":
+        body = {"state": "working", "owner": args["owner"]}
+        if args.get("message") is not None:
+            body["message"] = args["message"]
+        return "POST", "/api/reviews/%s/handoff" % args["document_id"], body
     return None  # unreachable (caller checks TOOL_NAMES first)
 
 

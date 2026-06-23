@@ -1,7 +1,7 @@
 ---
 id: MR-053
 title: Agent surface — hand_back MCP tool + lease-ping tool + CLAUDE.md contract note
-status: in-progress    # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: svc             # svc | ui | infra | docs  (mcp_server.py = svc; CLAUDE.md = docs, in-same-change)
 priority: P2
 sprint: sprint-16
@@ -56,11 +56,30 @@ the lease heartbeat, the blocked convention, and the reconnect requirement. `mcp
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-23` — **`mcp_server.py`:** added `hand_back` + `ping_working` to `TOOLS` (adjacent to the
+  comment tools) and two `route()` arms mapping both onto `POST /handoff` (`hand_back` →
+  `{to:"reviewer", state, message}`, `state` default `"done"`; `ping_working` →
+  `{state:"working", owner, message?}`). A `409` foreign-owner lease surfaces through `http()` as a
+  `ToolError` (the agent backs off). `get_status` unchanged — the `turn`/`agent_status` fields pass
+  through (no reconnect for the passthrough; the two **new tools** do need a client reconnect).
+  **`mcp_smoke.py`:** expected set 18→20 + both count checks (`tools/list`, `tool_count`) + a
+  description check per new tool + a `ping_working`→`hand_back` round-trip.
+- **Deliberate scope-widening** (blocking-rule, recorded so it isn't a phantom): to keep the epic's
+  docs consistent at close rather than leave a trailing docs-sweep, the tool count **18→20** was
+  updated across `CLAUDE.md` / `README.md` / `AGENTS.md` / `docs/future-mcp.md` + the in-code comment;
+  `CLAUDE.md` gained a **"The turn baton"** agent-contract section (find-work loop, lease heartbeat,
+  blocked-via-comment-reply, reconnect) and an explicit-handoff bullet under "Detecting the human is
+  done"; the `README` API table gained the **`POST /handoff`** row and the new `/status` fields.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-23` — `python3 -m py_compile mcp_server.py mcp_smoke.py app.py` OK. `mcp_smoke.py` against a
+  throwaway service: **44/44 ok, exit 0** — including "tools/list returns exactly the **20** tools",
+  "tool_count == **20**", the `hand_back`/`ping_working` description checks, and the round-trip
+  (`ping_working` → `agent_status.owner` set; `hand_back` → `turn=reviewer` + `agent_status.state=done`).
+  `python3 mcp_server.py --print-version` → `tools_hash a97fb4f09e7c` (**changed**; the two new tools
+  require an MCP client **reconnect** to appear — pure HTTP/render changes, like MR-051/MR-052, do
+  not). No `app.py` change.
 
 ## Follow-ups
 
