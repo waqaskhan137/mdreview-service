@@ -211,7 +211,6 @@ let cur=null;           // pending anchor while authoring a comment
 let lastSrc=0;          // source_updated (doc live-reload)
 let lastCmt=0;          // comments_updated (thread live-reload)
 let confirming=null;    // comment_id with a pending inline delete-confirm (guards the poll re-render)
-let lastTurn=null;      // MR-052: turn baton state; drives the banner + Send/reclaim controls
 
 function toast(msg){const t=$("#toast");t.textContent=msg;t.style.opacity=1;clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.opacity=0,1800);}
 function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
@@ -231,7 +230,7 @@ function renderBanner(st){
   let msg;
   if(turn==='agent'){
     if(!as)msg="Sent — waiting for an agent to pick this up.";
-    else if((Date.now()/1000-(as.at||0))>STALE_S)msg="Agent may have stopped — take back the turn?";
+    else if((Date.now()/1000-(as.at||0))>STALE_S)msg="Agent may have stopped — Take back the turn?";
     else msg="Agent is working on your feedback…";
     reclaim.style.display='';              // rows 1–3: reclaim available
     send.disabled=true;send.textContent="Sent — agent's turn";
@@ -249,11 +248,11 @@ function renderBanner(st){
 $("#sendbtn").onclick=async()=>{
   if($("#sendbtn").disabled)return;
   $("#sendbtn").disabled=true;$("#sendbtn").textContent="Sent — agent's turn";
-  try{await postHandoff({to:'agent'});const st=await fetch(API+'/status').then(r=>r.json());renderBanner(st);lastTurn=st.turn||'reviewer';toast('Sent to agent');}
+  try{await postHandoff({to:'agent'});const st=await fetch(API+'/status').then(r=>r.json());renderBanner(st);toast('Sent to agent');}
   catch(e){toast('Could not send');$("#sendbtn").disabled=false;$("#sendbtn").textContent="Send to agent";}
 };
 $("#reclaimbtn").onclick=async()=>{
-  try{await postHandoff({to:'reviewer',by:'reviewer'});const st=await fetch(API+'/status').then(r=>r.json());renderBanner(st);lastTurn=st.turn||'reviewer';toast('Turn reclaimed');}
+  try{await postHandoff({to:'reviewer',by:'reviewer'});const st=await fetch(API+'/status').then(r=>r.json());renderBanner(st);toast('Turn reclaimed');}
   catch(e){toast('Could not reclaim');}
 };
 
@@ -369,7 +368,7 @@ async function load(){
   let md=await fetch(API+'/source',{cache:'no-store'}).then(r=>r.text());
   const st=await fetch(API+'/status').then(r=>r.json()).catch(()=>({}));
   lastSrc=st.source_updated||0;lastCmt=st.comments_updated||0;
-  lastTurn=st.turn||'reviewer';renderBanner(st);   // MR-052: first-paint banner from the same /status
+  renderBanner(st);   // MR-052: first-paint banner from the same /status body
   // extract YAML front matter (for the title) and strip it
   let title="";
   const fm=md.match(/^﻿?\s*---\r?\n([\s\S]*?)\r?\n---\s*/);
@@ -656,9 +655,9 @@ function poll(){
       // MR-052 turn baton: reflect the latest turn/agent_status from the SAME /status body. The
       // source-change branch above already ran load() (re-rendered the doc, reset lastSrc) before we
       // touch the banner, so the "Draft updated by AI" toast and the banner don't race. renderBanner
-      // runs every tick, so the stale-lease row appears over time without needing a status change.
+      // runs every tick (not guarded on a turn-change), so the stale-lease row appears over time as
+      // agent_status.at ages past STALE_S even with no /status change.
       renderBanner(s);
-      lastTurn=s.turn||'reviewer';
     }catch(e){}
   },2000);
 }
