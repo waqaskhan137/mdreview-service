@@ -13,6 +13,8 @@
   body{margin:0;background:var(--bg);color:var(--text);font-family:Charter,Georgia,Cambria,"Times New Roman",serif;font-size:20px;line-height:1.7;}
   .wrap{max-width:720px;margin:0 auto;padding:48px 24px 160px 64px;}
   .topbar{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;}
+  .topbar .home{color:inherit;text-decoration:none;}
+  .topbar .home:hover{color:var(--accent);}
   .filename{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--accent);margin:0 0 4px;text-transform:none;letter-spacing:0;}
   .howto{font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13.5px;line-height:1.6;color:var(--muted);background:rgba(127,127,127,.06);border:1px solid var(--rule);border-radius:8px;padding:11px 15px;margin:16px 0 36px;}
   .howto b{color:var(--text);}
@@ -110,7 +112,20 @@
   .gentry .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted);margin-right:5px;}
   .gentry.reviewer .grole{color:var(--noteline);}
   .gentry.agent .grole{color:var(--accent);}
-  .gentry .gtext{color:var(--text);white-space:pre-wrap;}
+  .gentry .gtext{color:var(--text);}
+  .gentry .gtext>:first-child{margin-top:0;}
+  .gentry .gtext>:last-child{margin-bottom:0;}
+  .gentry .gtext p{margin:.4em 0;}
+  .gentry .gtext ul,.gentry .gtext ol{margin:.4em 0;padding-left:1.3em;}
+  .gentry .gtext li{margin:.15em 0;}
+  .gentry .gtext code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:rgba(127,127,127,.16);padding:.5px 4px;border-radius:4px;}
+  .gentry .gtext pre{background:rgba(127,127,127,.12);padding:7px 9px;border-radius:6px;overflow:auto;margin:.4em 0;}
+  .gentry .gtext pre code{background:none;padding:0;font-size:.86em;}
+  .gentry .gtext a{color:var(--accent);}
+  .gentry .gtext blockquote{margin:.4em 0;padding-left:8px;border-left:2px solid var(--rule);color:var(--muted);}
+  .gentry .gtext h1,.gentry .gtext h2,.gentry .gtext h3,.gentry .gtext h4,.gentry .gtext h5{font-size:13px;margin:.5em 0 .2em;}
+  .gentry .gtext img{max-width:100%;border-radius:4px;}
+  .gentry .gtext hr{border:none;border-top:1px solid var(--rule);margin:.5em 0;}
   .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
   .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font-family:-apple-system,sans-serif;font-size:12.5px;border:1px solid var(--rule);border-radius:5px;padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
   .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
@@ -129,7 +144,7 @@
 </head>
 <body>
 <div class="wrap">
-  <p class="topbar">mdreview &middot; inline feedback</p>
+  <p class="topbar"><a href="/" class="home" title="Back to all reviews">&larr; mdreview</a> &middot; inline feedback</p>
   <p class="filename" id="filename">loading...</p>
   <div class="howto">
     <b>Select text</b> to start a comment on those words, or <b>click a paragraph number</b> in the
@@ -370,11 +385,28 @@ async function reopenComment(cid,text){
 
 // --- rendering: active threads in the gutter, resolved ones in the Resolved panel ---
 const esc=escapeHtml;
+// Render a comment body as markdown (bold/italic/code/lists/links/line-breaks). Comments are
+// UNTRUSTED, no-auth input, so HTML is escaped FIRST (neutralises raw-HTML / attribute injection),
+// THEN marked renders the markdown syntax; a final pass drops any javascript:/data: URL an author
+// slipped into a link or image. `breaks:true` makes a single newline a line break (chat-like).
+function mdComment(raw){
+  raw=raw||'';
+  const html=window.marked?marked.parse(esc(raw),{breaks:true}):esc(raw).replace(/\n/g,'<br>');
+  const tpl=document.createElement('template');tpl.innerHTML=html;   // <template> content is inert (no img loads)
+  tpl.content.querySelectorAll('a[href]').forEach(a=>{
+    if(/^(https?:|mailto:)/i.test(a.getAttribute('href')||'')){a.target='_blank';a.rel='noopener noreferrer';}
+    else a.removeAttribute('href');
+  });
+  tpl.content.querySelectorAll('img[src]').forEach(im=>{
+    if(!/^(https?:|data:image\/)/i.test(im.getAttribute('src')||''))im.removeAttribute('src');
+  });
+  return tpl.innerHTML;
+}
 function qsnippet(c){const q=(c.anchor&&c.anchor.quoted_text)||'';return q?'"'+q+'"':'(whole block)';}
 function threadHtml(c){
   return '<div class="gthread">'+((c.thread||[]).map(e=>{
     const role=e.role==='agent'?'agent':'reviewer';
-    return '<div class="gentry '+role+'"><span class="grole">'+esc(role)+'</span><span class="gtext">'+esc(e.text||'')+'</span></div>';
+    return '<div class="gentry '+role+'"><span class="grole">'+esc(role)+'</span><div class="gtext">'+mdComment(e.text||'')+'</div></div>';
   }).join(''))+'</div>';
 }
 // wrap the comment's quoted text (within a single text node) in a highlight keyed by comment_id
@@ -480,9 +512,16 @@ const addbtn=$("#addbtn");
 $("#article").addEventListener('mouseup',e=>{
   setTimeout(()=>{
     const sel=window.getSelection();const t=sel.toString().trim();
-    if(!t){addbtn.style.display='none';return;}
-    let node=sel.anchorNode;while(node&&node.nodeType!==1)node=node.parentNode;
-    const blk=node&&node.closest('.blk');if(!blk){addbtn.style.display='none';return;}
+    if(!t||!sel.rangeCount){addbtn.style.display='none';return;}
+    const r=sel.getRangeAt(0);
+    if(!$("#article").contains(r.commonAncestorContainer)){addbtn.style.display='none';return;}
+    // Resolve the block from WHICHEVER endpoint lands inside a .blk. A cross-block, backward, or
+    // boundary/whitespace-started selection can leave anchorNode on #article itself — the old code
+    // only walked anchorNode, so .closest('.blk') was null and the button silently never appeared
+    // (and a clean re-select "fixed" it). Checking anchor + focus + range ends makes it reliable.
+    const blkOf=n=>{while(n&&n.nodeType!==1)n=n.parentNode;return(n&&n.closest)?n.closest('.blk'):null;};
+    const blk=blkOf(sel.anchorNode)||blkOf(sel.focusNode)||blkOf(r.startContainer)||blkOf(r.endContainer);
+    if(!blk){addbtn.style.display='none';return;}
     cur={block_num:blk.dataset.num,quoted_text:t.length>180?t.slice(0,180)+'...':t};
     addbtn.style.left=(e.pageX-10)+'px';addbtn.style.top=(e.pageY+12)+'px';addbtn.style.display='block';
   },1);
@@ -522,6 +561,10 @@ $("#resbtn").onclick=()=>{
 // agent's MCP reply/resolve appears in the open browser without a manual refresh)
 function poll(){
   setInterval(async()=>{
+    // Don't re-render the DOM out from under an in-progress comment gesture (button or popup open) —
+    // re-rendering mid-selection is the secondary cause of "my highlight didn't take". Skip this tick;
+    // the next one (2s) picks the update up once the human is done.
+    if(addbtn.style.display==='block'||$("#pop").style.display==='block')return;
     try{
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
       if(s.source_updated&&s.source_updated!==lastSrc){await fetchComments();await load();toast('Draft updated by AI');}
