@@ -77,8 +77,8 @@ contract MR-051 ships. `viewer.html` only; no `app.py`, no new served file, no d
   first-match** decision (agent rows key on `turn==='agent'`, reviewer rows on `agent_status.state`,
   so no row shadows another), with the agent message rendered via `textContent` (no HTML injection);
   `#sendbtn` → `POST /handoff {to:agent}` (then disabled + relabelled, re-enabled when a poll sees
-  `reviewer`); `#reclaimbtn` → `POST /handoff {to:reviewer,by:reviewer}`; `load()` sets `lastTurn` and
-  paints the banner on first load from the same `/status`; the 2s poll renders the banner every tick
+  `reviewer`); `#reclaimbtn` → `POST /handoff {to:reviewer,by:reviewer}`; `load()` paints the
+  banner on first load from the same `/status`; the 2s poll renders the banner every tick
   from the **same** `/status` body **after** the source-change branch's `load()` (the ordering rule),
   so the "Draft updated by AI" toast and the banner don't race, and staleness re-evaluates over time.
   No `app.py`/MCP change; `viewer.html` already in `Dockerfile` (no COPY change).
@@ -96,6 +96,12 @@ contract MR-051 ships. `viewer.html` only; no `app.py`, no new served file, no d
   `reviews/sprint-15-render-evidence-2026-06-23/` (`validation.txt` + `reviewer-fresh.png` +
   `agent-working.png`). Rows 3 (stale, `>180s`) and 5 (blocked) share the same first-match branches as
   rows 2/4; verified by inspection (a 3-minute wait / a `state:blocked` push are the only difference).
+
+- `2026-06-23` (post-G7 NIT cleanup) — removed the write-only `lastTurn` var (G7 NIT-1: the poll's
+  unconditional per-tick `renderBanner` supersedes it and is what makes the stale row appear as
+  `agent_status.at` ages past `STALE_S` with no `/status` change); capitalized "Take back the turn?"
+  in the stale row (NIT-3). NIT-2 (sub-200ms Send re-enable flicker) accepted as cosmetic /
+  self-correcting. Re-validated: render-smoke (3/3) + row-6/row-2 `--dump-dom`, no regression.
 
 ## Follow-ups
 

@@ -7,11 +7,13 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**sprint-15 (agent-handoff-baton — Chunk 2, viewer turn UI) ACTIVE** (opened 2026-06-23). Committed:
-**MR-052** only (`viewer.html`: Send button + 6-state banner + reclaim + `lastTurn` poll), built on
-the MR-051 baton contract. **MR-052 `done`** on `dev` (render-smoke + 13/13 CDP interaction drive,
-screenshots under `reviews/sprint-15-render-evidence-2026-06-23/`) — awaiting the G7 sprint-close
-review. MR-053 (Chunk 3, MCP + CLAUDE.md) stays `ready` for a later sprint.
+_none active_ — **sprint-15 (agent-handoff-baton — Chunk 2, viewer turn UI) CLOSED at G7 2026-06-23**
+(staff-critic PASS, `reviews/sprint-15-close-review-2026-06-23.md`; independent rebuild-from-disk +
+render-smoke + all 6 banner rows driven + XSS probe, 0 BLOCKER / 0 SHOULD / 3 NITs, NITs addressed
+post-review). MR-052 `done` on `dev` (`viewer.html`: Send button + 6-state banner + reclaim, screenshots
+under `reviews/sprint-15-render-evidence-2026-06-23/`). No carry-overs. **In the standing dev→main PR
+#17.** The `agent-handoff-baton` epic stays **active** — **MR-053 (Chunk 3, MCP + CLAUDE.md)** remains
+`ready` for the next sprint.
 
 _(previously)_ **sprint-14 (agent-handoff-baton — Chunk 1) CLOSED at G7 2026-06-23** (staff-critic
 PASS, `reviews/sprint-14-close-review-2026-06-23.md`; independent rebuild + 15-step smoke, 0 BLOCKER /

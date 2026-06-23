@@ -1,11 +1,11 @@
 ---
 id: sprint-15
 name: agent-handoff-baton — Chunk 2 (viewer turn UI)
-status: active         # planning | active | closed
+status: closed         # planning | active | closed
 start: 2026-06-23
 end: 2026-06-24
 goal: Ship the viewer turn UI (MR-052) — Send to agent button + 6-state banner + Take-back-the-turn reclaim + lastTurn poll — driven by the MR-051 baton contract, so a reviewer can run the whole loop from the review page.
-close_review:          # reviews/sprint-15-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: reviews/sprint-15-close-review-2026-06-23.md
 ---
 
 ## Goal
@@ -37,16 +37,23 @@ _Filled in as the sprint runs and at close._
   `ready` for a later sprint.
 - **Carries the 2 sprint-14 G7 NITs into MR-052:** (1) `agent_status.at` is **float epoch seconds**,
   so the staleness check must be `(Date.now()/1000) - at > N`; (2) the non-JSON→400 path is a
-  recorded observation only (no action).
+  recorded observation only (no action). Both handled — staleness uses epoch seconds.
+- **Closed 2026-06-23. G7 PASS** (`reviews/sprint-15-close-review-2026-06-23.md`, staff-critic,
+  independent rebuild-from-disk + render-smoke + all 6 banner rows driven via curl + `--dump-dom`
+  (row 3 forced by backdating `at`) + XSS textContent probe, 0 BLOCKER / 0 SHOULD / 3 NITs). MR-052
+  `done`, **no carry-overs**. The 3 G7 NITs were addressed post-review: NIT-1 (dead `lastTurn`)
+  removed, NIT-3 (stale-row caps) fixed, NIT-2 (cosmetic flicker) accepted.
+- **Epic stays `active`:** Chunks 1+2 shipped; **MR-053 (Chunk 3, MCP + CLAUDE.md) remains** for the
+  next sprint.
 
 ## Close gate (G7)
 
 The sprint cannot be marked `closed` until:
 
-- [ ] MR-052 is `done`;
-- [ ] a **staff-critic sprint-close review** exists at `reviews/sprint-15-close-review-YYYY-MM-DD.md`,
+- [x] MR-052 is `done`;
+- [x] a **staff-critic sprint-close review** exists at `reviews/sprint-15-close-review-2026-06-23.md`,
       verifying MR-052 against its acceptance criteria — and because a **product page (`viewer.html`)
       is touched**, `scripts/render-smoke.sh` against the viewer asserting the `.sendagent` /
-      `.turnbanner` / `.reclaim` nodes **plus a screenshot** under `reviews/sprint-15-render-evidence-*`,
+      `.turnbanner` / `.reclaim` nodes **plus a screenshot** under `reviews/sprint-15-render-evidence-2026-06-23/`,
       and the container rebuild + `curl /healthz` + `/api/reviews` smoke;
-- [ ] retro + carry-overs recorded above, and `close_review:` set in frontmatter.
+- [x] retro + carry-overs recorded above, and `close_review:` set in frontmatter.
