@@ -7,7 +7,11 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-_none active_ — **sprint-15 (agent-handoff-baton — Chunk 2, viewer turn UI) CLOSED at G7 2026-06-23**
+**sprint-16 (agent-handoff-baton — Chunk 3, agent surface) ACTIVE** (opened 2026-06-23). Committed:
+**MR-053** only (`mcp_server.py` `hand_back` + `ping_working` tools over `/handoff` + `CLAUDE.md`
+contract; tool count 18→20, docs consolidation). Closing this sprint completes the epic.
+
+_(previously)_ **sprint-15 (agent-handoff-baton — Chunk 2, viewer turn UI) CLOSED at G7 2026-06-23**
 (staff-critic PASS, `reviews/sprint-15-close-review-2026-06-23.md`; independent rebuild-from-disk +
 render-smoke + all 6 banner rows driven + XSS probe, 0 BLOCKER / 0 SHOULD / 3 NITs, NITs addressed
 post-review). MR-052 `done` on `dev` (`viewer.html`: Send button + 6-state banner + reclaim, screenshots
@@ -51,13 +55,13 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-053 | Agent surface — `hand_back` + `ping_working` MCP tools + `CLAUDE.md` contract | svc | P2 | — (after sprint-15) |
+_none_
 
 ## in-progress
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-053 | Agent surface — `hand_back` + `ping_working` MCP tools + `CLAUDE.md` contract | svc | P2 | sprint-16 |
 
 ## review
 

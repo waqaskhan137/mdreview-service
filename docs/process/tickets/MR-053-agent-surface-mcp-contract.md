@@ -1,13 +1,13 @@
 ---
 id: MR-053
 title: Agent surface — hand_back MCP tool + lease-ping tool + CLAUDE.md contract note
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: in-progress    # backlog | ready | in-progress | review | done | blocked
 layer: svc             # svc | ui | infra | docs  (mcp_server.py = svc; CLAUDE.md = docs, in-same-change)
 priority: P2
-sprint:                # scheduled into the sprint AFTER sprint-14 (Chunk 1 ships first)
+sprint: sprint-16
 epic: agent-handoff-baton
 depends_on: [MR-051]
-branch:                # MR-053-agent-surface-mcp-contract, once work starts
+branch: MR-053-agent-surface-mcp-contract
 created: 2026-06-23
 updated: 2026-06-23
 ---
