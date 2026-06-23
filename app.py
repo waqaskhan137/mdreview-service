@@ -510,7 +510,67 @@ class H(BaseHTTPRequestHandler):
                 "source_updated": mt.get("source_updated", 0),
                 "feedback_updated": mt.get("feedback_updated", 0),
                 "comments_updated": mt.get("comments_updated", 0),
+                # turn baton (MR-051): additive; absent on legacy reviews -> defaults below
+                "turn": mt.get("turn", "reviewer"),
+                "turn_updated": mt.get("turn_updated", 0),
+                "handoff": mt.get("handoff"),
+                "agent_status": mt.get("agent_status"),
             })
+
+        # Turn baton handoff (MR-051). Guarded read-check-write of meta.json under _lock: turn/owner
+        # are control state both the viewer and an agent write concurrently, so read the CURRENT
+        # turn/owner, decide, write once. Never a bare bump() (unlocked, assumes the caller holds
+        # _lock, as PUT /source does). Body forms dispatch in a PINNED order so an ambiguous body
+        # (e.g. {to:reviewer,by:reviewer,state:done}) is deterministic: reclaim, hand-back, flip,
+        # lease; anything else is a 400.
+        mo = re.fullmatch(r"/api/reviews/" + RID + r"/handoff", path)
+        if mo and m == "POST":
+            rid = mo.group(1)
+            if not _exists(rid):
+                return self._json(404, {"error": "not found"})
+            b = self._body_json()
+            to, by, state = b.get("to"), b.get("by"), b.get("state")
+            p = os.path.join(_dir(rid), "meta.json")
+            err = None
+            with _lock:
+                mt = _read_json(p, {})
+                now = time.time()
+                if to == "reviewer" and by == "reviewer":
+                    # reclaim: force the turn back regardless of state (leave agent_status so the
+                    # banner can still read a stale state if it wants).
+                    mt["turn"] = "reviewer"
+                    mt["turn_updated"] = now
+                elif to == "reviewer" and state in ("done", "blocked"):
+                    # hand-back: the agent returns the turn with its state + message.
+                    prev = mt.get("agent_status") or {}
+                    mt["turn"] = "reviewer"
+                    mt["agent_status"] = {"state": state, "message": b.get("message", ""),
+                                          "owner": b.get("owner", prev.get("owner", "")), "at": now}
+                    mt["turn_updated"] = now
+                elif to == "agent":
+                    # flip: idempotent. Bump turn_updated only on an actual reviewer->agent flip.
+                    if mt.get("turn", "reviewer") != "agent":
+                        mt["turn"] = "agent"
+                        mt["agent_status"] = None          # parked, not yet claimed
+                        mt["handoff"] = {"by": "reviewer", "at": now}
+                        mt["turn_updated"] = now
+                elif state == "working":
+                    # lease claim/renew: only the current owner (or an unowned lease) writes; a
+                    # foreign owner backs off with 409. turn_updated is NOT bumped (no flip).
+                    owner = b.get("owner", "")
+                    cur_owner = (mt.get("agent_status") or {}).get("owner")
+                    if cur_owner in (None, "", owner):
+                        mt["agent_status"] = {"state": "working", "message": b.get("message", ""),
+                                              "owner": owner, "at": now}
+                    else:
+                        err = (409, {"error": "lease held", "owner": cur_owner})
+                else:
+                    err = (400, {"error": "unrecognized handoff body"})
+                if err is None:
+                    _write(p, json.dumps(mt))
+            if err:
+                return self._json(*err)
+            return self._json(200, meta(rid))
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/history", path)
         if mo and m == "GET":

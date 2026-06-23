@@ -1,13 +1,13 @@
 ---
 id: MR-051
 title: Handoff baton contract — POST /handoff + 4 meta.json fields + /status surfacing
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: svc             # svc | ui | infra | docs
 priority: P1           # foundation — MR-052 and MR-053 both depend on it
 sprint: sprint-14
 epic: agent-handoff-baton
 depends_on: []
-branch:                # MR-051-handoff-baton-contract, once work starts
+branch: MR-051-handoff-baton-contract
 created: 2026-06-23
 updated: 2026-06-23
 ---
@@ -79,11 +79,29 @@ ships to its own PR.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-23` — `app.py` only. Added the `POST /api/reviews/{id}/handoff` route arm **after** the
+  `/status` arm and **before** `/history`. Handler takes `_lock` itself and does a guarded
+  read-check-write of `meta.json` (read current `meta`, decide off current `turn`/`owner`, single
+  `_write`; **no** bare `bump()`). Four body forms dispatched in the **pinned order** reclaim
+  (`{to:reviewer,by:reviewer}`) → hand-back (`{to:reviewer,state}`) → flip (`{to:agent}`, idempotent,
+  bumps `turn_updated` only on a real flip) → lease (`{state:working}`, owner claim/renew, `409` on a
+  foreign owner); any other body → `400`. `GET /status` gains `turn` (default `reviewer`),
+  `turn_updated` (default 0), `handoff` (default null), `agent_status` (default null) — additive, no
+  removed keys. `summary()`/`list_reviews()` untouched (the new meta keys flow through `dict(meta)`).
+  No UI and no MCP change. Owner is client-supplied (server never mints identity).
 
 ## Validation
 
-_How this was verified._
+- `2026-06-23` — `python3 -m py_compile app.py` OK. Throwaway instance (`PORT=8161
+  MDREVIEW_DATA=/tmp/mr051`), full round-trip **29/29 checks PASS**: fresh-review defaults
+  (`turn=reviewer`, `agent_status` null, legacy status keys present); flip → `turn=agent` +
+  `turn_updated` bump + `agent_status` parked; lease claim + renew with **`turn_updated` unchanged**
+  (NIT-1); foreign-owner **`409`** back-off (owner unchanged); hand-back → `reviewer` +
+  `turn_updated` bump; reclaim → `reviewer` + bump; **idempotent** re-flip (`turn_updated` unchanged
+  on the 2nd `{to:agent}`); malformed body → **`400`** (SHOULD-3); all four new `/status` keys
+  present; **dashboard-status invariance** mid-handoff (`awaiting` unchanged, SHOULD-2) + `turn`
+  surfaced in `GET /api/reviews`; **back-compat** — an untouched review defaults correctly and
+  `PUT /source` + `GET /source` still 200.
 
 ## Follow-ups
 
