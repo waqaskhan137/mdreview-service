@@ -27,8 +27,13 @@ way it runs (mirrors `MDREVIEW_BASE=… python3 mcp_server.py`).
 Config (all env, stdlib-idiomatic):
   MDREVIEW_BASE              service base url (default http://localhost:8137, same as mcp_server.py)
   WATCH_TRUSTED_BASE        operator's explicit vouch; EXACT-match of MDREVIEW_BASE allows a
-                            non-loopback base. Unset => loopback only. (No wildcard/prefix. C3
-                            adds the relaxation.)
+                            non-loopback base. Unset => loopback only. (No wildcard/prefix.)
+  WATCH_ARMED_FILE          local allowlist file (C3): one review id per line, `#` comments,
+                            bad/`*` tokens dropped-and-logged. Re-read per check (live-editable).
+                            When configured, the watcher runs on an un-vouched non-loopback base
+                            but spawns ONLY armed reviews (un-armed skipped without a lease claim).
+  WATCH_ARMED               inline armed id-list (comma/space-separated), unioned with the file;
+                            fixed at process start (the file is the live-editable surface).
   WATCH_OWNER               stable lease owner id; default pid-derived (see _watcher_id / WC-5)
   WATCH_SINCE               "0" (or --backlog) to opt into the existing agent-turn backlog; default=now
   WATCH_WAIT_TIMEOUT_S      client long-poll timeout (default 25; server caps it to its WAIT_TIMEOUT_S)
@@ -40,6 +45,7 @@ Config (all env, stdlib-idiomatic):
 import collections
 import json
 import os
+import re
 import shlex
 import socket
 import subprocess
@@ -70,6 +76,82 @@ DEFAULT_LAUNCH_CMD = [
 ]
 
 
+# ---- C3 arming / allowlist: a LOCAL operator gate (never an HTTP capability) ----
+# The allowlist is operator-local config the service never sees: a file path WATCH_ARMED_FILE
+# (primary, live-editable) unioned with an inline env id-list WATCH_ARMED. On a no-auth public
+# instance a review CANNOT arm itself — there is no app.py route to set this; the watcher reads it
+# from disk/env. Arming relaxes C2's Step-0 refusal: un-vouched non-loopback runs IFF arming is
+# configured, and then only ARMED reviews are spawned (un-armed are skipped without a lease claim).
+_RID_RE = re.compile(r"[A-Za-z0-9]{4,40}")   # the server-generated id shape (app.py RID), reused
+WATCH_ARMED_FILE = os.environ.get("WATCH_ARMED_FILE")
+# The env id-list is fixed at process start (env cannot change in-process); the FILE is the
+# live-editable surface (re-read per check). Comma/space-separated; bad tokens dropped-and-logged.
+_WATCH_ARMED_ENV_RAW = os.environ.get("WATCH_ARMED")
+
+
+def arming_configured():
+    """True iff EITHER arming source is set — even if the resulting allowlist is empty. "Configured
+    but empty" is run-but-gate-everything (spawn nothing), NOT "unconfigured" (which would EXIT)."""
+    return bool(WATCH_ARMED_FILE) or _WATCH_ARMED_ENV_RAW is not None
+
+
+def _valid_id(token, source):
+    """A token is a valid armed id iff it fully matches the server id shape. A `*`/`ALL` wildcard,
+    a typo, or any garbage FAILS this (N2: `*` is dropped-and-logged, NEVER treated as match-all),
+    so a bad line never silently widens the allowlist and never crashes the watcher."""
+    if _RID_RE.fullmatch(token):
+        return True
+    print("watch.py: ignoring invalid armed id %r from %s (not %s)"
+          % (token, source, _RID_RE.pattern))
+    return False
+
+
+def _env_armed_ids():
+    """Parse WATCH_ARMED (comma/space-separated id-list), keeping only valid id tokens."""
+    if not _WATCH_ARMED_ENV_RAW:
+        return set()
+    tokens = _WATCH_ARMED_ENV_RAW.replace(",", " ").split()
+    return {t for t in tokens if _valid_id(t, "WATCH_ARMED")}
+
+
+def _file_armed_ids():
+    """Re-read WATCH_ARMED_FILE on EACH call (default no-cache freshness: arm a review by appending
+    a line, no restart). One id per line; blank lines and `#` comments ignored; whitespace stripped;
+    each token validated. A missing/unreadable file is an empty allowlist (logged), not a crash."""
+    if not WATCH_ARMED_FILE:
+        return set()
+    try:
+        with open(WATCH_ARMED_FILE, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    except OSError as e:
+        print("watch.py: cannot read WATCH_ARMED_FILE=%s (%s) — treating as empty allowlist"
+              % (WATCH_ARMED_FILE, e))
+        return set()
+    ids = set()
+    for line in lines:
+        token = line.strip()
+        if not token or token.startswith("#"):
+            continue
+        if _valid_id(token, "WATCH_ARMED_FILE"):
+            ids.add(token)
+    return ids
+
+
+def armed_ids():
+    """The unioned allowlist (env ∪ file). Re-reads the file each call for freshness."""
+    return _env_armed_ids() | _file_armed_ids()
+
+
+def _is_armed(review_id):
+    """The default-safe hinge. True iff arming is NOT configured (⇒ byte-for-byte C2: every review
+    is "armed") OR review_id is in the unioned allowlist. Consulted whenever arming is configured,
+    on EVERY base (C3-Q1: a single base-independent gate; the base check decides run-vs-exit, this
+    decides which reviews)."""
+    if not arming_configured():
+        return True
+    return review_id in armed_ids()
+
+
 # ---- Step 0: fail-closed trusted-base check (the security crux) ----
 def check_trusted_base(base):
     """Return True iff `base` is provably trusted. EXACT membership / EXACT string match — never a
@@ -86,17 +168,29 @@ def check_trusted_base(base):
 def require_trusted_base_or_exit(base):
     """Run the Step 0 check BEFORE any network call; refuse-and-exit (sys.exit(2)) on failure.
 
+    Decision table (C3 relaxes only row 4's CONSEQUENCE when arming is configured):
+      - loopback                                  => run (C2, unchanged)
+      - non-loopback + exact WATCH_TRUSTED_BASE   => run (C2, unchanged)
+      - non-loopback + no vouch + arming CONFIGURED => RUN (do NOT exit) — run-but-gate per review
+      - non-loopback + no vouch + NO arming       => EXIT 2 (C2 PRESERVED byte-for-byte)
+
     The refusal names BOTH MDREVIEW_BASE (the actual) and WATCH_TRUSTED_BASE (the vouch, or
     "(unset)") [WC-1] so a brittle exact-match mismatch (http vs https, :443 vs bare,
     localhost vs 127.0.0.1) is self-explaining. The fix for a paper-cut mismatch is the better
-    message, NOT a looser comparand — the strictness IS the control. No bypass env (C3's relaxation)."""
+    message, NOT a looser comparand — the strictness IS the control. C3 adds ONE escape hatch:
+    configuring arming (WATCH_ARMED_FILE/WATCH_ARMED) lets the watcher run un-vouched for armed
+    reviews only; it does NOT weaken the refusal when arming is unconfigured."""
     if check_trusted_base(base):
         return
+    if arming_configured():
+        return   # C3 relaxation: un-vouched non-loopback runs, but only ARMED reviews are spawned
     trust = os.environ.get("WATCH_TRUSTED_BASE") or "(unset)"
     sys.stderr.write(
         "watch.py refusing to start: untrusted base.\n"
         "  MDREVIEW_BASE=%s does not match WATCH_TRUSTED_BASE=%s\n"
         "  (unset => loopback only: localhost/127.0.0.1/::1; otherwise an EXACT match is required.)\n"
+        "  To run on this base, either vouch for it with WATCH_TRUSTED_BASE, or configure arming\n"
+        "  (WATCH_ARMED_FILE/WATCH_ARMED) to run armed reviews only.\n"
         % (base, trust)
     )
     sys.exit(2)
@@ -299,7 +393,15 @@ def run():
         cursor = max([cursor] + [r.get("turn_updated", 0) for r in rows])
         for r in rows:
             rid = r.get("id")
-            if rid and not handle(rid):
+            if not rid:
+                continue
+            if not _is_armed(rid):
+                # C3 W1: TERMINAL skip BEFORE handle() — never claims a lease, never the caps, and
+                # NEVER enters `pending` (the cursor already advanced, so /wait won't busy-spin; a
+                # later re-Send is a fresh turn_updated flip /wait re-surfaces on its own).
+                print("review %s not armed — skip (no claim)" % rid)
+                continue
+            if not handle(rid):           # C2, UNCHANGED: only capacity/409/error reach here
                 if _at_capacity():
                     pending.add(rid)       # retry as slots free, not via an un-advanced cursor
         _drain_pending(pending)
@@ -317,8 +419,23 @@ def _drain_pending(pending):
             pending.discard(rid)
 
 
+def _arming_startup_notice():
+    """W2: when arming is configured, announce the armed-id count and that the gate is
+    base-independent, so a silently-idle (empty-allowlist) watcher is never a surprise."""
+    if not arming_configured():
+        return
+    n = len(armed_ids())
+    msg = ("arming active: %d ids armed; un-armed reviews are skipped on ALL bases "
+           "(loopback/vouched included)" % n)
+    if n == 0:
+        msg += " — the allowlist is empty/non-matching, so the watcher will spawn NOTHING " \
+               "until you arm a review"
+    print(msg)
+
+
 def main():
     require_trusted_base_or_exit(BASE)   # Step 0: FIRST, before any network call. Refuse-and-exit.
+    _arming_startup_notice()             # W2: announce the gate when arming is configured
     try:
         run()
     except KeyboardInterrupt:
