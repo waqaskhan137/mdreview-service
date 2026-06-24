@@ -77,10 +77,24 @@
   #count{font-size:13px;color:var(--muted);}
   /* MR-052: turn baton — Send button, status banner, reclaim control */
   .btn.sendagent[disabled]{opacity:.5;cursor:default;}
-  .turnbanner{display:none;align-items:center;gap:10px;margin:0 0 22px;padding:9px 13px;border:1px solid var(--rule);border-radius:8px;background:rgba(127,127,127,.07);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:var(--text);}
+  .turnbanner{display:none;align-items:flex-start;gap:10px;margin:0 0 22px;padding:9px 13px;border:1px solid var(--rule);border-radius:8px;background:rgba(127,127,127,.07);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:var(--text);}
   .turnbanner.show{display:flex;}
-  .turnbanner #turntext{flex:1;}
+  #turnbody{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0;}
+  .turnhead{display:flex;align-items:baseline;gap:10px;}
+  .turnhead #turntext{flex:1;}
+  #turntimer{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;white-space:nowrap;}
   .turnbanner .reclaim{font-size:12px;padding:4px 11px;white-space:nowrap;}
+  /* MR-073 (issue #27): derived live progress timeline. Shown only while the agent is working
+     (#turnbanner.working); steps come purely from the /status epoch timestamps (no new data). */
+  #turnsteps{display:none;margin:0;padding:0;list-style:none;font-size:12px;color:var(--muted);}
+  #turnbanner.steps #turnsteps{display:flex;flex-direction:column;gap:3px;}
+  #turnsteps li{display:flex;align-items:center;gap:7px;}
+  #turnsteps li::before{content:"\25CB";color:var(--muted);width:1em;text-align:center;font-size:10px;}   /* ○ pending */
+  #turnsteps li.done{color:var(--text);}
+  #turnsteps li.done::before{content:"\25CF";color:var(--accent);}                                          /* ● reached */
+  #turnsteps li.active{color:var(--text);}
+  #turnsteps li.active::before{content:"";display:inline-block;width:9px;height:9px;border:2px solid var(--muted);border-top-color:transparent;border-radius:50%;animation:turnspin .8s linear infinite;}
+  @media (prefers-reduced-motion:reduce){#turnsteps li.active::before{animation:none;border-top-color:var(--muted);opacity:.6;}}
   /* MR-062 (issue #27, supersedes MR-061): a clear loading SPINNER on the agent-turn *waiting* states — both
      "Sent — waiting for pickup" AND "Agent is working" (NOT the stale "may have stopped"). renderBanner
      adds the .loading class in those two arms. Pure CSS rotating ring; reduced-motion shows a static ring. */
@@ -174,7 +188,13 @@
   </div>
   <h1 id="doctitle"></h1>
   <div id="docmeta"></div>
-  <div id="turnbanner" class="turnbanner"><span id="turntext"></span><button class="btn reclaim" id="reclaimbtn">Take back the turn</button></div>
+  <div id="turnbanner" class="turnbanner">
+    <div id="turnbody">
+      <div class="turnhead"><span id="turntext"></span><span id="turntimer"></span></div>
+      <ol id="turnsteps"></ol>
+    </div>
+    <button class="btn reclaim" id="reclaimbtn">Take back the turn</button>
+  </div>
   <div id="article">Loading...</div>
 </div>
 
@@ -238,12 +258,43 @@ function postHandoff(body){
 }
 // First-match decision: agent rows key on turn==='agent', reviewer rows on agent_status.state, so no
 // row shadows another. agent message is set via textContent (it can't inject HTML).
+// MR-073 (issue #27): per-turn progress state for the derived live timeline + timer. The steps come
+// purely from the /status epoch timestamps (no new data): while turn==='agent', turn_updated is the
+// Send/flip time (stable), so source_updated/comments_updated > turn_updated ⟺ that happened THIS turn.
+// We ACCUMULATE reached steps (cumulative — a skipped 2s poll can't lose one) and keep them into the
+// following 'done' state (where turn_updated is re-bumped to the hand_back time, so the comparison no
+// longer works — the remembered flags + the client-captured start carry the final render). Reset on a
+// NEW agent turn (fresh turn_updated). A fresh page that never observed turn==='agent' leaves these
+// unset → no bogus final duration (the documented reopen-after-done limitation).
+let _turnId=null, _turnStartAt=null, _turnEdited=false, _turnCommented=false, _lastStatus=null, _timerIv=null;
+function fmtDur(s){s=Math.max(0,Math.floor(s));return Math.floor(s/60)+":"+String(s%60).padStart(2,'0');}
+function renderSteps(reached, activeIdx){
+  const steps=$("#turnsteps"); if(!steps)return;
+  const labels=["Connected — reading your comments","Editing the document","Updating comments"];
+  steps.innerHTML='';
+  labels.forEach((label,i)=>{
+    const li=document.createElement('li'); li.textContent=label;     // textContent: no HTML injection
+    if(reached[i]) li.className=(i===activeIdx)?'active':'done';
+    steps.appendChild(li);
+  });
+  return steps;
+}
+function startTicker(){                                               // 1s fetch-free clock for the live timer
+  if(_timerIv)return;
+  _timerIv=setInterval(()=>{
+    const st=_lastStatus, t=$("#turntimer");
+    if(t && st && st.turn==='agent' && st.agent_status && _turnStartAt!=null)
+      t.textContent=fmtDur(Date.now()/1000-_turnStartAt);            // recompute from cached /status, no poll
+  },1000);
+}
 function renderBanner(st){
   const turn=(st&&st.turn)||'reviewer';
   const as=st&&st.agent_status;            // null/absent => parked or never handed off
-  const send=$("#sendbtn"),reclaim=$("#reclaimbtn"),tt=$("#turntext"),bar=$("#turnbanner");
+  const send=$("#sendbtn"),reclaim=$("#reclaimbtn"),tt=$("#turntext"),bar=$("#turnbanner"),timer=$("#turntimer"),steps=$("#turnsteps");
   if(!bar)return;
-  bar.classList.remove('loading','warn');    // MR-062/MR-066: arms below re-add 'loading' (waiting) or 'warn' (act)
+  _lastStatus=st;
+  bar.classList.remove('loading','warn','steps');    // MR-062/066/073: arms below re-add the relevant one
+  if(steps)steps.innerHTML=''; if(timer)timer.textContent='';   // cleared unless a timeline arm repopulates
   let msg;
   if(turn==='agent'){
     if(!as){
@@ -257,12 +308,35 @@ function renderBanner(st){
       }
     }
     else if((Date.now()/1000-(as.at||0))>STALE_S){msg="Agent may have stopped — Take back the turn?";bar.classList.add('warn');}  // MR-066: stale lease is also an "act" state
-    else{msg="Agent is working on your feedback…";bar.classList.add('loading');}   // MR-062: spinner via #turntext::before
+    else{
+      // MR-073 (issue #27): claimed + working → the live progress timeline + ticking timer.
+      const tu=(st&&st.turn_updated)||0;
+      if(tu!==_turnId){_turnId=tu;_turnStartAt=tu;_turnEdited=false;_turnCommented=false;}   // a new turn
+      if(((st&&st.source_updated)||0)>tu)_turnEdited=true;            // edited THIS turn (cumulative)
+      if(((st&&st.comments_updated)||0)>tu)_turnCommented=true;       // comment activity THIS turn
+      const reached=[true,_turnEdited,_turnCommented];
+      let active=0; reached.forEach((r,i)=>{if(r)active=i;});         // latest reached step = active (spins)
+      renderSteps(reached,active);
+      bar.classList.add('steps');                                    // show #turnsteps (active step spins → liveness)
+      msg="Agent is working on your feedback…";
+      if(timer)timer.textContent=fmtDur(Date.now()/1000-_turnStartAt);   // live elapsed
+      startTicker();
+    }
     reclaim.style.display='';              // rows 1–3: reclaim available
     send.disabled=true;send.textContent="Sent — agent's turn";
   }else{
     const state=as&&as.state;
-    if(state==='done')msg="Agent updated the draft"+(as.message?": "+as.message:"")+". Your turn.";
+    if(state==='done'){
+      msg="Agent updated the draft"+(as.message?": "+as.message:"")+". Your turn.";
+      // MR-073: if we watched the run (start captured), show the terminal timeline + final duration.
+      if(_turnStartAt!=null){
+        renderSteps([true,_turnEdited,_turnCommented],-1);           // all reached steps done; no active/spin
+        if(_turnCommented&&steps&&steps.children[2])steps.children[2].textContent="Resolved comments"; // honest: only on done
+        bar.classList.add('steps');
+        const at=(as&&as.at)||0;
+        if(timer&&at>_turnStartAt)timer.textContent="Agent revised in "+fmtDur(at-_turnStartAt);
+      }
+    }
     else if(state==='blocked'){
       // MR-068 (issue #26): distinguish the WATCHER's crash signal (the turn is already back with you)
       // from a deliberate agent question. The watcher sends "agent process exited N without finishing".
