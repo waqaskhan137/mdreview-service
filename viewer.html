@@ -87,6 +87,10 @@
   #turnbanner.loading #turntext::before{content:"";display:inline-block;width:11px;height:11px;margin-right:9px;vertical-align:-1px;border:2px solid var(--muted);border-top-color:transparent;border-radius:50%;animation:turnspin .8s linear infinite;}
   @keyframes turnspin{to{transform:rotate(360deg);}}
   @media (prefers-reduced-motion:reduce){#turnbanner.loading #turntext::before{animation:none;border-top-color:var(--muted);opacity:.6;}}
+  /* MR-066 (issue #26): a NON-spinning warning treatment for "nothing is coming, act" states — the
+     pickup-timeout cue (no agent claimed within the grace window) and, reused by MR-068, the crashed-run
+     signal. No animation, so reduced-motion-safe by construction. Defined here; MR-068 reuses it. */
+  #turnbanner.warn{border-color:var(--noteline);border-left:3px solid var(--noteline);background:rgba(212,160,23,.10);}
   #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--accent);color:#fff;font-family:-apple-system,sans-serif;font-size:13px;padding:8px 16px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
   /* MR-006/MR-036: Google-Docs style margin comments (threaded) */
   #gutter{position:absolute;top:0;width:284px;z-index:5;display:none;}
@@ -224,6 +228,11 @@ function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt
 // --- MR-052: turn baton UI (Send / status banner / reclaim), driven purely by the /status body ---
 const STALE_S=180;   // lease-heartbeat staleness (~3 min); agent_status.at is epoch SECONDS (float).
                      // MIRRORS app.py LEASE_TTL_S (single source of truth; both seconds) — move together.
+const PICKUP_GRACE_S=60;  // MR-066 (issue #26): pickup grace — turn==agent but NOTHING has claimed a lease
+                          // (agent_status null). A different, shorter clock than STALE_S (which is for a
+                          // claimed-then-stale lease): > one ~25s watcher long-poll cycle + claim/spawn
+                          // jitter (a live watcher won't trip it), < STALE_S=180, > the ~2s poll. Surfaces
+                          // a no-watcher review in ~1 min instead of spinning forever.
 function postHandoff(body){
   return fetch(API+'/handoff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 }
@@ -234,11 +243,20 @@ function renderBanner(st){
   const as=st&&st.agent_status;            // null/absent => parked or never handed off
   const send=$("#sendbtn"),reclaim=$("#reclaimbtn"),tt=$("#turntext"),bar=$("#turnbanner");
   if(!bar)return;
-  bar.classList.remove('loading');           // MR-062: the two waiting arms below re-add it (not stale)
+  bar.classList.remove('loading','warn');    // MR-062/MR-066: arms below re-add 'loading' (waiting) or 'warn' (act)
   let msg;
   if(turn==='agent'){
-    if(!as){msg="Sent — waiting for an agent to pick this up.";bar.classList.add('loading');}  // MR-062: spinner
-    else if((Date.now()/1000-(as.at||0))>STALE_S)msg="Agent may have stopped — Take back the turn?";
+    if(!as){
+      // MR-066: parked — nothing claimed. Within grace: still spinner. Past grace: non-spinning warning
+      // (no watcher running, or nothing picked it up). turn_updated is in the /status body; renderBanner
+      // runs every ~2s poll tick (not guarded on a status change), so this flips as the clock crosses.
+      if((Date.now()/1000-((st&&st.turn_updated)||0))>PICKUP_GRACE_S){
+        msg="No agent has picked this up — is a watcher running? Take back the turn.";bar.classList.add('warn');
+      }else{
+        msg="Sent — waiting for an agent to pick this up.";bar.classList.add('loading');  // MR-062: spinner
+      }
+    }
+    else if((Date.now()/1000-(as.at||0))>STALE_S){msg="Agent may have stopped — Take back the turn?";bar.classList.add('warn');}  // MR-066: stale lease is also an "act" state
     else{msg="Agent is working on your feedback…";bar.classList.add('loading');}   // MR-062: spinner via #turntext::before
     reclaim.style.display='';              // rows 1–3: reclaim available
     send.disabled=true;send.textContent="Sent — agent's turn";
