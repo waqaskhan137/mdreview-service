@@ -190,12 +190,12 @@ does not start it.
 # trusted-base mode: a loopback service. WATCH_LAUNCH_CMD is REQUIRED (no default); the
 # scoped/recommended recipe (mdreview-tools-only, robustly headless) is:
 MDREVIEW_BASE=http://localhost:8137 \
-  WATCH_LAUNCH_CMD='["claude","-p","--permission-mode","dontAsk","--allowedTools","mcp__mdreview__*","<prompt>"]' \
+  WATCH_LAUNCH_CMD='["claude","--permission-mode","dontAsk","--allowedTools","mcp__mdreview__*","-p","<prompt>"]' \
   python3 watch.py
 
 # with a non-loopback base, you MUST vouch for it explicitly (exact match):
 MDREVIEW_BASE=http://10.0.0.5:8137 WATCH_TRUSTED_BASE=http://10.0.0.5:8137 \
-  WATCH_LAUNCH_CMD='["claude","-p","--permission-mode","dontAsk","--allowedTools","mcp__mdreview__*","<prompt>"]' \
+  WATCH_LAUNCH_CMD='["claude","--permission-mode","dontAsk","--allowedTools","mcp__mdreview__*","-p","<prompt>"]' \
   python3 watch.py
 ```
 
@@ -205,7 +205,11 @@ that silently no-ops headless. The agent runs with **no TTY**, so any tool whose
 raise an interactive approval prompt stalls the run.
 
 - **Scoped / recommended (headless, mdreview-tools-only):**
-  `WATCH_LAUNCH_CMD='["claude","-p","--permission-mode","dontAsk","--allowedTools","mcp__mdreview__*","<prompt>"]'`.
+  `WATCH_LAUNCH_CMD='["claude","--permission-mode","dontAsk","--allowedTools","mcp__mdreview__*","-p","<prompt>"]'`.
+  **Argument order matters:** `--allowedTools` is **variadic** (a space-separated tool list), so keep
+  `-p "<prompt>"` **last** — a prompt placed right after `--allowedTools` is swallowed as another tool
+  name, and `claude` then errors `Input must be provided … when using --print` (the agent dies and the
+  review strands).
   `--allowedTools` **alone is not robustly headless**: an unlisted tool the agent reaches for
   (`Read`/`Bash`/`TodoWrite`/a web fetch) falls through to the no-TTY permission prompt and stalls (a
   narrowed reprise of the original no-op defect). **`--permission-mode dontAsk` converts that

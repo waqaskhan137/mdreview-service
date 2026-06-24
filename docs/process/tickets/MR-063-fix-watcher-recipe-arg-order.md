@@ -1,7 +1,7 @@
 ---
 id: MR-063
 title: "Fix the scoped watcher launch recipe arg order — `-p` prompt last (GH #25)"
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done          # backlog | ready | in-progress | review | done | blocked
 layer: docs            # svc | ui | infra | docs
 priority: P1           # P0 | P1 | P2 | P3
 sprint: sprint-22
@@ -74,3 +74,24 @@ _How this was verified._
 ## Follow-ups
 
 Anything deliberately deferred. Move real follow-ups to `backlog.md` or a new ticket.
+
+## Work log
+
+- `2026-06-24` — `README.md` only. Reordered the three scoped watcher launch-recipe literals
+  (README:193/198/208) from `["claude","-p",…,"--allowedTools","mcp__mdreview__*","<prompt>"]` to
+  prompt-last `["claude","--permission-mode","dontAsk","--allowedTools","mcp__mdreview__*","-p","<prompt>"]`,
+  and added an "Argument order matters: `--allowedTools` is variadic — keep `-p \"<prompt>\"` last"
+  note explaining that a prompt right after `--allowedTools` is swallowed as a tool name (claude then
+  errors `Input must be provided … when using --print`, the agent dies, the review strands). The
+  full-autonomy recipe (README:221, `["claude","--dangerously-skip-permissions","-p","<prompt>"]`) is
+  already prompt-last — left unchanged. `CLAUDE.md` carries no recipe literal (prose pointer only) —
+  README-only, confirmed. No `app.py`/code change.
+
+## Validation
+
+- `2026-06-24` — `py_compile app.py` OK (unchanged). Greps confirm: 0 wrong-order recipes remain, 3
+  corrected prompt-last scoped recipes, 1 variadic note, full-autonomy recipe already prompt-last, 0
+  recipe literals in CLAUDE.md. The corrected order was runtime-verified earlier this session: a stub
+  `claude --permission-mode dontAsk --allowedTools "mcp__mdreview__*" -p "Reply with exactly: OK"`
+  returned `exit 0, stdout "OK"` (vs the broken order's `Input must be provided … when using --print`).
+  Fixes GH #25.
