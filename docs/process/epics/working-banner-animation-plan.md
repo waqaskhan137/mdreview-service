@@ -1,6 +1,6 @@
 ---
 epic: working-banner-animation
-status: active          # draft | active | done  (stays draft until G1 passes)
+status: done           # shipped: MR-061 (sprint-21), G7 PASS 2026-06-24
 created: 2026-06-24
 source: requirements/working-banner-animation.md
 gate: passed 2026-06-24    # G1 (Plan Gate): not passed | passed YYYY-MM-DD — tickets blocked until passed

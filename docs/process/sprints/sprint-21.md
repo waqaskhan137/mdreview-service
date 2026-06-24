@@ -1,11 +1,11 @@
 ---
 id: sprint-21
 name: working-banner-animation — waiting ellipsis
-status: active         # planning | active | closed
+status: closed         # planning | active | closed
 start: 2026-06-24
 end: 2026-06-27
 goal: Add a subtle CSS-only animated ellipsis to the viewer's working-state turn banner so a reviewer can see at a glance that the agent is alive and working, not hung — every other banner state unchanged, motion respecting prefers-reduced-motion.
-close_review:          # reviews/sprint-21-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: reviews/sprint-21-close-review-2026-06-24.md   # G7 PASS 2026-06-24 (staff-critic, independent; re-ran render-smoke)
 ---
 
 ## Goal
@@ -38,20 +38,33 @@ The intended order, accounting for dependencies. Unblocking work first.
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+**Closed 2026-06-24, G7 PASS** (staff-critic, independent — `reviews/sprint-21-close-review-2026-06-24.md`).
+MR-061 `done`, no carry-overs. **This closes the single-ticket `working-banner-animation` epic — epic `done`.**
 
-- Scope changes, carry-overs to the next sprint, what went well / poorly.
+- **Shipped:** MR-061 — a pure-CSS pulsing waiting ellipsis on the viewer's `working`-state turn banner
+  (`#turnbanner.working #turntext::after`), gated to a `working` class that only `renderBanner`'s genuine
+  working arm sets (single `remove` at the top + `add` in that arm), the literal "…" dropped from the
+  message, coloured from `--muted` so it reads on both panes, with a required
+  `@media (prefers-reduced-motion: reduce)` off-switch. Only the working state animates. `viewer.html`
+  only — the cheap low-hanging slice of GH #27 (the rest — progress steps, streamed updates — stays in #27).
+- **G7 critic independently rebuilt + re-ran the render-smoke:** `.working` present in the working state /
+  absent after a reclaim (the load-bearing scope + stale-class check), both-pane screenshots, and the CDP
+  reduced-motion probe (`none` under reduce, `turnworking` without). Evidence under
+  `reviews/sprint-21-render-evidence-2026-06-24/`.
+- **Carry-overs:** none. The animation slice of #27 is complete; #27 stays open for progress + streaming.
+- **Process note:** scaffold committed to `dev` before implementation; all smokes/evidence in-project
+  (`.scratch/` → `reviews/sprint-21-render-evidence-*`); the C1-retro lessons held.
 
 ## Close gate (G7)
 
 The sprint cannot be marked `closed` until:
 
-- [ ] every committed ticket is `done` or explicitly carried over (note where);
-- [ ] a **staff-critic sprint-close review** exists at
-      `reviews/sprint-21-close-review-YYYY-MM-DD.md`, verifying shipped work against each
-      ticket's acceptance criteria, **including a render smoke** of any page touched, and its
-      findings are resolved or carried;
-- [ ] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
+- [x] every committed ticket is `done` or explicitly carried over (note where) — MR-061 done, no carry-overs;
+- [x] a **staff-critic sprint-close review** exists at
+      `reviews/sprint-21-close-review-2026-06-24.md`, verifying shipped work against each
+      ticket's acceptance criteria, **including a render smoke** of any page touched (re-run independently
+      by the critic from a rebuilt throwaway image), and its findings are resolved or carried;
+- [x] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
 
 **G7 scope note (working-banner-animation specifics).** This sprint **IS** a product-page change —
 it edits `viewer.html` (baked into the container at build time, `Dockerfile:8`). So per the G7

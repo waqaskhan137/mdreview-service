@@ -7,11 +7,13 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**sprint-21 (working-banner-animation — waiting ellipsis) — MR-061 DONE, pending G7 close** (2026-06-24).
-Epic `working-banner-animation` cleared G1 2026-06-24 (PASS-WITH-NITS; design approved, the folded fixes
-are all in the smoke recipe). Render-smoke PASS (rebuilt throwaway, scratch port; `.working` present in
-the working state / absent after reclaim; both-pane screenshots; reduced-motion probe `none`/`turnworking`);
-evidence under `reviews/sprint-21-render-evidence-2026-06-24/`. A standalone small `ui` enhancement — the cheap low-hanging slice of GH
+**EPIC `working-banner-animation` COMPLETE.** **sprint-21 (waiting ellipsis) CLOSED at G7 2026-06-24**
+(staff-critic PASS, `reviews/sprint-21-close-review-2026-06-24.md`; independent — the critic rebuilt a
+throwaway image and re-ran the render-smoke: `.working` present in the working state / absent after
+reclaim, both-pane screenshots, reduced-motion probe `none`/`turnworking`; evidence under
+`reviews/sprint-21-render-evidence-2026-06-24/`). Shipped MR-061 — a pure-CSS pulsing waiting ellipsis on
+the viewer's `working`-state turn banner, only that state animates, with a `prefers-reduced-motion`
+off-switch. `viewer.html` only. The cheap low-hanging slice of GH #27 (progress + streaming stay in #27). A standalone small `ui` enhancement — the cheap low-hanging slice of GH
 **#27** (the rest of #27, behind-the-scenes progress steps + streamed/diff-animated document updates,
 stays in #27). The viewer's turn banner is **static** ("Agent is working on your feedback…") while the
 agent holds the turn — indistinguishable from a hung agent (the GH #25/#26 confusion). **MR-061**
@@ -228,4 +230,4 @@ _none_
 | agent-handoff-baton | done on `dev` (3 chunks: MR-051+MR-052+MR-053; sprints 14/15/16 CLOSED G7 PASS; PR #17 pending) | G1 passed 2026-06-23 | sprint-14/15/16 |
 | agent-watcher | **done** (all 3 chunks shipped: C1 sprint-17 + C2 sprint-18 + C3 sprint-19, each G7 PASS) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1), sprint-18 (C2), sprint-19 (C3) |
 | watcher-launch-fix | **done** (MR-060 shipped, sprint-20 G7 PASS 2026-06-24) — follow-up to the done agent-watcher epic (inert must-configure launch stub + runbook) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-20 |
-| working-banner-animation | active (G1 cleared; MR-061 ready) — standalone small `ui` enhancement, slice of #27 (CSS-only animated ellipsis on the working-state turn banner) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-21 |
+| working-banner-animation | **done** (MR-061 shipped, sprint-21 G7 PASS 2026-06-24) — standalone small `ui` enhancement, slice of #27 (CSS-only animated ellipsis on the working-state turn banner) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-21 |
