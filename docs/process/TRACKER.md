@@ -7,6 +7,28 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
+**EPIC `history-version-fix` ACTIVE — sprint-23 OPEN (G1 PASS 2026-06-24).** A small two-ticket
+batch fixing the document History modal: it mislabels versions (tops out at `v(N-1)` while the
+dashboard badge shows `vN`, never lists the current live draft) and stamps every round "0 notes" (the
+retired `notes.json` count, untruthful and unrecoverable for existing rounds). Implements GH **#18**.
+**MR-064** `ready` (svc): `snapshot_round` stops writing `notes_total`/`notes_addressed` into
+`round.json` (the count lie has no backing data; the `summary()` per-review `notes_total` is a
+different, untouched field) + update `README.md:55` `/history` per-round shape to `{round, ts}`;
+svc + a README line → no render-smoke, gate is `py_compile app.py` + a curl smoke (POST → 2 PUTs →
+`/history` + `/history/{n}` show the new `round.json` shape with no `notes_total`) + a README grep.
+**MR-065** `ready` (ui, depends_on MR-064): the History modal lists the current draft as a top
+`current (v{rev})` entry from `GET /source` + `revision` (no new endpoint; relocate the
+`viewer.html:678` early-return so it always renders, plain `current` at revision 0), relabels archived
+rounds `v{round} · earlier draft` newest-first (display-only — `round-n`/`/history/{n}` NOT
+renumbered), and removes the "· N notes" label + empty per-round notes block. **MR-065 IS a
+product-page change** (`viewer.html`) → G7 owes a **node-CDP modal-DOM verification** (the proven
+`agent_smoke.py:112-148` pattern: `openHistory()` then read the modal back — `.histitem` >= 3, top
+`current (v2)` == dashboard `.badge`, archived `v1`/`v0` newest-first, NO "notes" text on the rendered
+DOM, current-entry click → `#histview .histdoc` with the draft text) **plus a screenshot**, NOT a bare
+render-smoke against the modal selectors (the sprint-07 wall: the modal is `display:none` until a
+click, so render-smoke's `--dump-dom` false-fails). Both rebuild a throwaway container on a scratch
+port (never 8139/8137/compose); evidence under `reviews/sprint-23-render-evidence-2026-06-24/`.
+
 **EPIC `watcher-ux-fixes` COMPLETE.** **sprint-22 (spinner + recipe arg-order) CLOSED at G7 2026-06-24**
 (staff-critic PASS, `reviews/sprint-22-close-review-2026-06-24.md`; independent — the critic rebuilt a
 throwaway image and re-ran the MR-062 render-smoke, State A waiting-for-pickup `.loading` present being
@@ -150,7 +172,10 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-064 | snapshot_round: stop writing the retired notes count into round.json (+ README.md:55 shape) | svc | P2 | sprint-23 |
+| MR-065 | History modal: list current draft as `current (vN)`, relabel rounds, drop "0 notes" | ui | P2 | sprint-23 |
 
 ## in-progress
 
@@ -259,3 +284,4 @@ _none_
 | watcher-launch-fix | **done** (MR-060 shipped, sprint-20 G7 PASS 2026-06-24) — follow-up to the done agent-watcher epic (inert must-configure launch stub + runbook) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-20 |
 | working-banner-animation | **done** (MR-061 shipped, sprint-21 G7 PASS 2026-06-24) — standalone small `ui` enhancement, slice of #27 (CSS-only animated ellipsis on the working-state turn banner) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-21 |
 | watcher-ux-fixes | **done** (MR-062 + MR-063 shipped, sprint-22 G7 PASS 2026-06-24) — two-ticket watcher UX batch: a rotating spinner on both agent-turn waiting states (supersedes MR-061) + fixed the README scoped launch-recipe arg order (GH #25) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-22 |
+| history-version-fix | active (MR-064 + MR-065 ready) — fix the History modal's version labels (list the current draft, reconcile the off-by-one) + remove the untruthful per-round "0 notes" count; implements GH #18 | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-23 |
