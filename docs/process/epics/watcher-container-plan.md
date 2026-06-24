@@ -1,12 +1,12 @@
 ---
 epic: watcher-container
-status: draft
+status: active
 created: 2026-06-24
 source: docs/process/requirements/watcher-container.md
-gate: G1 not passed
-review:
-related_sprints: []
-related_tickets: []
+gate: passed 2026-06-24
+review: reviews/watcher-container-plan-review-2026-06-24.md
+related_sprints: [sprint-25]
+related_tickets: [MR-069, MR-070, MR-071, MR-072]
 ---
 
 # Opt-in Containerized Watcher (Claude Subscription Auth) Plan
@@ -120,9 +120,13 @@ repo proper and wire it through `watch.py`'s existing launch interface:
 - **`watcher/launch.sh`** — the wrapper, promoted from `.scratch/agent-launch.sh` unchanged in
   shape. It interpolates `$REVIEW_ID` / `$MDREVIEW_BASE` / `$MDREVIEW_OWNER` (the contract
   `watch.py` sets in the child env) into the prompt and `exec`s:
-  `claude --mcp-config <cfg> --permission-mode dontAsk --allowedTools "mcp__mdreview__*" -p "<prompt>"`.
+  `claude --mcp-config <cfg> --strict-mcp-config --permission-mode dontAsk --allowedTools
+  "mcp__mdreview__*" -p "<prompt>"`.
   **Recipe gotcha (MR-063): keep `-p "<prompt>"` LAST** — the variadic `--allowedTools` swallows a
   trailing bare prompt. Carry this as an inline comment in the wrapper so it is not re-broken.
+  **Pin `--strict-mcp-config`** (verified flag: "Only use MCP servers from --mcp-config") so the
+  agent's tool surface is exactly the one mdreview server — no ambient/inherited MCP merge — making
+  the agent deterministic and narrowing any failure to compose wiring.
 - **`watcher/agent-mcp.json`** — the agent's MCP config, promoted from `.scratch/agent-mcp.json` but
   with `MDREVIEW_BASE` set to **`http://mdreview:8080`** (compose service name) and the
   `mcp_server.py` path set to the in-image location. Points the agent's mdreview tools at the
@@ -132,7 +136,11 @@ repo proper and wire it through `watch.py`'s existing launch interface:
   mcp_server.py watcher/launch.sh watcher/agent-mcp.json`; `chmod +x` the wrapper. **CMD runs
   `watch.py`.** The main `Dockerfile` is untouched (stays stdlib-only).
 - **`docker-compose.yml`** — add a `watcher` service under `profiles: [watcher]` (so plain `up`
-  excludes it), `build: { dockerfile: Dockerfile.watcher }`, `depends_on: [mdreview]`, env:
+  excludes it), `build: { dockerfile: Dockerfile.watcher }`, and a **readiness-gated** dependency
+  `depends_on: { mdreview: { condition: service_healthy } }` (NOT the bare `depends_on: [mdreview]`,
+  which only orders start and lets the watcher poll `http://mdreview:8080` before the listener is up).
+  The main image already defines a `HEALTHCHECK` (`Dockerfile:15`), so `service_healthy` is available
+  and makes the e2e deterministic — no flaky first-poll race in the ~2 min MR-071 gate. Env:
   - `MDREVIEW_BASE: http://mdreview:8080`
   - `WATCH_TRUSTED_BASE: http://mdreview:8080` (EXACT match → vouches the non-loopback base; the
     fail-closed check at `watch.py:227` stays in force)
@@ -164,26 +172,34 @@ repo, validated by `py_compile` (unchanged scripts) + a host dry-run of the wrap
 
 ### Phase 2 — `Dockerfile.watcher` + auth-verified image
 
-Add `Dockerfile.watcher` (Node + python3 + pinned `claude` CLI + COPYs). Headline gate: build
-succeeds **and** a container started with a real `CLAUDE_CODE_OAUTH_TOKEN` runs
-`claude -p "say hi" --print` (or equivalent minimal headless prompt) and gets a **subscription
-response, no keychain, no interactive login** — proving the env-var token authenticates headless.
-This is the make-or-break auth test isolated to its own ticket.
+Add `Dockerfile.watcher` (Node + python3 + pinned `claude` CLI + COPYs + a baked trusted-CWD
+settings file so the workspace-trust dialog is skipped headlessly). Headline gate: build succeeds
+**and** a container started with a real `CLAUDE_CODE_OAUTH_TOKEN`, run as the image's **actual runtime
+user with a writable `$HOME`**, runs `claude` with the **real launch flag shape** (`--mcp-config
+--strict-mcp-config --permission-mode dontAsk -p` last) and gets a **subscription response, no
+keychain, no interactive login** — and separately completes a **first MCP round-trip** (the agent
+calls one mdreview tool against a throwaway service). The auth/trust failure mode is made
+distinguishable (auth error vs. trust-dialog timeout). This is the make-or-break test isolated to its
+own ticket, retired before compose depends on it.
 
 ### Phase 3 — Compose profile (the opt-in deploy) + end-to-end
 
-Add the `watcher` service under `profiles: [watcher]` to `docker-compose.yml`. Gates: plain
-`docker compose config` / `up` lists **only** `mdreview` (no watcher); `--profile watcher up` brings
-up both; with a test token, a "Send to agent" is picked up and an agent **actions a comment
-end-to-end** (doc changed + comment resolved + turn returned, ~2 min cap) — on a throwaway compose
-project name/port, never the live `mdreview` / `mdreview-data` / :8139 / :8137.
+Add the `watcher` service under `profiles: [watcher]` to `docker-compose.yml`, readiness-gated on
+the service (`condition: service_healthy`). Gates: plain `docker compose config` / `up` lists
+**only** `mdreview` (no watcher); `--profile watcher up` brings up both; with a test token, a "Send to
+agent" is picked up and an agent **actions a comment end-to-end** (doc changed + comment resolved +
+turn returned, ~2 min cap) — on a throwaway compose project name/port, never the live `mdreview` /
+`mdreview-data` / :8139 / :8137. **This is the merge that closes GH #30** (the working profile, not
+the docs PR).
 
 ### Phase 4 — Operator runbook + docs
 
 Document the one-time `claude setup-token` mint, the `.env` wiring, rotation, the Linux-host
-`~/.claude/.credentials.json` mount alternative, and the explicit "this auto-actions every Sent
+`~/.claude/.credentials.json` mount alternative, a **cheap startup auth-probe** (so an expired token
+surfaces at `up` time, not as a stranded review), and the explicit "this auto-actions every Sent
 review; it is the **local single-user** path, not for a public instance" warning. Cross-link the
-README watcher runbook and close GH #30.
+README watcher runbook. (GH #30 is already closed by MR-071's working-profile merge; this phase
+references it, does not close it.)
 
 ## Non-goals
 
@@ -248,9 +264,9 @@ Create in `tickets/` after G1. IDs continue from MR-068 → **MR-069+**. Sprint:
 | ID | Title | Layer | Phase |
 |----|-------|-------|-------|
 | MR-069 | Promote prototype into `watcher/` (wrapper + agent MCP config), `.env.example`, gitignore `.env` | infra | 1 |
-| MR-070 | `Dockerfile.watcher` (Node + python3 + pinned `claude` CLI) + headless subscription-auth proof | infra | 2 |
-| MR-071 | `docker-compose.yml` `watcher` profile (off by default) + end-to-end Send→action gate | infra | 3 |
-| MR-072 | Operator runbook: `claude setup-token`, `.env`, rotation, Linux creds-mount alternative; README + close GH #30 | docs | 4 |
+| MR-070 | `Dockerfile.watcher` (Node + python3 + pinned `claude` CLI) + headless auth-proof (real flag shape, trust settled, runtime-user writable home) + first MCP round-trip | infra | 2 |
+| MR-071 | `docker-compose.yml` `watcher` profile (off by default, `service_healthy` gated) + end-to-end Send→action gate; **closes GH #30** | infra | 3 |
+| MR-072 | Operator runbook: `claude setup-token`, `.env`, rotation, Linux creds-mount alternative, startup auth-probe; README (references #30, does NOT close it) | docs | 4 |
 
 Right-sizing notes: the auth risk is isolated to MR-070 so it is proven before MR-071's compose work
 builds on it. MR-069 is a small, independently shippable promotion (host operators benefit
@@ -262,11 +278,15 @@ auth proof proves heavy in practice, it may split into "image builds with a work
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| **`CLAUDE_CODE_OAUTH_TOKEN` does not authenticate a headless `claude` in a no-keychain Linux container** (the residual auth unknown). | Low–medium | Env var name + subscription billing verified; host prototype works. **MR-070 gates on an in-container `claude -p` returning a subscription response** before any compose work. If it fails: escalate from the ticket with the exact `claude` error; fallback path is mounting `~/.claude/.credentials.json` on Linux hosts (documented as the alternative). This is named as the single biggest risk. |
+| **`CLAUDE_CODE_OAUTH_TOKEN` does not authenticate a headless `claude` in a no-keychain Linux container** (the residual auth unknown). | Low–medium | Env var name + subscription billing verified; host prototype works. **MR-070 gates on an in-container `claude` run using the REAL flag shape (`--mcp-config --strict-mcp-config --permission-mode dontAsk -p`)** before any compose work, with the failure mode made distinguishable (auth error vs. trust-dialog timeout). If it fails: escalate from the ticket with the exact `claude` error; fallback path is mounting `~/.claude/.credentials.json` on Linux hosts (documented as the alternative). This is named as the single biggest risk. |
+| **Fresh-container workspace-trust / onboarding dialog hangs the headless run** and looks like an auth failure. | Medium | Bake a trusted-CWD `--settings`/settings file into `Dockerfile.watcher`; MR-070's auth proof is `timeout`-boxed so a trust hang (exit 124) is distinguishable from a fast auth error. |
+| **First `--mcp-config` MCP round-trip fails headless in the image** (silently folded into MR-071's e2e). | Medium | MR-070 proves it directly: agent calls one mdreview tool against a throwaway service over a private network, before compose. |
 | **`claude` CLI image is large / npm install flaky / pinned version yanked.** | Medium | Pin a known-good version; `node:*-slim` base; build is the gate, so a bad pin fails CI not prod. Document the bump. Image size is acceptable for an opt-in local tool (not the default service image). |
 | **Operator commits a real `.env`/token.** | Medium | `.gitignore` `.env` (added), `.env.example` empty, runbook says "never commit", AC asserts `git status` clean. |
 | **Watcher auto-actions a review the operator did not intend** (vouched base ⇒ no arming). | Low (local, by design) | Documented as intended local-use behavior; the runbook offers optional `WATCH_ARMED_FILE` for operators who want per-review opt-in, and states plainly this is the local single-user path, not a public instance. |
 | **Compose env mis-wires `WATCH_TRUSTED_BASE`** (e.g. trailing slash, `localhost` vs service name) ⇒ watcher `exit(2)`. | Low | EXACT-match documented; `watch.py` already emits a self-explaining refusal naming both values; AC checks the watcher container stays up (not exited). |
+| **Watcher polls the service before its HTTP listener is up** (start-order race). | Low | `depends_on: { mdreview: { condition: service_healthy } }` against the main image's existing `HEALTHCHECK` (`Dockerfile:15`); MR-071 AC asserts the readiness condition is declared. |
+| **Expired `setup-token` silently strands the first Sent review.** | Medium | MR-072 runbook adds a cheap startup auth-probe so an expired token surfaces a clear auth error at `up` time, not as a stuck review. |
 | **Test run touches the live `mdreview`/:8139/`mdreview-data`.** | Low | All ACs mandate throwaway `-p` project name + unused port + scratch data; explicit "never the live volume" in every infra ticket. |
 
 ## Verification
@@ -282,9 +302,15 @@ python3 -m py_compile app.py watch.py mcp_server.py     # must pass; these are u
 
 **MR-069 (watcher assets in repo):**
 ```bash
-# wrapper keeps -p LAST and is executable
+# wrapper is executable and keeps the -p prompt as the FINAL argv token (MR-063 recipe gotcha:
+# variadic --allowedTools swallows a trailing bare prompt, so -p "<prompt>" must come last).
+# Assert structurally, NOT by matching a literal $PROMPT var name: the last `claude ...` token is `-p`
+# immediately followed by exactly one final argument and nothing after it.
 test -x watcher/launch.sh
-grep -nE '\-p "\$PROMPT"\s*$|-p "\$PROMPT"$' watcher/launch.sh   # the -p prompt is the final arg
+# the claude invocation ends with `-p "<one arg>"` and no flags trail it:
+grep -nE '(-p|--print)[[:space:]]+"[^"]*"[[:space:]]*$' watcher/launch.sh   # -p + its prompt are last
+# negative guard: no flag token appears AFTER the -p prompt on the claude line
+! grep -nE '(-p|--print)[[:space:]]+"[^"]*"[[:space:]]+--?[A-Za-z]' watcher/launch.sh
 # agent MCP config points at the compose service, not localhost:8139
 grep -q 'http://mdreview:8080' watcher/agent-mcp.json
 # secrets hygiene
@@ -296,17 +322,56 @@ REVIEW_ID=test1234 MDREVIEW_BASE=http://x:8080 MDREVIEW_OWNER=w bash -n watcher/
 ```
 
 **MR-070 (`Dockerfile.watcher` + headless subscription auth — the gating proof):**
+
+This proof must exercise the **SAME flag shape the real launch uses** and settle the workspace-trust
+/ onboarding dialog headlessly, or a green check here will not de-risk MR-071. `claude --help` warns
+"The workspace trust dialog is skipped when Claude is run in directories you trust" (verified) — a
+fresh container CWD with an empty `~/.claude` is **not** pre-trusted, so a naive run can **hang on a
+trust/onboarding prompt** and masquerade as an auth failure. The Dockerfile must pre-trust the
+working dir (a baked `--settings` JSON / settings file marking the CWD trusted, or the CLI's
+documented headless-trust mechanism), and the proof must time-box the run so a trust hang is
+**distinguishable** from an auth error (a fast non-zero auth error vs. a timeout = unresolved trust).
+
 ```bash
 docker build -f Dockerfile.watcher -t mdreview-watcher:test .          # build succeeds
 docker run --rm mdreview-watcher:test claude --version                 # claude CLI present + runs
 docker run --rm mdreview-watcher:test python3 -c 'import sys;print(sys.version)'  # python3 present
-# THE auth proof — token from operator env, NO keychain, NO interactive login:
-docker run --rm -e CLAUDE_CODE_OAUTH_TOKEN="$TEST_TOKEN" mdreview-watcher:test \
-  claude -p "Reply with the single word OK." --permission-mode dontAsk
-#   EXPECT: a subscription-billed model reply (contains OK), exit 0 — proves headless auth.
-#   FAIL  : an auth/login error => escalate; this is the named biggest risk.
+docker run --rm mdreview-watcher:test id                               # confirm the runtime user
+
+# (1) AUTH PROOF — token from operator env, NO keychain, NO interactive login, REAL flag shape.
+#     Runs as the image's ACTUAL runtime user (NOT root) with a WRITABLE $HOME, because `claude` may
+#     need ~/.claude scratch even with an env-token; a read-only/non-writable home would fail here.
+#     Uses --mcp-config + --permission-mode dontAsk + --strict-mcp-config, with -p LAST — identical
+#     to watcher/launch.sh — and a stub MCP config (no service needed yet) so this isolates AUTH+TRUST.
+timeout 60 docker run --rm -e CLAUDE_CODE_OAUTH_TOKEN="$TEST_TOKEN" mdreview-watcher:test \
+  claude --mcp-config /app/watcher/agent-mcp.json --strict-mcp-config \
+         --permission-mode dontAsk -p "Reply with the single word OK."
+#   EXPECT : a subscription-billed reply containing OK, exit 0 — proves headless auth + trust settled.
+#   FAIL-A : fast non-zero with an auth/login error  => token/auth path broken (the named big risk).
+#   FAIL-B : `timeout` kills it (exit 124)           => trust/onboarding dialog HUNG, not auth — fix
+#            the baked trust settings, do NOT mistake it for an auth failure.
 # (TEST_TOKEN supplied by the operator at test time; never committed, never printed.)
+
+# (2) MCP ROUND-TRIP PROOF — the first `--mcp-config` spawn-and-reach-service, proven HERE (not folded
+#     silently into MR-071's e2e). Bring up a THROWAWAY service container on a private network, point
+#     the agent's MCP at it, and have the agent call exactly ONE read-only mdreview tool.
+docker network create wnet-test
+docker run -d --name svc-test --network wnet-test mdreview-service:latest   # throwaway, no live volume
+# agent-mcp.json here targets http://svc-test:8080 (or pass MDREVIEW_BASE via the MCP config's env)
+timeout 90 docker run --rm --network wnet-test -e CLAUDE_CODE_OAUTH_TOKEN="$TEST_TOKEN" \
+  mdreview-watcher:test \
+  claude --mcp-config /app/watcher/agent-mcp.json --strict-mcp-config \
+         --permission-mode dontAsk --allowedTools "mcp__mdreview__*" \
+         -p "Call the mdreview list_reviews tool and report how many reviews exist."
+#   EXPECT: the agent reaches the service and reports a count (0 on a fresh container) — proves the
+#           in-image mcp_server.py spawns under `claude` and reaches the service headless.
+#   --strict-mcp-config guarantees ONLY the mdreview server is loaded (no ambient merge) — deterministic
+#   tool surface, so a failure here is the MCP wiring, not a stray inherited server.
+docker rm -f svc-test; docker network rm wnet-test
 ```
+
+Both proofs are MR-070's gate: auth+trust (1) and the first MCP round-trip (2) are retired **before**
+MR-071 adds compose, so MR-071's failure surface narrows to compose wiring alone.
 
 **MR-071 (compose profile — the opt-in gate + end-to-end):**
 ```bash
@@ -316,9 +381,12 @@ docker compose -p mdreview-wtest --profile watcher config --services | sort  # E
 # 2) default up starts only the service
 docker compose -p mdreview-wtest up -d                           # NO --profile
 docker compose -p mdreview-wtest ps --services                   # EXPECT: mdreview only
-# 3) profile up starts both; watcher stays UP (trusted-base satisfied, launch cmd set)
+# 3) profile up starts both; the watcher waits for service HEALTH (condition: service_healthy),
+#    so its first poll never races the listener; watcher stays UP (trusted-base satisfied, cmd set)
 docker compose -p mdreview-wtest --profile watcher up -d
 docker compose -p mdreview-wtest ps                              # both running; watcher not Exited
+# confirm the readiness gate is declared (no bare list form):
+docker compose -p mdreview-wtest --profile watcher config | grep -A2 'depends_on' | grep -q 'service_healthy'
 # 4) END-TO-END (bounded ~2 min), against the THROWAWAY compose service, with a test token in .env:
 #    a) create a review via the compose service port (NOT :8137/:8139)
 #    b) add an open comment, flip turn=agent ("Send to agent")
@@ -335,5 +403,39 @@ from the `status=open` list; the draft markdown reflects the requested edit.
 **MR-072 (docs):** prose-only; verify the runbook documents (a) the one-time `claude setup-token`
 mint, (b) `.env` wiring with `CLAUDE_CODE_OAUTH_TOKEN`, (c) rotation, (d) the Linux
 `~/.claude/.credentials.json` mount alternative, (e) the explicit "auto-actions every Sent review;
-local single-user only" warning, and (f) the `--profile watcher up` command. Cross-check the README
-watcher runbook reference resolves and GH #30 is closed by the merge.
+local single-user only" warning, (f) the `--profile watcher up` command, and (g) a **cheap startup
+auth-probe** the operator runs after `up` (e.g. `docker compose -p <proj> --profile watcher exec
+watcher claude -p "ok" --strict-mcp-config` or equivalent) so an **EXPIRED `setup-token` surfaces at
+deploy time** with a clear auth error, rather than silently stranding the first Sent review. Cross-
+check the README watcher runbook reference resolves.
+
+**GH #30 closes with the WORKING profile, not the docs PR.** The issue is closed by the merge that
+lands the verified-deployable compose profile (**MR-071**), not MR-072 — do not close #30 before the
+feature is provably deployable. (If MR-072 lands after MR-071, it references #30; it does not close it.)
+
+## Review resolutions
+
+### 2026-06-24 — staff-critic GO-WITH-NITS (no blockers)
+
+1. **MR-070 first-run-trust gap.** Verified `claude --help` carries the trust-dialog note (and
+   `--strict-mcp-config`). Rewrote MR-070's auth proof to run the **real launch flag shape**
+   (`--mcp-config --strict-mcp-config --permission-mode dontAsk -p` last), require a baked
+   trusted-CWD settings file in the Dockerfile to settle trust/onboarding headlessly, and `timeout`-box
+   the run so a trust hang (exit 124) is distinguishable from a fast auth error. Updated Phase 2, the
+   ticket-table title, and added a dedicated risk row.
+2. **MR-070 MCP round-trip + `--strict-mcp-config`.** Added a second MR-070 proof: the agent calls one
+   mdreview tool against a throwaway service over a private network, proving the first `--mcp-config`
+   spawn-and-reach headless before MR-071. Pinned `--strict-mcp-config` in `watcher/launch.sh` (design
+   section) for a deterministic tool surface. Added a risk row.
+3. **MR-071 readiness.** Changed the compose dependency to `depends_on: { mdreview: { condition:
+   service_healthy } }` (the main image's `HEALTHCHECK` at `Dockerfile:15` makes it available);
+   removed the bare-list race. Added an AC asserting the readiness condition is declared and a risk row.
+4. **MR-070 runtime user.** Baked "run as the image's actual runtime user (not root) with a writable
+   `$HOME`" into the auth proof and the ticket title, since `claude` may need `~/.claude` scratch even
+   with an env-token.
+5. **MR-072 auth-probe + close-#30 owner.** Added a cheap startup auth-probe to the runbook (expired
+   `setup-token` surfaces at `up` time). Moved the GH #30 close to **MR-071** (the working profile),
+   not the docs ticket; updated Phase 3/4 and the ticket table.
+6. **MR-069 nit.** Replaced the `$PROMPT`-var-name grep with a structural assertion that the `-p`
+   prompt is the FINAL argv token (plus a negative guard that no flag trails it), citing the MR-063
+   recipe gotcha rather than a literal variable name.
