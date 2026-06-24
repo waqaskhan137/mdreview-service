@@ -3,9 +3,23 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-24. **sprint-25 (watcher-container, GH #30) CLOSED at G7 — MR-069-072 done; epic complete; awaiting the standing dev→main PR.** **sprint-24 (watcher-observability, GH #26) CLOSED at G7 — MR-066/067/068 done; epic complete; awaiting the standing dev→main PR.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-24. **sprint-26 (viewer-transparency, GH #27) ACTIVE — G1 PASS, implementing MR-073/075.** **sprint-25 (watcher-container, GH #30) CLOSED at G7 — MR-069-072 done; epic complete; awaiting the standing dev→main PR.** **sprint-24 (watcher-observability, GH #26) CLOSED at G7 — MR-066/067/068 done; epic complete; awaiting the standing dev→main PR.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
+
+**EPIC `viewer-transparency` (GH #27) — sprint-26 ACTIVE, G1 PASS 2026-06-24** (staff-critic
+GO-WITH-NITS, `reviews/viewer-transparency-plan-review-2026-06-24.md`; 2 nits folded; owner chose
+**step-level** over the literal tool-call stream). While an agent works a turn, the viewer shows a
+**live progress timeline** (Connected → Editing → Updating comments → Done/Stopped) **derived from the
+`/status` signals it already polls** — no service change, no agent instrumentation — plus a **live
+elapsed timer** + a **final revision duration**, so a long-but-working run reads as progress, not a
+freeze (the owner watched a ~2.5-min run that looked frozen). Builds on MR-062/066/067/068, doesn't
+redo them. **MR-073** `ready` (ui): the timeline + timer in `renderBanner` (cumulative steps,
+signal-honest labels — "Updating comments", "Resolved" only on terminal `done`; client-captured final
+duration). **MR-075** `ready` (docs, depends MR-073): docs sweep. **MR-074 cut** (the `ping_working`
+`message` already round-trips). Tier-2 stream-json events deferred to backlog. G7 owes a node-CDP
+lifecycle drive (render-smoke can't drive a time-dependent banner); evidence under
+`reviews/sprint-26-render-evidence-2026-06-24/`.
 
 **EPIC `watcher-container` (GH #30) COMPLETE. sprint-25 CLOSED at G7 2026-06-24** (staff-critic PASS, `reviews/sprint-25-close-review-2026-06-24.md`; independent — rebuilt the image, re-ran both auth gates + the compose e2e; W1/N1 resolved). G1 PASS 2026-06-24 (GO-WITH-NITS, 6 nits folded)**.** (staff-critic
 GO-WITH-NITS, `reviews/watcher-container-plan-review-2026-06-24.md`; 6 nits folded). Makes the watcher
