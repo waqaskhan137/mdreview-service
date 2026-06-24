@@ -25,8 +25,8 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-064 | snapshot_round: stop writing the retired notes count into round.json (+ README.md:55 shape) | svc | P2 | ready |
-| MR-065 | History modal: list current draft as `current (vN)`, relabel rounds, drop "0 notes" | ui | P2 | ready |
+| MR-064 | snapshot_round: stop writing the retired notes count into round.json (+ README.md:55 shape) | svc | P2 | done |
+| MR-065 | History modal: list current draft as `current (vN)`, relabel rounds, drop "0 notes" | ui | P2 | done |
 
 ## Preferred execution order
 

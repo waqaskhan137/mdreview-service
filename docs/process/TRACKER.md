@@ -7,7 +7,7 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**EPIC `history-version-fix` ACTIVE — sprint-23 OPEN (G1 PASS 2026-06-24).** A small two-ticket
+**EPIC `history-version-fix` — sprint-23 MR-064 + MR-065 DONE, pending G7 close** (2026-06-24, G1 PASS). A small two-ticket
 batch fixing the document History modal: it mislabels versions (tops out at `v(N-1)` while the
 dashboard badge shows `vN`, never lists the current live draft) and stamps every round "0 notes" (the
 retired `notes.json` count, untruthful and unrecoverable for existing rounds). Implements GH **#18**.
@@ -172,10 +172,7 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-064 | snapshot_round: stop writing the retired notes count into round.json (+ README.md:55 shape) | svc | P2 | sprint-23 |
-| MR-065 | History modal: list current draft as `current (vN)`, relabel rounds, drop "0 notes" | ui | P2 | sprint-23 |
+_none_
 
 ## in-progress
 
@@ -189,6 +186,8 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-065 | History modal: list current draft as `current (vN)`, relabel rounds, drop "0 notes" (GH #18) | ui | P2 | sprint-23 |
+| MR-064 | snapshot_round: stop writing the retired notes count into round.json (+ README /history shape) (GH #18) | svc | P2 | sprint-23 |
 | MR-063 | Fix the scoped watcher launch recipe arg order — `-p` prompt last (GH #25) | docs | P1 | sprint-22 |
 | MR-062 | Replace MR-061's pulse with a rotating CSS spinner on both agent-turn waiting states | ui | P2 | sprint-22 |
 | MR-061 | Animate the viewer's `working`-state turn banner (CSS-only ellipsis) | ui | P2 | sprint-21 |
