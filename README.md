@@ -235,8 +235,9 @@ process launch on the operator's machine is the **local allowlist**. Arm deliber
 file as you would any credential-adjacent config.
 
 ```bash
-# public-instance operation: arm specific reviews, no WATCH_TRUSTED_BASE vouch needed
-printf '%s\n' 'rev_abc123' 'rev_def456' > ~/.mdreview-armed
+# public-instance operation: arm specific reviews, no WATCH_TRUSTED_BASE vouch needed.
+# Review ids are what /api/reviews returns (10 hex chars, e.g. secrets.token_hex(5)) — not "rev_..".
+printf '%s\n' '4b09a6cbe0' 'd2abf53a16' > ~/.mdreview-armed
 WATCH_ARMED_FILE=~/.mdreview-armed MDREVIEW_BASE=https://public.example python3 watch.py
 # un-armed reviews flipped to turn==agent are skipped (no lease claim); only the two armed ids run.
 ```
