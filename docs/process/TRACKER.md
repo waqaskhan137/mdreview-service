@@ -7,6 +7,20 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
+**sprint-20 (watcher-launch-fix — inert default + runbook) ACTIVE** (start 2026-06-24, end
+2026-06-27). Epic `watcher-launch-fix` cleared G1 2026-06-24 (PASS-WITH-NITS, scaffolding findings
+folded) — a small `svc`(+same-change `docs`) follow-up to the now-done `agent-watcher` epic. The shipped
+watcher's runnable `DEFAULT_LAUNCH_CMD` (`claude -p …`) **silently no-ops headless** (MCP tool use routes
+to a no-TTY approval prompt; the agent claims the lease and hands back without doing the work). Option B
+(decided across both critic rounds): replace it with an **inert must-configure stub** so the watcher
+**refuses to start at startup** (exit 2 with guidance, in `main()` after the trusted-base gate, before
+`run()`) when `WATCH_LAUNCH_CMD` is unset — never claiming a lease it cannot honour — move the permission
+posture into runbook recipes (scoped `dontAsk` + `allowedTools "mcp__mdreview__*"`, and the full-autonomy
+recipe), sweep the 8 "default Claude headless" doc spots, and ship the injection caveat. **MR-060**
+`ready`. No `app.py` / Dockerfile / UI change, no render-smoke (`watch.py` not containerized; docs are
+Markdown) — the G7 smoke is `py_compile watch.py` + the 2-arm stub-launch end-to-end on a localhost
+throwaway.
+
 **EPIC `agent-watcher` COMPLETE (C1+C2+C3).** **sprint-19 (C3: watcher safety + ops) CLOSED at G7
 2026-06-24** (staff-critic PASS-WITH-NITS, `reviews/sprint-19-close-review-2026-06-24.md`; independent —
 the critic re-ran the full arming/cap matrix against a `.scratch/` throwaway service; one README-example
@@ -90,7 +104,9 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-060 | Watcher must-configure launch stub — refuse-to-start at startup when `WATCH_LAUNCH_CMD` unset + runbook recipes + injection caveat (svc + same-change docs) | svc | P1 | sprint-20 |
 
 ## in-progress
 
@@ -192,3 +208,4 @@ _none_
 | legacy-feedback-retire | done (merged to main 2026-06-23, PR #11; with MR-048 + MR-049) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
 | agent-handoff-baton | done on `dev` (3 chunks: MR-051+MR-052+MR-053; sprints 14/15/16 CLOSED G7 PASS; PR #17 pending) | G1 passed 2026-06-23 | sprint-14/15/16 |
 | agent-watcher | **done** (all 3 chunks shipped: C1 sprint-17 + C2 sprint-18 + C3 sprint-19, each G7 PASS) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1), sprint-18 (C2), sprint-19 (C3) |
+| watcher-launch-fix | active (G1 cleared; MR-060 ready) — follow-up to the done agent-watcher epic (inert must-configure launch stub + runbook) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-20 |
