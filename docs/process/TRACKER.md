@@ -3,9 +3,24 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-24. **sprint-24 (watcher-observability, GH #26) CLOSED at G7 — MR-066/067/068 done; epic complete; awaiting the standing dev→main PR.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-24. **sprint-25 (watcher-container, GH #30) ACTIVE — G1 PASS, grooming/implementing MR-069-072.** **sprint-24 (watcher-observability, GH #26) CLOSED at G7 — MR-066/067/068 done; epic complete; awaiting the standing dev→main PR.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
+
+**EPIC `watcher-container` (GH #30) — sprint-25 ACTIVE, G1 PASS 2026-06-24** (staff-critic
+GO-WITH-NITS, `reviews/watcher-container-plan-review-2026-06-24.md`; 6 nits folded). Makes the watcher
+an OPT-IN docker service (`docker compose --profile watcher up`) authenticated by the user's Claude
+**subscription** (not an API key — too expensive for most), so a local deploy can auto-action reviewer
+comments. The public-instance fail-closed host watcher stays; this is the local-use path. Auth path
+verified viable (`claude setup-token` is subscription-billed; `CLAUDE_CODE_OAUTH_TOKEN` is the headless
+env var). **MR-069** `ready` (infra): promote the working agent-launch prototype into `watcher/` +
+`.env.example` + gitignore `.env`. **MR-070** `ready` (infra, depends MR-069): `Dockerfile.watcher`
+(Node + `claude` CLI) + the **gating in-container auth + MCP-round-trip proofs** (real flag shape,
+trust dialog settled, non-root writable home) — needs a real `setup-token`. **MR-071** `ready` (infra,
+depends MR-070): opt-in compose `profile: [watcher]` (off by default, `service_healthy`-gated) +
+end-to-end Send→action; **closes GH #30**. **MR-072** `ready` (docs, depends MR-071): setup-token /
+`.env` / rotation / startup-auth-probe runbook. Infra epic ⇒ docker build/compose are the G7 gates (no
+render-smoke); all on throwaway names/ports, never the live `mdreview`/`mdreview-data`/:8139/:8137.
 
 **EPIC `watcher-observability` (GH #26) COMPLETE. sprint-24 CLOSED at G7 2026-06-24** (staff-critic PASS,
 `reviews/sprint-24-close-review-2026-06-24.md`; independent — rebuilt a throwaway container on scratch
