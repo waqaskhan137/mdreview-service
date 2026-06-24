@@ -3,9 +3,26 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-24. **sprint-24 (watcher-observability, GH #26) ACTIVE — G1 PASS, implementing MR-066/067/068.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
+
+**EPIC `watcher-observability` (GH #26) — sprint-24 ACTIVE, G1 PASS 2026-06-24** (staff-critic
+GO-WITH-NITS, `reviews/watcher-observability-plan-review-2026-06-24.md`; both pivotal pins verified
+against the code, five nits folded). Makes a stuck/crashed agent run visible — triggered by a live
+bug (Send-to-agent with no watcher running spun the banner ~20 min: the waiting-for-pickup state has
+no timeout and MR-062's spinner made it look like "working"). Three tickets, no `app.py` change, no
+auto-relaunch. **MR-066** `ready` (ui): client-side pickup-timeout in `renderBanner` — after
+`PICKUP_GRACE_S=60` at `turn=agent`/`agent_status=null`, flip the parked spinner to a distinct
+non-spinning `.warn` "no agent has picked this up — is a watcher running?" cue (defines the `.warn`
+class; fixes the live bug alone). **MR-067** `ready` (svc/`watch.py`): capture the crashed child's
+stderr + full `print()`→`logging` migration + `WATCH_LOG_FILE` (stderr-default) + a guarded crash
+`hand_back{state:blocked}` signal (MANDATORY `/status` re-check skips the signal if the child already
+handed back `done` — no false "stopped"). **MR-068** `ready` (ui, depends_on [MR-066, MR-067]):
+render the crash signal as the "agent run stopped — Take back the turn" `.warn` banner end-to-end.
+G7 owes node-CDP banner-drives (time-dependent + signal-driven; render-smoke can't drive either) +
+the watcher crash-stub / false-positive-guard / happy-path runs; evidence under
+`reviews/sprint-24-render-evidence-2026-06-24/`.
 
 **EPIC `history-version-fix` COMPLETE.** **sprint-23 CLOSED at G7 2026-06-24** (staff-critic PASS,
 `reviews/sprint-23-close-review-2026-06-24.md`; independent — the critic re-drove the History modal with a

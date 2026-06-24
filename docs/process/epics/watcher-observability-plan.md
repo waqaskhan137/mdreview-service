@@ -5,8 +5,8 @@ created: 2026-06-24
 source: docs/process/requirements/watcher-observability.md
 gate: passed 2026-06-24
 review: reviews/watcher-observability-plan-review-2026-06-24.md
-related_sprints: []
-related_tickets: []
+related_sprints: [sprint-24]
+related_tickets: [MR-066, MR-067, MR-068]
 ---
 
 # Watcher Observability Plan
