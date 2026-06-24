@@ -43,7 +43,19 @@ PORT = int(os.environ.get("PORT", "8080"))
 PUBLIC_BASE = os.environ.get("MDREVIEW_PUBLIC_BASE", "").rstrip("/")
 
 os.makedirs(DATA_DIR, exist_ok=True)
-_lock = threading.Lock()
+# Condition over the ONE global lock (MR-054). A Condition is itself a context manager that
+# acquires/releases its internal lock, so every existing `with _lock:` site is unchanged — the swap
+# from Lock() to Condition() is transparent. The /wait long-poll parks on _lock.wait(timeout) (which
+# releases the lock while blocked) and /handoff calls _lock.notify_all() after a write under the lock.
+# One Condition over one lock: never a second lock, or a flip could be missed / a writer could run
+# while a waiter holds the lock.
+_lock = threading.Condition()
+# Bounded server-side timeout for the /wait long-poll (seconds); a client ?timeout= is capped to it.
+WAIT_TIMEOUT_S = float(os.environ.get("MDREVIEW_WAIT_TIMEOUT_S", "25"))
+# Lease staleness TTL in SECONDS (agent_status.at is epoch seconds, float — never milliseconds).
+# A foreign /handoff {state:working} lease older than this is taken over (MR-055). MIRRORS the
+# viewer's STALE_S in viewer.html — single source of truth; the two MUST move together (both seconds).
+LEASE_TTL_S = float(os.environ.get("MDREVIEW_LEASE_TTL_S", "180"))
 RID = r"([A-Za-z0-9]{4,40})"
 
 
@@ -113,6 +125,14 @@ def _write(path, text):
         f.write(text)
 
 
+def _to_float(s, default):
+    """Parse a query-string number, falling back to default on None/garbage (MR-054)."""
+    try:
+        return float(s)
+    except (TypeError, ValueError):
+        return default
+
+
 def meta(rid):
     return _read_json(os.path.join(_dir(rid), "meta.json"), {})
 
@@ -140,6 +160,9 @@ def summary(rid):
     m["notes_total"] = total
     m["notes_addressed"] = addressed
     m["revision"] = m.get("revision", 0)
+    # MR-054: legacy reviews with no turn key read as "reviewer" so the ?turn= filter is filterable,
+    # never None/absent (the additive-default-safe rule).
+    m["turn"] = m.get("turn", "reviewer")
     if not m.get("feedback_updated") and total == 0:
         m["status"] = "awaiting"
     elif total and addressed == total:
@@ -393,6 +416,47 @@ class H(BaseHTTPRequestHandler):
         host = self.headers.get("Host") or f"localhost:{PORT}"
         return f"http://{host}"
 
+    def _wait(self, query):
+        """Long-poll for baton flips NEWER than a required ?since= cursor (MR-054).
+
+        Edge-triggered, not level: returns only reviews matching the ?turn= filter whose
+        turn_updated > since. A review already at turn==agent with turn_updated <= since does NOT
+        return (the call blocks up to the bounded timeout), so the steady state of an agent working
+        never busy-loops the watcher. Missing since defaults to now() (block for the next flip, the
+        safer degrade); since=0 is the explicit backlog opt-in.
+
+        Parks on _lock.wait(timeout), which RELEASES _lock while blocked, so a concurrent writer is
+        never deadlocked behind a parked waiter. On wake it re-runs the predicate scan under the lock
+        (notify_all wakes every waiter and wait() can wake spuriously). The scan is O(all-reviews),
+        but at this scale (a handful of reviews, one operator) that is trivially cheap, and re-scanning
+        is correct under rapid flips where carrying only the single last-changed rid could miss an edge.
+        """
+        qs = parse_qs(query)
+        turn_q = qs.get("turn", [""])[0]
+        since_raw = qs.get("since", [None])[0]
+        # Missing since => now (block for the next flip), NOT since=0 (the explicit backlog opt-in).
+        since = time.time() if since_raw is None else _to_float(since_raw, 0.0)
+        client_timeout = _to_float(qs.get("timeout", [None])[0], WAIT_TIMEOUT_S)
+        timeout = max(0.0, min(client_timeout, WAIT_TIMEOUT_S))
+        deadline = time.time() + timeout
+
+        def matches(m):
+            return ((not turn_q or m.get("turn") == turn_q)
+                    and m.get("turn_updated", 0) > since)
+
+        def changed_rows():
+            return [r for r in list_reviews() if matches(r)]
+
+        with _lock:
+            rows = changed_rows()                       # baseline scan, once on entry
+            while not rows:
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    return self._json(200, {"reviews": [], "timeout": True})
+                _lock.wait(remaining)   # releases _lock while parked
+                rows = changed_rows()   # re-scan on wake; cheap at this scale and correct under rapid flips
+        return self._json(200, {"reviews": rows})
+
     def log_message(self, *a):
         pass
 
@@ -435,7 +499,21 @@ class H(BaseHTTPRequestHandler):
                               "text/html; charset=utf-8")
 
         if path == "/api/reviews" and m == "GET":
-            return self._json(200, {"reviews": list_reviews()})
+            reviews = list_reviews()
+            # MR-054: optional ?turn= filter. Filtered in Python after list_reviews() (summary() is
+            # where the turn default lands); an empty/absent value means no filter (return all),
+            # preserving today's behavior. No new field, no cross-review aggregation.
+            turn_q = parse_qs(urlparse(self.path).query).get("turn", [""])[0]
+            if turn_q:
+                reviews = [r for r in reviews if r.get("turn") == turn_q]
+            return self._json(200, {"reviews": reviews})
+
+        # MR-054: /wait long-poll. MUST precede the per-review RID arm — "wait" matches RID, so a
+        # later placement would be shadowed into a review-id lookup (404). Collection-level: blocks
+        # until a baton flips NEWER than the required ?since= cursor (an edge, not the steady-state
+        # level of turn==agent), or a bounded timeout elapses.
+        if path == "/api/reviews/wait" and m == "GET":
+            return self._wait(urlparse(self.path).query)
 
         if path == "/api/reviews" and m == "POST":
             b = self._body_json()
@@ -510,7 +588,89 @@ class H(BaseHTTPRequestHandler):
                 "source_updated": mt.get("source_updated", 0),
                 "feedback_updated": mt.get("feedback_updated", 0),
                 "comments_updated": mt.get("comments_updated", 0),
+                # turn baton (MR-051): additive; absent on legacy reviews -> defaults below
+                "turn": mt.get("turn", "reviewer"),
+                "turn_updated": mt.get("turn_updated", 0),
+                "handoff": mt.get("handoff"),
+                "agent_status": mt.get("agent_status"),
             })
+
+        # Turn baton handoff (MR-051). Guarded read-check-write of meta.json under _lock: turn/owner
+        # are control state both the viewer and an agent write concurrently, so read the CURRENT
+        # turn/owner, decide, write once. Never a bare bump() (unlocked, assumes the caller holds
+        # _lock, as PUT /source does). Body forms dispatch in a PINNED order so an ambiguous body
+        # (e.g. {to:reviewer,by:reviewer,state:done}) is deterministic: reclaim, hand-back, flip,
+        # lease; anything else is a 400.
+        mo = re.fullmatch(r"/api/reviews/" + RID + r"/handoff", path)
+        if mo and m == "POST":
+            rid = mo.group(1)
+            if not _exists(rid):
+                return self._json(404, {"error": "not found"})
+            b = self._body_json()
+            to, by, state = b.get("to"), b.get("by"), b.get("state")
+            p = os.path.join(_dir(rid), "meta.json")
+            err = None
+            with _lock:
+                mt = _read_json(p, {})
+                now = time.time()
+                if to == "reviewer" and by == "reviewer":
+                    # reclaim: force the turn back regardless of state (leave agent_status so the
+                    # banner can still read a stale state if it wants).
+                    mt["turn"] = "reviewer"
+                    mt["turn_updated"] = now
+                elif to == "reviewer" and state in ("done", "blocked"):
+                    # hand-back: the agent returns the turn with its state + message.
+                    prev = mt.get("agent_status") or {}
+                    mt["turn"] = "reviewer"
+                    mt["agent_status"] = {"state": state, "message": b.get("message", ""),
+                                          "owner": b.get("owner", prev.get("owner", "")), "at": now}
+                    mt["turn_updated"] = now
+                elif to == "agent":
+                    # flip: idempotent. Bump turn_updated only on an actual reviewer->agent flip.
+                    if mt.get("turn", "reviewer") != "agent":
+                        mt["turn"] = "agent"
+                        mt["agent_status"] = None          # parked, not yet claimed
+                        mt["handoff"] = {"by": "reviewer", "at": now}
+                        mt["turn_updated"] = now
+                elif state == "working":
+                    # lease claim/renew/takeover. turn_updated is NOT bumped (no flip).
+                    # Decision table (cur = existing lease owner; turn = mt["turn"]):
+                    #   cur unset/"" .......................... grant  (normal claim)
+                    #   cur == owner .......................... grant  (normal renew)
+                    #   foreign + fresh (now-at <= TTL) ....... 409    (live owner; never preempt)
+                    #   foreign + stale + turn == "agent" ..... grant  (MR-055 takeover; dead session)
+                    #   foreign + stale + turn != "agent" ..... 409    (already reclaimed by human)
+                    # The normal unset/equal-owner path grants regardless of turn; only the STALENESS
+                    # grant is gated on turn == "agent". turn is read and agent_status is written under
+                    # the SAME _lock as the reclaim arm, so there is no TOCTOU vs a concurrent reclaim
+                    # (the reclaim arm forces turn="reviewer" but leaves agent_status, so a lease can be
+                    # both stale AND already reclaimed — this re-check rejects that takeover).
+                    owner = b.get("owner", "")
+                    cur = mt.get("agent_status") or {}
+                    cur_owner = cur.get("owner")
+                    stale = (now - (cur.get("at") or 0)) > LEASE_TTL_S
+                    if cur_owner in (None, "", owner):
+                        grant = True
+                    elif stale and mt.get("turn") == "agent":
+                        grant = True            # stale foreign lease + turn still ours: take it over
+                    else:
+                        grant = False           # fresh foreign lease, or stale-but-already-reclaimed
+                    if grant:
+                        mt["agent_status"] = {"state": "working", "message": b.get("message", ""),
+                                              "owner": owner, "at": now}
+                    else:
+                        err = (409, {"error": "lease held", "owner": cur_owner})
+                else:
+                    err = (400, {"error": "unrecognized handoff body"})
+                if err is None:
+                    _write(p, json.dumps(mt))
+                    # MR-054: wake parked /wait waiters under the lock, so the write and the wake are
+                    # atomic and no flip is missed. notify_all on any successful write; the /wait
+                    # predicate (turn_updated > since), not the arm, decides who actually returns.
+                    _lock.notify_all()
+            if err:
+                return self._json(*err)
+            return self._json(200, meta(rid))
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/history", path)
         if mo and m == "GET":

@@ -45,7 +45,8 @@ as a clearly separate, optional component with its own dependencies).
 | `resolve_comment` | `POST /api/reviews/{id}/comments/{cid}/resolve` | agent resolves; `justification?`. No `reopen` tool — reviewer-only UI action |
 | `server_info` | (local — no HTTP) | the running wrapper's `{name, version, protocol_version, tools_hash, tool_count, tool_names}`; for staleness detection |
 
-> The shipped server also exposes `attach_asset`/`list_assets` (images) — **18 tools** total. See
+> The shipped server also exposes `attach_asset`/`list_assets` (images) and the turn-baton
+> `hand_back`/`ping_working` — **20 tools** total. See
 > `README.md` / `CLAUDE.md` for the current full set.
 
 **Staleness.** A stdio MCP server loads its code + tool list once at process start; editing

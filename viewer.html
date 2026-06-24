@@ -75,6 +75,12 @@
   #dock{position:fixed;right:18px;bottom:18px;z-index:55;font-family:-apple-system,sans-serif;}
   #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--rule);border-radius:30px;padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
   #count{font-size:13px;color:var(--muted);}
+  /* MR-052: turn baton — Send button, status banner, reclaim control */
+  .btn.sendagent[disabled]{opacity:.5;cursor:default;}
+  .turnbanner{display:none;align-items:center;gap:10px;margin:0 0 22px;padding:9px 13px;border:1px solid var(--rule);border-radius:8px;background:rgba(127,127,127,.07);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:var(--text);}
+  .turnbanner.show{display:flex;}
+  .turnbanner #turntext{flex:1;}
+  .turnbanner .reclaim{font-size:12px;padding:4px 11px;white-space:nowrap;}
   #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--accent);color:#fff;font-family:-apple-system,sans-serif;font-size:13px;padding:8px 16px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
   /* MR-006/MR-036: Google-Docs style margin comments (threaded) */
   #gutter{position:absolute;top:0;width:284px;z-index:5;display:none;}
@@ -158,6 +164,7 @@
   </div>
   <h1 id="doctitle"></h1>
   <div id="docmeta"></div>
+  <div id="turnbanner" class="turnbanner"><span id="turntext"></span><button class="btn reclaim" id="reclaimbtn">Take back the turn</button></div>
   <div id="article">Loading...</div>
 </div>
 
@@ -170,6 +177,7 @@
 
 <div id="dock"><div id="dockbar">
   <span id="count">0 open</span>
+  <button class="btn primary sendagent" id="sendbtn">Send to agent</button>
   <button class="btn" id="cmtbtn">Comments</button>
   <button class="btn" id="resbtn">Resolved 0</button>
   <button class="btn" id="histbtn">History</button>
@@ -206,6 +214,48 @@ let confirming=null;    // comment_id with a pending inline delete-confirm (guar
 
 function toast(msg){const t=$("#toast");t.textContent=msg;t.style.opacity=1;clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.opacity=0,1800);}
 function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+// --- MR-052: turn baton UI (Send / status banner / reclaim), driven purely by the /status body ---
+const STALE_S=180;   // lease-heartbeat staleness (~3 min); agent_status.at is epoch SECONDS (float).
+                     // MIRRORS app.py LEASE_TTL_S (single source of truth; both seconds) — move together.
+function postHandoff(body){
+  return fetch(API+'/handoff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+}
+// First-match decision: agent rows key on turn==='agent', reviewer rows on agent_status.state, so no
+// row shadows another. agent message is set via textContent (it can't inject HTML).
+function renderBanner(st){
+  const turn=(st&&st.turn)||'reviewer';
+  const as=st&&st.agent_status;            // null/absent => parked or never handed off
+  const send=$("#sendbtn"),reclaim=$("#reclaimbtn"),tt=$("#turntext"),bar=$("#turnbanner");
+  if(!bar)return;
+  let msg;
+  if(turn==='agent'){
+    if(!as)msg="Sent — waiting for an agent to pick this up.";
+    else if((Date.now()/1000-(as.at||0))>STALE_S)msg="Agent may have stopped — Take back the turn?";
+    else msg="Agent is working on your feedback…";
+    reclaim.style.display='';              // rows 1–3: reclaim available
+    send.disabled=true;send.textContent="Sent — agent's turn";
+  }else{
+    const state=as&&as.state;
+    if(state==='done')msg="Agent updated the draft"+(as.message?": "+as.message:"")+". Your turn.";
+    else if(state==='blocked')msg="Agent needs you"+(as.message?": "+as.message:"")+".";
+    else msg="Your turn. Comment, then Send to agent.";
+    reclaim.style.display='none';
+    send.disabled=false;send.textContent="Send to agent";
+  }
+  tt.textContent=msg;
+  bar.classList.add('show');
+}
+$("#sendbtn").onclick=async()=>{
+  if($("#sendbtn").disabled)return;
+  $("#sendbtn").disabled=true;$("#sendbtn").textContent="Sent — agent's turn";
+  try{await postHandoff({to:'agent'});const st=await fetch(API+'/status').then(r=>r.json());renderBanner(st);toast('Sent to agent');}
+  catch(e){toast('Could not send');$("#sendbtn").disabled=false;$("#sendbtn").textContent="Send to agent";}
+};
+$("#reclaimbtn").onclick=async()=>{
+  try{await postHandoff({to:'reviewer',by:'reviewer'});const st=await fetch(API+'/status').then(r=>r.json());renderBanner(st);toast('Turn reclaimed');}
+  catch(e){toast('Could not reclaim');}
+};
 
 function initMermaid(){
   if(!window.mermaid)return;
@@ -319,6 +369,7 @@ async function load(){
   let md=await fetch(API+'/source',{cache:'no-store'}).then(r=>r.text());
   const st=await fetch(API+'/status').then(r=>r.json()).catch(()=>({}));
   lastSrc=st.source_updated||0;lastCmt=st.comments_updated||0;
+  renderBanner(st);   // MR-052: first-paint banner from the same /status body
   // extract YAML front matter (for the title) and strip it
   let title="";
   const fm=md.match(/^﻿?\s*---\r?\n([\s\S]*?)\r?\n---\s*/);
@@ -602,6 +653,12 @@ function poll(){
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
       if(s.source_updated&&s.source_updated!==lastSrc){await fetchComments();await load();toast('Draft updated by AI');}
       else if(s.comments_updated&&s.comments_updated!==lastCmt){lastCmt=s.comments_updated;await fetchComments();renderAll();}
+      // MR-052 turn baton: reflect the latest turn/agent_status from the SAME /status body. The
+      // source-change branch above already ran load() (re-rendered the doc, reset lastSrc) before we
+      // touch the banner, so the "Draft updated by AI" toast and the banner don't race. renderBanner
+      // runs every tick (not guarded on a turn-change), so the stale-lease row appears over time as
+      // agent_status.at ages past STALE_S even with no /status change.
+      renderBanner(s);
     }catch(e){}
   },2000);
 }

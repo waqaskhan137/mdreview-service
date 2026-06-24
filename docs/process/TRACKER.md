@@ -7,7 +7,60 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-_none active_ — **sprint-13 (legacy-feedback-retire) CLOSED at G7** (staff-critic PASS,
+**EPIC `agent-watcher` COMPLETE (C1+C2+C3).** **sprint-19 (C3: watcher safety + ops) CLOSED at G7
+2026-06-24** (staff-critic PASS-WITH-NITS, `reviews/sprint-19-close-review-2026-06-24.md`; independent —
+the critic re-ran the full arming/cap matrix against a `.scratch/` throwaway service; one README-example
+nit fixed) — the **FINAL** `agent-watcher` chunk. Relaxes C2's fail-closed refusal via a **local operator arming/allowlist**
+(`WATCH_ARMED_FILE` primary + `WATCH_ARMED` env, unioned, **not** HTTP-settable) so the watcher can
+auto-run **armed** reviews on a public/no-auth base — un-armed reviews are **skipped without a claim**
+even at `turn==agent`; Step-0 becomes run-but-gate when armed (EXIT preserved when not). Adds a
+**per-review attempt cap** bounding the legitimate **re-Send / re-surface loop** (the corrected B1 model —
+NOT a crash-loop; crashes strand by design, no auto-relaunch), and the **full operator runbook**
+(README + CLAUDE.md). **MR-058** + **MR-059** `ready`. No `app.py`/Dockerfile change, no render-smoke
+(`watch.py` not containerized, docs are Markdown). **At close (G7 PASS) the `agent-watcher` epic is marked
+`done`** (C1 sprint-17 + C2 sprint-18 + C3 sprint-19).
+
+**sprint-18 (agent-watcher — C2: watcher core) CLOSED at G7 2026-06-24** (staff-critic PASS,
+`reviews/sprint-18-close-review-2026-06-24.md`; independent — the critic re-ran the fail-closed exit,
+the no-injection spawn, single-flight, the caps, and the B1 stranded-baton crash model). C2 shipped
+`watch.py` — the first code outside the service container and the first credentialed process spawner:
+long-polls C1's `/wait`, **fails closed** (refuses an untrusted base), **claims-before-spawn** (spawns
+only on a `200` lease grant), runs the operator's configured launch command (default Claude) with a
+child env contract, and bounds normal-load spend with a concurrency + launches/hour cap. **MR-056** +
+**MR-057** done, merged to `dev`. No `app.py`/Dockerfile change. Next: C3 (arming relaxation for
+untrusted/public bases + per-review attempt cap + full runbook).
+
+**sprint-17 (agent-watcher — C1: server support) CLOSED at G7 2026-06-24** (staff-critic PASS,
+`reviews/sprint-17-close-review-2026-06-24.md`; independent; container render-smoke
+`reviews/sprint-17-render-evidence-2026-06-24/`). Epic `agent-watcher` cleared G1 2026-06-24
+(PASS-WITH-NITS, findings folded). Shipped the three server-side primitives the (C2) watcher polls — a
+`?turn=agent` queue filter, a `/wait` long-poll (Condition over `_lock`, required
+`?since=<turn_updated>` edge cursor), and a stale-lease takeover on `/handoff {state:working}` —
+entirely inside the existing container (no UI, no Dockerfile change). **MR-054** + **MR-055** done,
+merged to `dev`. Next: C2 (the `watch.py` watcher core) as its own cycle.
+
+_(previously)_ **EPIC `agent-handoff-baton` COMPLETE.** **sprint-16 (Chunk 3, agent surface) CLOSED
+at G7 2026-06-23** (staff-critic PASS, `reviews/sprint-16-close-review-2026-06-23.md`; independent
+`mcp_smoke` 44/44 + end-to-end baton drive over HTTP **and** MCP stdio, 0 BLOCKER / 0 SHOULD / 1 NIT).
+MR-053 `done` on `dev` (`hand_back` + `ping_working` MCP tools over `/handoff` + the `CLAUDE.md`
+agent contract; tools 18→20). No carry-overs. All 3 chunks shipped — **MR-051 + MR-052 + MR-053 in
+the standing dev→main PR #17.** Concurrent co-editing (OT/CRDT) deferred as issue #16.
+
+_(previously)_ **sprint-15 (agent-handoff-baton — Chunk 2, viewer turn UI) CLOSED at G7 2026-06-23**
+(staff-critic PASS, `reviews/sprint-15-close-review-2026-06-23.md`; independent rebuild-from-disk +
+render-smoke + all 6 banner rows driven + XSS probe, 0 BLOCKER / 0 SHOULD / 3 NITs, NITs addressed
+post-review). MR-052 `done` on `dev` (`viewer.html`: Send button + 6-state banner + reclaim, screenshots
+under `reviews/sprint-15-render-evidence-2026-06-23/`). No carry-overs. **In the standing dev→main PR
+#17.** The `agent-handoff-baton` epic stays **active** — **MR-053 (Chunk 3, MCP + CLAUDE.md)** remains
+`ready` for the next sprint.
+
+_(previously)_ **sprint-14 (agent-handoff-baton — Chunk 1) CLOSED at G7 2026-06-23** (staff-critic
+PASS, `reviews/sprint-14-close-review-2026-06-23.md`; independent rebuild + 15-step smoke, 0 BLOCKER /
+0 SHOULD / 2 NITs). MR-051 `done` on `dev` (server baton contract: `POST /handoff` + 4 `meta.json`
+fields + `/status` surfacing, additive, ships invisibly). No carry-overs. **In the standing dev→main
+PR #17.** The `agent-handoff-baton` epic stays **active**.
+
+_(previously)_ **sprint-13 (legacy-feedback-retire) CLOSED at G7** (staff-critic PASS,
 `reviews/sprint-13-close-review-2026-06-19.md`; independent rebuild + smoke, every reader region
 byte-compared). MR-046 + MR-047 `done` on `dev`, no carry-overs. Shipped: `POST /feedback` → 410
 Gone (no write), `feedback_updated` writer dropped, docs steer agents to `comments_updated` — every
@@ -51,6 +104,15 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-059 | `watch.py` per-review attempt cap + full operator runbook — bound the re-Send loop, document the public-instance arming story | svc | P1 | sprint-19 |
+| MR-058 | `watch.py` arming / allowlist — relax C2's fail-closed Step 0 (local `WATCH_ARMED_FILE`/`WATCH_ARMED`, run-but-gate) | svc | P1 | sprint-19 |
+| MR-057 | `watch.py` spawn + child env contract + caps (generic launch template, default Claude) + trusted-base runbook stub | svc | P1 | sprint-18 |
+| MR-056 | `watch.py` fail-closed loop core — trusted-base check + `/wait` long-poll + claim-before-spawn | svc | P1 | sprint-18 |
+| MR-054 | Watcher detection — `?turn=agent` filter + `summary()` turn-default + `/wait` long-poll (Condition over `_lock`, required `?since=<turn_updated>` edge cursor) | svc | P1 | sprint-17 |
+| MR-055 | Stale-lease takeover on `/handoff {state:working}` (TTL single-source + reclaim-vs-takeover re-check) | svc | P1 | sprint-17 |
+| MR-053 | Agent surface — `hand_back` + `ping_working` MCP tools + `CLAUDE.md` contract (tools 18→20) | svc | P2 | sprint-16 |
+| MR-052 | Viewer turn UI — Send button + 6-state banner + reclaim + `lastTurn` poll | ui | P2 | sprint-15 |
+| MR-051 | Handoff baton contract — `POST /handoff` + 4 `meta.json` fields + `/status` surfacing (additive) | svc | P1 | sprint-14 |
 | MR-050 | Viewer — reviewer can delete their own un-engaged comment (no-agent-entry rule; inline 2-step confirm; issue #12) | ui | P2 | — (out-of-cycle) |
 | MR-049 | Viewer comment UX: reliable selection→comment button + markdown rendering in comment threads (XSS-safe) | ui | P2 | — (out-of-cycle) |
 | MR-048 | MCP wrapper opens new `review_url` in default browser (opt-in `MDREVIEW_OPEN_BROWSER`) | svc | P3 | — (out-of-cycle) |
@@ -128,3 +190,5 @@ _none_
 | comment-resolution | done (merged to main 2026-06-19, PR #9) | G1 passed 2026-06-19 (2 rounds) | sprint-11 |
 | mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |
 | legacy-feedback-retire | done (merged to main 2026-06-23, PR #11; with MR-048 + MR-049) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
+| agent-handoff-baton | done on `dev` (3 chunks: MR-051+MR-052+MR-053; sprints 14/15/16 CLOSED G7 PASS; PR #17 pending) | G1 passed 2026-06-23 | sprint-14/15/16 |
+| agent-watcher | **done** (all 3 chunks shipped: C1 sprint-17 + C2 sprint-18 + C3 sprint-19, each G7 PASS) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1), sprint-18 (C2), sprint-19 (C3) |

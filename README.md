@@ -43,13 +43,15 @@ Feedback and source persist in the `/data` volume across restarts.
 | GET | `/` | | **dashboard** HTML (or the descriptor JSON on `Accept: application/json`) |
 | GET | `/api` | | service descriptor JSON |
 | POST | `/api/reviews` | `{markdown, title?, project?, source_path?, session?}` | `{id, review_url, feedback_url, source_url, status_url}` |
-| GET | `/api/reviews` | | `{reviews[]}` — every review's meta + `notes_total`, `notes_addressed`, `revision`, `status` |
+| GET | `/api/reviews` | `?turn=agent` (optional, exact-match on the turn baton; empty/absent ⇒ all) | `{reviews[]}` — every review's meta + `notes_total`, `notes_addressed`, `revision`, `status`, `turn` |
+| GET | `/api/reviews/wait` | `?since=<turn_updated>` **required** (edge cursor; missing ⇒ `now`, `0` ⇒ backlog) · `?turn=agent` · `?timeout=<s>` (capped to server max ≈25s, `MDREVIEW_WAIT_TIMEOUT_S`) | `{reviews[]}` — **long-poll**: blocks until a baton flips *newer* than `since` (each row carries its `turn_updated`), or `{reviews:[], timeout:true}` on expiry |
 | GET | `/api/reviews/{id}` | | meta |
 | DELETE | `/api/reviews/{id}` | | `{deleted}` |
 | GET | `/api/reviews/{id}/source` | | raw markdown |
 | PUT | `/api/reviews/{id}/source` | `{markdown}` | meta (snapshots a history round, then live-reloads) |
 | GET | `/api/reviews/{id}/feedback` | | `{markdown, notes[], ...meta}` — `notes[]` is legacy notes **plus a projection of the comments** (so this read path stays live) |
-| GET | `/api/reviews/{id}/status` | | `{source_updated, feedback_updated, comments_updated}` |
+| GET | `/api/reviews/{id}/status` | | `{source_updated, feedback_updated, comments_updated, turn, turn_updated, handoff, agent_status}` |
+| POST | `/api/reviews/{id}/handoff` | `{to:"agent"}` · `{to:"reviewer", state, message}` · `{state:"working", owner, message?}` · `{to:"reviewer", by:"reviewer"}` | meta — the **turn baton**: flip to the agent, hand back (done/blocked), claim/renew the lease (`409` on a *fresh* foreign owner; a **stale** foreign lease — older than `LEASE_TTL_S`, 180s — is taken over unless already reclaimed), or reviewer reclaim; `400` on an unrecognized body |
 | GET | `/api/reviews/{id}/history` | | `{rounds[]}` — `{round, ts, notes_total, notes_addressed}`, newest first |
 | GET | `/api/reviews/{id}/history/{n}` | | one round: `{source, feedback, notes[], ...round meta}` |
 | GET | `/api/reviews/{id}/comments` | `?status=open\|resolved\|reopened\|all` (default `all`) | `{comments[]}` — the threaded comments |
@@ -144,12 +146,13 @@ Example MCP client config (stdio):
 }
 ```
 
-**Tools (1:1 with the HTTP API, 18):** `create_review` (markdown, title?, project?, session?,
+**Tools (20):** `create_review` (markdown, title?, project?, session?,
 source_path?), `list_reviews`, `get_review` (id), `get_source` (id), `get_feedback` (id), `get_status` (id),
 `update_source` (id, markdown), `get_history` (id, round?), `attach_asset` (id, name, path|content_b64),
-`list_assets` (id), `delete_review` (id), `server_info`, `create_comment` (author a comment), and the **comment** tools `list_comments` (document_id, status?=open), `get_comment` (document_id,
+`list_assets` (id), `delete_review` (id), `server_info`, `create_comment` (author a comment), the **comment** tools `list_comments` (document_id, status?=open), `get_comment` (document_id,
 comment_id), `reply_to_comment` (document_id, comment_id, text), `resolve_comment` (document_id,
-comment_id, justification?), `delete_comment` (document_id, comment_id — hard-remove a junk comment).
+comment_id, justification?), `delete_comment` (document_id, comment_id — hard-remove a junk comment),
+and the **turn-baton** tools `hand_back` (document_id, message, state?=done) and `ping_working` (document_id, owner, message?) — both map onto `POST /handoff`.
 `document_id` is the review id.
 There is **no `reopen` tool** — reopen is the reviewer's UI action (a convention on the no-auth
 service, not an enforced boundary); after a reopen the agent sees the comment again via
@@ -173,6 +176,105 @@ host-reachable URL (e.g. `https://review.example.com`); otherwise the link may b
 
 **Exposure.** `list_reviews` (like `GET /api/reviews` and the dashboard) returns every review with
 no auth — fine for the trusted-network posture, but keep auth in front if exposed.
+
+## Watcher (optional) — operator runbook
+
+`watch.py` is a stdlib-only sibling of `mcp_server.py` that closes the handoff loop without a human
+in the relay: it long-polls the service for reviews the reviewer flipped to `turn==agent` ("Send to
+agent"), claims each review's cooperative lease, and **spawns the operator's configured agent
+command** (default Claude headless) to do the work. It runs **where the operator's agent runs** (like
+`mcp_server.py`) and is **NOT containerized** — `python3 watch.py` is the only way it runs; compose
+does not start it.
+
+```bash
+# trusted-base mode: a loopback service, default launch command (Claude headless)
+MDREVIEW_BASE=http://localhost:8137 python3 watch.py
+
+# with a non-loopback base, you MUST vouch for it explicitly (exact match):
+MDREVIEW_BASE=http://10.0.0.5:8137 WATCH_TRUSTED_BASE=http://10.0.0.5:8137 \
+  WATCH_LAUNCH_CMD='["claude","-p","..."]' python3 watch.py
+```
+
+**Fail-closed trusted base (the safety crux).** `watch.py` is a *credentialed process spawner*, so it
+**refuses to start** (exit `2`, no network call) against a base it cannot vouch for. With
+`WATCH_TRUSTED_BASE` unset it allows **loopback only** (`localhost`/`127.0.0.1`/`::1`); for any other
+base you must set `WATCH_TRUSTED_BASE` to an **EXACT** string match of `MDREVIEW_BASE` (no wildcard,
+no prefix, so `localhost.evil.com` is refused). A mismatch (http vs https, `:443` vs bare) is a
+refusal by design — the fix is the correct vouch, not a looser comparand.
+
+**Generic launch template (no shell injection).** The watcher only knows "spawn this argv with this
+env." `WATCH_LAUNCH_CMD` is read as a **JSON array** (preferred, e.g. `'["claude","-p","..."]'`) or
+a plain string parsed with `shlex.split`; either way it is spawned with `subprocess.Popen(argv, …)`
+**without a shell** (never `shell=True`, never the review id interpolated into a command string).
+Unset, it falls back to a named `DEFAULT_LAUNCH_CMD` (Claude headless). The child receives the review
+via **env, not argv** — the interface is `REVIEW_ID`, `MDREVIEW_BASE`, and `MDREVIEW_OWNER` (the
+watcher's lease owner, so the child renews the **same** lease via `ping_working` — a same-owner `200`,
+not a foreign `409`). The **child** owns the heartbeat and `hand_back`; the watcher claims once, then
+only reaps + logs the child on exit.
+
+**Arming — running against an untrusted / public instance.** Loopback (or an exact `WATCH_TRUSTED_BASE`
+vouch) is the trusted-base path above. To run against a **non-loopback, un-vouched** base — a public
+instance — you must **arm** the specific reviews the watcher may auto-run. Arming is a **local operator
+allowlist of review ids**; with it configured the watcher **runs but gates per review** — it spawns
+**only armed reviews** and **skips un-armed ones without claiming a lease**. Without arming (and without
+a vouch), a non-loopback base still **EXITs `2`** — arming is the *only* way to run there.
+
+- **`WATCH_ARMED_FILE`** — path to the allowlist file: **one review id per line**, `#` comments and
+  blank lines ignored, whitespace stripped, and any token that is not a valid id (including a `*`
+  wildcard) is **dropped and logged** — there is no match-all. The file is **re-read on every check**,
+  so arming a review is **append a line, no restart**.
+- **`WATCH_ARMED`** — an inline convenience id-list (comma/space-separated), unioned with the file and
+  fixed at process start (the file is the live-editable surface).
+
+**Local-only, and why it is the whole security boundary.** The allowlist is **operator-local config a
+service request cannot influence**: there is **no endpoint to arm a review** (`watch.py` reads it from
+disk/env; the service never sees it), so on a no-auth public instance a review **cannot arm itself**.
+**Provenance is not a trust boundary** on the no-auth service — anyone with the URL can set
+`project`/`session` and press "Send to agent" — so the *only* thing standing between a public Send and a
+process launch on the operator's machine is the **local allowlist**. Arm deliberately; treat the armed
+file as you would any credential-adjacent config.
+
+```bash
+# public-instance operation: arm specific reviews, no WATCH_TRUSTED_BASE vouch needed.
+# Review ids are what /api/reviews returns (10 hex chars, e.g. secrets.token_hex(5)) — not "rev_..".
+printf '%s\n' '4b09a6cbe0' 'd2abf53a16' > ~/.mdreview-armed
+WATCH_ARMED_FILE=~/.mdreview-armed MDREVIEW_BASE=https://public.example python3 watch.py
+# un-armed reviews flipped to turn==agent are skipped (no lease claim); only the two armed ids run.
+```
+
+**Caps (bound spend).** Three independent ceilings; a spawn happens only when it passes **all** of them:
+
+- `WATCH_MAX_CONCURRENT` (default `3`) — simultaneous live children.
+- `WATCH_MAX_LAUNCHES_PER_HOUR` (default `30`) — spawns over a rolling 3600s window, across **all** ids.
+- `WATCH_MAX_ATTEMPTS_PER_REVIEW` (default `5`) over `WATCH_ATTEMPT_WINDOW_S` (default `3600`s) —
+  spawns for a **single** review id within the window. Once one review id hits it, that review is
+  skipped (no claim) until its window slides; **distinct reviews are unaffected**.
+
+The first two are enforced **before** the claim (the watcher never claims a lease it cannot spawn). The
+per-review cap bounds the **re-Send / re-surface loop** — one review repeatedly returned to `turn==agent`
+(a human who keeps pressing "Send", an agent that hands back and is re-Sent, a `--backlog` re-seed), so a
+single non-converging review cannot eat the global hourly budget. It bounds **only** that loop, **not** a
+crash-loop: a child that exits before `hand_back` **strands** its review at `turn==agent` (the server
+bumps `turn_updated` only on a real reviewer→agent flip), the edge-triggered poll never re-surfaces it,
+and the watcher **never auto-relaunches** — the failure mode is a fail-safe **under**-spawn, recovered by
+the human (the 180s stale "Agent may have stopped" banner) or a `--backlog`/restart re-seed.
+
+**Full env-var reference (operator config):**
+
+| Env var | Default | Meaning |
+| --- | --- | --- |
+| `MDREVIEW_BASE` | `http://localhost:8137` | Service base URL the watcher polls (same as `mcp_server.py`). |
+| `WATCH_TRUSTED_BASE` | _(unset)_ | Explicit vouch for a non-loopback base; **exact** string match of `MDREVIEW_BASE` (no wildcard/prefix). Unset ⇒ loopback only. |
+| `WATCH_ARMED_FILE` | _(unset)_ | Path to the local allowlist file (one id/line, `#` comments, bad/`*` tokens dropped); re-read per check (append-a-line, no restart). |
+| `WATCH_ARMED` | _(unset)_ | Inline armed id-list (comma/space-separated), unioned with the file; fixed at process start. |
+| `WATCH_LAUNCH_CMD` | `DEFAULT_LAUNCH_CMD` (Claude headless) | Launch argv as a JSON array (preferred) or a `shlex` string; spawned **without** a shell. |
+| `WATCH_MAX_CONCURRENT` | `3` | Max simultaneous live children (enforced before the claim). |
+| `WATCH_MAX_LAUNCHES_PER_HOUR` | `30` | Rolling 3600s spawn cap across all reviews (enforced before the claim). |
+| `WATCH_MAX_ATTEMPTS_PER_REVIEW` | `5` | Per-review spawn cap within `WATCH_ATTEMPT_WINDOW_S`; bounds the re-Send/re-surface loop for one id. |
+| `WATCH_ATTEMPT_WINDOW_S` | `3600` | Rolling window (seconds) for the per-review attempt cap. |
+| `WATCH_OWNER` | pid-derived | Stable lease owner id; a set value persists across restart (a pid-derived one changes). |
+| `WATCH_SINCE` | now | `0` (or `--backlog`) opts into the existing agent-turn backlog; default = act only on flips after start. |
+| `WATCH_WAIT_TIMEOUT_S` | `25` | Client long-poll timeout (the server caps it to its own `WAIT_TIMEOUT_S`). |
 
 ## Notes
 

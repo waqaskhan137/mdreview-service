@@ -81,6 +81,9 @@ washed out — author figures light-background-first.
 
 There is no explicit "submit" from the human; feedback streams as they type. Practical options:
 
+- **Explicit handoff (preferred): watch `turn` on `/status`.** When the human presses **"Send to
+  agent"** in the viewer, `turn` flips to `"agent"` — an explicit "your move" that replaces the
+  guesses below. See **"The turn baton"** below for the loop (`ping_working` → act → `hand_back`).
 - Poll `status_url` and watch `comments_updated` — the live signal the viewer bumps as the human
   comments. When it has not changed for a while (e.g. a few minutes) and is non-zero, treat the
   round as complete. (`feedback_updated` is legacy: the pre-MR-036 notes write was retired, so
@@ -93,6 +96,47 @@ same content as a readable block per note. Use whichever you prefer. `notes[]` n
 **projection of the comments** (below) — each as `{num, quote, note, addressed}` (`note` = the
 thread, `addressed` = the comment is resolved) — so this read path keeps surfacing the human's live
 input even though the viewer authors comments now, not notes.
+
+## The turn baton (working with the human live)
+
+The viewer has a **"Send to agent"** button and a status banner, backed by a `turn` baton per review
+(`reviewer` | `agent`) and an `agent_status` lease — all surfaced on `GET /status` (and `get_status`).
+This makes a review a back-and-forth workspace. Your side of the loop:
+
+1. **Find work.** Poll `list_reviews` (or `get_status` on reviews you own) for ones with
+   `turn == "agent"` — the human handed you that one. Filter to reviews you own by the
+   `project`/`session` provenance you set on `create_review` (ownership is a tag convention, not
+   auth). A baton handed to you while you were offline is **parked**, waiting; you pick it up on your
+   next poll. (`turn`/`agent_status` flow through `GET /api/reviews` too, so the list is the queue.)
+2. **Claim the lease.** `ping_working(document_id, owner="<your session id>")` right away, then
+   periodically while you work, so the viewer shows *"Agent is working…"* instead of a stale
+   *"Agent may have stopped"* hint. A review already leased by a **different**, **live** owner returns
+   **409** — back off and skip it (one agent per review). A lease whose last ping is older than
+   `LEASE_TTL_S` (180s) is **stale** and a foreign owner may take it over (recovery from a dead
+   session), so a 409 means the holder is alive, not merely present. (A stale lease the human has
+   already reclaimed — `turn` back to the reviewer — still 409s; takeover requires `turn == "agent"`.)
+3. **Act, then hand back.** The open **comments are the instruction** — read them, edit,
+   `update_source`, reply/resolve the comments you addressed, then `hand_back(document_id,
+   message="…")`; `turn` returns to the human with your one-line summary in their banner. If you need
+   them, `hand_back(state="blocked")` **and** leave a comment **reply** with the question — never
+   `reopen` (that's the reviewer's UI action, deliberately not an MCP tool).
+
+The human can **take the turn back** at any moment (the banner's "Take back the turn"), so don't
+assume you still hold it across a long job — re-check `turn` / keep pinging. This explicit baton
+replaces the old "watch `comments_updated` go quiet" heuristic. **Reconnect note:** `hand_back` /
+`ping_working` are new MCP tools, so a stale stdio server won't list them until the client reconnects
+(a render/HTTP change needs no reconnect; a new tool does — see "Calling it over MCP").
+
+**Automating your side of the baton (`watch.py`).** An optional stdlib sibling, `watch.py`, closes
+this loop without a human relaying the URL: it long-polls for reviews flipped to `turn==agent`,
+claims the lease, and spawns a configured agent command (default Claude headless) whose child env is
+the `REVIEW_ID` / `MDREVIEW_BASE` / `MDREVIEW_OWNER` contract above — so the spawned agent renews the
+**same** lease and hands back. It runs where your agent runs (like `mcp_server.py`, not containerized)
+and is **fail-closed**: it refuses a non-loopback base without an exact `WATCH_TRUSTED_BASE` vouch. It
+can run against a **public instance only for armed reviews** — a local operator allowlist
+(`WATCH_ARMED_FILE`); a review cannot arm itself (provenance is not a trust boundary on the no-auth
+service). See README **"Watcher (optional) — operator runbook"** for arming, the per-review attempt
+cap, and the full env-var reference.
 
 ## Comments (threaded resolution)
 
@@ -145,10 +189,12 @@ curl -s -X POST "$BASE/api/reviews/<id>/comments/<cid>/resolve" \
 ## Calling it over MCP (optional)
 
 `mcp_server.py` is a thin, stdlib-only stdio MCP server (JSON-RPC 2.0, spec rev `2025-06-18`)
-exposing the API as 18 tools (`create_review`, `list_reviews`, `get_review`, `get_source`, `get_feedback`,
+exposing the API as 20 tools (`create_review`, `list_reviews`, `get_review`, `get_source`, `get_feedback`,
 `get_status`, `update_source`, `get_history`, `attach_asset`, `list_assets`, `delete_review`, `server_info`,
-`create_comment`, and the comment tools `create_comment` (author a comment), `delete_comment` (hard-remove a junk comment), `list_comments`, `get_comment`, `reply_to_comment`,
-`resolve_comment` — there is **no `reopen` tool**, reopen is the reviewer's UI action). The comment
+the comment tools `create_comment` (author a comment), `delete_comment` (hard-remove a junk comment), `list_comments`, `get_comment`, `reply_to_comment`,
+`resolve_comment` — there is **no `reopen` tool**, reopen is the reviewer's UI action — and the
+**turn-baton** tools `hand_back` (return the turn to the reviewer) and `ping_working` (claim/renew
+your lease while you hold the turn; **409** on a foreign owner)). The comment and baton
 tools take `document_id` (= the review id); their descriptions encode the workflow above. Run
 `MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py`; smoke with `mcp_smoke.py`. It wraps a
 running service and adds no state. Set `MDREVIEW_PUBLIC_BASE` on the service so a relayed

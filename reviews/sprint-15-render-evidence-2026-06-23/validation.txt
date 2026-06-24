@@ -1,0 +1,23 @@
+MR-052 viewer turn UI — validation evidence (2026-06-23)
+review: 6cd149e854  port: 8164 (throwaway)
+
+### render-smoke (rebuilt-from-disk viewer.html)
+  ok : .sendagent (1 node)
+  ok : .turnbanner (1 node)
+  ok : .reclaim (1 node)
+
+### node-CDP interaction drive (timed, across the 2s poll)
+PASS: a/ initial banner row 6 "Your turn" :: Your turn. Comment, then Send to agent.
+PASS: a/ Send enabled initially
+PASS: a/ reclaim hidden initially
+PASS: b/ after Send: row 1 "waiting" :: Sent — waiting for an agent to pick this up.
+PASS: b/ Send disabled after click
+PASS: b/ reclaim shown when turn=agent
+PASS: b/ after working ping (poll): row 2 "working" :: Agent is working on your feedback…
+PASS: c/ after reclaim: reviewer row :: Your turn. Comment, then Send to agent.
+PASS: c/ Send re-enabled after reclaim
+PASS: c/ reclaim hidden after reclaim
+PASS: d/ after done hand-back: row 4 "Agent updated the draft" :: Agent updated the draft: revised section. Your turn.
+PASS: d/ row 4 carries the agent message
+PASS: d/ doc reloaded to revised source (the source-push/toast path ran, banner not clobbered)
+RESULT: ALL PASS
