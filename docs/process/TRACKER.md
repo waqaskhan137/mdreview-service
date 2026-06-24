@@ -7,9 +7,11 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**sprint-21 (working-banner-animation — waiting ellipsis) ACTIVE 2026-06-24.** Epic
-`working-banner-animation` cleared G1 2026-06-24 (PASS-WITH-NITS; design approved, the folded fixes
-are all in the smoke recipe). A standalone small `ui` enhancement — the cheap low-hanging slice of GH
+**sprint-21 (working-banner-animation — waiting ellipsis) — MR-061 DONE, pending G7 close** (2026-06-24).
+Epic `working-banner-animation` cleared G1 2026-06-24 (PASS-WITH-NITS; design approved, the folded fixes
+are all in the smoke recipe). Render-smoke PASS (rebuilt throwaway, scratch port; `.working` present in
+the working state / absent after reclaim; both-pane screenshots; reduced-motion probe `none`/`turnworking`);
+evidence under `reviews/sprint-21-render-evidence-2026-06-24/`. A standalone small `ui` enhancement — the cheap low-hanging slice of GH
 **#27** (the rest of #27, behind-the-scenes progress steps + streamed/diff-animated document updates,
 stays in #27). The viewer's turn banner is **static** ("Agent is working on your feedback…") while the
 agent holds the turn — indistinguishable from a hung agent (the GH #25/#26 confusion). **MR-061**
@@ -121,9 +123,7 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-061 | Animate the viewer's `working`-state turn banner (CSS-only ellipsis) | ui | P2 | sprint-21 |
+_none_
 
 ## in-progress
 
@@ -137,6 +137,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-061 | Animate the viewer's `working`-state turn banner (CSS-only ellipsis) | ui | P2 | sprint-21 |
 | MR-060 | Watcher must-configure launch stub — refuse-to-start at startup when `WATCH_LAUNCH_CMD` unset + runbook recipes + injection caveat | svc | P1 | sprint-20 |
 | MR-059 | `watch.py` per-review attempt cap + full operator runbook — bound the re-Send loop, document the public-instance arming story | svc | P1 | sprint-19 |
 | MR-058 | `watch.py` arming / allowlist — relax C2's fail-closed Step 0 (local `WATCH_ARMED_FILE`/`WATCH_ARMED`, run-but-gate) | svc | P1 | sprint-19 |

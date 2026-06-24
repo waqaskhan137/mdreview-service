@@ -24,7 +24,7 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-061 | Animate the viewer's `working`-state turn banner (CSS-only ellipsis) | ui | P2 | ready |
+| MR-061 | Animate the viewer's `working`-state turn banner (CSS-only ellipsis) | ui | P2 | done |
 
 ## Preferred execution order
 
