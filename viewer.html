@@ -216,7 +216,8 @@ function toast(msg){const t=$("#toast");t.textContent=msg;t.style.opacity=1;clea
 function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
 
 // --- MR-052: turn baton UI (Send / status banner / reclaim), driven purely by the /status body ---
-const STALE_S=180;   // lease-heartbeat staleness (~3 min); agent_status.at is epoch SECONDS (float)
+const STALE_S=180;   // lease-heartbeat staleness (~3 min); agent_status.at is epoch SECONDS (float).
+                     // MIRRORS app.py LEASE_TTL_S (single source of truth; both seconds) — move together.
 function postHandoff(body){
   return fetch(API+'/handoff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 }

@@ -52,6 +52,10 @@ os.makedirs(DATA_DIR, exist_ok=True)
 _lock = threading.Condition()
 # Bounded server-side timeout for the /wait long-poll (seconds); a client ?timeout= is capped to it.
 WAIT_TIMEOUT_S = float(os.environ.get("MDREVIEW_WAIT_TIMEOUT_S", "25"))
+# Lease staleness TTL in SECONDS (agent_status.at is epoch seconds, float — never milliseconds).
+# A foreign /handoff {state:working} lease older than this is taken over (MR-055). MIRRORS the
+# viewer's STALE_S in viewer.html — single source of truth; the two MUST move together (both seconds).
+LEASE_TTL_S = float(os.environ.get("MDREVIEW_LEASE_TTL_S", "180"))
 RID = r"([A-Za-z0-9]{4,40})"
 
 
@@ -629,11 +633,29 @@ class H(BaseHTTPRequestHandler):
                         mt["handoff"] = {"by": "reviewer", "at": now}
                         mt["turn_updated"] = now
                 elif state == "working":
-                    # lease claim/renew: only the current owner (or an unowned lease) writes; a
-                    # foreign owner backs off with 409. turn_updated is NOT bumped (no flip).
+                    # lease claim/renew/takeover. turn_updated is NOT bumped (no flip).
+                    # Decision table (cur = existing lease owner; turn = mt["turn"]):
+                    #   cur unset/"" .......................... grant  (normal claim)
+                    #   cur == owner .......................... grant  (normal renew)
+                    #   foreign + fresh (now-at <= TTL) ....... 409    (live owner; never preempt)
+                    #   foreign + stale + turn == "agent" ..... grant  (MR-055 takeover; dead session)
+                    #   foreign + stale + turn != "agent" ..... 409    (already reclaimed by human)
+                    # The normal unset/equal-owner path grants regardless of turn; only the STALENESS
+                    # grant is gated on turn == "agent". turn is read and agent_status is written under
+                    # the SAME _lock as the reclaim arm, so there is no TOCTOU vs a concurrent reclaim
+                    # (the reclaim arm forces turn="reviewer" but leaves agent_status, so a lease can be
+                    # both stale AND already reclaimed — this re-check rejects that takeover).
                     owner = b.get("owner", "")
-                    cur_owner = (mt.get("agent_status") or {}).get("owner")
+                    cur = mt.get("agent_status") or {}
+                    cur_owner = cur.get("owner")
+                    stale = (now - (cur.get("at") or 0)) > LEASE_TTL_S
                     if cur_owner in (None, "", owner):
+                        grant = True
+                    elif stale and mt.get("turn") == "agent":
+                        grant = True            # stale foreign lease + turn still ours: take it over
+                    else:
+                        grant = False           # fresh foreign lease, or stale-but-already-reclaimed
+                    if grant:
                         mt["agent_status"] = {"state": "working", "message": b.get("message", ""),
                                               "owner": owner, "at": now}
                     else:
