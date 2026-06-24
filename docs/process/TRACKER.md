@@ -7,13 +7,14 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**sprint-17 (agent-watcher — C1: server support) — both tickets DONE, pending G7 close** (2026-06-24).
-Epic `agent-watcher` cleared G1 2026-06-24 (PASS-WITH-NITS, findings folded). Shipped the three
-server-side primitives the (C2) watcher polls — a `?turn=agent` queue filter, a `/wait` long-poll
-(Condition over `_lock`, required `?since=<turn_updated>` edge cursor), and a stale-lease takeover on
-`/handoff {state:working}` — entirely inside the existing container (no UI, no Dockerfile change).
-**MR-054** (detection) + **MR-055** (lease change) both `done` and merged to `dev`. Awaiting the G7
-staff-critic close review before `status: closed`.
+**sprint-17 (agent-watcher — C1: server support) CLOSED at G7 2026-06-24** (staff-critic PASS,
+`reviews/sprint-17-close-review-2026-06-24.md`; independent; container render-smoke
+`reviews/sprint-17-render-evidence-2026-06-24/`). Epic `agent-watcher` cleared G1 2026-06-24
+(PASS-WITH-NITS, findings folded). Shipped the three server-side primitives the (C2) watcher polls — a
+`?turn=agent` queue filter, a `/wait` long-poll (Condition over `_lock`, required
+`?since=<turn_updated>` edge cursor), and a stale-lease takeover on `/handoff {state:working}` —
+entirely inside the existing container (no UI, no Dockerfile change). **MR-054** + **MR-055** done,
+merged to `dev`. Next: C2 (the `watch.py` watcher core) as its own cycle.
 
 _(previously)_ **EPIC `agent-handoff-baton` COMPLETE.** **sprint-16 (Chunk 3, agent surface) CLOSED
 at G7 2026-06-23** (staff-critic PASS, `reviews/sprint-16-close-review-2026-06-23.md`; independent
@@ -163,4 +164,4 @@ _none_
 | mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |
 | legacy-feedback-retire | done (merged to main 2026-06-23, PR #11; with MR-048 + MR-049) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
 | agent-handoff-baton | done on `dev` (3 chunks: MR-051+MR-052+MR-053; sprints 14/15/16 CLOSED G7 PASS; PR #17 pending) | G1 passed 2026-06-23 | sprint-14/15/16 |
-| agent-watcher | active (C1 shipped: MR-054 + MR-055 done, sprint-17 pending G7 close; C2/C3 decomposed at their own cycles) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1) |
+| agent-watcher | active (C1 shipped + closed: sprint-17 G7 PASS 2026-06-24; C2/C3 at their own cycles) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1) |
