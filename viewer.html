@@ -81,6 +81,12 @@
   .turnbanner.show{display:flex;}
   .turnbanner #turntext{flex:1;}
   .turnbanner .reclaim{font-size:12px;padding:4px 11px;white-space:nowrap;}
+  /* MR-061 (issue #27, cheap slice): a waiting animation on the *working* banner only, so it reads
+     as live, not stuck. Pure CSS — a muted trailing ellipsis that pulses; the working arm of
+     renderBanner adds the .working class and drops the literal "…" so this ::after is the sole one. */
+  #turnbanner.working #turntext::after{content:"…";color:var(--muted);animation:turnworking 1.25s ease-in-out infinite;}
+  @keyframes turnworking{0%,100%{opacity:.3;}50%{opacity:1;}}
+  @media (prefers-reduced-motion:reduce){#turnbanner.working #turntext::after{animation:none;opacity:1;}}
   #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--accent);color:#fff;font-family:-apple-system,sans-serif;font-size:13px;padding:8px 16px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
   /* MR-006/MR-036: Google-Docs style margin comments (threaded) */
   #gutter{position:absolute;top:0;width:284px;z-index:5;display:none;}
@@ -228,11 +234,12 @@ function renderBanner(st){
   const as=st&&st.agent_status;            // null/absent => parked or never handed off
   const send=$("#sendbtn"),reclaim=$("#reclaimbtn"),tt=$("#turntext"),bar=$("#turnbanner");
   if(!bar)return;
+  bar.classList.remove('working');           // MR-061: only the genuine working arm re-adds it below
   let msg;
   if(turn==='agent'){
     if(!as)msg="Sent — waiting for an agent to pick this up.";
     else if((Date.now()/1000-(as.at||0))>STALE_S)msg="Agent may have stopped — Take back the turn?";
-    else msg="Agent is working on your feedback…";
+    else{msg="Agent is working on your feedback";bar.classList.add('working');}   // MR-061: animated "…" via #turntext::after
     reclaim.style.display='';              // rows 1–3: reclaim available
     send.disabled=true;send.textContent="Sent — agent's turn";
   }else{
