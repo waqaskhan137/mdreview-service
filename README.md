@@ -316,7 +316,9 @@ cp .env.example .env
 #    edit .env →  CLAUDE_CODE_OAUTH_TOKEN=<the token from step 1>
 # 3. Start the service + the watcher:
 docker compose --profile watcher up -d --build
-# 4. Startup auth-probe — catch an EXPIRED token at deploy time, not as a silently stranded review:
+# 4. Startup AUTH probe — catch an EXPIRED token at deploy time, not as a silently stranded review.
+#    (This checks AUTH only — it deliberately omits --mcp-config; the in-compose network/MCP path is
+#     covered by actually Sending a review once it's up.)
 docker compose --profile watcher exec watcher \
   claude --strict-mcp-config --permission-mode dontAsk -p "Reply OK."
 #    exit 0 / "OK"  => auth good.   401 / non-zero => token expired or wrong → re-run setup-token.
@@ -329,10 +331,14 @@ them, and hands the turn back — the page live-updates as it goes.
 - **Rotation.** `setup-token` mints a long-lived token, but to rotate: run `claude setup-token` again,
   replace the value in `.env`, and `docker compose --profile watcher up -d` (recreates the watcher).
   Re-run the step-4 probe after rotating. (You can revoke old tokens from your Claude account.)
-- **Linux hosts — credentials-file alternative.** On Linux the CLI stores creds in a file
-  (`~/.claude/.credentials.json`), so instead of `setup-token` you can bind-mount it read-only into the
-  watcher (`-v ~/.claude:/home/watcher/.claude:ro`). **This does not work on macOS**, where the token
-  lives in the Keychain (not a mountable file) — there, `setup-token` is the path.
+- **Linux hosts — credentials-file alternative (unverified; `setup-token` is the proven path).** On
+  Linux the CLI stores creds in a file under `~/.claude`, so in principle you can bind-mount your host
+  creds into the watcher instead of minting a token: `-v ~/.claude:/home/watcher/.claude` (mount it
+  **writable**, not `:ro` — the CLI writes session/policy state into `~/.claude` at runtime). The exact
+  on-disk schema varies by CLI version, so **verify on your host** (`docker run -v ~/.claude:/home/watcher/.claude
+  mdreview-watcher … claude -p "Reply OK."` → exit 0) before relying on it. **This does not work on
+  macOS** at all, where the token lives in the Keychain (not a mountable file) — there, `setup-token`
+  is the path. When in doubt, use `setup-token` (proven end-to-end in CI).
 - **The token never enters git.** `.env` is gitignored; `.env.example` ships empty. Don't paste the
   token anywhere it would be committed or logged.
 
