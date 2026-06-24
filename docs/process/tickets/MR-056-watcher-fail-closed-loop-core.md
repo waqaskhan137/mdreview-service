@@ -1,13 +1,13 @@
 ---
 id: MR-056
 title: "`watch.py` fail-closed loop core — trusted-base check + `/wait` long-poll + claim-before-spawn"
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: review         # backlog | ready | in-progress | review | done | blocked
 layer: svc             # svc | ui | infra | docs
 priority: P1           # P0 | P1 | P2 | P3
 sprint: sprint-18
 epic: agent-watcher
 depends_on: []
-branch:                # MR-056-slug, once work starts
+branch: MR-056-watcher-fail-closed-loop-core
 created: 2026-06-24
 updated: 2026-06-24
 ---
@@ -124,15 +124,61 @@ trivial placeholder command, so the claim/skip/refuse logic is testable before t
 
 ## Work log
 
-_Filled in during implementation._
-
-- `YYYY-MM-DD` — what changed, files touched.
+- `2026-06-24` — Added `watch.py` at the repo root (the only file this ticket touches; `app.py`
+  unchanged — C1 already shipped the server side). Stdlib only (`urllib`, `subprocess`, `socket`,
+  `shlex`, `json`/`os`/`time`/`sys`), `MDREVIEW_BASE` read the same way as `mcp_server.py:35`. Not
+  imported by `app.py`, not in the Dockerfile, not in compose.
+  - **Step 0** `check_trusted_base` / `require_trusted_base_or_exit`: runs FIRST in `main()` before any
+    network call. `host = urlparse(base).hostname`, loopback allowlist is **exact membership** in
+    `("localhost","127.0.0.1","::1")` (not a substring test, so `localhost.evil.com` is refused);
+    otherwise `WATCH_TRUSTED_BASE.rstrip("/") == base` exact match. On failure: stderr refusal naming
+    BOTH bases (vouch shown as `(unset)` when empty) [WC-1] + `sys.exit(2)`. No bypass env.
+  - **HTTP helper** `_http`: catches `urllib.error.HTTPError` and returns `(status, body)` (does NOT
+    raise on 409); only a real `URLError` propagates, caught by the loop for backoff.
+  - **Step 1** `seed_cursor`: default `time.time()`; `WATCH_SINCE=0` / `--backlog` opts into the
+    existing backlog.
+  - **Step 2** `run`: long-polls `/api/reviews/wait?turn=agent&since=<cursor>`; timeout/empty re-polls
+    cursor unchanged; a hit advances cursor to `max(turn_updated)`; network error logs + bounded
+    backoff + re-polls the SAME cursor.
+  - **Step 3** `handle`: caps-check first (`_at_capacity()` stub returns False — real caps MR-057),
+    then `POST /handoff {state:working, owner:OWNER}`; spawn ONLY on 200, skip on 409, log+skip on
+    other. `OWNER = _watcher_id()` computed once at startup (`WATCH_OWNER` or
+    `watch-<host>-<pid>`); WC-5 documented in the `_watcher_id` docstring.
+  - **WC-3**: a capacity-skipped review still advances the cursor and is held in a `pending` set
+    drained as slots free (`_drain_pending`) — not an un-advanced cursor that busy-spins `/wait`; a
+    bounded `CAP_BACKOFF_S` is the named fallback.
+  - **Placeholder spawn** `_spawn_placeholder`: `WATCH_LAUNCH_CMD` parsed as a JSON argv array (else
+    `shlex.split`), spawned via `subprocess.Popen(argv, env=child_env)` — never `shell=True`; default
+    is a no-op. Leaves a clean seam (`REVIEW_ID`/`MDREVIEW_BASE`/`MDREVIEW_OWNER` in the child env) for
+    MR-057's real launch template + child contract.
 
 ## Validation
 
-_How this was verified._
-
-- `YYYY-MM-DD` — what was checked and the result.
+- `2026-06-24` — `python3 -m py_compile watch.py` → **PYCOMPILE_OK**.
+- **Fail-closed refusal EXITS** (against a fresh throwaway service on scratch port 8170,
+  `MDREVIEW_DATA=/tmp/mr056svc-$$` — never 8139/8137):
+  - `MDREVIEW_BASE=http://192.0.2.1:9999` (non-loopback, no vouch) → **EXIT=2**, stderr:
+    `MDREVIEW_BASE=http://192.0.2.1:9999 does not match WATCH_TRUSTED_BASE=(unset)`.
+  - `MDREVIEW_BASE=http://192.0.2.1:9999 WATCH_TRUSTED_BASE=http://192.0.2.1:8888` (typo mismatch) →
+    **EXIT=2**, refusal names both bases.
+  - `MDREVIEW_BASE=http://localhost.evil.com:9999` (substring trap) → **EXIT=2** (exact membership, not
+    substring).
+  - `MDREVIEW_BASE=http://192.0.2.1:9999 WATCH_TRUSTED_BASE=http://192.0.2.1:9999` (exact vouch) →
+    **passed Step 0, kept running / long-polling** (killed after 2s).
+  - `MDREVIEW_BASE=http://localhost:8170` (loopback default) → **passed Step 0, long-polling** (killed
+    after 2s).
+- **Single-flight / no-double-spawn:** created review `d2abf53a16` on the throwaway, started the
+  watcher (`WATCH_OWNER=watch-mr056-test`, `WATCH_LAUNCH_CMD` = a stub that appends to a stamp file,
+  seed=now), then `POST /handoff {to:agent}`:
+  - Watcher returned from `/wait`, claimed the lease (`/status` → `agent_status.owner=watch-mr056-test`)
+    and spawned the stub **exactly once** (`spawned placeholder for review d2abf53a16`; stamp file = 1
+    line).
+  - A second full `/wait` cycle (7s, client timeout 5s) produced **no second spawn** (stamp still 1
+    line) — the edge-triggered cursor advanced past the flip, so `/wait` did not re-surface the
+    still-`turn==agent` review.
+  - **409 skip proof:** a foreign owner (`watch-OTHER-cold-start`) claiming the held lease → **HTTP
+    409**, which `handle()` treats as skip (no spawn) — the single-flight gate.
+- Throwaway service + scratch data dir torn down; no stray `app.py`/`watch.py` processes left.
 
 ## Follow-ups
 
