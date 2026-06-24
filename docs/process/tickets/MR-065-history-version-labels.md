@@ -1,7 +1,7 @@
 ---
 id: MR-065
 title: "History modal: list current draft as `current (vN)`, relabel rounds, drop \"0 notes\""
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done          # backlog | ready | in-progress | review | done | blocked
 layer: ui              # svc | ui | infra | docs
 priority: P2           # P0 | P1 | P2 | P3
 sprint: sprint-23
@@ -121,3 +121,26 @@ _How this was verified._
 ## Follow-ups
 
 Anything deliberately deferred. Move real follow-ups to `backlog.md` or a new ticket.
+
+## Work log
+
+- `2026-06-24` — `viewer.html` only. `openHistory()` now `Promise.all`-fetches `/history` + `/api/reviews/{id}`
+  (for `revision`), renders a top `.histitem data-n="current"` labeled `current (v{rev})` (plain `current`
+  at rev 0) + "live draft", then archived rounds `v{round} · earlier draft · {ts}` newest-first (NO notes
+  count), and calls `showRound('current')` so the modal always opens with content. The empty-rounds
+  early-return is relocated (the current entry always renders; "No earlier versions yet" shows below when
+  there are no rounds). `showRound(n)` branches `n==='current'` (live draft from `GET /source`) vs a round
+  (`/history/{n}`); the "notes that round" section is removed. dashboard.html unchanged (the `v${revision}`
+  badge is the source of truth the top entry reconciles with).
+
+## Validation
+
+- `2026-06-24` — `py_compile app.py` OK (unchanged). Modal DOM verified by a **node-CDP driver** (the
+  `agent_smoke.py` WebSocket/`Runtime.evaluate` pattern — render-smoke.sh can't open the click-populated
+  modal, the sprint-07 wall) against a **rebuilt throwaway container** (scratch port 8770, never
+  8139/8137/compose). Fixture: a review + 2 PUTs (revision=2, rounds 0+1) + a reviewer comment. 10/10
+  assertions PASS: 3 histitems; top `current (v2) · live draft`; archived `v1`/`v0` "earlier draft"
+  newest-first; **no "notes" text anywhere in the modal** (with a comment present — Defect B); current
+  draft auto-shown = v2; **badge reconciles** (`revision==2`, top has v2 — Defect A); archived-click → v1
+  draft; `#histbtn` static render-smoke exit 0. Evidence:
+  `reviews/sprint-23-render-evidence-2026-06-24/` (SMOKE.md + history-modal.png).

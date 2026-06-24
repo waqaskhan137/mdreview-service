@@ -674,19 +674,29 @@ function poll(){
 async function openHistory(){
   const body=$("#histbody");body.innerHTML='Loading...';$("#histmodal").style.display='flex';
   try{
-    const d=await fetch(API+'/history').then(r=>r.json());const rounds=(d&&d.rounds)||[];
-    if(!rounds.length){body.innerHTML='<p style="color:var(--muted)">No earlier versions yet. A version is saved each time the AI pushes a revised draft.</p>';return;}
-    body.innerHTML='<div class="histlist">'+rounds.map(r=>'<button class="histitem" data-n="'+r.round+'">v'+r.round+' &middot; '+r.notes_total+' notes'+(r.notes_addressed?' ('+r.notes_addressed+' done)':'')+' &middot; '+new Date(r.ts*1000).toLocaleString()+'</button>').join('')+'</div><div id="histview"></div>';
+    // MR-065 (#18): the current live draft is its own top entry — "current (vN)" reconciles with the
+    // dashboard's vN badge; the archived rounds (earlier drafts) list below, newest-first. Labels are
+    // display-only (round-n on disk is unchanged). The per-round note count was removed (MR-064:
+    // round.json no longer carries it — it was always 0 in the comments era).
+    const [d,meta]=await Promise.all([fetch(API+'/history').then(r=>r.json()),fetch(API).then(r=>r.json())]);
+    const rounds=(d&&d.rounds)||[];
+    const rev=(meta&&meta.revision)||0;
+    let items='<button class="histitem" data-n="current">'+(rev>0?'current (v'+rev+')':'current')+' &middot; live draft</button>';
+    if(rounds.length)items+=rounds.map(r=>'<button class="histitem" data-n="'+r.round+'">v'+r.round+' &middot; earlier draft &middot; '+new Date(r.ts*1000).toLocaleString()+'</button>').join('');
+    else items+='<p style="color:var(--muted);font-size:13px;margin:6px 2px 0">No earlier versions yet — a version is saved each time the AI pushes a revised draft.</p>';
+    body.innerHTML='<div class="histlist">'+items+'</div><div id="histview"></div>';
     body.querySelectorAll('.histitem').forEach(b=>b.onclick=()=>showRound(b.dataset.n));
+    showRound('current');                       // open showing the current draft, never an empty modal
   }catch(e){body.innerHTML='Could not load history.';}
 }
 async function showRound(n){
   const v=$("#histview");v.innerHTML='Loading...';
   try{
-    const d=await fetch(API+'/history/'+n).then(r=>r.json());
-    const html=window.marked?marked.parse(d.source||''):esc(d.source||'');
-    const nl=(d.notes||[]).map(x=>'<li><b>#'+x.num+'</b> '+esc(x.note)+'</li>').join('');
-    v.innerHTML='<h4>v'+n+' draft</h4><div class="histdoc">'+html+'</div>'+(nl?'<h4>notes that round</h4><ul>'+nl+'</ul>':'');
+    let src,heading;
+    if(n==='current'){src=await fetch(API+'/source').then(r=>r.text());heading='current draft';}
+    else{const d=await fetch(API+'/history/'+n).then(r=>r.json());src=d.source||'';heading='v'+n+' draft';}
+    const html=window.marked?marked.parse(src):esc(src);
+    v.innerHTML='<h4>'+heading+'</h4><div class="histdoc">'+html+'</div>';
   }catch(e){v.innerHTML='Could not load that version.';}
 }
 $("#histbtn").onclick=openHistory;
