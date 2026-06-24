@@ -7,6 +7,17 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
+**sprint-19 (agent-watcher — C3: watcher safety + ops) ACTIVE 2026-06-24** — the **FINAL**
+`agent-watcher` chunk. Relaxes C2's fail-closed refusal via a **local operator arming/allowlist**
+(`WATCH_ARMED_FILE` primary + `WATCH_ARMED` env, unioned, **not** HTTP-settable) so the watcher can
+auto-run **armed** reviews on a public/no-auth base — un-armed reviews are **skipped without a claim**
+even at `turn==agent`; Step-0 becomes run-but-gate when armed (EXIT preserved when not). Adds a
+**per-review attempt cap** bounding the legitimate **re-Send / re-surface loop** (the corrected B1 model —
+NOT a crash-loop; crashes strand by design, no auto-relaunch), and the **full operator runbook**
+(README + CLAUDE.md). **MR-058** + **MR-059** `ready`. No `app.py`/Dockerfile change, no render-smoke
+(`watch.py` not containerized, docs are Markdown). **At close (G7 PASS) the `agent-watcher` epic is marked
+`done`** (C1 sprint-17 + C2 sprint-18 + C3 sprint-19).
+
 **sprint-18 (agent-watcher — C2: watcher core) CLOSED at G7 2026-06-24** (staff-critic PASS,
 `reviews/sprint-18-close-review-2026-06-24.md`; independent — the critic re-ran the fail-closed exit,
 the no-injection spawn, single-flight, the caps, and the B1 stranded-baton crash model). C2 shipped
@@ -77,7 +88,10 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-058 | `watch.py` arming / allowlist — relax C2's fail-closed Step 0 (local `WATCH_ARMED_FILE`/`WATCH_ARMED`, run-but-gate, run()-side terminal skip) | svc | P1 | sprint-19 |
+| MR-059 | `watch.py` per-review attempt cap + full operator runbook (`docs`) — bound the re-Send loop, document the public-instance arming story | svc | P1 | sprint-19 |
 
 ## in-progress
 
@@ -176,4 +190,4 @@ _none_
 | mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |
 | legacy-feedback-retire | done (merged to main 2026-06-23, PR #11; with MR-048 + MR-049) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
 | agent-handoff-baton | done on `dev` (3 chunks: MR-051+MR-052+MR-053; sprints 14/15/16 CLOSED G7 PASS; PR #17 pending) | G1 passed 2026-06-23 | sprint-14/15/16 |
-| agent-watcher | active (C1 closed sprint-17 G7 PASS; C2 closed sprint-18 G7 PASS; C3 next, its own cycle) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1), sprint-18 (C2) |
+| agent-watcher | active (C1 closed sprint-17 G7 PASS; C2 closed sprint-18 G7 PASS; **C3 in progress sprint-19 — FINAL chunk, epic → done at close**) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1), sprint-18 (C2), sprint-19 (C3) |

@@ -5,9 +5,10 @@ created: 2026-06-24
 source: requirements/agent-watcher.md   # the verbatim 3-chunk decomposition brief
 gate: passed 2026-06-24   # G1 (Plan Gate): PASS-WITH-NITS, findings folded; tickets unblocked
 review: reviews/agent-watcher-plan-review-2026-06-24.md   # independent G1 review (PASS-WITH-NITS); resolutions folded below
-related_sprints: [sprint-17, sprint-18]    # C1 -> sprint-17; C2 -> sprint-18; C3 -> later sprint
-related_tickets: [MR-054, MR-055, MR-056, MR-057]    # C1: MR-054/MR-055 (sprint-17); C2: MR-056/MR-057 (sprint-18)
-c2_detailed: 2026-06-24   # C2 expanded to full implementable depth (this revision); C2 tickets proposed below as MR-056/MR-057 placeholders. C3 still chunk-summary level. A focused C2 critique follows.
+related_sprints: [sprint-17, sprint-18, sprint-19]    # C1 -> sprint-17; C2 -> sprint-18; C3 -> sprint-19 (tickets MR-058/MR-059)
+related_tickets: [MR-054, MR-055, MR-056, MR-057, MR-058, MR-059]    # C1: MR-054/MR-055 (sprint-17); C2: MR-056/MR-057 (sprint-18); C3: MR-058/MR-059 (sprint-19)
+c2_detailed: 2026-06-24   # C2 expanded to full implementable depth; C2 tickets proposed as MR-056/MR-057.
+c3_detailed: 2026-06-24   # C3 (FINAL chunk) expanded to full implementable depth against the SHIPPED C2 watch.py; C3 tickets proposed below as MR-058/MR-059 placeholders. C3 RELAXES C2's fail-closed refusal via local operator arming. A focused C3 critique follows.
 ---
 
 # Agent Watcher Plan
@@ -19,12 +20,13 @@ the shipped `agent-handoff-baton` epic (PR #17): `turn` + `POST /handoff` + the 
 already exist. The watcher needs three things the broker does not yet provide, plus a non-containerized
 launcher and its safety model. This plan decomposes the work into **three dependency-ordered chunks
 (C1 → C2 → C3)**, each shipped as its own sprint under this one epic plan — mirroring how
-`agent-handoff-baton` cleared G1 once and shipped three sprints. **C1 and C2 are now planned in full
-implementable detail here** (C2 was expanded on 2026-06-24, after C1 shipped, against the real shipped
-C1 contract in `app.py` — see the "C2 — Watcher core (full plan)" section below); **C3 remains at the
-chunk-summary level** (scope + dependency + what defers to it) and will be decomposed into tickets at
-the start of its own cycle. A focused, independent C2 critique follows this expansion (the plan author
-expands; the critic remains independent, preserving G1's separation).
+`agent-handoff-baton` cleared G1 once and shipped three sprints. **All three chunks are now planned in
+full implementable detail here:** C2 was expanded on 2026-06-24 (after C1 shipped) against the real
+shipped C1 contract in `app.py` (see "C2 — Watcher core (full plan)"); **C3 — the FINAL chunk — was
+expanded on 2026-06-24 against the SHIPPED C2 `watch.py`** (see "C3 — Watcher safety + ops (full
+plan)") and **relaxes** C2's fail-closed refusal via local operator arming. A focused, independent
+critique follows each expansion (the plan author expands; the critic remains independent, preserving
+G1's separation).
 
 **Source requirement:** [`requirements/agent-watcher.md`](../requirements/agent-watcher.md) — the
 verbatim 3-chunk decomposition (itself decomposing the design RFC, mdreview review `22c9555b3e`),
@@ -261,8 +263,8 @@ expect a render-smoke for a comment-only viewer touch.
 ### Watcher (`watch.py`) — C2/C3 only, NOT C1
 
 No `watch.py`, no launcher, no new file ships in C1. C1 is purely the server primitives. The watcher
-itself, its trust model, and its caps are C2/C3. **C2 is now planned in full below; C3 stays
-chunk-summary.**
+itself, its trust model, and its caps are C2/C3. **C2 is planned in full below; C3 — the FINAL chunk —
+is now also planned in full** (see "C3 — Watcher safety + ops (full plan)").
 
 ## C2 — Watcher core (full plan)
 
@@ -800,6 +802,552 @@ long-poll, `?turn=` filter, `/handoff {state:working}` 200/409 claim) is exactly
 implementation reveals a genuinely missing primitive, **flag it as a blocker** (do not bury a server gap
 in `watch.py`).
 
+## C3 — Watcher safety + ops (full plan)
+
+**Status:** expanded to implementable depth 2026-06-24, against the **shipped** C2 `watch.py` (read
+from the working tree, 329 lines: `check_trusted_base`/`require_trusted_base_or_exit` at watch.py:74-102,
+`handle()` claim-before-spawn at watch.py:237-254, `_at_capacity()` at watch.py:177-192, the pending-set
++ cursor loop in `run()` at watch.py:266-306, `seed_cursor`/`--backlog` at watch.py:258-263, the
+watcher-id at watch.py:131-145, `_reap()` crash model at watch.py:156-174). C3 is the **FINAL** chunk:
+it **extends** `watch.py`, adds a `docs` runbook, and **changes no `app.py`** (the C1 server contract is
+complete; if implementation reveals a genuinely missing server primitive, **flag it as a blocker** — do
+not bury a server gap in `watch.py`. The expansion below found none: arming is a *local* gate the
+watcher applies to data C1 already returns, and the per-review cap is in-process state).
+
+### What C3 is (and what the corrected B1 model means for it)
+
+C3 lets the watcher run against a **public / no-auth** instance, where provenance is **not** a trust
+boundary (anyone with the URL can comment and press "Send"). It does this by **relaxing** C2's
+fail-closed refusal in one controlled way — an **operator-controlled allowlist** of review ids the
+watcher may auto-run — plus a **per-review attempt cap** so a single non-converging review cannot
+monopolize the global budget, and the **full operator runbook** (the "public instance" story C2
+deferred).
+
+**The corrected B1 crash model changes what the per-review cap guards — pin this, it is the load-bearing
+correction.** Under C2's edge-triggered design, `turn_updated` bumps **only** on a real reviewer→agent
+flip (app.py:629-634) and **not** on a `{state:working}` lease write (app.py:635-636). So a child that
+crashes before `hand_back` **strands** its review at `turn==agent` with `turn_updated` unchanged, and the
+edge-triggered `/wait?since=cursor` **never re-surfaces it** (verified; this is the fail-safe under-spawn
+documented in the C2 crash model and `_reap()` at watch.py:156-174). **Therefore C3's per-review attempt
+cap does NOT guard a crash-relaunch loop — there is none.** What it actually guards is the **legitimate
+re-Send / re-surface loop**: a review that *repeatedly returns to `turn==agent`* — a human who keeps
+pressing "Send", or an agent that `hand_back`s and is re-Sent, or a `--backlog` re-seed — and never
+converges. Each such return is a **real new `turn_updated` flip**, so `/wait` **does** re-surface it, the
+watcher **does** spawn again, and across many re-Sends one stuck review could consume a large slice of the
+`WATCH_MAX_LAUNCHES_PER_HOUR` budget. The per-review cap bounds **how many times the watcher will spawn
+for the same review id within a rolling window**, so a non-converging review is capped without starving
+distinct healthy reviews.
+
+> **Non-goal (explicit, carried from C2):** C3 does **NOT** add any mechanism that auto-relaunches a
+> **stranded (crashed)** review. That would discard C2's fail-safe under-spawn property (a crash strands
+> rather than loops; recovery is the human's stale-banner reclaim/re-Send, or a deliberate
+> `--backlog`/restart re-seed). C3 adds **no crash re-trigger, no liveness timer, no `_reap()`-driven
+> relaunch.** The per-review cap is a *ceiling on legitimate re-Sends*, not a crash recovery. State this
+> as a non-goal so a reviewer does not read the cap as "now crashes auto-retry up to N times" — they do
+> not retry at all.
+
+### Core design principle (C3)
+
+**Arming is a LOCAL operator gate the watcher applies to itself; it never becomes a service capability.**
+The whole point is that on a no-auth service a review **cannot arm itself** — so the allowlist must be
+**local operator config that no HTTP request can influence**, read by `watch.py` from the operator's
+filesystem/environment, never set or read through any service endpoint. C3 changes only **who the
+watcher chooses to spawn for**, layered *after* the C2 base check and *before* the C2 lease claim. Every
+C3 addition is additive and default-safe: **arming unconfigured ⇒ C2 behavior is byte-for-byte
+preserved** (loopback runs, vouched non-loopback runs, un-vouched non-loopback exits); the per-review
+cap composes with the existing global caps without weakening them.
+
+### 1. Arming / allowlist — the main C3 deliverable (relaxes C2's Step 0)
+
+#### Mechanism: a local **file** (`WATCH_ARMED_FILE`), with an env id-list as a convenience
+
+**Decision: the allowlist is a local file path `WATCH_ARMED_FILE` (primary), with `WATCH_ARMED` as an
+optional inline env id-list.** Both are **local operator config**; **neither is settable via any HTTP
+endpoint** (pin this — there is no `app.py` change, so there is *no* route through which a review could
+add itself; the watcher reads the allowlist from disk/env, the service never sees it). Rationale for
+preferring the **file** as primary:
+
+- **It is editable while the watcher runs** without restarting it (re-read per check, or on each `/wait`
+  return — see "freshness" below), so an operator arms a new review by appending a line, exactly the
+  ergonomics the "public instance" operator needs. An env id-list is fixed at process start.
+- **It scales past a shell env's practical line length** and is the natural place for a comment per id.
+- It mirrors the repo's file-backed-state idiom (everything else the service owns is a file under
+  `DATA_DIR`), though note the armed file lives in the **operator's** space, not `DATA_DIR` — it is
+  watcher config, never service state.
+
+**File format (pin it):** one review id per line; blank lines and lines beginning `#` are ignored
+(comments); surrounding whitespace stripped. Each non-comment token must match the **server-generated id
+shape** `[A-Za-z0-9]{4,40}` (the same `RID` the router enforces, app.py — reuse the constant's regex
+value); a token that does not match is **ignored with a logged warning** (a fail-safe: a typo'd/garbage
+line never silently widens the allowlist, and never crashes the watcher). The env form `WATCH_ARMED` is
+a comma/space-separated list of the same id tokens, unioned with the file's ids if both are set.
+
+**A wildcard "arm everything" sentinel — out of scope, named as a non-goal AND enforced as a test (N2).**
+Do **not** add a `*`/`ALL` token that arms every review: it would re-create exactly the unbounded-public-
+spawner that fail-closed exists to prevent, defeating the chunk. An operator who genuinely wants "every
+review on a trusted remote" already has the C2 path: set `WATCH_TRUSTED_BASE` (the vouch). Arming is for
+the *untrusted* base where the operator names specific reviews. The non-goal is enforced **for free** by
+the `[A-Za-z0-9]{4,40}` validation: `*` (and `ALL`, which is 3 chars and contains no disallowed char but
+is just an ordinary 3-char token that matches no server-generated id) fail/do-not-match the id shape, so
+they are dropped-and-logged like any other bad token, **never treated as match-all**. **Pin in MR-058:
+the loader test must assert that a `*` line is dropped-and-logged (not armed)** — so the wildcard non-goal
+is a test, not just prose (a `*` token must never widen the allowlist to all reviews).
+
+#### Where the arming check sits in the loop (pin the placement AND the skip mechanism — W1)
+
+The per-review arming gate sits **after `/wait` returns a review and BEFORE the claim**, *before* the
+`_at_capacity()` check and *before* the `POST /handoff {state:working}` claim. **An un-armed review is
+skipped WITHOUT claiming its lease** (no `/handoff` call at all), so the watcher never touches a review it
+will not run.
+
+**The skip mechanism is load-bearing, not just the placement (W1 — pin it, do not let the implementer
+ship the literal early-return).** The naive placement — an early `if not _is_armed(rid): return False` at
+the top of `handle()` (watch.py:237) — is **wrong against the shipped `run()` loop**. The shipped `run()`
+keys `pending` membership on `_at_capacity()`, **independent of why `handle()` returned False**:
+
+```python
+# watch.py:302-304 (SHIPPED) — adds to pending on capacity, NOT on the skip-reason:
+if rid and not handle(rid):
+    if _at_capacity():
+        pending.add(rid)       # retry as slots free
+```
+
+So a `handle()` that returns `False` for an un-armed review would land that review in `pending`
+**whenever the watcher happens to be at capacity at that instant**, and `_drain_pending` (watch.py:308)
+then re-attempts it on every idle tick **forever** — an un-armed review that never converges to a spawn:
+a slow CPU/log-churn leak (not a spend bug — the claim is still gated — but it violates the property this
+plan pins). The arming check and the per-review cap return `False` for a *terminal* reason ("we will not
+run this until the operator arms it / its window slides"), which the capacity-keyed `pending.add` cannot
+distinguish from a *deferral* ("retry when a slot frees").
+
+**Pinned mechanism — gate in `run()` BEFORE `handle()`, and `continue` past a rejected review so it never
+reaches `handle()`, the caps, the claim, OR the `pending` logic.** This keeps the shipped
+`_at_capacity()`-keyed `pending.add` condition **correct and unchanged** (only a genuine capacity skip can
+ever reach it), and makes a terminal skip structurally incapable of entering `pending`:
+
+```
+# in run(), the per-row loop (replaces watch.py:300-304):
+for r in rows:
+    rid = r.get("id")
+    if not rid:
+        continue
+    if not _is_armed(rid):                       # C3 arming gate — terminal skip, BEFORE handle()
+        log "review <id> not armed — skip (no claim)"; continue   # never reaches caps/claim/pending
+    if _per_review_capped(rid):                  # C3 per-review cap (MR-059) — also terminal, BEFORE handle()
+        log "review <id> at per-review cap — skip (no claim)"; continue
+    if not handle(rid):                          # C2, UNCHANGED: only capacity/409/error reach here
+        if _at_capacity():
+            pending.add(rid)                      # ONLY a genuine capacity-defer lands in pending
+```
+
+The cursor still advances exactly as today (watch.py:299, computed over **all** returned rows *before* the
+per-row loop), so a terminal-skipped row never stalls `/wait` (the WC-3 busy-spin footgun is avoided
+without touching `pending`).
+
+> **Why `run()`-side and not a tri-state `handle()` return:** both resolve W1; a tri-state/enum return
+> from `handle()` (e.g. `SPAWNED` / `AT_CAPACITY` / `SKIPPED`) with `run()` adding to `pending` **only**
+> on the explicit `AT_CAPACITY` signal is the equally-valid alternative. The `run()`-side gate is pinned
+> as the default because it leaves `handle()` and its caps/claim/`pending` interaction **byte-for-byte
+> C2** (the gate is a pure pre-filter), which is the smaller, more obviously-correct diff. If the
+> implementer prefers the tri-state, that is acceptable **provided `run()` adds to `pending` ONLY on the
+> AT_CAPACITY signal**, never on a generic falsey return. **MR-058 must pin one of these two and assert
+> the outcome** (below); it must NOT ship the literal early-return that keys `pending` on `_at_capacity()`.
+
+- **`_is_armed(review_id)` returns True iff arming is OFF (allowlist not in force) OR the id is in the
+  allowlist.** "Arming off" means: neither `WATCH_ARMED_FILE` nor `WATCH_ARMED` is configured. When
+  arming is off, `_is_armed` is unconditionally True, the `run()` gate never rejects, and the loop is
+  byte-for-byte C2. This is the default-safe hinge: **arming unconfigured ⇒ every review is "armed" ⇒ C2
+  preserved.**
+- **A terminal skip (un-armed or per-review-capped) advances the cursor and NEVER enters `pending`**
+  (distinct from a capacity-defer, which *does* go to `pending`). It is not "deferred, retry later" — it
+  is "we will not run this until the operator arms it / its window slides"; a later **re-Send** is a fresh
+  `turn_updated` flip that `/wait` re-surfaces on its own.
+- **MR-058 must assert the un-armed review is NOT retried on a subsequent tick** — it neither claims a
+  lease NOR lands in `pending` (test B below adds this assertion, including the at-capacity case where the
+  literal early-return would have leaked it into `pending`).
+- **No lease side-effect on a skip.** Because the gate precedes `handle()` (and thus the claim), an
+  un-armed review's `agent_status` lease is **never** touched — the watcher leaves it exactly as the human
+  left it (`turn==agent`, no agent lease). This is the requirement's "skip without claiming." Assertable:
+  after the watcher sees an un-armed review, `GET /status` shows `agent_status` unchanged (null / whatever
+  it was) and `turn` still `agent`.
+
+#### The Step-0 relaxation, as a decision table (extends C2's Step 0)
+
+C3 **does not change `check_trusted_base`** (watch.py:74-83) — it changes the **consequence** of an
+untrusted base when arming is configured. C2 today: `require_trusted_base_or_exit` (watch.py:86-102) calls
+`sys.exit(2)` whenever `check_trusted_base` is False. C3 makes the exit **conditional on arming not being
+configured**, and otherwise lets the watcher **run-but-gate** (the per-review arming check then does the
+real gating). The full decision table (the four rows from the requirement, pinned):
+
+| Base | `WATCH_TRUSTED_BASE` vouch | Arming configured? | Step 0 outcome | Per-review behavior in the loop |
+|---|---|---|---|---|
+| loopback (`localhost`/`127.0.0.1`/`::1`) | n/a | n/a | **run** (C2, unchanged) | run every `turn==agent` review (arming, if set, still gates — see note) |
+| non-loopback, **exact `WATCH_TRUSTED_BASE`** match | yes | n/a | **run** (C2, unchanged) | run every `turn==agent` review (arming, if set, still gates — see note) |
+| non-loopback, **no vouch** | no | **yes** | **run, do NOT exit** (the **C3 relaxation**) | run **only armed** reviews; **skip un-armed** even at `turn==agent`, **without claiming** |
+| non-loopback, **no vouch** | no | **no** | **EXIT 2** (C2 behavior **preserved** when arming isn't configured) | — (never reaches the loop) |
+
+- **Note on "arming still gates even on a trusted base":** keep arming a **single, base-independent gate**
+  for simplicity and safety — if the operator configured an allowlist, it applies on **every** base
+  (loopback and vouched included). Rationale: an operator who has bothered to write an allowlist means
+  "only these," and silently ignoring it on loopback would be a surprising footgun. So `_is_armed` is
+  consulted **whenever arming is configured, regardless of base**; the base check only decides
+  *run-vs-exit*, the arming check decides *which reviews*. (If an operator wants "all on loopback, only
+  armed on the remote," they run two watcher processes with different config — the simplest model. Stated
+  as the chosen behavior; see C3-Q1.)
+- **Refusal message stays self-explaining (carry WC-1 forward).** The row-4 exit reuses the existing
+  `require_trusted_base_or_exit` message (names both `MDREVIEW_BASE` and `WATCH_TRUSTED_BASE`), and C3
+  **adds a third line**: that arming (`WATCH_ARMED_FILE`/`WATCH_ARMED`) is the way to run un-vouched —
+  so the operator on a public instance is told the exact escape hatch in the same refusal. Pin: the
+  refusal still happens (row 4) when arming is **not** configured; the new line documents the relaxation,
+  it does not weaken row 4.
+- **Pin the precedence:** the run-vs-exit decision (Step 0) reads **only** `check_trusted_base` + "is
+  arming configured"; it does **not** consult the per-review allowlist contents. An **empty** but
+  *configured* armed file (file exists, zero valid ids) on an untrusted base ⇒ **run but spawn nothing**
+  (every review is un-armed ⇒ skipped). That is the correct, safe degenerate: the operator armed the
+  watcher to run but has not armed any review yet. Do **not** treat "configured-but-empty" as
+  "unconfigured" (which would EXIT) — configured means run-but-gate. State this edge explicitly.
+- **Startup notice when arming is configured (W2 — pin in MR-058).** The base-independent gate (C3-Q1)
+  is the monotone-safe direction, but it has one silent footgun: an operator who sets `WATCH_ARMED_FILE`
+  on a **loopback** (or vouched) base expecting "arm a few, run everything else" gets a watcher that
+  silently spawns **nothing** until they populate the file — the un-vouched refusal names arming as the
+  escape hatch, but the loopback-with-empty-armed-file case has no such signal, it just idles. **MR-058
+  must print a one-line startup notice whenever arming is configured**, after the Step-0 decision and
+  before the loop, naming **how many ids are armed** and that the gate is base-independent — e.g.
+  `arming active: N ids armed; un-armed reviews are skipped on ALL bases (loopback/vouched included)`.
+  Pin specifically: when `N == 0` on a **loopback/vouched** base (where the watcher would otherwise run
+  everything), the notice must make the "spawns nothing until you arm a review" consequence explicit, so
+  a silently-idle loopback watcher is never a surprise. (The notice is a `print`, not a behavior change;
+  it composes with the row-4 refusal message — refusal happens only when arming is **not** configured.)
+
+#### Allowlist freshness (re-read, do not cache at startup)
+
+So an operator can arm a review **while the watcher runs** (the public-instance ergonomic), the file is
+**re-read on each `_is_armed` check** (cheap: a few-line file, read under the single-threaded loop, no
+lock needed — same single-thread invariant the caps rely on, watch.py:148-153). **Pinned: the default is a
+plain per-check re-read, no cache** — the file is small and `/wait` returns are not hot, so a stat-then-
+read on each check buys nothing worth a cache's correctness surface. **If (and only if) the mtime-cache
+refinement is taken**, key it on **`(mtime, size)`, not mtime alone (N1)**: mtime has 1-second resolution
+on some filesystems, so an arm-then-immediate-same-second re-read can miss the edit; pairing mtime with
+the file size catches a same-second append (which changes the size). Pick one and stick to it — **default:
+no cache, re-read per check**; the `(mtime, size)`-keyed cache is the only acceptable cache form if added.
+The env `WATCH_ARMED` list is fixed at start (env cannot change in-process); the file is the live-editable
+surface. Pin: **arming a review is "append a line to `WATCH_ARMED_FILE`," no watcher restart needed.**
+
+### 2. Per-review attempt cap + convergence guard
+
+**`WATCH_MAX_ATTEMPTS_PER_REVIEW` (default `5`) spawns per review id within a rolling
+`WATCH_ATTEMPT_WINDOW_S` window (default `3600`s).** Once a review id's spawn count in the window exceeds
+the cap, the watcher **stops spawning for that review** (logs it once) until the window slides / the
+review ages out — while **distinct reviews are unaffected**.
+
+- **Data structure (pin it):** a module-level `dict[review_id] -> collections.deque[timestamp]`, mirroring
+  the existing global `_launch_times` deque (watch.py:153). On each successful `_spawn` (watch.py:218-233),
+  append `time.time()` to that review's deque. The cap check evicts entries older than
+  `WATCH_ATTEMPT_WINDOW_S` (same slide as `_at_capacity`'s hourly eviction, watch.py:189-191) then compares
+  `len(deque) >= WATCH_MAX_ATTEMPTS_PER_REVIEW`. **Prune empty deques** (delete the key when its deque
+  empties on eviction) so the dict does not grow unbounded across many one-shot reviews — pin this, it is
+  the memory-leak guard for a long-running watcher.
+- **Where the check sits (same terminal-gate discipline as arming — W1):** **in `run()`, before
+  `handle()`, alongside the arming gate** — order: `_is_armed` (C3) → `_per_review_capped` (C3) →
+  *(`handle()`:)* `_at_capacity` (C2 global caps) → claim. The per-review cap is a **terminal** skip like
+  the arming gate (it is "this review has had its turns this window," not "retry when a slot frees"), so it
+  is checked in `run()` **before** `handle()` and `continue`d past — it never reaches `handle()`, the
+  claim, or the `pending` logic (see W1 above). A per-review-capped review is skipped **without claiming**
+  (same no-side-effect discipline as the arming skip), the cursor advances, and it is **not** added to
+  `pending` (only a genuinely new edge after the window slides will re-spawn it). Pin: **per-review-cap
+  skip advances the cursor, does NOT go to `pending`** (same as the arming skip, distinct from the capacity
+  skip, which *is* keyed on `_at_capacity()` inside `run()`).
+- **Composition with the global caps (pin it):** the per-review cap is **additional**, never a
+  replacement. A spawn must pass **both** the per-review cap **and** the two global caps
+  (`WATCH_MAX_CONCURRENT`, `WATCH_MAX_LAUNCHES_PER_HOUR`). The per-review cap stops *one id* from eating the
+  global hourly budget across many re-Sends; the global caps still bound total spend across all ids. They
+  are independent ceilings; a spawn happens only under all three.
+- **What it guards (the corrected B1 meaning, restated at the control):** the **re-Send / re-surface
+  loop**, not a crash loop. A review that keeps flipping back to `turn==agent` (repeated human Sends, an
+  agent that hands back and is re-Sent, a `--backlog` re-seed that re-emits it) produces repeated real
+  edges that `/wait` re-surfaces; the per-review cap bounds those spawns. A **crashed** child does **not**
+  produce a new edge (B1), so it is **not** what this cap guards — and C3 adds nothing to relaunch it
+  (non-goal above). Write the cap's log line and the runbook to say "re-Send/re-surface," never
+  "crash-loop," so the close evidence cannot claim a property the loop does not have.
+
+### 3. Full operator runbook (`docs`) — the "public instance" story
+
+C3 owns the **complete** runbook, building on C2's trusted-base stub. The README "Watcher" section
+currently ends with a forward-pointer (README:229-231, "the full arming / untrusted-base runbook … is a
+later increment (C3)"); C3 **replaces that block** with the real content, and updates the CLAUDE.md
+pointer (CLAUDE.md:136-137, "C2 documents trusted-base mode only; the untrusted-base / public-instance
+runbook is C3") to point at the now-written section.
+
+The runbook must cover (pin the content, not just "write docs"):
+
+- **The arming model & file format:** what arming is (a local operator allowlist of review ids the watcher
+  may auto-run), the `WATCH_ARMED_FILE` format (one id per line, `#` comments, ignored bad tokens), the
+  `WATCH_ARMED` env convenience, and that arming a review is "append a line, no restart."
+- **Local-only & why (the security heart):** the allowlist is **operator-local config a service request
+  cannot influence** — there is **no endpoint to arm a review**, so on a no-auth public instance a review
+  **cannot arm itself**. State plainly: **provenance is not a trust boundary** on the no-auth service
+  (anyone with the URL can set `project`/`session` and press Send), so the *only* thing standing between a
+  public Send and a launch on the operator's machine is the **local allowlist**. This is the sentence the
+  whole chunk exists for.
+- **Untrusted / public-instance operation:** that arming is **REQUIRED** to run against a non-loopback,
+  un-vouched base (un-vouched + no arming ⇒ the watcher EXITs); the run-but-gate behavior; the worked
+  example (`WATCH_ARMED_FILE=… MDREVIEW_BASE=https://public.example python3 watch.py`, no
+  `WATCH_TRUSTED_BASE`).
+- **The per-review cap:** `WATCH_MAX_ATTEMPTS_PER_REVIEW` / `WATCH_ATTEMPT_WINDOW_S`, what they bound (a
+  non-converging review's repeated re-Sends, **not** a crash-loop — crashes strand by design and never
+  auto-relaunch), and how they compose with the global caps.
+- **Full env-var reference:** a single table of **real operator config only** — `MDREVIEW_BASE`,
+  `WATCH_TRUSTED_BASE`, `WATCH_ARMED_FILE`, `WATCH_ARMED`, `WATCH_LAUNCH_CMD`, `WATCH_MAX_CONCURRENT`,
+  `WATCH_MAX_LAUNCHES_PER_HOUR`, `WATCH_MAX_ATTEMPTS_PER_REVIEW`, `WATCH_ATTEMPT_WINDOW_S`, `WATCH_OWNER`,
+  `WATCH_SINCE`, `WATCH_WAIT_TIMEOUT_S` — default and one-line meaning each. **Exclude `WATCH_LAUNCH_MARKER`
+  (W4):** it is a **test-fixture** env read by the validation **stub** (it writes a launch marker so the
+  test can count spawns), **not** a `watch.py` config var — it must **not** appear in this runbook table,
+  or a reader would mistake a fixture var for a product feature. Pin in MR-059: the env table lists product
+  config only; `WATCH_LAUNCH_MARKER` stays in the validation fixtures, never the runbook.
+- **CLAUDE.md pointer update:** the agent-facing note (CLAUDE.md:130-137) gains one sentence that the
+  watcher can now run against a public instance **only for armed reviews**, pointing at the README section;
+  drop the "C3 is later" forward-pointer.
+
+**No new *served* file (footgun #9 does not bite).** The runbook is edits to existing `README.md` /
+`CLAUDE.md`; the armed file is **operator-local config read by `watch.py`**, never served by the service
+and never a sibling of `viewer.html`/`dashboard.html` — so **no `Dockerfile COPY`** is owed and the
+`Dockerfile` stays untouched (consistent with the whole epic: `watch.py` is not containerized).
+
+### Ticket split (C3)
+
+**Two tickets**, split along the same seam as C2 (the gating-relaxation core vs. the cap + the full
+runbook), both touching `watch.py`; the second also carries the `docs` runbook in-same-change (the
+Definition-of-Done docs-in-same-change convention, as C2's MR-057 did). Layer `svc` for the `watch.py`
+work (precedent: MR-056/MR-057 tagged `watch.py` as `svc`), `(+docs)` on the runbook ticket. IDs continue
+from the current on-disk max (MR-057), so **MR-058 / MR-059**:
+
+- **MR-058 — `watch.py` arming / allowlist (relaxes C2's fail-closed Step 0).** The `WATCH_ARMED_FILE`
+  (primary) + `WATCH_ARMED` (env id-list) allowlist loader with the pinned file format (one id/line, `#`
+  comments, `[A-Za-z0-9]{4,40}` validation, bad tokens logged-and-ignored — **including a `*`/`ALL`
+  wildcard, which is dropped-and-logged like any other bad token, never match-all; asserted by the loader
+  test, N2**), `_is_armed(review_id)` (True when arming is unconfigured ⇒ C2 preserved), the **Step-0
+  relaxation** (`require_trusted_base_or_exit` becomes run-but-gate when arming is configured; **EXIT
+  preserved when it is not**; refusal message gains the arming line — WC-1 forward), a **startup notice
+  when arming is configured** naming how many ids are armed and that the gate is base-independent (W2 —
+  so an empty/non-matching allowlist on a loopback base is not a silently-idle surprise), and the
+  **arming gate in `run()` BEFORE `handle()`** (un-armed ⇒ `continue` — skip with **no claim, no lease
+  side-effect**, cursor advances, and **never enters `pending`**). **Pin the W1 skip mechanism: the gate
+  is checked in `run()` before `handle()` and `continue`d, so the shipped `_at_capacity()`-keyed
+  `pending.add` (watch.py:302-304) stays unchanged and a terminal skip cannot leak into `pending`; do NOT
+  ship the literal early-`return False` at the top of `handle()` (it lands the un-armed review in
+  `pending` whenever the watcher is at capacity → retried forever). The tri-state `handle()` return is the
+  only acceptable alternative, and only if `run()` adds to `pending` exclusively on the AT_CAPACITY
+  signal.** Freshness: **default no cache, re-read per check**; if an mtime-cache is added it must be keyed
+  on `(mtime, size)` (N1). Pin: arming is **local-only, no HTTP route can set it** (no `app.py` change).
+  This ticket owns the **arming-cannot-be-set-via-HTTP** proof, the **un-armed-skipped-without-claim**
+  proof, the **un-armed-not-retried-into-`pending`-even-at-capacity** assertion (W1), the
+  **configured-but-empty ⇒ run-but-gate, spawn-nothing + startup-notice** assertion (W2/W3), and the
+  **`*`-token-dropped** assertion (N2).
+- **MR-059 — `watch.py` per-review attempt cap + full operator runbook (`docs`).** The
+  `WATCH_MAX_ATTEMPTS_PER_REVIEW` / `WATCH_ATTEMPT_WINDOW_S` per-review cap (`dict[id] -> deque[ts]`,
+  appended on `_spawn`, window-evicted, **empty-deque pruned**), checked **as a terminal gate in `run()`
+  before `handle()`** (alongside the arming gate, W1), after the arming check and before the claim (skip ⇒
+  `continue` — no claim, cursor advances, **never enters `pending`**), composing with — never
+  replacing — the C2 global caps; the **corrected B1 meaning** wired into the log line and docs (it bounds
+  the **re-Send/re-surface loop**, NOT a crash-loop — crashes strand and never auto-relaunch, an explicit
+  non-goal). Plus the **full runbook** (`docs`, in-same-change): the README "Watcher" section's
+  forward-pointer block (README:229-231) **replaced** with the arming model + file format + **local-only/
+  provenance-is-not-a-trust-boundary** rationale + untrusted/public-instance operation (arming REQUIRED) +
+  the per-review cap + the full env-var reference table; the CLAUDE.md pointer (CLAUDE.md:136-137) updated.
+  This ticket owns the **cap-stops-the-re-Send-loop** proof and the **distinct-review-unaffected** proof.
+
+**Dependency:** MR-059 `depends_on: [MR-058]` (the cap sits in the same `run()`-side terminal-gate
+sequence MR-058 introduces before `handle()`, and the runbook documents both). The C3 sprint =
+`{MR-058, MR-059}`. **No `app.py` change in
+either** (the C1 server contract is complete; flag a blocker if implementation reveals a genuinely missing
+primitive, do not bury it in `watch.py`). **No Dockerfile change, no render-smoke** — `watch.py` is not
+containerized and no product page is touched (footgun #9 does not bite; per the G7 pass-condition row no
+per-page DOM assertion is owed).
+
+### Validation (C3) — `py_compile watch.py` + stub-launch end-to-end against a localhost throwaway
+
+The repo gate is `python3 -m py_compile watch.py` (no test framework); each ticket owes one runnable
+self-check. **All runs use a localhost throwaway** mdreview container on a scratch port (e.g. 8155) —
+**never the live 8139 instance, never `docker compose up` (8137).** Reuse the C2 **stub launch command**
+(the tiny script at the C2 validation section that renews the same lease then `hand_back`s, referenced by
+`WATCH_LAUNCH_CMD`) and the **crash stub** (renew, write a launch marker, exit without `hand_back`) — both
+already specified for C2.
+
+#### MR-058 validation (arming / Step-0 relaxation)
+
+Gate: `python3 -m py_compile watch.py`. Then, against a throwaway base `$B` (`http://localhost:8155`) and
+a non-loopback "remote" string `$R` (`http://10.0.0.5:8137`, never actually contacted — the refusal/
+run-vs-exit decision happens before any network call):
+
+```bash
+# A. C2 PRESERVED — untrusted base, NO arming -> still EXIT 2 (the relaxation must not weaken row 4).
+MDREVIEW_BASE=$R python3 watch.py ; echo "exit=$?"           # -> exit=2, stderr names the untrusted base
+# A2. and the refusal now also names arming as the escape hatch (WC-1 forward).
+MDREVIEW_BASE=$R python3 watch.py 2>&1 | grep -qi 'WATCH_ARMED' && echo "names arming"   # -> names arming
+
+# B. C3 RELAXATION — untrusted base + arming configured -> RUN (do NOT exit), but gate per-review.
+#    Create two reviews on the LOCAL throwaway, flip both to agent; arm only ONE; point the watcher at
+#    the throwaway base but with arming configured (the run-but-gate path is base-independent, C3-Q1).
+ARMED=$(curl -s -X POST "$B/api/reviews" -H 'Content-Type: application/json' -d '{"title":"armed","markdown":"# a\n"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
+UNARMED=$(curl -s -X POST "$B/api/reviews" -H 'Content-Type: application/json' -d '{"title":"unarmed","markdown":"# b\n"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
+printf '%s\n# a comment line\n' "$ARMED" > /tmp/armed.txt          # only ARMED is in the allowlist
+curl -s -X POST "$B/api/reviews/$ARMED/handoff"   -H 'Content-Type: application/json' -d '{"to":"agent"}' >/dev/null
+curl -s -X POST "$B/api/reviews/$UNARMED/handoff" -H 'Content-Type: application/json' -d '{"to":"agent"}' >/dev/null
+MDREVIEW_BASE=$B WATCH_ARMED_FILE=/tmp/armed.txt WATCH_LAUNCH_CMD="<stub>" WATCH_SINCE=0 python3 watch.py &  WPID=$!
+sleep 3
+# ASSERT armed review ran: its agent_status.owner became the watcher's "watch-..." and it handed back.
+curl -s "$B/api/reviews/$ARMED/status" | python3 -c 'import sys,json;d=json.load(sys.stdin);print("armed turn=",d["turn"])'   # -> reviewer (stub handed back)
+# ASSERT un-armed review was SKIPPED WITHOUT A CLAIM: turn still agent, agent_status untouched (no watch- owner ever set).
+curl -s "$B/api/reviews/$UNARMED/status" | python3 -c 'import sys,json;d=json.load(sys.stdin);a=d.get("agent_status");print("unarmed turn=",d["turn"],"lease=",a)'  # -> agent  None  (never claimed)
+kill $WPID
+
+# B2. W1 — un-armed review must NOT be retried into `pending`, EVEN AT CAPACITY. Force the watcher to
+#     capacity (WATCH_MAX_CONCURRENT=0 makes _at_capacity() true on every tick) so the literal
+#     early-return-in-handle() bug WOULD leak the un-armed review into pending and re-attempt it forever.
+#     With the run()-side gate, the un-armed review is `continue`d before handle() and never enters pending.
+MDREVIEW_BASE=$B WATCH_ARMED_FILE=/tmp/armed.txt WATCH_MAX_CONCURRENT=0 WATCH_LAUNCH_CMD="<stub>" WATCH_SINCE=0 python3 watch.py > /tmp/w.log 2>&1 &  WPID=$!
+sleep 5; kill $WPID
+# ASSERT the un-armed review's "not armed — skip" appears ONCE (or once per real edge), NOT on every
+# idle tick (a pending re-attempt loop would log it repeatedly across the 5s with no new edge):
+grep -c "$UNARMED" /tmp/w.log   # -> small/bounded (one skip per real /wait edge), NOT growing each idle tick
+grep -qi 'pending' /tmp/w.log && grep -q "$UNARMED" /tmp/w.log && echo "FAIL: un-armed leaked into pending" || echo "ok: un-armed never pended"
+# ASSERT no claim ever happened for the un-armed review (lease still null):
+curl -s "$B/api/reviews/$UNARMED/status" | python3 -c 'import sys,json;d=json.load(sys.stdin);print("unarmed lease=",d.get("agent_status"))'  # -> None
+
+# B3. W2/W3 — CONFIGURED-BUT-EMPTY armed file on an UNTRUSTED base => RUN (no exit) but spawn NOTHING,
+#     and the startup notice is shown. (Empty != unconfigured: unconfigured would EXIT 2 on $R.)
+: > /tmp/empty-armed.txt                                       # configured (file exists) but zero valid ids
+curl -s -X POST "$B/api/reviews/$UNARMED/handoff" -H 'Content-Type: application/json' -d '{"to":"agent"}' >/dev/null
+MDREVIEW_BASE=$B WATCH_ARMED_FILE=/tmp/empty-armed.txt WATCH_LAUNCH_CMD="<stub>" WATCH_SINCE=0 python3 watch.py > /tmp/empty.log 2>&1 &  WPID=$!
+sleep 3; kill $WPID; echo "did-not-exit=$?"                    # process was alive to kill => it RAN (did not EXIT)
+grep -qi 'arming active: 0 ids armed' /tmp/empty.log && echo "startup notice shown (0 armed)"   # -> shown (W2)
+curl -s "$B/api/reviews/$UNARMED/status" | python3 -c 'import sys,json;d=json.load(sys.stdin);print("lease=",d.get("agent_status"))'   # -> None (spawned nothing — every review un-armed)
+
+# C. ARM-CANNOT-BE-SET-VIA-HTTP: there is NO endpoint to arm a review. Confirm the un-armed review
+#    cannot be armed through the service (no app.py route exists); only the local file/env arms it.
+curl -s -o /dev/null -w '%{http_code}\n' -X POST "$B/api/reviews/$UNARMED/arm" -d '{}'   # -> 404 (no such route; arming is local-only)
+
+# F. N2 — a `*` wildcard line is DROPPED-and-logged (not match-all). Arm a file with ONLY `*` and a
+#    comment, flip a review to agent, and confirm the watcher spawns NOTHING (the `*` armed no review).
+printf '*\n# wildcard must not arm everything\n' > /tmp/star.txt
+curl -s -X POST "$B/api/reviews/$UNARMED/handoff" -H 'Content-Type: application/json' -d '{"to":"agent"}' >/dev/null
+MDREVIEW_BASE=$B WATCH_ARMED_FILE=/tmp/star.txt WATCH_LAUNCH_CMD="<stub>" WATCH_SINCE=0 python3 watch.py > /tmp/star.log 2>&1 &  WPID=$!
+sleep 3; kill $WPID
+grep -qi 'ignoring.*\*\|invalid.*token' /tmp/star.log && echo "`*` dropped-and-logged"   # -> dropped
+curl -s "$B/api/reviews/$UNARMED/status" | python3 -c 'import sys,json;d=json.load(sys.stdin);print("lease=",d.get("agent_status"))'   # -> None (`*` armed no review)
+```
+
+**Assert explicitly:** A exits `2` (C2 row-4 EXIT preserved when arming isn't configured); A2's refusal
+names `WATCH_ARMED` (the relaxation is documented in the refusal). B shows the **armed** review claimed +
+ran the stub + handed back (turn→reviewer) **and** the **un-armed** review SKIPPED with **turn still
+`agent` and `agent_status` still null/untouched** (skipped **without a claim** — the central C3 property).
+**B2 (W1)** proves the un-armed review is **not retried into `pending` even at capacity** (the literal
+early-return bug would loop it forever; the `run()`-side gate `continue`s it before `handle()`/caps/
+`pending`) and **never claims a lease**. **B3 (W2/W3)** proves a **configured-but-empty** armed file on an
+untrusted base **runs (does not EXIT) but spawns nothing**, with the **startup notice** shown — pinning
+"configured means run-but-gate," distinct from the tempting wrong collapse "empty ⇒ treat as
+unconfigured ⇒ EXIT." C confirms there is **no HTTP route to arm** a review (a `404`), proving arming is
+local-only and a review cannot arm itself. **F (N2)** proves a `*` line is **dropped-and-logged** and arms
+**no** review (the wildcard non-goal as a test, not just prose).
+
+#### MR-059 validation (per-review cap + distinct-review isolation + runbook)
+
+Gate: `python3 -m py_compile watch.py`. Then, against `$B`, with a **tiny window** so the test is fast
+(`WATCH_ATTEMPT_WINDOW_S=3600` is the default; override small, e.g. `WATCH_ATTEMPT_WINDOW_S=60`, and a
+small cap `WATCH_MAX_ATTEMPTS_PER_REVIEW=2`):
+
+```bash
+# D. PER-REVIEW CAP STOPS THE RE-SEND LOOP: one review, re-Sent N+1 times, spawns only N times.
+ID=$(curl -s -X POST "$B/api/reviews" -H 'Content-Type: application/json' -d '{"title":"resend","markdown":"# x\n"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
+printf '%s\n' "$ID" > /tmp/armed2.txt
+: > /tmp/marker.txt
+# NOTE (W4): WATCH_LAUNCH_MARKER is a TEST-FIXTURE env the STUB reads (it writes a marker line per spawn
+# so the test can count launches). It is NOT a watch.py config var and must NOT appear in the runbook env
+# table — it lives only here, in the validation fixtures.
+MDREVIEW_BASE=$B WATCH_ARMED_FILE=/tmp/armed2.txt WATCH_MAX_ATTEMPTS_PER_REVIEW=2 \
+  WATCH_LAUNCH_CMD="<stub-that-writes-/tmp/marker.txt-then-hand_backs>" WATCH_LAUNCH_MARKER=/tmp/marker.txt python3 watch.py &  WPID=$!
+# re-Send the SAME review 3 times (each a fresh reviewer->agent flip => a real new turn_updated edge):
+for i in 1 2 3; do
+  curl -s -X POST "$B/api/reviews/$ID/handoff" -H 'Content-Type: application/json' -d '{"to":"reviewer","by":"reviewer"}' >/dev/null  # ensure it's back at reviewer
+  curl -s -X POST "$B/api/reviews/$ID/handoff" -H 'Content-Type: application/json' -d '{"to":"agent"}' >/dev/null                     # re-Send (new edge)
+  sleep 2   # let the stub run + hand back so the next Send is a clean flip
+done
+sleep 2; kill $WPID
+# ASSERT exactly 2 launch markers for this id (the 3rd re-Send was capped):
+grep -c "$ID" /tmp/marker.txt   # -> 2  (WATCH_MAX_ATTEMPTS_PER_REVIEW=2; the 3rd capped, logged, no claim)
+
+# E. DISTINCT REVIEW UNAFFECTED: a second, different review at the cap-edge still spawns its full quota.
+ID2=$(curl -s -X POST "$B/api/reviews" -H 'Content-Type: application/json' -d '{"title":"other","markdown":"# y\n"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
+printf '%s\n%s\n' "$ID" "$ID2" > /tmp/armed2.txt   # arm both
+# (re-run the watcher; re-Send ID2 twice) -> ASSERT ID2 spawns twice even while ID is at/over its cap.
+grep -c "$ID2" /tmp/marker.txt   # -> 2  (the per-review cap is per-id; ID's cap does not starve ID2)
+```
+
+**Assert explicitly:** D — the SAME review re-Sent 3 times with `WATCH_MAX_ATTEMPTS_PER_REVIEW=2` spawns
+**exactly 2** times (the 3rd re-Send is capped: logged, **no claim** — assert the marker count is 2, and
+optionally that `agent_status.owner` was not re-set on the 3rd). E — a **distinct** review `ID2` spawns
+its full quota **unaffected** by `ID` being at its cap (the cap is **per-id**, proving it does not throttle
+the whole queue). The cap log line says **"re-Send"**, never "crash-loop" (the corrected B1 meaning). The
+runbook (`docs`) is reviewed by reading the rendered README section: it documents arming (local-only,
+provenance-is-not-a-trust-boundary), untrusted-base operation (arming REQUIRED), the per-review cap, and
+the full env table — no render-smoke is owed (it is Markdown docs, not a product page).
+
+#### Sprint-close (G7) smoke
+
+`watch.py` is **not containerized** and **no product page** is touched, so per the G7 pass-condition row
+**no `docker build` and no `scripts/render-smoke.sh` per-page DOM assertion / screenshot is owed**. The
+C3 sprint-close still owes the throwaway-container rebuild + `curl /healthz` (→ `{"ok":true}`) + `GET
+/api/reviews` (→ `200`) smoke to confirm **the server is unchanged** (C3 touches no `app.py`), plus
+`python3 -m py_compile watch.py` and the stub/crash-stub end-to-end runs above. State explicitly in the
+close review that the lack of a render-smoke is **compliant** (the row does not require one for a
+non-containerized, no-page change), so the sprint is not flagged.
+
+### Assumptions & open questions (C3)
+
+The product forks (build the daemon; C2 fail-closed base + C3 arming; generic launch template) were
+settled at the RFC/brief stage and confirmed by the C2 expansion. What remains for C3 are **implementation
+clarifications**, each with a safe default. **None is a BLOCKER-FOR-HUMAN** — every fork has a default that
+does not waste a sprint.
+
+- **C3-Q1 (load-bearing) — Is arming base-independent (applies on loopback + vouched bases too), or only
+  on an untrusted base?** Assumption: **base-independent — if an allowlist is configured, it gates on every
+  base.** Justification: an operator who wrote an allowlist means "only these"; silently ignoring it on
+  loopback is a surprising footgun, and "all on loopback, only-armed on remote" is cleanly expressed as two
+  watcher processes. The base check decides run-vs-exit; the arming check decides which reviews; keeping
+  them orthogonal is the simplest correct model. Load-bearing because it sets when `_is_armed` is consulted;
+  the safe default (base-independent gate) cannot *widen* exposure (it only ever skips more), so it fails
+  safe. If an operator wants base-conditional arming, that is a later refinement, not a C3 blocker.
+- **C3-Q2 (load-bearing) — File (primary) vs env (primary) for the allowlist?** Assumption: **file
+  primary (`WATCH_ARMED_FILE`), env (`WATCH_ARMED`) a convenience, unioned if both set.** Justification:
+  the file is live-editable while the watcher runs (the public-instance ergonomic — arm a review by
+  appending a line, no restart), scales past a shell line, and matches the repo's file-backed idiom; the
+  env list is the quick inline form. Load-bearing because it sets the operator interface; both are
+  local-only (neither HTTP-settable), so either satisfies the security requirement — the file is preferred
+  for ergonomics, not safety.
+- **C3-Q3 (minor) — Per-review cap default + window.** Assumption: `WATCH_MAX_ATTEMPTS_PER_REVIEW=5`,
+  `WATCH_ATTEMPT_WINDOW_S=3600` (1h, matching the global hourly window), both env-overridable. Justification:
+  5 legitimate re-Sends of one review in an hour is generous for normal back-and-forth and a clear ceiling
+  on a non-converging one; the 1h window matches `LAUNCH_WINDOW_S` (watch.py:59) for a consistent mental
+  model. Minor — any reasonable default is fine, the operator tunes it.
+- **C3-Q4 (minor) — Allowlist freshness: re-read per check vs cache-at-start?** Assumption: **re-read the
+  file per `_is_armed` check, NO cache by default** (small file, single-threaded loop, no lock).
+  Justification: live-arming a review without a restart is the whole point of the public-instance runbook;
+  the file is tiny and `/wait` returns are not hot, so a per-check read is cheap and a cache buys nothing
+  worth its correctness surface. Minor; **if** the mtime cache is added as a refinement it **must** be
+  keyed on `(mtime, size)`, never mtime alone (1s mtime granularity can miss a same-second arm — N1).
+- **C3-Q5 (minor) — Bad/garbage line in the armed file: ignore-and-log vs refuse-to-start?** Assumption:
+  **ignore-and-log** (a token not matching `[A-Za-z0-9]{4,40}` is dropped with a warning; the watcher keeps
+  running with the valid ids). Justification: fail-safe — a typo'd line must **never** silently widen the
+  allowlist, and a single bad line should not take the watcher down on a public instance where availability
+  matters. A `*`/`ALL` wildcard is **not** a valid token (non-goal above), so it is ignored like any other
+  bad token. Minor.
+
+**No missing-server-primitive blocker surfaced** during this expansion: arming + the per-review cap are
+entirely **local** to `watch.py`, applied to data C1 already returns (`turn`, `turn_updated`, the
+`/handoff` claim). C3 needs **no `app.py` change** — indeed it must not have one, since an arming endpoint
+would re-create the self-arming hole the local-config design closes. If implementation reveals a genuinely
+missing primitive, **flag it as a blocker** (do not bury a server gap in `watch.py`).
+
 ## Rollout phases
 
 Three dependency-ordered chunks, **one sprint each**, all under this one epic plan. **C1 ships first
@@ -836,18 +1384,23 @@ launch mechanism is a **generic command template** (default = Claude), decided a
 C2 test can use a stub launch command. **Depends on C1.** This chunk is where the credentialed spawner
 *and its real fail-closed guard* are introduced — the guard lives here, not in C3.
 
-### Phase 3 — C3: Watcher safety + ops (`watch.py` + docs) — later sprint
+### Phase 3 — C3: Watcher safety + ops (`watch.py` + docs) — later sprint, the FINAL chunk
 
-**Planned at chunk-summary level; decomposed into tickets at the start of its own cycle.** Scope: lets
-the watcher run against a **public / no-auth** base (where provenance is not a trust boundary) by
-**relaxing** C2's fail-closed refusal in a controlled way — an operator-controlled **arming/allowlist
-file** (not API-settable, so a request can't arm itself) naming which reviews may auto-run; un-armed
-reviews are skipped even when `turn==agent`. Adds a **per-review attempt cap + relaunch-convergence
-guard** for the relaunch paths C3 introduces (e.g. if C3 adds a crash re-trigger, a re-launching review
-stops after N attempts) — note this guards a relaunch loop **C2 deliberately does not create** (under
-C2's edge-triggered model a crashed child *strands* rather than loops; see the C2 crash model), and
-a **runbook** (`CLAUDE.md` + README: how to run the watcher, the arming model, the trusted-base/arming
-requirement). **Depends on C2.**
+**Now planned in full implementable detail** — see "C3 — Watcher safety + ops (full plan)" above;
+tickets proposed as **MR-058 (arming / Step-0 relaxation)** + **MR-059 (per-review cap + full runbook)**
+in the Ticket-breakdown table below (created in `tickets/` when the C3 cycle opens, after the focused C3
+critique). Scope: lets the watcher run against a **public / no-auth** base (where provenance is not a
+trust boundary) by **relaxing** C2's fail-closed refusal in a controlled way — an operator-controlled
+**local arming/allowlist** (`WATCH_ARMED_FILE` primary, `WATCH_ARMED` env convenience; **not** API-settable,
+so a request can't arm itself — there is no `app.py` change and thus no route to arm a review) naming which
+reviews may auto-run; un-armed reviews are **skipped without a claim** even at `turn==agent`. The Step-0
+relaxation is precise: un-vouched non-loopback base + arming configured ⇒ **run-but-gate** (C2 EXITs here);
+un-vouched + **no** arming ⇒ **EXIT preserved**. Adds a **per-review attempt cap**
+(`WATCH_MAX_ATTEMPTS_PER_REVIEW`) bounding repeated **re-Sends** of one review within a window — note (the
+corrected B1 model) it guards the legitimate **re-Send / re-surface loop**, **NOT** a crash-loop: under
+C2's edge-triggered model a crashed child *strands* rather than loops and C3 adds **no** auto-relaunch
+(explicit non-goal). Plus the **full operator runbook** (README + `CLAUDE.md`: the public-instance story,
+the arming model & local-only rationale, the per-review cap, the full env-var reference). **Depends on C2.**
 
 ## Non-goals
 
@@ -876,6 +1429,20 @@ Scope boundaries for this epic (and for C1 specifically):
   base check, not anything in C1. (When auth lands it must cover `/handoff` first — logged risk,
   inherited from the baton epic.)
 - **Concurrent co-editing of one review by multiple agents (OT/CRDT)** — deferred, issue #16.
+- **(C3) No auto-relaunch of a stranded (crashed) review.** C3 adds **no** crash re-trigger, liveness
+  timer, or `_reap()`-driven relaunch. Under the corrected B1 model a crashed child *strands* its review
+  at `turn==agent` (fail-safe under-spawn); recovery stays the human's stale-banner reclaim/re-Send or a
+  deliberate `--backlog`/restart re-seed. C3's per-review attempt cap bounds the legitimate **re-Send**
+  loop, not a crash loop (there is none to bound).
+- **(C3) No arming via any HTTP endpoint.** The allowlist is **local operator config**
+  (`WATCH_ARMED_FILE`/`WATCH_ARMED`) read by `watch.py`; there is **no `app.py` change and no route** to
+  arm a review, so on the no-auth service a review **cannot arm itself**. No `*`/`ALL` "arm-everything"
+  wildcard (it would re-create the unbounded public spawner fail-closed exists to prevent).
+- **(C3) No change to the C1 server contract or the C2 loop's safety properties.** C3 is additive to
+  `watch.py` only: it gates *which* reviews the existing loop runs (arming) and *how many times per id*
+  (the per-review cap), layered after the C2 base check and before the C2 claim. The fail-closed EXIT (on
+  an un-vouched base with **no** arming), the claim-before-spawn single-flight, and the global caps are
+  all preserved unchanged.
 
 ## Key constraints
 
@@ -946,9 +1513,9 @@ Hard repo rules C1 must not violate (made specific):
 ## Ticket breakdown
 
 Create these in `tickets/` only after the chunk's gate clears, then link them here. **C1 shipped
-(MR-054, MR-055). C2 is now decomposed (MR-056, MR-057, proposed below — created in `tickets/` when the
-C2 cycle opens and after the focused C2 critique).** C3 tickets are created at the start of its cycle.
-IDs are the next free sequential IDs (highest existing on disk is MR-055, so C2 = MR-056/MR-057).
+(MR-054, MR-055). C2 shipped (MR-056, MR-057). C3 — the FINAL chunk — is now decomposed (MR-058, MR-059,
+proposed below — created in `tickets/` when the C3 cycle opens and after the focused C3 critique).** IDs
+are the next free sequential IDs (highest existing on disk is MR-057, so C3 = MR-058/MR-059).
 
 | ID | Title | Layer | Phase |
 |----|-------|-------|-------|
@@ -956,12 +1523,18 @@ IDs are the next free sequential IDs (highest existing on disk is MR-055, so C2 
 | MR-055 | Stale-lease takeover on `/handoff {state:working}` (TTL single-source + reclaim-vs-takeover re-check) | svc | 1 (C1) |
 | MR-056 | `watch.py` fail-closed loop core: trusted-base check (loopback default + `WATCH_TRUSTED_BASE` exact-match) + `/wait` long-poll with cursor advance + claim-before-spawn (`200`/`409`, stable watcher-id) | svc | 2 (C2) |
 | MR-057 | `watch.py` spawn + child contract + caps: generic `WATCH_LAUNCH_CMD` template (default Claude; JSON-array preferred, string→`shlex.split`→argv, no shell), child env (`REVIEW_ID`/`MDREVIEW_BASE`/`MDREVIEW_OWNER`), child-renews-lease lifecycle + crash-strands-baton model (no auto-relaunch), concurrency + launches/hour caps, crash-stub validation, trusted-base runbook stub | svc (+docs) | 2 (C2) |
+| MR-058 | `watch.py` arming / allowlist (relaxes C2's fail-closed Step 0): local `WATCH_ARMED_FILE` (one id/line, `#` comments, `[A-Za-z0-9]{4,40}` validation, bad tokens incl. `*`/`ALL` logged-and-ignored — N2) + `WATCH_ARMED` env id-list; `_is_armed` (True when arming unconfigured ⇒ C2 preserved); Step-0 run-but-gate on un-vouched base when armed (EXIT preserved when not) + **startup notice** naming armed-id count, base-independent (W2); arming gate in **`run()` BEFORE `handle()`** — un-armed ⇒ `continue` (**skip without claim**, cursor advances, **never enters `pending`** — W1: NOT a literal `handle()` early-return that leaks into the `_at_capacity()`-keyed `pending.add`); default no-cache re-read (mtime-cache, if added, keyed on `(mtime, size)` — N1); **local-only, no HTTP route can arm** (no `app.py` change) | svc | 3 (C3) |
+| MR-059 | `watch.py` per-review attempt cap + full operator runbook: `WATCH_MAX_ATTEMPTS_PER_REVIEW`/`WATCH_ATTEMPT_WINDOW_S` per-id `deque` (appended on `_spawn`, window-evicted, empty-deque pruned), checked as a **terminal gate in `run()` before `handle()`** (after arming, before claim) — skip ⇒ `continue`, cursor advances, **never `pending`** (W1) — composing with (not replacing) the C2 global caps; corrected B1 meaning (guards the **re-Send/re-surface loop**, NOT a crash-loop — crashes strand, no auto-relaunch, explicit non-goal); full runbook (`docs`, in-same-change): README "Watcher" forward-pointer replaced with arming model + local-only/provenance-not-a-trust-boundary rationale + untrusted-base operation (arming REQUIRED) + per-review cap + full env-var table (**product config only — `WATCH_LAUNCH_MARKER` is a test fixture, excluded — W4**); CLAUDE.md pointer updated | svc (+docs) | 3 (C3) |
 
 Dependencies: MR-055 `depends_on: [MR-054]` (shared `/handoff` handler + `Condition` lock); MR-057
-`depends_on: [MR-056]` (it spawns into the loop MR-056 builds). Sprint membership: **the C1 sprint =
-{MR-054, MR-055}** (shipped); **the C2 sprint = {MR-056, MR-057}**. C3 tickets are not created until its
-cycle opens. **No `app.py` change in MR-056/MR-057** — C1 shipped the server side; if implementation
-reveals a missing server primitive, flag it as a blocker (do not bury it in `watch.py`).
+`depends_on: [MR-056]` (it spawns into the loop MR-056 builds); **MR-059 `depends_on: [MR-058]`** (the
+per-review cap sits in the same `run()`-side terminal-gate sequence MR-058 introduces before `handle()`,
+and the runbook documents both). Sprint membership: **the C1 sprint = {MR-054, MR-055}** (shipped); **the C2 sprint = {MR-056,
+MR-057}** (shipped); **the C3 sprint = {MR-058, MR-059}**. C3 tickets are not created until its cycle
+opens. **No `app.py` change in MR-056/MR-057 — and none in MR-058/MR-059** (C1 shipped the server side;
+indeed C3 must not add an arming endpoint, or it re-creates the self-arming hole the local-config design
+closes); if implementation reveals a genuinely missing server primitive, flag it as a blocker (do not
+bury it in `watch.py`).
 
 ## Risks and mitigations
 
@@ -982,6 +1555,12 @@ reveals a missing server primitive, flag it as a blocker (do not bury it in `wat
 | **(C2) `WATCH_LAUNCH_CMD` string form reaching a shell (WC-2).** A string template "helpfully" run with `shell=True` re-opens a shell-injection surface the env-as-interface design closed. | JSON-array form preferred; a string form is parsed with `shlex.split` into an argv list and spawned **without a shell** (never `shell=True`). Pinned in MR-057; the result of `shlex.split` goes straight to a no-shell `Popen` argv. |
 | **(C2) Restarted watcher does not own its predecessor's leases (WC-5).** A pid-derived owner changes on restart, so a still-live child renewing under the old `MDREVIEW_OWNER` is a foreign owner to the new watcher. | Correct and intended: the new watcher `409`s and skips a review a live child still holds (no double-spawn); it reclaims only via the MR-055 stale-takeover once that lease goes stale. Stated in MR-056 as "why pid-derived owner is fine." |
 | **(C2) Brittle `WATCH_TRUSTED_BASE` exact-match confuses the operator (WC-1).** A scheme/port mismatch refuses (the correct fail-closed direction) but a bare refusal leaves the operator guessing. | Keep the strict exact-match (it **is** the control); the refusal message names **both** `MDREVIEW_BASE` and `WATCH_TRUSTED_BASE` so the mismatch is self-explaining. Do not relax the match. Pinned in MR-056. |
+| **(C3) The Step-0 relaxation silently weakens the fail-closed EXIT.** If "arming configured ⇒ run-but-gate" leaked into the "no arming" path, an un-vouched public base would stop EXITing — the exact control C2 ships. | The relaxation is gated **strictly** on arming being configured: un-vouched + **no** arming ⇒ **EXIT 2 preserved** (MR-058 validation A asserts this). The decision table's row 4 is unchanged; only row 3 (arming configured) runs-but-gates. The refusal message gains an arming line but the refusal itself still fires. |
+| **(C3) A review arms itself on the no-auth service.** If arming were API-settable, any URL-holder on a public instance could add their review to the allowlist and trigger a credentialed launch. | Arming is **local operator config only** (`WATCH_ARMED_FILE`/`WATCH_ARMED`), read by `watch.py` from disk/env; **there is no `app.py` change and thus no endpoint to arm a review** (MR-058 validation C asserts a `404` on a probe arm route). A `*`/`ALL` wildcard is a non-goal (it would re-create the unbounded public spawner). Provenance is explicitly **not** a trust boundary — the runbook says so. |
+| **(C3) The per-review cap misread as crash-retry (B1).** Calling it a "crash-loop guard" implies crashes auto-retry up to N times — they do not; a crashed child strands and never re-surfaces. | The cap guards the **re-Send / re-surface loop** (a review repeatedly flipped back to `turn==agent` produces real new edges `/wait` re-surfaces), NOT a crash-loop. C3 adds **no** auto-relaunch (explicit non-goal); the cap's log line and runbook say "re-Send," never "crash-loop." MR-059 validation D/E prove the re-Send bound and per-id isolation; the crash-strands behavior stays exactly the C2 WC-4 reality. |
+| **(C3) An un-armed / per-review-capped skip stalls the cursor and busy-spins `/wait` (WC-3 recurrence).** Reusing the wrong skip discipline (un-advanced cursor) re-runs the O(all-reviews) scan in a tight loop. | An arming/cap skip **advances the cursor** (like every row) and is **NOT** added to `pending` (distinct from a capacity skip, which retries on a freed slot): an un-armed/capped review is "do not run until a new edge / the operator arms / the window slides," not "retry when a slot frees." So no edge is re-spun; only a genuine new `turn_updated` flip re-surfaces it. Pinned in MR-058/MR-059. |
+| **(C3) The armed file dict / per-review deque grows unbounded on a long-running public watcher.** Many one-shot reviews each leave a key behind. | The per-review deque is **window-evicted and the empty deque's key pruned** (delete on empty), so the dict tracks only reviews active within the window. The armed file is re-read, not accumulated. Pinned in MR-059. |
+| **(C3) A typo'd/garbage line in the armed file silently widens or crashes the watcher.** | Each token must match `[A-Za-z0-9]{4,40}`; a non-matching token is **ignored with a logged warning** (fail-safe — never widens the allowlist, never takes the watcher down). A `*`/`ALL` is not a valid token (non-goal). Pinned in MR-058 (C3-Q5). |
 
 ## Verification
 
@@ -1219,3 +1798,45 @@ Dispositions, author-applied (G1 stays the critic's call):
   pid-derived owner changes on restart, so a restarted watcher does **not** own its predecessor's leases
   — it relies on the child's `MDREVIEW_OWNER` renewal + the MR-055 stale-takeover, and `409`s/skips a
   review a live child still holds (correct, no double-spawn). New risks row; no code-shape change.
+
+### C3 review resolutions
+
+Independent G1 staff-critic review `reviews/agent-watcher-c3-plan-review-2026-06-24.md` (verdict
+**PASS-WITH-NITS**, no blockers). Dispositions, all folded into MR-058/MR-059 (author-applied; G1 stays
+the critic's call):
+
+- **2026-06-24 — W1 (the one real wiring trap: literal "skip without claim" leaks un-armed reviews into
+  `pending`).** Accepted; this was the important one. The shipped `run()` keys `pending` membership on
+  `_at_capacity()` independent of why `handle()` returned False (watch.py:302-304), so an early
+  `return False` in `handle()` for an un-armed review lands it in `pending` whenever the watcher is at
+  capacity → `_drain_pending` retries it forever. **Pinned mechanism (chose approach 2): the arming and
+  per-review-cap gates are checked in `run()` BEFORE `handle()`, and a rejected review is `continue`d so
+  it never reaches `handle()`, the caps, the claim, OR the `pending` logic** — leaving the shipped
+  `_at_capacity()`-keyed `pending.add` byte-for-byte C2 (only a genuine capacity-defer can reach it). The
+  tri-state `handle()` return is named as the only acceptable alternative (and only if `run()` adds to
+  `pending` exclusively on the AT_CAPACITY signal). Changed: the "where the arming check sits" section
+  (new W1 skip-mechanism block with the corrected `run()` per-row loop), the per-review-cap placement
+  bullet (now a terminal `run()`-side gate too), MR-058 + MR-059 ticket scope, and a new MR-058 validation
+  step **B2** asserting the un-armed review is NOT retried into `pending` even at capacity (and never
+  claims a lease).
+- **2026-06-24 — W2 (base-independent gate silently idles a loopback watcher with an empty armed file).**
+  Accepted. Kept arming **base-independent** (the monotone-safe direction the critic agreed with) and
+  added a pinned **startup notice** in MR-058: whenever arming is configured, print how many ids are armed
+  and that the gate applies on ALL bases (loopback/vouched included) — and when `N == 0` on a
+  loopback/vouched base, make the "spawns nothing until you arm a review" consequence explicit. Changed:
+  the Step-0 precedence section (new startup-notice bullet), MR-058 scope, and validation step **B3**.
+- **2026-06-24 — W3 (configured-but-empty degenerate untested).** Accepted. Added MR-058 validation step
+  **B3**: a configured-but-empty armed file on an untrusted base **runs (no EXIT) and spawns nothing**,
+  with the startup notice shown — pinning "configured means run-but-gate," distinct from the wrong
+  collapse "empty ⇒ unconfigured ⇒ EXIT."
+- **2026-06-24 — W4 (`WATCH_LAUNCH_MARKER` is a test fixture, not product config).** Accepted. The runbook
+  env-var-reference bullet now explicitly **excludes** `WATCH_LAUNCH_MARKER` and labels it a test-fixture
+  env the stub reads; a note in the MR-059 validation block flags it the same way. It stays in the
+  fixtures, never the runbook table.
+- **2026-06-24 — N1 (mtime-cache key).** Accepted. The freshness section now pins **default = no cache,
+  re-read per check**; if the mtime cache is ever added it **must** be keyed on `(mtime, size)`, never
+  mtime alone (1s mtime granularity can miss a same-second arm). C3-Q4 updated to match.
+- **2026-06-24 — N2 (enforce the wildcard non-goal as a test).** Accepted. The file-format section notes
+  the `*`/`ALL` wildcard is dropped-and-logged by the `[A-Za-z0-9]{4,40}` validation (never match-all) and
+  pins an MR-058 loader-test assertion; added validation step **F** asserting a `*` line is dropped-and-
+  logged and arms **no** review.
