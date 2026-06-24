@@ -1,11 +1,11 @@
 ---
 id: sprint-25
 name: watcher-container — opt-in containerized watcher with subscription auth
-status: active         # planning | active | closed
+status: closed         # planning | active | closed
 start: 2026-06-24
 end: 2026-06-27
 goal: Make the watcher an opt-in docker service (`docker compose --profile watcher up`) authenticated by the user's Claude subscription, so a deploy can auto-action reviewer comments — gated on proving headless subscription auth works inside a no-keychain Linux container.
-close_review:          # reviews/sprint-25-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: reviews/sprint-25-close-review-2026-06-24.md   # G7 PASS 2026-06-24 (staff-critic, independent — rebuilt the image, re-ran both auth gates + the compose e2e; W1/N1 resolved)
 ---
 
 ## Goal
@@ -58,13 +58,30 @@ proofs must pass before compose builds on them); MR-072 `depends_on` MR-071.
 
 The sprint cannot be marked `closed` until:
 
-- [ ] every committed ticket is `done` or explicitly carried over (note where);
-- [ ] a **staff-critic sprint-close review** exists at `reviews/sprint-25-close-review-YYYY-MM-DD.md`,
+- [x] every committed ticket is `done` or explicitly carried over (note where) — MR-069/070/071/072 done, no carry-overs;
+- [x] a **staff-critic sprint-close review** exists at `reviews/sprint-25-close-review-2026-06-24.md`,
       verifying shipped work against each ticket's acceptance criteria — **including `docker build
       -f Dockerfile.watcher`, the opt-in-off-by-default compose assertion, and the in-container auth +
       end-to-end Send→action proofs** (infra epic ⇒ docker build/compose are the gates; no UI ⇒ no
       render-smoke) — with findings resolved or carried;
-- [ ] retro + carry-overs recorded above, and `close_review:` set in frontmatter.
+- [x] retro + carry-overs recorded above, and `close_review:` set in frontmatter.
+
+**Closed 2026-06-24, G7 PASS** (staff-critic, independent — `reviews/sprint-25-close-review-2026-06-24.md`;
+rebuilt the watcher image, re-ran both gating proofs + the compose e2e). MR-069/070/071/072 `done`, no
+carry-overs. **This closes the `watcher-container` epic.** Closes GH #30 (via MR-071's working profile).
+
+- **Shipped (GH #30):** the watcher is now an OPT-IN docker service — `docker compose --profile watcher
+  up` brings up the service + an agent runner authed by the user's Claude **subscription**
+  (`CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`, no API key); plain `docker compose up` starts
+  only the service. The make-or-break (headless subscription auth in a no-keychain Linux container) was
+  proven in-container before any compose work built on it; the full loop runs end-to-end (~27s).
+- **Headline lesson — the human-dependency gate.** MR-070's auth proof needed a real `setup-token` the
+  operator alone can mint (interactive OAuth); the cycle correctly isolated that as the gate and paused
+  for it rather than building on an unverified assumption. The expired-keychain-token detour (a fast
+  `401`, cleanly distinguished from a trust hang) confirmed the proof's failure modes are legible.
+- **G7 findings folded:** W1 (unverified Linux creds-mount + wrong `:ro`) softened to verify-on-host +
+  writable mount, `setup-token` reaffirmed as proven; N1 (probe is auth-only) clarified; N2 accepted.
+- **Carry-overs:** none. (Fast-follow if ever on Linux: positively verify the `~/.claude` bind-mount path.)
 
 **G7 scope note.** This is an `infra` epic: the gates are `docker build -f Dockerfile.watcher`, the
 compose opt-in proof (default `up` starts only the service), and the end-to-end Send→action against a
