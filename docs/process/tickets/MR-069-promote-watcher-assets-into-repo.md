@@ -1,12 +1,13 @@
 ---
 id: MR-069
 title: "Promote the watcher launch prototype into `watcher/` (+ .env.example, gitignore .env)"
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: infra           # svc | ui | infra | docs
 priority: P1           # P0 | P1 | P2 | P3
 sprint: sprint-25
 epic: watcher-container
 depends_on: []
+branch: dev
 created: 2026-06-24
 updated: 2026-06-24
 ---
@@ -39,11 +40,20 @@ committed. Independently shippable — host operators benefit immediately.
   `.scratch/`). `--strict-mcp-config` (pinned per G1) makes the agent's tool surface deterministic.
 - The `claude` CLI is NOT invoked by this ticket (no image yet) — this is the in-repo asset promotion.
 
+## Work log
+
+- `2026-06-24` — created `watcher/launch.sh` (the launch wrapper; quoted-heredoc so `$REVIEW_ID`/
+  `$MDREVIEW_BASE`/`$MDREVIEW_OWNER` expand at runtime from the watcher's child env; `--strict-mcp-config`
+  pinned; `-p "$PROMPT"` last per MR-063; `set -euo pipefail`), `watcher/agent-mcp.json` (mdreview MCP
+  → `http://mdreview:8080`, `/app/mcp_server.py` for in-container use), `.env.example` (empty
+  `CLAUDE_CODE_OAUTH_TOKEN=`), and added `.env` to `.gitignore`. Promoted from the verified `.scratch/`
+  prototype (which actioned a comment end-to-end in ~24s on the host). Committed on dev.
+
 ## Validation
 
-_How this was verified._
+_Verified 2026-06-24 (G4) — all ACs pass._
 
-- `python3 -m py_compile app.py watch.py mcp_server.py` (untouched, sanity).
+- `python3 -m py_compile app.py watch.py mcp_server.py` (untouched, sanity) → OK.
 - `test -x watcher/launch.sh`; structural assert the `-p` prompt is the **last** argv token
   (`grep -nE '(-p|--print)[[:space:]]+"[^"]*"[[:space:]]*$' watcher/launch.sh`) and the negative guard
   that **no flag trails it** (`! grep -nE '(-p|--print)[[:space:]]+"[^"]*"[[:space:]]+--?[A-Za-z]'`).

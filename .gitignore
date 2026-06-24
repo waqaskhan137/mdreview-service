@@ -12,3 +12,6 @@ __pycache__/
 # feature-cycle transient marker — must never be committed (a stale one would
 # trap a fresh clone behind the retro Stop-hook). The process tree itself IS tracked.
 .claude/.feature-cycle-pending-retro
+
+# operator secrets (watcher subscription token) — never commit
+.env
