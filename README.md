@@ -309,6 +309,18 @@ the human (the 180s stale "Agent may have stopped" banner) or a `--backlog`/rest
 | `WATCH_OWNER` | pid-derived | Stable lease owner id; a set value persists across restart (a pid-derived one changes). |
 | `WATCH_SINCE` | now | `0` (or `--backlog`) opts into the existing agent-turn backlog; default = act only on flips after start. |
 | `WATCH_WAIT_TIMEOUT_S` | `25` | Client long-poll timeout (the server caps it to its own `WAIT_TIMEOUT_S`). |
+| `WATCH_LOG_FILE` | _(unset ⇒ stderr only)_ | Operational log file. Unset keeps today's behaviour (log to stderr — redirect it where you like); **set** ⇒ also **append** structured, timestamped records to that exact path (no baked-in path — the watcher has no `/data` mount). This is where a crashed run's **exit code + captured stderr tail** land, so a failure is diagnosable instead of buried. |
+| `WATCH_VERBOSE` / `--verbose` | _(unset ⇒ INFO)_ | Raise the log level to `DEBUG`. |
+
+**Diagnosing a crashed agent run (issue #26).** When a spawned child exits non-zero (or dies before
+`hand_back`), the watcher (a) writes the exit code + the child's stderr tail to the log
+(`WATCH_LOG_FILE` if set, else stderr), and (b) — after a **mandatory `/status` re-check** confirming
+the review is still stranded at `turn==agent` (so it never overwrites a child that *did* hand back) —
+POSTs `hand_back{state:blocked, "agent process exited N without finishing"}`, which flips the review
+back to the reviewer. The viewer renders that as a distinct **"agent run stopped — Take back the
+turn"** banner rather than a frozen "working" spinner. This is **visibility, not retry**: the crash
+model is unchanged (B1, no auto-relaunch). The viewer only ever sees the short fixed reason; the raw
+stderr stays in the operator log (no-auth posture).
 
 ## Notes
 

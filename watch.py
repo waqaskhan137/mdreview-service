@@ -50,19 +50,58 @@ Config (all env, stdlib-idiomatic):
                             repeatedly flipped back to turn==agent), NOT a crash-loop (a crashed child
                             strands and is never auto-relaunched). Composes with the global caps above.
   WATCH_ATTEMPT_WINDOW_S    rolling window (default 3600s) for the per-review attempt cap.
+  WATCH_LOG_FILE            MR-067: operational log file. UNSET => log to stderr only (the default,
+                            preserving "wherever the operator redirected"); SET => ALSO append to that
+                            exact path. No baked-in path (the watcher has no /data mount). Holds the
+                            structured exit-code + stderr-tail records that make a crashed run
+                            diagnosable.
+  WATCH_VERBOSE / --verbose raise the log level INFO->DEBUG.
+
+On a crashed child (non-zero exit, no hand_back) the watcher captures the child's stderr tail to the
+log AND — after a MANDATORY /status re-check that it is still stranded at turn==agent (so it never
+stomps a successful hand_back) — POSTs hand_back{state:blocked,"agent process exited N without
+finishing"} so the reviewer's banner shows "agent run stopped" instead of a frozen spinner. Still B1:
+no relaunch (visibility, not retry). The viewer gets a short fixed reason; raw stderr is log-only.
 """
 import collections
 import json
+import logging
 import os
 import re
 import shlex
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+# ---- logging (MR-067 / issue #26): structured, timestamped operational log ----
+# stderr ALWAYS (preserves today's "wherever the operator redirected stdout/err" default); a
+# FileHandler is added ONLY when WATCH_LOG_FILE is set — the watcher is the non-containerized sibling
+# with no /data mount, so there is no sane baked-in path to default into. `--verbose` (or WATCH_VERBOSE)
+# raises the level INFO->DEBUG. Call _setup_logging() once, first thing in main().
+log = logging.getLogger("watch")
+
+
+def _setup_logging():
+    if log.handlers:                                 # idempotent (a re-import / double call is a no-op)
+        return
+    log.setLevel(logging.DEBUG if ("--verbose" in sys.argv or os.environ.get("WATCH_VERBOSE"))
+                 else logging.INFO)
+    fmt = logging.Formatter("%(asctime)s %(levelname)s watch.py: %(message)s")
+    sh = logging.StreamHandler()                     # stderr
+    sh.setFormatter(fmt)
+    log.addHandler(sh)
+    path = os.environ.get("WATCH_LOG_FILE")
+    if path:
+        fh = logging.FileHandler(path)               # append; the documented diagnosable location
+        fh.setFormatter(fmt)
+        log.addHandler(fh)
+        log.info("logging to %s", path)
+
 
 BASE = os.environ.get("MDREVIEW_BASE", "http://localhost:8137").rstrip("/")
 WAIT_TIMEOUT_S = float(os.environ.get("WATCH_WAIT_TIMEOUT_S", "25"))
@@ -121,7 +160,7 @@ def _valid_id(token, source):
     so a bad line never silently widens the allowlist and never crashes the watcher."""
     if _RID_RE.fullmatch(token):
         return True
-    print("watch.py: ignoring invalid armed id %r from %s (not %s)"
+    log.warning("ignoring invalid armed id %r from %s (not %s)"
           % (token, source, _RID_RE.pattern))
     return False
 
@@ -144,7 +183,7 @@ def _file_armed_ids():
         with open(WATCH_ARMED_FILE, "r", encoding="utf-8") as f:
             lines = f.readlines()
     except OSError as e:
-        print("watch.py: cannot read WATCH_ARMED_FILE=%s (%s) — treating as empty allowlist"
+        log.warning("cannot read WATCH_ARMED_FILE=%s (%s) — treating as empty allowlist"
               % (WATCH_ARMED_FILE, e))
         return set()
     ids = set()
@@ -307,14 +346,70 @@ def _reap():
         if code is None:
             continue                 # still running
         del _inflight[rid]
+        tail = _read_errtail(proc)   # MR-067: drain + close the child's stderr temp file
         if code == 0:
-            print("child for review %s exited 0 (reaped)" % rid)
+            log.info("child for review %s exited 0 (reaped)", rid)
         else:
-            # A non-zero exit is logged but NOT retried. If the child handed back before dying the
-            # baton is already with the reviewer; if it crashed before hand_back the baton is
-            # stranded at turn==agent (B1) and recovery is the human / a backlog re-seed.
-            print("child for review %s exited %s (reaped; no relaunch — see crash model B1)"
-                  % (rid, code))
+            # A non-zero exit is logged but NOT retried (B1). MR-067: capture the stderr tail to the
+            # operator log so the crash is diagnosable, then signal the reviewer (guarded re-check).
+            log.warning("child for review %s exited %s (reaped; no relaunch — see crash model B1)",
+                        rid, code)
+            if tail.strip():
+                log.warning("child for review %s stderr tail:\n%s", rid, tail.strip())
+            _signal_crash(rid, code)
+
+
+def _read_errtail(proc, limit=2000):
+    """MR-067: read the tail of a reaped child's captured stderr and close the temp file. Best-effort
+    (a missing/unreadable file yields "")."""
+    errf = getattr(proc, "_errf", None)
+    if errf is None:
+        return ""
+    try:
+        errf.seek(0)
+        data = errf.read()
+        return data[-limit:].decode("utf-8", "replace")
+    except Exception:                # pragma: no cover — diagnostic read must never crash the loop
+        return ""
+    finally:
+        try:
+            errf.close()
+        except Exception:
+            pass
+
+
+def _signal_crash(rid, code):
+    """MR-067 (issue #26): flip a CRASHED review (non-zero child, no hand_back) back to the reviewer
+    with a 'blocked' signal the viewer renders as 'agent run stopped', so the reviewer is not left on
+    a frozen 'working' spinner. MANDATORY /status re-check FIRST (the conflation guard): SKIP the
+    signal if the child already handed the turn back (turn != "agent") or set state "done" — an
+    arbitrary launch command can POST a successful hand_back and THEN exit non-zero in teardown, and
+    an unconditional signal would stomp that 'done' with a false 'stopped'. Only a genuine crash
+    leaves turn=="agent" (stale 'working' lease), which is exactly the case we signal. Best-effort:
+    any read/POST failure logs and returns — the 180s stale banner + the MR-066 pickup cue still
+    recover. The viewer gets a SHORT FIXED reason; raw stderr stays in the operator log (no-auth)."""
+    try:
+        st, body = _http("GET", "/api/reviews/%s/status" % rid, timeout=WAIT_TIMEOUT_S + 5)
+    except urllib.error.URLError as e:
+        log.warning("crash-signal: /status read failed for %s (%s) — skip signal", rid, e.reason)
+        return
+    if st != 200:
+        log.warning("crash-signal: /status HTTP %s for %s — skip signal", st, rid)
+        return
+    turn = (body or {}).get("turn")
+    state = ((body or {}).get("agent_status") or {}).get("state")
+    if turn != "agent" or state == "done":
+        log.info("crash-signal: review %s already handed back (turn=%s state=%s) — no false 'stopped'",
+                 rid, turn, state)
+        return
+    msg = "agent process exited %s without finishing" % code
+    s2, _ = _http("POST", "/api/reviews/%s/handoff" % rid,
+                  {"to": "reviewer", "state": "blocked", "owner": OWNER, "message": msg},
+                  timeout=WAIT_TIMEOUT_S + 5)
+    if s2 == 200:
+        log.warning("crash-signal: review %s flipped to reviewer (%r)", rid, msg)
+    else:
+        log.warning("crash-signal: review %s handoff HTTP %s — skip (stale banner recovers)", rid, s2)
 
 
 def _at_capacity():
@@ -401,13 +496,18 @@ def _spawn(review_id):
     child_env["REVIEW_ID"] = review_id
     child_env["MDREVIEW_BASE"] = BASE
     child_env["MDREVIEW_OWNER"] = OWNER          # winning owner: child renews the SAME lease
-    proc = subprocess.Popen(_launch_argv(), env=child_env)   # non-blocking; never shell=True
+    # MR-067: capture the child's stderr to a real temp FILE (not subprocess.PIPE) — a chatty
+    # multi-minute agent would fill a 64KB pipe buffer and DEADLOCK if nobody reads until reap;
+    # an OS file never blocks the writer. _reap reads its tail on a non-zero exit.
+    errf = tempfile.TemporaryFile(mode="w+b")
+    proc = subprocess.Popen(_launch_argv(), env=child_env, stderr=errf)   # non-blocking; never shell=True
+    proc._errf = errf                            # MR-067: read on reap (Popen accepts ad-hoc attrs)
     now = time.time()
     _inflight[review_id] = proc
     _launch_times.append(now)
     _review_attempts.setdefault(review_id, collections.deque()).append(now)   # per-review cap
-    print("spawned child for review %s (owner=%s pid=%d, inflight=%d)"
-          % (review_id, OWNER, proc.pid, len(_inflight)))
+    log.info("spawned child for review %s (owner=%s pid=%d, inflight=%d)",
+             review_id, OWNER, proc.pid, len(_inflight))
     return proc
 
 
@@ -418,7 +518,7 @@ def handle(review_id):
     A 409 is another owner (or a stale-but-reclaimed lease) — SKIP, do not spawn (normal, not an
     error). Any other non-200 is logged and skipped."""
     if _at_capacity():
-        print("at capacity, deferring review %s (pending)" % review_id)
+        log.info("at capacity, deferring review %s (pending)", review_id)
         return False   # caller holds it in the pending set; cursor still advances (WC-3)
     status, body = _http("POST", "/api/reviews/%s/handoff" % review_id,
                          {"state": "working", "owner": OWNER}, timeout=WAIT_TIMEOUT_S + 5)
@@ -426,9 +526,9 @@ def handle(review_id):
         _spawn(review_id)
         return True
     if status == 409:
-        print("review %s lease held by %s — skip" % (review_id, (body or {}).get("owner")))
+        log.info("review %s lease held by %s — skip", review_id, (body or {}).get("owner"))
         return False
-    print("review %s claim failed (HTTP %s) — skip" % (review_id, status))
+    log.warning("review %s claim failed (HTTP %s) — skip", review_id, status)
     return False
 
 
@@ -444,8 +544,7 @@ def seed_cursor():
 def run():
     cursor = seed_cursor()
     pending = set()   # WC-3: reviews skipped at capacity, drained as slots free (not a /wait re-spin)
-    print("watch.py: owner=%s base=%s cursor=%.3f (backlog=%s)"
-          % (OWNER, BASE, cursor, cursor == 0.0))
+    log.info("owner=%s base=%s cursor=%.3f (backlog=%s)", OWNER, BASE, cursor, cursor == 0.0)
     while True:
         try:
             status, body = _http(
@@ -456,13 +555,13 @@ def run():
         except urllib.error.URLError as e:
             # network error: log, bounded backoff, re-poll the SAME cursor (never advance past an
             # unprocessed edge — the cursor is the watcher's only durable position).
-            print("wait error (%s) — backing off %.0fs, cursor unchanged" % (e.reason, NET_BACKOFF_S))
+            log.warning("wait error (%s) — backing off %.0fs, cursor unchanged", e.reason, NET_BACKOFF_S)
             _drain_pending(pending)
             time.sleep(NET_BACKOFF_S)
             continue
 
         if status != 200:
-            print("wait got HTTP %s — backing off %.0fs" % (status, NET_BACKOFF_S))
+            log.warning("wait got HTTP %s — backing off %.0fs", status, NET_BACKOFF_S)
             time.sleep(NET_BACKOFF_S)
             continue
 
@@ -483,7 +582,7 @@ def run():
                 # C3 W1: TERMINAL skip BEFORE handle() — never claims a lease, never the caps, and
                 # NEVER enters `pending` (the cursor already advanced, so /wait won't busy-spin; a
                 # later re-Send is a fresh turn_updated flip /wait re-surfaces on its own).
-                print("review %s not armed — skip (no claim)" % rid)
+                log.info("review %s not armed — skip (no claim)", rid)
                 continue
             if _per_review_capped(rid):
                 # C3 W1: SECOND terminal gate, after arming and before handle() — same no-claim,
@@ -491,9 +590,9 @@ def run():
                 # loop (one review repeatedly flipped back to turn==agent), NOT a crash-loop (a
                 # crashed child strands and is never auto-relaunched). The cursor already advanced;
                 # a later re-Send AFTER the window slides is a fresh edge /wait re-surfaces on its own.
-                print("review %s at per-review cap (%d spawns / %.0fs window) — skip (no claim); "
-                      "bounding the re-Send/re-surface loop, not a crash-loop"
-                      % (rid, MAX_ATTEMPTS_PER_REVIEW, ATTEMPT_WINDOW_S))
+                log.info("review %s at per-review cap (%d spawns / %.0fs window) — skip (no claim); "
+                         "bounding the re-Send/re-surface loop, not a crash-loop",
+                         rid, MAX_ATTEMPTS_PER_REVIEW, ATTEMPT_WINDOW_S)
                 continue
             if not handle(rid):           # C2, UNCHANGED: only capacity/409/error reach here
                 if _at_capacity():
@@ -524,10 +623,11 @@ def _arming_startup_notice():
     if n == 0:
         msg += " — the allowlist is empty/non-matching, so the watcher will spawn NOTHING " \
                "until you arm a review"
-    print(msg)
+    (log.warning if n == 0 else log.info)(msg)
 
 
 def main():
+    _setup_logging()                     # MR-067: configure the log sink before anything logs
     require_trusted_base_or_exit(BASE)   # Step 0: FIRST, before any network call. Refuse-and-exit.
     require_launch_configured_or_exit()  # must-configure gate: refuse-and-exit if WATCH_LAUNCH_CMD
                                          # unset. AFTER the trusted-base crux, BEFORE run() — a
@@ -536,7 +636,7 @@ def main():
     try:
         run()
     except KeyboardInterrupt:
-        print("watch.py: stopped")
+        log.info("stopped")
 
 
 if __name__ == "__main__":
