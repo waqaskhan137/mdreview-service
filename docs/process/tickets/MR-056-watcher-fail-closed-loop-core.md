@@ -1,7 +1,7 @@
 ---
 id: MR-056
 title: "`watch.py` fail-closed loop core — trusted-base check + `/wait` long-poll + claim-before-spawn"
-status: review         # backlog | ready | in-progress | review | done | blocked
+status: done         # backlog | ready | in-progress | review | done | blocked
 layer: svc             # svc | ui | infra | docs
 priority: P1           # P0 | P1 | P2 | P3
 sprint: sprint-18
