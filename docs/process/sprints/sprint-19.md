@@ -1,11 +1,11 @@
 ---
 id: sprint-19
 name: agent-watcher — C3 (watcher safety + ops)
-status: active         # planning | active | closed
+status: closed         # planning | active | closed
 start: 2026-06-24
 end: 2026-06-28
 goal: Ship the FINAL agent-watcher chunk — relax C2's fail-closed refusal via a local operator arming/allowlist so the watcher can run armed reviews on a public/no-auth base, add a per-review attempt cap bounding the re-Send loop, and write the full operator runbook.
-close_review:          # reviews/sprint-19-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: reviews/sprint-19-close-review-2026-06-24.md   # G7 PASS-WITH-NITS 2026-06-24 (staff-critic, independent); nit fixed
 ---
 
 ## Goal
@@ -49,23 +49,35 @@ The intended order, accounting for dependencies. Unblocking work first.
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+**Closed 2026-06-24, G7 PASS-WITH-NITS** (staff-critic, independent — `reviews/sprint-19-close-review-2026-06-24.md`).
+Both committed tickets `done`, no carry-overs. **This closes the `agent-watcher` epic (C1+C2+C3) — epic `done`.**
 
-- Scope changes, carry-overs to the next sprint, what went well / poorly.
-- **This is the FINAL chunk of the `agent-watcher` epic.** At close (G7 PASS), the epic is marked `done`
-  (C1 sprint-17 + C2 sprint-18 + C3 sprint-19, all under the one G1-passed plan).
+- **Shipped:** MR-058 (local arming/allowlist relaxing C2's fail-closed Step-0 — run-but-gate on an
+  un-vouched base, armed reviews only, un-armed skipped without a claim via the run()-side terminal gate)
+  + MR-059 (per-review attempt cap bounding the re-Send/re-surface loop — NOT a crash-loop — composing
+  with the C2 global caps, + the full operator runbook in README/CLAUDE.md). No `app.py` change.
+- **G7 critic independently re-ran** the full matrix (`.scratch/` throwaway service): C2 fail-closed EXIT
+  preserved byte-for-byte when arming unconfigured (the critical no-regression), no self-arming (no
+  `app.py` route), un-armed skipped without claim and never into `pending` (W1), `*` dropped, the cap
+  stops a 3× re-Send at cap=2 while a distinct review is unaffected. C1+C2+C3 compose into the full loop.
+- **One nit fixed post-review:** the README arming example used `rev_abc123` ids that fail the documented
+  id shape; replaced with real 10-hex-char ids. Re-log-noise nit accepted (intended per-check freshness).
+- **Carry-overs:** none. The `agent-watcher` epic is COMPLETE.
 
 ## Close gate (G7)
 
 The sprint cannot be marked `closed` until:
 
-- [ ] every committed ticket is `done` or explicitly carried over (note where);
-- [ ] a **staff-critic sprint-close review** exists at
-      `reviews/sprint-19-close-review-YYYY-MM-DD.md`, verifying shipped work against each
+- [x] every committed ticket is `done` or explicitly carried over (note where) — MR-058 + MR-059 done, no carry-overs;
+- [x] a **staff-critic sprint-close review** exists at
+      `reviews/sprint-19-close-review-2026-06-24.md`, verifying shipped work against each
       ticket's acceptance criteria, **including a render smoke** of any page touched, and its
-      findings are resolved or carried;
-- [ ] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter;
-- [ ] the `agent-watcher` epic is marked `done` (this is the final chunk).
+      findings are resolved or carried. (C3 touches no product page — `watch.py` + Markdown docs — so
+      no `docker build`/`render-smoke.sh` DOM assertion is owed; the lack of one is COMPLIANT. The owed
+      smoke — `py_compile watch.py` + the stub-launch end-to-end + a throwaway-container `/healthz` +
+      `/api/reviews` no-regression — was run independently by the critic.)
+- [x] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter;
+- [x] the `agent-watcher` epic is marked `done` (this is the final chunk).
 
 **G7 scope note (C3 specifics).** C3 touches **no product page** — it extends `watch.py` (a server-side
 sibling script like `mcp_server.py`) and edits Markdown docs (`README.md` / `CLAUDE.md`); it touches no

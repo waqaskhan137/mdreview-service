@@ -1,6 +1,6 @@
 ---
 epic: agent-watcher
-status: active         # draft | active | done  (stays draft until G1 passes)
+status: done           # draft | active | done  — all 3 chunks shipped: C1 (sprint-17) + C2 (sprint-18) + C3 (sprint-19), each G7 PASS
 created: 2026-06-24
 source: requirements/agent-watcher.md   # the verbatim 3-chunk decomposition brief
 gate: passed 2026-06-24   # G1 (Plan Gate): PASS-WITH-NITS, findings folded; tickets unblocked

@@ -7,8 +7,10 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**sprint-19 (agent-watcher — C3: watcher safety + ops) — both tickets DONE, pending G7 close** (2026-06-24) — the **FINAL**
-`agent-watcher` chunk. Relaxes C2's fail-closed refusal via a **local operator arming/allowlist**
+**EPIC `agent-watcher` COMPLETE (C1+C2+C3).** **sprint-19 (C3: watcher safety + ops) CLOSED at G7
+2026-06-24** (staff-critic PASS-WITH-NITS, `reviews/sprint-19-close-review-2026-06-24.md`; independent —
+the critic re-ran the full arming/cap matrix against a `.scratch/` throwaway service; one README-example
+nit fixed) — the **FINAL** `agent-watcher` chunk. Relaxes C2's fail-closed refusal via a **local operator arming/allowlist**
 (`WATCH_ARMED_FILE` primary + `WATCH_ARMED` env, unioned, **not** HTTP-settable) so the watcher can
 auto-run **armed** reviews on a public/no-auth base — un-armed reviews are **skipped without a claim**
 even at `turn==agent`; Step-0 becomes run-but-gate when armed (EXIT preserved when not). Adds a
@@ -189,4 +191,4 @@ _none_
 | mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |
 | legacy-feedback-retire | done (merged to main 2026-06-23, PR #11; with MR-048 + MR-049) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
 | agent-handoff-baton | done on `dev` (3 chunks: MR-051+MR-052+MR-053; sprints 14/15/16 CLOSED G7 PASS; PR #17 pending) | G1 passed 2026-06-23 | sprint-14/15/16 |
-| agent-watcher | active (C1 closed sprint-17 G7 PASS; C2 closed sprint-18 G7 PASS; **C3 in progress sprint-19 — FINAL chunk, epic → done at close**) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1), sprint-18 (C2), sprint-19 (C3) |
+| agent-watcher | **done** (all 3 chunks shipped: C1 sprint-17 + C2 sprint-18 + C3 sprint-19, each G7 PASS) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1), sprint-18 (C2), sprint-19 (C3) |
