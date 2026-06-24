@@ -1,0 +1,4 @@
+  round1 after edit: ["done","active",""] (expect [active/done, active/done, ...])
+  round2 fresh claim: ["active","",""]
+  ok stale source_updated does NOT light Editing on new turn
+  ok stale comments_updated does NOT light Updating on new turn

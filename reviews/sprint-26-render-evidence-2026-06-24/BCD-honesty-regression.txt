@@ -1,0 +1,24 @@
+--- B: reply-then-blocked (Resolved must NEVER appear) ---
+  ok   B Updating comments may show (reached)   [{"t":"Updating comments","cls":"active"}]
+  ok   B "Resolved" NOT present while working   [ Agent is working on your feedback…0:02 Connected — reading your commentsEditing the documentUpdating comments Take back]
+  ok   B blocked banner "Agent needs you"   [Agent needs you: need a decision.]
+  ok   B NOT a crash banner (.warn absent)   [turnbanner show]
+  ok   B "Resolved" NEVER appears this turn   [ Agent needs you: need a decision. Take back the turn ]
+
+--- C: fresh page load after a done (no bogus duration) ---
+  ok   C done banner shows   [Agent updated the draft: done C. Your turn.]
+  ok   C NO bogus "revised in" duration   [ |  Agent updated the draft: done C. Your turn. Take back the turn ]
+
+--- D1: crash signal (MR-068 intact) ---
+  ok   D1 crash text "Agent run stopped"   [Agent run stopped: agent process exited 1 without finishing. Your turn.]
+  ok   D1 crash uses .warn   [turnbanner show warn]
+  ok   D1 crash not in steps mode   [turnbanner show warn]
+
+--- D2: pickup-timeout (MR-066 intact) ---
+  ok   D2 pre-grace "waiting for an agent"   [Sent — waiting for an agent to pick this up.]
+  ok   D2 pre-grace uses loading spinner   [turnbanner show loading]
+  ok   D2 parked NOT in steps mode   [turnbanner show loading]
+  ok   D2 timer cleared when parked   [""]
+  ok   D2 steps cleared when parked   [[]]
+
+SUMMARY [{"label":"B Updating comments may show (reached)","pass":true,"extra":"{\"t\":\"Updating comments\",\"cls\":\"active\"}"},{"label":"B \"Resolved\" NOT present while working","pass":true,"extra":" Agent is working on your feedback…0:02 Connected — reading your commentsEditing the documentUpdating comments Take back"},{"label":"B blocked banner \"Agent needs you\"","pass":true,"extra":"Agent needs you: need a decision."},{"label":"B NOT a crash banner (.warn absent)","pass":true,"extra":"turnbanner show"},{"label":"B \"Resolved\" NEVER appears this turn","pass":true,"extra":" Agent needs you: need a decision. Take back the turn "},{"label":"C done banner shows","pass":true,"extra":"Agent updated the draft: done C. Your turn."},{"label":"C NO bogus \"revised in\" duration","pass":true,"extra":" |  Agent updated the draft: done C. Your turn. Take back the turn "},{"label":"D1 crash text \"Agent run stopped\"","pass":true,"extra":"Agent run stopped: agent process exited 1 without finishing. Your turn."},{"label":"D1 crash uses .warn","pass":true,"extra":"turnbanner show warn"},{"label":"D1 crash not in steps mode","pass":true,"extra":"turnbanner show warn"},{"label":"D2 pre-grace \"waiting for an agent\"","pass":true,"extra":"Sent — waiting for an agent to pick this up."},{"label":"D2 pre-grace uses loading spinner","pass":true,"extra":"turnbanner show loading"},{"label":"D2 parked NOT in steps mode","pass":true,"extra":"turnbanner show loading"},{"label":"D2 timer cleared when parked","pass":true,"extra":"\"\""},{"label":"D2 steps cleared when parked","pass":true,"extra":"[]"}]

@@ -1,6 +1,6 @@
 ---
 epic: viewer-transparency
-status: active          # draft | active | done  (stays draft until G1 passes)
+status: done            # draft | active | done  (stays draft until G1 passes)
 created: 2026-06-24
 source: docs/process/requirements/viewer-transparency.md
 gate: passed 2026-06-24    # G1 (Plan Gate): not passed | passed YYYY-MM-DD — tickets blocked until passed

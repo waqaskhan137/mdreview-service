@@ -1,11 +1,11 @@
 ---
 id: sprint-26
 name: viewer-transparency — live agent-turn progress timeline + timer
-status: active         # planning | active | closed
+status: closed         # planning | active | closed
 start: 2026-06-24
 end: 2026-06-27
 goal: While an agent works a turn, show a live progress timeline (Connected → Editing → Updating comments → Done/Stopped) derived from existing /status signals, plus a live elapsed timer and a final revision duration — so a long-but-working run reads as progress, not a freeze.
-close_review:          # reviews/sprint-26-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: reviews/sprint-26-close-review-2026-06-24.md   # G7 PASS 2026-06-24 (staff-critic, independent — rebuilt container, node-CDP lifecycle re-drive; W1 resolved)
 ---
 
 ## Goal
@@ -42,13 +42,19 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 The sprint cannot be marked `closed` until:
 
-- [ ] every committed ticket is `done` or explicitly carried over (note where);
-- [ ] a **staff-critic sprint-close review** exists at `reviews/sprint-26-close-review-YYYY-MM-DD.md`,
+- [x] every committed ticket is `done` or explicitly carried over (note where);
+- [x] a **staff-critic sprint-close review** exists at `reviews/sprint-26-close-review-YYYY-MM-DD.md`,
       verifying shipped work against each ticket's ACs — **including the node-CDP lifecycle drive** of
       the timeline (the live steps, the ticking timer, the final duration, the signal-honesty
       reply-then-`blocked` path, and the MR-062/066/067/068 no-regression re-asserts; `render-smoke.sh`
       can't drive a time-dependent banner) — with findings resolved or carried;
-- [ ] retro + carry-overs recorded above, and `close_review:` set in frontmatter.
+- [x] retro + carry-overs recorded above, and `close_review:` set in frontmatter.
+
+**Closed 2026-06-25, G7 PASS** (staff-critic, independent — `reviews/sprint-26-close-review-2026-06-24.md`; rebuilt a throwaway container and node-CDP-re-drove the full lifecycle + signal-honesty + no-regression + both panes + reduced-motion). MR-073 + MR-075 `done`, no carry-overs. **This closes the `viewer-transparency` epic** (step-level scope; the literal tool-call stream stays a deferred backlog follow-on). Owner tested it live and confirmed "working as expected."
+
+- **Shipped (GH #27):** while an agent works a turn the viewer now shows a live progress timeline (Connected → Editing → Updating comments → Done/Stopped) + a ticking timer + a final "Agent revised in M:SS" — derived purely from the `/status` signals it already polls (no service change, no agent instrumentation). Fixes the "a 2.5-min run looks frozen" opacity. Builds on MR-062/066/067/068.
+- **G7 finding folded:** W1 (timer baselined on Send → now on the agent claim, so it's agent work time not work+pickup-lag); N1/N2 accepted non-blocking.
+- **Carry-overs:** none. Tier-2 (literal `claude --output-format stream-json` tool-call stream) deferred to backlog by owner choice.
 
 **G7 scope note.** MR-073 is a `viewer.html` change whose deliverable is a *time-dependent,
 signal-sequenced* JS state, so it owes a **node-CDP eval driver** (`timeline_smoke.py`, the
