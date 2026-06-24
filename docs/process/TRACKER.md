@@ -7,7 +7,7 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**sprint-19 (agent-watcher — C3: watcher safety + ops) ACTIVE 2026-06-24** — the **FINAL**
+**sprint-19 (agent-watcher — C3: watcher safety + ops) — both tickets DONE, pending G7 close** (2026-06-24) — the **FINAL**
 `agent-watcher` chunk. Relaxes C2's fail-closed refusal via a **local operator arming/allowlist**
 (`WATCH_ARMED_FILE` primary + `WATCH_ARMED` env, unioned, **not** HTTP-settable) so the watcher can
 auto-run **armed** reviews on a public/no-auth base — un-armed reviews are **skipped without a claim**
@@ -88,10 +88,7 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-058 | `watch.py` arming / allowlist — relax C2's fail-closed Step 0 (local `WATCH_ARMED_FILE`/`WATCH_ARMED`, run-but-gate, run()-side terminal skip) | svc | P1 | sprint-19 |
-| MR-059 | `watch.py` per-review attempt cap + full operator runbook (`docs`) — bound the re-Send loop, document the public-instance arming story | svc | P1 | sprint-19 |
+_none_
 
 ## in-progress
 
@@ -105,6 +102,8 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-059 | `watch.py` per-review attempt cap + full operator runbook — bound the re-Send loop, document the public-instance arming story | svc | P1 | sprint-19 |
+| MR-058 | `watch.py` arming / allowlist — relax C2's fail-closed Step 0 (local `WATCH_ARMED_FILE`/`WATCH_ARMED`, run-but-gate) | svc | P1 | sprint-19 |
 | MR-057 | `watch.py` spawn + child env contract + caps (generic launch template, default Claude) + trusted-base runbook stub | svc | P1 | sprint-18 |
 | MR-056 | `watch.py` fail-closed loop core — trusted-base check + `/wait` long-poll + claim-before-spawn | svc | P1 | sprint-18 |
 | MR-054 | Watcher detection — `?turn=agent` filter + `summary()` turn-default + `/wait` long-poll (Condition over `_lock`, required `?since=<turn_updated>` edge cursor) | svc | P1 | sprint-17 |
