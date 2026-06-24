@@ -1,11 +1,11 @@
 ---
 id: sprint-18
 name: agent-watcher — C2 (watcher core)
-status: active         # planning | active | closed
+status: closed         # planning | active | closed
 start: 2026-06-24
 end: 2026-06-28
 goal: Ship the C2 watcher core — `watch.py`, a fail-closed, single-flight, bounded launcher that long-polls C1's `/wait`, claims the lease before spawning, and runs the operator's configured agent command.
-close_review:          # reviews/sprint-NN-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: reviews/sprint-18-close-review-2026-06-24.md   # G7 PASS 2026-06-24 (staff-critic, independent)
 ---
 
 ## Goal
@@ -41,20 +41,39 @@ The intended order, accounting for dependencies. Unblocking work first.
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+**Closed 2026-06-24, G7 PASS** (staff-critic, independent — `reviews/sprint-18-close-review-2026-06-24.md`).
+Both committed tickets `done`, no carry-overs.
 
-- Scope changes, carry-overs to the next sprint, what went well / poorly.
+- **Shipped:** `watch.py` — the first code outside the service container and the first credentialed
+  process spawner. MR-056 (fail-closed trusted-base check + `/wait` long-poll + claim-before-spawn
+  single-flight) + MR-057 (generic `WATCH_LAUNCH_CMD` template default Claude + child env contract +
+  concurrency/launches-hour caps + the B1 stranded-baton crash model + trusted-base runbook in
+  README/CLAUDE.md). No `app.py`/Dockerfile change.
+- **G7 critic independently re-ran** the security crux (fail-closed exit incl. the `localhost.evil.com`
+  substring trap), the no-injection spawn, single-flight, the caps, and the **B1 crash model** (a
+  crash-stub strands the review at `turn==agent`, `turn_updated` byte-identical before/after, no
+  auto-relaunch; `--backlog` re-surfaces it) — all hold in code, not just in claims.
+- **Two trivial nits applied post-review:** a fallback log when `WATCH_LAUNCH_CMD` parses as JSON but
+  isn't an array; a stale `_drain_pending` docstring. One worth-considering accepted as-is.
+- **Carry-overs:** none. C2 is complete. **Next: C3** (arming/allowlist + trusted-base gating relaxation
+  for the untrusted/public-instance case + per-review attempt cap + the full runbook).
+- **Crash-model note for C3:** under C2's edge-triggered design a crashed child STRANDS (under-spawn,
+  fail-safe), it does not relaunch — so C3's "per-review attempt cap / relaunch-convergence guard"
+  applies only to paths where relaunches actually happen (e.g. if C3 adds re-surfacing). C3 inherits
+  this corrected model.
 
 ## Close gate (G7)
 
 The sprint cannot be marked `closed` until:
 
-- [ ] every committed ticket is `done` or explicitly carried over (note where);
-- [ ] a **staff-critic sprint-close review** exists at
-      `reviews/sprint-18-close-review-YYYY-MM-DD.md`, verifying shipped work against each
+- [x] every committed ticket is `done` or explicitly carried over (note where) — MR-056 + MR-057 done, no carry-overs;
+- [x] a **staff-critic sprint-close review** exists at
+      `reviews/sprint-18-close-review-2026-06-24.md`, verifying shipped work against each
       ticket's acceptance criteria, **including a render smoke** of any page touched, and its
-      findings are resolved or carried;
-- [ ] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
+      findings are resolved or carried. (C2 touches no product page — `watch.py` is a server-side
+      sibling script — so no per-page DOM/screenshot is owed; the G7 smoke was `py_compile watch.py`
+      + the stub-launch end-to-end against a localhost throwaway, re-run independently by the critic.)
+- [x] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
 
 **G7 scope note (C2 specifics).** C2 adds **no product page** — `watch.py` is a new server-side sibling
 script (like `mcp_server.py`); it touches no `viewer.html`/`dashboard.html`/`static/**`. So per the G7

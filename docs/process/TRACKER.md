@@ -7,15 +7,15 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**sprint-18 (agent-watcher — C2: watcher core) — both tickets DONE, pending G7 close** (2026-06-24).
-C2 introduces `watch.py` — the first code outside the service container and the first credentialed
-process spawner. It long-polls C1's `/wait`, **fails closed** (refuses to start against an untrusted
-base), **claims-before-spawn** (wins the `/handoff {state:working}` lease, spawns only on `200`, so a
-cold start can't double-spawn), spawns the operator's configured launch command (default Claude) with a
-child env contract, and bounds normal-load spend with a concurrency + launches/hour cap. **MR-056**
-(fail-closed loop core) + **MR-057** (spawn + child contract + caps + trusted-base runbook stub) both
-`done` and merged to `dev`. No `app.py`/Dockerfile change (C1 shipped the server side; container
-unchanged). Awaiting the G7 staff-critic close review.
+**sprint-18 (agent-watcher — C2: watcher core) CLOSED at G7 2026-06-24** (staff-critic PASS,
+`reviews/sprint-18-close-review-2026-06-24.md`; independent — the critic re-ran the fail-closed exit,
+the no-injection spawn, single-flight, the caps, and the B1 stranded-baton crash model). C2 shipped
+`watch.py` — the first code outside the service container and the first credentialed process spawner:
+long-polls C1's `/wait`, **fails closed** (refuses an untrusted base), **claims-before-spawn** (spawns
+only on a `200` lease grant), runs the operator's configured launch command (default Claude) with a
+child env contract, and bounds normal-load spend with a concurrency + launches/hour cap. **MR-056** +
+**MR-057** done, merged to `dev`. No `app.py`/Dockerfile change. Next: C3 (arming relaxation for
+untrusted/public bases + per-review attempt cap + full runbook).
 
 **sprint-17 (agent-watcher — C1: server support) CLOSED at G7 2026-06-24** (staff-critic PASS,
 `reviews/sprint-17-close-review-2026-06-24.md`; independent; container render-smoke
@@ -176,4 +176,4 @@ _none_
 | mcp-agent-effectiveness | done on `dev` (G7 PASS; pending dev→main PR) | G1 passed 2026-06-19 (2 rounds) | sprint-12 |
 | legacy-feedback-retire | done (merged to main 2026-06-23, PR #11; with MR-048 + MR-049) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
 | agent-handoff-baton | done on `dev` (3 chunks: MR-051+MR-052+MR-053; sprints 14/15/16 CLOSED G7 PASS; PR #17 pending) | G1 passed 2026-06-23 | sprint-14/15/16 |
-| agent-watcher | active (C1 closed sprint-17 G7 PASS; C2 done sprint-18 pending G7 close; C3 at its own cycle) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1), sprint-18 (C2) |
+| agent-watcher | active (C1 closed sprint-17 G7 PASS; C2 closed sprint-18 G7 PASS; C3 next, its own cycle) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1), sprint-18 (C2) |
