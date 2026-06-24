@@ -7,8 +7,10 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**EPIC `watcher-ux-fixes` — sprint-22 (spinner + recipe arg-order) MR-062 + MR-063 DONE, pending G7 close** (2026-06-24).
-Epic cleared **G1 2026-06-24** (PASS-WITH-NITS, the MR-062 smoke-recipe nits folded:
+**EPIC `watcher-ux-fixes` COMPLETE.** **sprint-22 (spinner + recipe arg-order) CLOSED at G7 2026-06-24**
+(staff-critic PASS, `reviews/sprint-22-close-review-2026-06-24.md`; independent — the critic rebuilt a
+throwaway image and re-ran the MR-062 render-smoke, State A waiting-for-pickup `.loading` present being
+the headline; GH #25 closed). Epic cleared **G1 2026-06-24** (PASS-WITH-NITS, the MR-062 smoke-recipe nits folded:
 viewer route `/review/{id}`, stale state non-force-stampable → code inspection, reviewer-flip body
 `{to:reviewer,by:reviewer}`, reduced-motion probe targets `::before`). A small two-ticket batch
 cleaning up watcher rough edges the product owner hit testing end-to-end — both fixes already designed
@@ -256,4 +258,4 @@ _none_
 | agent-watcher | **done** (all 3 chunks shipped: C1 sprint-17 + C2 sprint-18 + C3 sprint-19, each G7 PASS) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1), sprint-18 (C2), sprint-19 (C3) |
 | watcher-launch-fix | **done** (MR-060 shipped, sprint-20 G7 PASS 2026-06-24) — follow-up to the done agent-watcher epic (inert must-configure launch stub + runbook) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-20 |
 | working-banner-animation | **done** (MR-061 shipped, sprint-21 G7 PASS 2026-06-24) — standalone small `ui` enhancement, slice of #27 (CSS-only animated ellipsis on the working-state turn banner) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-21 |
-| watcher-ux-fixes | active (G1 cleared; MR-062 + MR-063 ready) — two-ticket watcher UX batch: restore the stashed rotating spinner on both agent-turn waiting states (supersedes MR-061) + fix the README scoped launch-recipe arg order (GH #25) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-22 |
+| watcher-ux-fixes | **done** (MR-062 + MR-063 shipped, sprint-22 G7 PASS 2026-06-24) — two-ticket watcher UX batch: a rotating spinner on both agent-turn waiting states (supersedes MR-061) + fixed the README scoped launch-recipe arg order (GH #25) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-22 |

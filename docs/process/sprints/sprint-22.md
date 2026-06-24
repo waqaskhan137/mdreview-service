@@ -1,11 +1,11 @@
 ---
 id: sprint-22
 name: watcher-ux-fixes — spinner + recipe arg-order
-status: active         # planning | active | closed
+status: closed         # planning | active | closed
 start: 2026-06-24
 end: 2026-06-27
 goal: Restore the stashed rotating-spinner affordance on both agent-turn waiting states (superseding MR-061's pulse) and fix the README scoped watcher launch recipe arg order so the documented command actually runs.
-close_review:          # reviews/sprint-22-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: reviews/sprint-22-close-review-2026-06-24.md   # G7 PASS 2026-06-24 (staff-critic, independent; re-ran render-smoke)
 ---
 
 ## Goal
@@ -43,20 +43,33 @@ The intended order, accounting for dependencies. Unblocking work first. The two 
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+**Closed 2026-06-24, G7 PASS** (staff-critic, independent — `reviews/sprint-22-close-review-2026-06-24.md`).
+MR-062 + MR-063 `done`, no carry-overs. **This closes the `watcher-ux-fixes` epic — epic `done`.**
 
-- Scope changes, carry-overs to the next sprint, what went well / poorly.
+- **Shipped:** MR-062 (ui) — replaced MR-061's faint opacity-pulse ellipsis with a visible CSS rotating
+  spinner (`#turntext::before`), broadened to BOTH agent-turn waiting states (the "Sent — waiting for
+  pickup" arm that MR-061 missed + "Agent is working"), reduced-motion static-ring fallback; supersedes
+  MR-061. MR-063 (docs) — fixed the watcher launch-recipe arg order (GH #25): the variadic `--allowedTools`
+  was swallowing the trailing `<prompt>`; moved `-p "<prompt>"` last in all 3 README recipes + a note.
+- **Origin = live product-owner testing:** the spinner replaces MR-061 because the owner tested it and
+  the subtle pulse + narrow scope failed the goal; #25 was found the same way (a real dead-agent strand).
+  Good case for "ship → owner eyeballs → iterate". MR-062's change was product-owner-approved via a
+  quick-iterate `:8139` deploy, then formalized through this cycle (the stash carried the eyeballed code).
+- **G7 critic re-ran** the render-smoke from a rebuilt image — State A (waiting-for-pickup) `.loading`
+  present is the headline (the MR-061 gap), plus working/absent/reduced-motion/both-panes.
+- **Carry-overs:** none. The rest of #27 (progress steps, streamed updates) stays in #27; watcher
+  resilience (dies on server restart) stays in #26.
 
 ## Close gate (G7)
 
 The sprint cannot be marked `closed` until:
 
-- [ ] every committed ticket is `done` or explicitly carried over (note where);
-- [ ] a **staff-critic sprint-close review** exists at
-      `reviews/sprint-22-close-review-YYYY-MM-DD.md`, verifying shipped work against each ticket's
-      acceptance criteria, **including a render smoke** of any page touched, and its findings are
-      resolved or carried;
-- [ ] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
+- [x] every committed ticket is `done` or explicitly carried over (note where) — MR-062 + MR-063 done, no carry-overs;
+- [x] a **staff-critic sprint-close review** exists at
+      `reviews/sprint-22-close-review-2026-06-24.md`, verifying shipped work against each ticket's
+      acceptance criteria, **including a render smoke** of the touched page (`viewer.html` for MR-062,
+      re-run independently by the critic; MR-063 is docs-only), and its findings are resolved or carried;
+- [x] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
 
 **G7 scope note (watcher-ux-fixes specifics).** MR-062 **IS** a product-page change — it edits
 `viewer.html` (baked into the container at build time, `Dockerfile:8`). So per the G7 pass-condition

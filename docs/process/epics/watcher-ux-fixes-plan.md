@@ -1,6 +1,6 @@
 ---
 epic: watcher-ux-fixes
-status: active
+status: done           # shipped: MR-062 + MR-063 (sprint-22), G7 PASS 2026-06-24
 created: 2026-06-24
 source: requirements/watcher-ux-fixes.md
 gate: passed 2026-06-24
