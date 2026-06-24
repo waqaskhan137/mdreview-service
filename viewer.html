@@ -311,7 +311,11 @@ function renderBanner(st){
     else{
       // MR-073 (issue #27): claimed + working → the live progress timeline + ticking timer.
       const tu=(st&&st.turn_updated)||0;
-      if(tu!==_turnId){_turnId=tu;_turnStartAt=tu;_turnEdited=false;_turnCommented=false;}   // a new turn
+      if(tu!==_turnId){_turnId=tu;_turnStartAt=null;_turnEdited=false;_turnCommented=false;}   // a new turn
+      // MR-073/W1: baseline the timer on the AGENT CLAIM (the first 'working' agent_status.at we see),
+      // NOT the Send time (turn_updated) — so "Agent revised in M:SS" is the agent's work time, not
+      // work time + pickup lag. Captured once per turn; as.at then heartbeats forward.
+      if(_turnStartAt==null && as && as.at) _turnStartAt=as.at;
       if(((st&&st.source_updated)||0)>tu)_turnEdited=true;            // edited THIS turn (cumulative)
       if(((st&&st.comments_updated)||0)>tu)_turnCommented=true;       // comment activity THIS turn
       const reached=[true,_turnEdited,_turnCommented];
@@ -319,7 +323,7 @@ function renderBanner(st){
       renderSteps(reached,active);
       bar.classList.add('steps');                                    // show #turnsteps (active step spins → liveness)
       msg="Agent is working on your feedback…";
-      if(timer)timer.textContent=fmtDur(Date.now()/1000-_turnStartAt);   // live elapsed
+      if(timer&&_turnStartAt!=null)timer.textContent=fmtDur(Date.now()/1000-_turnStartAt);   // live elapsed (since claim)
       startTicker();
     }
     reclaim.style.display='';              // rows 1–3: reclaim available
