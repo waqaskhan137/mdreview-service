@@ -7,6 +7,29 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
+**EPIC `watcher-ux-fixes` ACTIVE — sprint-22 (spinner + recipe arg-order) ACTIVE 2026-06-24.** Epic
+cleared **G1 2026-06-24** (PASS-WITH-NITS, the MR-062 smoke-recipe nits folded:
+viewer route `/review/{id}`, stale state non-force-stampable → code inspection, reviewer-flip body
+`{to:reviewer,by:reviewer}`, reduced-motion probe targets `::before`). A small two-ticket batch
+cleaning up watcher rough edges the product owner hit testing end-to-end — both fixes already designed
+and validated, so the sprint is restore + verification, not redesign. **MR-062** `ready` (ui): restore
+git `stash@{0}` ("spinner-wip (MR-062)") onto `viewer.html` — an 11px `--muted` rotating ring on
+`#turnbanner.loading #turntext::before` (`animation:turnspin .8s linear infinite`) added by
+`renderBanner` in **both** the waiting-for-pickup (`if(!as)`) and "Agent is working…" arms, **superseding
+MR-061**'s pulse + `turnworking` keyframes (deleted), with a `prefers-reduced-motion` static-ring
+fallback; no `loading` in the stale arm nor on a reviewer turn. **MR-062 IS a product-page change**
+(`viewer.html`), so G7 owes a render-smoke (rebuilt throwaway container, scratch port, never
+8139/8137/compose) asserting the bare class `.loading` present in States A/B (`{to:agent}` then
+`{state:working,owner:smoke}`), absent after a `{to:reviewer,by:reviewer}` reclaim (exit 1 on 0 nodes),
+the stale arm by code inspection (`viewer.html:241`), a CDP reduced-motion probe on `::before`
+(`none`/`turnspin`), and both-pane scheme-emulated screenshots; evidence under
+`reviews/sprint-22-render-evidence-2026-06-24/`. **MR-063** `ready` (docs): reorder the three scoped
+watcher launch-recipe literals at `README.md:193/198/208` prompt-last
+(`…,"--allowedTools","mcp__mdreview__*","-p","<prompt>"]`) so the variadic `--allowedTools` stops
+swallowing the prompt, add the variadic note, confirm the full-autonomy recipe (`README:217`) is
+already prompt-last; README-only (`CLAUDE.md` has no recipe literal), closes GH #25. Docs-only — no
+render-smoke owed; gate is `py_compile app.py` + grep.
+
 **EPIC `working-banner-animation` COMPLETE.** **sprint-21 (waiting ellipsis) CLOSED at G7 2026-06-24**
 (staff-critic PASS, `reviews/sprint-21-close-review-2026-06-24.md`; independent — the critic rebuilt a
 throwaway image and re-ran the render-smoke: `.working` present in the working state / absent after
@@ -125,7 +148,10 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-062 | Replace MR-061's pulse with a rotating CSS spinner on both agent-turn waiting states (restore stash) | ui | P2 | sprint-22 |
+| MR-063 | Fix the scoped watcher launch recipe arg order — `-p` prompt last (GH #25) | docs | P1 | sprint-22 |
 
 ## in-progress
 
@@ -231,3 +257,4 @@ _none_
 | agent-watcher | **done** (all 3 chunks shipped: C1 sprint-17 + C2 sprint-18 + C3 sprint-19, each G7 PASS) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1), sprint-18 (C2), sprint-19 (C3) |
 | watcher-launch-fix | **done** (MR-060 shipped, sprint-20 G7 PASS 2026-06-24) — follow-up to the done agent-watcher epic (inert must-configure launch stub + runbook) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-20 |
 | working-banner-animation | **done** (MR-061 shipped, sprint-21 G7 PASS 2026-06-24) — standalone small `ui` enhancement, slice of #27 (CSS-only animated ellipsis on the working-state turn banner) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-21 |
+| watcher-ux-fixes | active (G1 cleared; MR-062 + MR-063 ready) — two-ticket watcher UX batch: restore the stashed rotating spinner on both agent-turn waiting states (supersedes MR-061) + fix the README scoped launch-recipe arg order (GH #25) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-22 |
