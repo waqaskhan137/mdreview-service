@@ -18,8 +18,9 @@ review at turn==agent. The server bumps `turn_updated` only on a real reviewer->
 {state:working} lease write, so the edge-triggered /wait?since=cursor never re-surfaces a stranded
 review. The watcher therefore does NOT auto-relaunch — it reaps + logs the exit and moves on. The
 failure mode is a fail-safe UNDER-spawn (the human recovers via the 180s stale banner, or a
---backlog/restart re-seed), not a relaunch storm. C2 has no crash-retry by design; the per-review
-attempt cap for paths where relaunches DO happen is C3.
+--backlog/restart re-seed), not a relaunch storm. There is no crash-retry by design. The per-review
+attempt cap (WATCH_MAX_ATTEMPTS_PER_REVIEW) bounds the path where spawns DO repeat — the re-Send /
+re-surface loop (one review flipped back to turn==agent again and again) — never a crash-loop.
 
 NOT containerized, NOT imported by app.py, NOT started by compose. `python3 watch.py` is the only
 way it runs (mirrors `MDREVIEW_BASE=… python3 mcp_server.py`).
@@ -41,6 +42,12 @@ Config (all env, stdlib-idiomatic):
                             spawned WITHOUT a shell. Unset => DEFAULT_LAUNCH_CMD (Claude headless).
   WATCH_MAX_CONCURRENT      max simultaneous live children (default 3); enforced BEFORE the claim.
   WATCH_MAX_LAUNCHES_PER_HOUR  rolling 3600s spawn cap (default 30); at the cap, defer (no claim).
+  WATCH_MAX_ATTEMPTS_PER_REVIEW  per-review spawn cap (default 5) over WATCH_ATTEMPT_WINDOW_S; once a
+                            single review id hits it in the window, that review is skipped (no claim)
+                            until its window slides. Bounds the re-Send / re-surface loop (one review
+                            repeatedly flipped back to turn==agent), NOT a crash-loop (a crashed child
+                            strands and is never auto-relaunched). Composes with the global caps above.
+  WATCH_ATTEMPT_WINDOW_S    rolling window (default 3600s) for the per-review attempt cap.
 """
 import collections
 import json
@@ -63,6 +70,12 @@ CAP_BACKOFF_S = 5.0     # bounded backoff while at capacity (the WC-3 fallback; 
 MAX_CONCURRENT = int(os.environ.get("WATCH_MAX_CONCURRENT", "3"))
 MAX_LAUNCHES_PER_HOUR = int(os.environ.get("WATCH_MAX_LAUNCHES_PER_HOUR", "30"))
 LAUNCH_WINDOW_S = 3600.0
+
+# Per-review attempt cap: bound a single review id's spawns within a rolling window so one
+# non-converging review cannot eat the global hourly budget across many re-Sends. This is a THIRD,
+# independent ceiling that COMPOSES with the two global caps above (never replaces them).
+MAX_ATTEMPTS_PER_REVIEW = int(os.environ.get("WATCH_MAX_ATTEMPTS_PER_REVIEW", "5"))
+ATTEMPT_WINDOW_S = float(os.environ.get("WATCH_ATTEMPT_WINDOW_S", "3600"))
 
 # Default launch command when WATCH_LAUNCH_CMD is unset. Claude headless, reading the child env
 # contract (REVIEW_ID/MDREVIEW_BASE/MDREVIEW_OWNER) — the ONLY Claude-specific knowledge in this
@@ -245,6 +258,10 @@ OWNER = _watcher_id()
 # single-threaded state of the one poll loop, so no locking is needed.
 _inflight = {}                       # review_id -> Popen
 _launch_times = collections.deque()  # spawn timestamps, oldest first
+# Per-review spawn timestamps for WATCH_MAX_ATTEMPTS_PER_REVIEW. Mirrors _launch_times, but keyed
+# per review id. A key's deque is pruned (deleted) when it empties on eviction, so the dict does not
+# grow unbounded across many one-shot reviews on a long-running watcher.
+_review_attempts = {}                # review_id -> collections.deque[spawn timestamp]
 
 
 def _reap():
@@ -273,10 +290,11 @@ def _at_capacity():
     just-finished child frees its slot, and evict stale launch timestamps so the hourly window slides.
 
     The caps bound NORMAL-load spend — many DISTINCT reviews flipped to agent — and are a cheap
-    backstop. They do NOT bound a "crash-loop": under C2's edge-triggered design a crashed child
-    strands (under-spawn, B1), it does not relaunch, so there is no storm to bound. The only
-    repeated-relaunch path is a --backlog/restart re-seed, bounded by restart frequency. The
-    per-review attempt cap (for paths where relaunches DO happen) is C3."""
+    backstop. They do NOT bound a "crash-loop": under the edge-triggered design a crashed child
+    strands (under-spawn, B1), it does not relaunch, so there is no storm to bound. The
+    repeated-spawn path is the re-Send / re-surface loop (one review flipped back to turn==agent
+    again and again); the PER-REVIEW cap (_per_review_capped) bounds a single id there, composing
+    with these two GLOBAL caps — all three are independent ceilings a spawn must pass."""
     _reap()
     if len(_inflight) >= MAX_CONCURRENT:
         return True
@@ -284,6 +302,31 @@ def _at_capacity():
     while _launch_times and _launch_times[0] < cutoff:
         _launch_times.popleft()
     return len(_launch_times) >= MAX_LAUNCHES_PER_HOUR
+
+
+def _per_review_capped(review_id):
+    """True iff this review id has hit WATCH_MAX_ATTEMPTS_PER_REVIEW spawns within the rolling
+    WATCH_ATTEMPT_WINDOW_S window. Evict timestamps older than the window first (same slide as
+    _at_capacity), then compare `len >= cap`. PRUNE the key when its deque empties on eviction, so
+    the per-review dict does not grow unbounded across many one-shot reviews.
+
+    This is a TERMINAL gate, NOT a "retry when a slot frees": it means "this review has had its turns
+    this window," so run() skips it without claiming and without entering `pending`; only a genuinely
+    new edge after the window slides re-spawns it. It bounds the RE-SEND / RE-SURFACE loop — one
+    review repeatedly returned to turn==agent (a human who keeps pressing Send, an agent that hands
+    back and is re-Sent, a --backlog re-seed) — NOT a crash-loop: a crashed child strands its review
+    (turn_updated unchanged ⇒ /wait never re-surfaces it) and is never auto-relaunched, so there is no
+    crash-loop for this cap to bound. It COMPOSES with the global caps (all three must pass to spawn)."""
+    dq = _review_attempts.get(review_id)
+    if dq is None:
+        return False
+    cutoff = time.time() - ATTEMPT_WINDOW_S
+    while dq and dq[0] < cutoff:
+        dq.popleft()
+    if not dq:
+        del _review_attempts[review_id]   # prune the empty key (memory-leak guard)
+        return False
+    return len(dq) >= MAX_ATTEMPTS_PER_REVIEW
 
 
 # ---- launch template parsing (WC-2: argv, NEVER a shell) ----
@@ -320,8 +363,10 @@ def _spawn(review_id):
     child_env["MDREVIEW_BASE"] = BASE
     child_env["MDREVIEW_OWNER"] = OWNER          # winning owner: child renews the SAME lease
     proc = subprocess.Popen(_launch_argv(), env=child_env)   # non-blocking; never shell=True
+    now = time.time()
     _inflight[review_id] = proc
-    _launch_times.append(time.time())
+    _launch_times.append(now)
+    _review_attempts.setdefault(review_id, collections.deque()).append(now)   # per-review cap
     print("spawned child for review %s (owner=%s pid=%d, inflight=%d)"
           % (review_id, OWNER, proc.pid, len(_inflight)))
     return proc
@@ -400,6 +445,16 @@ def run():
                 # NEVER enters `pending` (the cursor already advanced, so /wait won't busy-spin; a
                 # later re-Send is a fresh turn_updated flip /wait re-surfaces on its own).
                 print("review %s not armed — skip (no claim)" % rid)
+                continue
+            if _per_review_capped(rid):
+                # C3 W1: SECOND terminal gate, after arming and before handle() — same no-claim,
+                # no-`pending` discipline as the arming skip. This bounds the RE-SEND / RE-SURFACE
+                # loop (one review repeatedly flipped back to turn==agent), NOT a crash-loop (a
+                # crashed child strands and is never auto-relaunched). The cursor already advanced;
+                # a later re-Send AFTER the window slides is a fresh edge /wait re-surfaces on its own.
+                print("review %s at per-review cap (%d spawns / %.0fs window) — skip (no claim); "
+                      "bounding the re-Send/re-surface loop, not a crash-loop"
+                      % (rid, MAX_ATTEMPTS_PER_REVIEW, ATTEMPT_WINDOW_S))
                 continue
             if not handle(rid):           # C2, UNCHANGED: only capacity/409/error reach here
                 if _at_capacity():

@@ -1,13 +1,13 @@
 ---
 id: MR-059
 title: "`watch.py` per-review attempt cap + full operator runbook (`docs`) — bound the re-Send loop, document the public-instance arming story"
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: svc             # svc | ui | infra | docs  (svc; ships the docs runbook in the same change)
 priority: P1           # P0 | P1 | P2 | P3
 sprint: sprint-19
 epic: agent-watcher
 depends_on: [MR-058]
-branch:                # MR-059-slug, once work starts
+branch: MR-059-watcher-per-review-cap-runbook
 created: 2026-06-24
 updated: 2026-06-24
 ---
@@ -125,15 +125,47 @@ public-instance / arming story C2 deferred). No `app.py` change.
 
 ## Work log
 
-_Filled in during implementation._
-
-- `YYYY-MM-DD` — what changed, files touched.
+- `2026-06-24` — Implemented the per-review attempt cap in `watch.py`:
+  - Config: `WATCH_MAX_ATTEMPTS_PER_REVIEW` (default 5), `WATCH_ATTEMPT_WINDOW_S` (default 3600s).
+  - Data structure: module-level `_review_attempts: dict[review_id] -> collections.deque[ts]`,
+    mirroring `_launch_times`. A timestamp is appended in `_spawn` (alongside the global
+    `_launch_times.append`). `_per_review_capped(rid)` evicts entries older than the window, **prunes
+    the empty key** (deletes it when its deque empties), then compares `len(dq) >= cap`.
+  - Gate placement (W1): a SECOND terminal gate in `run()` AFTER the arming gate and BEFORE `handle()`
+    (order `_is_armed` → `_per_review_capped` → `handle()`'s `_at_capacity` → claim). A capped review
+    is `continue`d — no lease claim, cursor advances, never enters `pending`. Composes with (does not
+    replace) the two global caps.
+  - Corrected B1 wording: the cap's log line and all docstrings say it bounds the **re-Send /
+    re-surface loop**, never "crash-loop". Updated the stale `_at_capacity`/module-docstring
+    forward-pointers that said the per-review cap "is C3".
+  - Docs (same change): rewrote the README "Watcher" section into the full operator runbook (arming
+    model + file format, local-only / provenance-is-not-a-trust-boundary rationale, untrusted/public
+    operation with arming REQUIRED + worked example, the per-review cap, and a 12-row product-config
+    env table — `WATCH_LAUNCH_MARKER` excluded per W4). Updated the CLAUDE.md watcher pointer
+    (armed-only public operation; dropped the "C3 is later" forward-pointer).
+  - Files: `watch.py`, `README.md`, `CLAUDE.md`. No `app.py` / Dockerfile change.
 
 ## Validation
 
-_How this was verified._
-
-- `YYYY-MM-DD` — what was checked and the result.
+- `2026-06-24` — `python3 -m py_compile watch.py` → passes.
+- Throwaway service: `MDREVIEW_DATA=.scratch/mr059-svc PORT=8181 python3 app.py` (scratch port, not
+  8139/8137). `GET /healthz` → `{"ok": true}`. Stub launch command writes a marker line per spawn
+  (`WATCH_LAUNCH_MARKER`, a test fixture) then hand_backs. Cap=2, window=60s.
+- **D (cap stops the re-Send loop):** one armed review re-Sent 3 times (each a fresh
+  reviewer→agent flip ⇒ a real new `turn_updated` edge). Result: **exactly 2 spawns**; the 3rd
+  re-Send was skipped by the cap with no claim. Log line:
+  `review <id> at per-review cap (2 spawns / 60s window) — skip (no claim); bounding the
+  re-Send/re-surface loop, not a crash-loop`. Marker count = 2.
+- **E (distinct review unaffected):** with the capped id still armed, a second distinct id `ID2` was
+  flipped to agent alongside it. Each id spawned its own quota of **exactly 2** and each hit its own
+  cap independently (interleaved spawn/cap log), proving the cap is per-id — one id's cap does not
+  throttle another. Marker counts: ID=2, ID2=2.
+- Cap log line says **"re-Send"** and **"not a crash-loop"** (corrected B1 meaning). Confirmed.
+- README env table contains the 12 product-config vars and does **not** contain `WATCH_LAUNCH_MARKER`
+  (W4). Read the rendered section: arming (local-only, provenance-is-not-a-trust-boundary),
+  untrusted-base operation (arming REQUIRED), the per-review cap, and the full env table are all
+  present and coherent. No render-smoke owed (Markdown docs, no product page).
+- `.scratch/` fixtures cleaned up after the run (dir stays, gitignored).
 
 ## Follow-ups
 

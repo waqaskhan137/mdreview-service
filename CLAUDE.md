@@ -132,9 +132,11 @@ this loop without a human relaying the URL: it long-polls for reviews flipped to
 claims the lease, and spawns a configured agent command (default Claude headless) whose child env is
 the `REVIEW_ID` / `MDREVIEW_BASE` / `MDREVIEW_OWNER` contract above — so the spawned agent renews the
 **same** lease and hands back. It runs where your agent runs (like `mcp_server.py`, not containerized)
-and is **fail-closed**: it refuses a non-loopback base without an exact `WATCH_TRUSTED_BASE` vouch.
-See README **"Watcher (optional, trusted-base mode)"** for the env vars and caps. C2 documents
-trusted-base mode only; the untrusted-base / public-instance runbook is C3.
+and is **fail-closed**: it refuses a non-loopback base without an exact `WATCH_TRUSTED_BASE` vouch. It
+can run against a **public instance only for armed reviews** — a local operator allowlist
+(`WATCH_ARMED_FILE`); a review cannot arm itself (provenance is not a trust boundary on the no-auth
+service). See README **"Watcher (optional) — operator runbook"** for arming, the per-review attempt
+cap, and the full env-var reference.
 
 ## Comments (threaded resolution)
 
