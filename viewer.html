@@ -263,7 +263,15 @@ function renderBanner(st){
   }else{
     const state=as&&as.state;
     if(state==='done')msg="Agent updated the draft"+(as.message?": "+as.message:"")+". Your turn.";
-    else if(state==='blocked')msg="Agent needs you"+(as.message?": "+as.message:"")+".";
+    else if(state==='blocked'){
+      // MR-068 (issue #26): distinguish the WATCHER's crash signal (the turn is already back with you)
+      // from a deliberate agent question. The watcher sends "agent process exited N without finishing".
+      if(as.message&&as.message.indexOf('agent process exited')===0){
+        msg="Agent run stopped: "+as.message+". Your turn.";bar.classList.add('warn');  // reuse MR-066 .warn
+      }else{
+        msg="Agent needs you"+(as.message?": "+as.message:"")+".";   // agent-initiated question (unchanged)
+      }
+    }
     else msg="Your turn. Comment, then Send to agent.";
     reclaim.style.display='none';
     send.disabled=false;send.textContent="Send to agent";
