@@ -203,11 +203,15 @@ def _launch_argv():
         return list(DEFAULT_LAUNCH_CMD)
     try:
         argv = json.loads(raw)
-        if not isinstance(argv, list):
-            raise ValueError
-        return argv
     except ValueError:
-        return shlex.split(raw)
+        return shlex.split(raw)          # not JSON: a shell-style string, split into argv
+    if isinstance(argv, list):
+        return argv
+    # parsed as JSON but not an array (a bare string/object/number) — shlex its raw text and say so,
+    # rather than silently producing surprising argv.
+    sys.stderr.write("watch.py: WATCH_LAUNCH_CMD parsed as JSON but is not an array; "
+                     "falling back to shlex.split of the raw string\n")
+    return shlex.split(raw)
 
 
 # ---- spawn the launch command with the child env contract (Step 4) ----
@@ -302,8 +306,8 @@ def run():
 
 
 def _drain_pending(pending):
-    """Retry capacity-skipped reviews as slots free (WC-3 default). With the MR-056 stub _at_capacity()
-    this is a no-op; the seam exists so MR-057's real caps drain cleanly without a /wait busy-spin."""
+    """Retry capacity-skipped reviews as slots free (WC-3 default), so a review deferred at the
+    concurrency/hourly cap is re-claimed when a child exits — not left to a /wait busy-spin."""
     if not pending or _at_capacity():
         return
     for rid in list(pending):
