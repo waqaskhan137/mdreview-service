@@ -283,8 +283,13 @@ function startTicker(){                                               // 1s fetc
   if(_timerIv)return;
   _timerIv=setInterval(()=>{
     const st=_lastStatus, t=$("#turntimer");
-    if(t && st && st.turn==='agent' && st.agent_status && _turnStartAt!=null)
-      t.textContent=fmtDur(Date.now()/1000-_turnStartAt);            // recompute from cached /status, no poll
+    if(!t||!st||st.turn!=='agent'||!st.agent_status||_turnStartAt==null)return;
+    // MR-073: only tick while the lease is FRESH. Once agent_status.at ages past STALE_S — the agent
+    // stopped pinging, OR /status is unreachable so the cached `at` keeps aging — re-render the banner
+    // off the cached status: it flips to "Agent may have stopped" (clearing the timer), instead of the
+    // timer ticking forever. Works even with no successful poll (a dead server / a stuck agent).
+    if((Date.now()/1000-(st.agent_status.at||0))>STALE_S){renderBanner(st);return;}
+    t.textContent=fmtDur(Date.now()/1000-_turnStartAt);              // fresh: recompute from cached /status, no poll
   },1000);
 }
 function renderBanner(st){
