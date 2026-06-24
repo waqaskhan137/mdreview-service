@@ -1,29 +1,43 @@
 #!/usr/bin/env python3
-"""mdreview watcher: auto-pick-up the handoff baton (MR-056, C2 loop core).
+"""mdreview watcher: auto-pick-up the handoff baton (MR-056 loop core + MR-057 launcher, C2).
 
 A stdlib-only sibling of mcp_server.py, run where the operator's agent runs. It long-polls the
 service's C1 /wait endpoint for reviews newly flipped to turn==agent (the "Send to agent" baton),
 claims each review's cooperative lease (POST /handoff {state:working}), and — on a winning claim —
-spawns a launch command. It is a CREDENTIALED process spawner, so its load-bearing safety property
-is the fail-closed trusted-base check (Step 0): it refuses to start against a base it cannot vouch
-for, rather than warn-and-continue.
+spawns the operator's configured launch command (default Claude headless). It is a CREDENTIALED
+process spawner, so its load-bearing safety property is the fail-closed trusted-base check (Step 0):
+it refuses to start against a base it cannot vouch for, rather than warn-and-continue.
 
-MR-056 SCOPE: the fail-closed check, the /wait long-poll + cursor advance, and claim-before-spawn
-single-flight, spawning a PLACEHOLDER command (WATCH_LAUNCH_CMD, default a no-op) so the claim/skip
-logic is testable. The real generic launch template, child env contract, and caps are MR-057.
+The launch mechanism is a GENERIC, operator-configured command template (WC-2): the loop only knows
+"spawn this argv with this env." Nothing Claude-specific lives in the loop — env is the entire
+interface (REVIEW_ID / MDREVIEW_BASE / MDREVIEW_OWNER, Step 4). That genericity is exactly what lets
+the tests drive a stub launch command instead of a real model.
+
+Crash model (B1, verified against app.py:629-636): a child that exits before `hand_back` STRANDS its
+review at turn==agent. The server bumps `turn_updated` only on a real reviewer->agent flip, NOT on a
+{state:working} lease write, so the edge-triggered /wait?since=cursor never re-surfaces a stranded
+review. The watcher therefore does NOT auto-relaunch — it reaps + logs the exit and moves on. The
+failure mode is a fail-safe UNDER-spawn (the human recovers via the 180s stale banner, or a
+--backlog/restart re-seed), not a relaunch storm. C2 has no crash-retry by design; the per-review
+attempt cap for paths where relaunches DO happen is C3.
 
 NOT containerized, NOT imported by app.py, NOT started by compose. `python3 watch.py` is the only
 way it runs (mirrors `MDREVIEW_BASE=… python3 mcp_server.py`).
 
 Config (all env, stdlib-idiomatic):
-  MDREVIEW_BASE          service base url (default http://localhost:8137, same as mcp_server.py)
-  WATCH_TRUSTED_BASE     operator's explicit vouch; EXACT-match of MDREVIEW_BASE allows a non-loopback
-                         base. Unset => loopback only. (No wildcard/prefix. C3 adds the relaxation.)
-  WATCH_OWNER            stable lease owner id; default pid-derived (see _watcher_id / WC-5)
-  WATCH_SINCE            "0" (or --backlog) to opt into the existing agent-turn backlog; default = now
-  WATCH_WAIT_TIMEOUT_S   client long-poll timeout (default 25; server caps it to its own WAIT_TIMEOUT_S)
-  WATCH_LAUNCH_CMD       placeholder launch command (argv via json array or shlex; default no-op)
+  MDREVIEW_BASE              service base url (default http://localhost:8137, same as mcp_server.py)
+  WATCH_TRUSTED_BASE        operator's explicit vouch; EXACT-match of MDREVIEW_BASE allows a
+                            non-loopback base. Unset => loopback only. (No wildcard/prefix. C3
+                            adds the relaxation.)
+  WATCH_OWNER               stable lease owner id; default pid-derived (see _watcher_id / WC-5)
+  WATCH_SINCE               "0" (or --backlog) to opt into the existing agent-turn backlog; default=now
+  WATCH_WAIT_TIMEOUT_S      client long-poll timeout (default 25; server caps it to its WAIT_TIMEOUT_S)
+  WATCH_LAUNCH_CMD          launch command, argv via a JSON array (preferred) or a shlex string;
+                            spawned WITHOUT a shell. Unset => DEFAULT_LAUNCH_CMD (Claude headless).
+  WATCH_MAX_CONCURRENT      max simultaneous live children (default 3); enforced BEFORE the claim.
+  WATCH_MAX_LAUNCHES_PER_HOUR  rolling 3600s spawn cap (default 30); at the cap, defer (no claim).
 """
+import collections
 import json
 import os
 import shlex
@@ -39,6 +53,21 @@ BASE = os.environ.get("MDREVIEW_BASE", "http://localhost:8137").rstrip("/")
 WAIT_TIMEOUT_S = float(os.environ.get("WATCH_WAIT_TIMEOUT_S", "25"))
 NET_BACKOFF_S = 2.0     # bounded backoff on a network error (re-poll the SAME cursor)
 CAP_BACKOFF_S = 5.0     # bounded backoff while at capacity (the WC-3 fallback; pending-set is default)
+
+MAX_CONCURRENT = int(os.environ.get("WATCH_MAX_CONCURRENT", "3"))
+MAX_LAUNCHES_PER_HOUR = int(os.environ.get("WATCH_MAX_LAUNCHES_PER_HOUR", "30"))
+LAUNCH_WINDOW_S = 3600.0
+
+# Default launch command when WATCH_LAUNCH_CMD is unset. Claude headless, reading the child env
+# contract (REVIEW_ID/MDREVIEW_BASE/MDREVIEW_OWNER) — the ONLY Claude-specific knowledge in this
+# file, and it lives in a constant, never in the loop. Operators override via WATCH_LAUNCH_CMD.
+DEFAULT_LAUNCH_CMD = [
+    "claude", "-p",
+    "You are the mdreview handoff agent. The review id is in $REVIEW_ID, the service base in "
+    "$MDREVIEW_BASE, your lease owner id in $MDREVIEW_OWNER. Renew the lease with ping_working, "
+    "read the open comments, apply the requested edits via update_source, resolve what you "
+    "addressed, then hand_back to the reviewer.",
+]
 
 
 # ---- Step 0: fail-closed trusted-base check (the security crux) ----
@@ -116,34 +145,87 @@ def _watcher_id():
 OWNER = _watcher_id()
 
 
-# ---- caps stub (real caps are MR-057) ----
+# ---- in-flight children + caps (Step 5) ----
+# _inflight: live child Popen handles, keyed by review id (the concurrency cap + reaping).
+# _launch_times: a rolling-window deque of spawn timestamps (the launches/hour cap). Both are
+# single-threaded state of the one poll loop, so no locking is needed.
+_inflight = {}                       # review_id -> Popen
+_launch_times = collections.deque()  # spawn timestamps, oldest first
+
+
+def _reap():
+    """Collect finished children: remove them from the in-flight set (freeing a concurrency slot)
+    and log the exit code. The watcher does NOT re-flip, re-claim, or relaunch — a child that exited
+    before hand_back STRANDS its review at turn==agent (B1), which the edge-triggered /wait never
+    re-surfaces, so reaping is the whole of the watcher's lifecycle duty. Recovery is the human (the
+    180s stale banner) or a --backlog/restart re-seed, never an auto-relaunch."""
+    for rid, proc in list(_inflight.items()):
+        code = proc.poll()
+        if code is None:
+            continue                 # still running
+        del _inflight[rid]
+        if code == 0:
+            print("child for review %s exited 0 (reaped)" % rid)
+        else:
+            # A non-zero exit is logged but NOT retried. If the child handed back before dying the
+            # baton is already with the reviewer; if it crashed before hand_back the baton is
+            # stranded at turn==agent (B1) and recovery is the human / a backlog re-seed.
+            print("child for review %s exited %s (reaped; no relaunch — see crash model B1)"
+                  % (rid, code))
+
+
 def _at_capacity():
-    """MR-056 stub: never at capacity. MR-057 wires the real concurrency + launches/hour caps."""
-    return False
+    """At capacity iff the concurrency cap OR the rolling launches/hour cap is hit. Reap first so a
+    just-finished child frees its slot, and evict stale launch timestamps so the hourly window slides.
+
+    The caps bound NORMAL-load spend — many DISTINCT reviews flipped to agent — and are a cheap
+    backstop. They do NOT bound a "crash-loop": under C2's edge-triggered design a crashed child
+    strands (under-spawn, B1), it does not relaunch, so there is no storm to bound. The only
+    repeated-relaunch path is a --backlog/restart re-seed, bounded by restart frequency. The
+    per-review attempt cap (for paths where relaunches DO happen) is C3."""
+    _reap()
+    if len(_inflight) >= MAX_CONCURRENT:
+        return True
+    cutoff = time.time() - LAUNCH_WINDOW_S
+    while _launch_times and _launch_times[0] < cutoff:
+        _launch_times.popleft()
+    return len(_launch_times) >= MAX_LAUNCHES_PER_HOUR
 
 
-# ---- placeholder spawn (real launch template + child env contract are MR-057) ----
-def _spawn_placeholder(review_id):
-    """Spawn a PLACEHOLDER so "claimed -> spawned" is observable. WATCH_LAUNCH_CMD as a json array
-    (preferred) or a shlex string, spawned via Popen with an argv list and env= — NEVER shell=True.
-    Default is a no-op. The real generic template + child env contract are MR-057; the seam (env=,
-    argv list, non-blocking Popen) is left clean here."""
+# ---- launch template parsing (WC-2: argv, NEVER a shell) ----
+def _launch_argv():
+    """Resolve WATCH_LAUNCH_CMD to an argv list: a JSON array (preferred) or a shlex-split string.
+    Unset => DEFAULT_LAUNCH_CMD. The result is spawned WITHOUT a shell (no shell=True, no id
+    interpolation into a command string) — env is the interface, so the template needs no
+    placeholder."""
     raw = os.environ.get("WATCH_LAUNCH_CMD")
     if not raw:
-        argv = [sys.executable, "-c", "pass"]   # no-op placeholder
-    else:
-        try:
-            argv = json.loads(raw)
-            if not isinstance(argv, list):
-                raise ValueError
-        except ValueError:
-            argv = shlex.split(raw)
+        return list(DEFAULT_LAUNCH_CMD)
+    try:
+        argv = json.loads(raw)
+        if not isinstance(argv, list):
+            raise ValueError
+        return argv
+    except ValueError:
+        return shlex.split(raw)
+
+
+# ---- spawn the launch command with the child env contract (Step 4) ----
+def _spawn(review_id):
+    """Spawn the launch command for `review_id`, non-blocking, tracked. The child env contract:
+    REVIEW_ID (which review), MDREVIEW_BASE (same service), MDREVIEW_OWNER (the watcher's OWNER that
+    just won the lease — so the child's ping_working is a same-owner 200, not a foreign 409). The
+    child owns the heartbeat (it renews the lease per the MR-053 agent contract); the watcher does
+    NOT run per-child renewal timers — it only tracks the Popen for the cap + reaping."""
     child_env = dict(os.environ)
-    child_env["REVIEW_ID"] = review_id          # minimal seam; full contract is MR-057
+    child_env["REVIEW_ID"] = review_id
     child_env["MDREVIEW_BASE"] = BASE
-    child_env["MDREVIEW_OWNER"] = OWNER
-    proc = subprocess.Popen(argv, env=child_env)   # non-blocking; never shell=True
-    print("spawned placeholder for review %s (owner=%s pid=%d)" % (review_id, OWNER, proc.pid))
+    child_env["MDREVIEW_OWNER"] = OWNER          # winning owner: child renews the SAME lease
+    proc = subprocess.Popen(_launch_argv(), env=child_env)   # non-blocking; never shell=True
+    _inflight[review_id] = proc
+    _launch_times.append(time.time())
+    print("spawned child for review %s (owner=%s pid=%d, inflight=%d)"
+          % (review_id, OWNER, proc.pid, len(_inflight)))
     return proc
 
 
@@ -159,7 +241,7 @@ def handle(review_id):
     status, body = _http("POST", "/api/reviews/%s/handoff" % review_id,
                          {"state": "working", "owner": OWNER}, timeout=WAIT_TIMEOUT_S + 5)
     if status == 200:
-        _spawn_placeholder(review_id)
+        _spawn(review_id)
         return True
     if status == 409:
         print("review %s lease held by %s — skip" % (review_id, (body or {}).get("owner")))
@@ -204,6 +286,7 @@ def run():
 
         rows = body.get("reviews", [])
         if not rows:                       # timeout ({"reviews":[],"timeout":true})
+            _reap()                        # collect finished children, freeing concurrency slots
             _drain_pending(pending)        # use the idle tick to retry capacity-skipped reviews
             continue                       # re-poll, cursor UNCHANGED
 
