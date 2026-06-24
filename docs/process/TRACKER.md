@@ -7,7 +7,7 @@ Last updated: 2026-06-24. **sprint-25 (watcher-container, GH #30) ACTIVE — G1 
 
 ## Active sprint
 
-**EPIC `watcher-container` (GH #30) — sprint-25 ACTIVE, G1 PASS 2026-06-24** (staff-critic
+**EPIC `watcher-container` (GH #30) — sprint-25, all 4 tickets `done`, AWAITING G7. G1 PASS 2026-06-24** (staff-critic
 GO-WITH-NITS, `reviews/watcher-container-plan-review-2026-06-24.md`; 6 nits folded). Makes the watcher
 an OPT-IN docker service (`docker compose --profile watcher up`) authenticated by the user's Claude
 **subscription** (not an API key — too expensive for most), so a local deploy can auto-action reviewer

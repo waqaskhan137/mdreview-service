@@ -23,10 +23,10 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-069 | Promote the watcher launch prototype into `watcher/` (+ .env.example, gitignore .env) | infra | P1 | ready |
-| MR-070 | `Dockerfile.watcher` + headless subscription-auth proof (the gate) | infra | P1 | ready |
-| MR-071 | compose `watcher` profile (off by default, health-gated) + end-to-end Send→action; closes #30 | infra | P1 | ready |
-| MR-072 | Operator runbook: setup-token / .env / rotation / startup auth-probe | docs | P2 | ready |
+| MR-069 | Promote the watcher launch prototype into `watcher/` (+ .env.example, gitignore .env) | infra | P1 | done |
+| MR-070 | `Dockerfile.watcher` + headless subscription-auth proof (the gate) | infra | P1 | done |
+| MR-071 | compose `watcher` profile (off by default, health-gated) + end-to-end Send→action; closes #30 | infra | P1 | done |
+| MR-072 | Operator runbook: setup-token / .env / rotation / startup auth-probe | docs | P2 | done |
 
 ## Preferred execution order
 
@@ -47,6 +47,12 @@ proofs must pass before compose builds on them); MR-072 `depends_on` MR-071.
   (in-container headless auth) is isolated to MR-070's gate.
 - **Human dependency:** MR-070/MR-071 need a real `setup-token` the operator mints
   (`claude setup-token`); supplied at test time via a gitignored file, never committed or echoed.
+- 2026-06-24 — all 4 tickets implemented + G4-validated. **The make-or-break (in-container headless
+  subscription auth) PASSES:** MR-070's auth proof (`exit 0/OK`) and MCP round-trip (`exit 0`, agent
+  calls `list_reviews`); MR-071's opt-in gate (default `up` = service only) + **end-to-end in ~27s**
+  (`--profile watcher up` → in-container agent fixed a typo, resolved the comment, handed back) on a
+  throwaway project, live :8139 untouched. Operator supplied a `setup-token` (gitignored, never
+  committed). Awaiting G7 (staff-critic re-drive against a fresh build).
 
 ## Close gate (G7)
 
