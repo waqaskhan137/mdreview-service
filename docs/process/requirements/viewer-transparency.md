@@ -83,3 +83,15 @@ wrapper emitting events. Never the live `mdreview`/:8139.
 
 - The handoff diff (#19/#21 — "review the agent's changes") — a separate feature.
 - Re-doing the already-shipped working-banner animation / crash banner (MR-062/066/067/068).
+
+## Amendments
+
+### 2026-06-24 — add an elapsed/duration timer
+Product owner: *"add the timer as well so the user knows how much time it takes the agent to revise."*
+While the agent works, show a **live elapsed timer** (ticking, e.g. "Agent is working… 0:47"), and on
+completion show the **total revision duration** (e.g. "Agent revised in 2:14. Your turn."). Derivable
+from existing timestamps (`turn_updated` = Send/flip time while `turn==agent`; `agent_status.at`) — but
+note `turn_updated` is **bumped again on hand_back** (turn flips back to reviewer), so the *final*
+duration needs the viewer to capture the start client-side (remember first-seen `turn==agent`, delta on
+done) or a small service-recorded duration. Live-elapsed-while-working needs no new data. Part of the
+timeline ticket (MR-073).
