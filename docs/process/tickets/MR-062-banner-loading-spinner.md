@@ -1,7 +1,7 @@
 ---
 id: MR-062
 title: "Replace MR-061's pulse with a rotating CSS spinner on both agent-turn waiting states (restore stash)"
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done          # backlog | ready | in-progress | review | done | blocked
 layer: ui              # svc | ui | infra | docs
 priority: P2           # P0 | P1 | P2 | P3
 sprint: sprint-22
@@ -119,3 +119,27 @@ _How this was verified._
 ## Follow-ups
 
 Anything deliberately deferred. Move real follow-ups to `backlog.md` or a new ticket.
+
+## Work log
+
+- `2026-06-24` — Restored the product-owner-eyeballed spinner from `stash@{0}` onto this branch
+  (`viewer.html` only, 9/9), relabelled the MR-061 comments to MR-062. CSS near `.turnbanner` (~:84):
+  removed MR-061's `#turnbanner.working #turntext::after` opacity-pulse + `@keyframes turnworking` +
+  its reduced-motion override; added `#turnbanner.loading #turntext::before` (11px ring,
+  `border:2px solid var(--muted)`, `border-top-color:transparent`, `animation:turnspin .8s linear
+  infinite`), `@keyframes turnspin{to{transform:rotate(360deg)}}`, and a `@media (prefers-reduced-motion:
+  reduce)` static-ring fallback. `renderBanner` (~:237-242): `remove('loading')` at the top, `add('loading')`
+  in BOTH the `if(!as)` waiting-for-pickup arm AND the working arm — NOT the stale arm nor the reviewer
+  branch. Supersedes MR-061's pulse (deleted). No `app.py`/Dockerfile/MCP change.
+
+## Validation
+
+- `2026-06-24` — `py_compile app.py` OK (unchanged). G4/G7 render-smoke from a **rebuilt throwaway image**
+  (`mdreview-mr062-smoke`, disposable container on scratch port 8768 — never 8139/8137/compose):
+  **State A (waiting-for-pickup**, `{to:agent}` only, agent_status null): `#turntext` + `.loading` present
+  (exit 0) — proves the spinner now shows in the post-Send waiting state, the MR-061 gap. **State B (working**,
+  `{state:working,owner:smoke}`): `.loading` present (exit 0). **State D (reviewer**, `{to:reviewer,by:reviewer}`):
+  `.loading` absent (0 nodes / exit 1), `#turntext` present. **Stale arm**: code inspection (adds no class).
+  **Reduced motion (CDP):** `getComputedStyle(#turntext,'::before').animationName` = `none` under reduce,
+  `turnspin` without. **Both panes:** light + dark screenshots show the spinner ring legible. Evidence:
+  `reviews/sprint-22-render-evidence-2026-06-24/` (SMOKE.md + banner-working-light.png + banner-working-dark.png).
