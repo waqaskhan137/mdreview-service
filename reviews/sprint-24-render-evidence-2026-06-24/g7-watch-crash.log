@@ -1,0 +1,17 @@
+2026-06-24 20:41:37,641 INFO watch.py: logging to /Users/apple/Dev/personal/tools-utilities/mdreview-service/.scratch/watch-crash.log
+2026-06-24 20:41:37,641 INFO watch.py: owner=watcher-crash base=http://localhost:8182 cursor=0.000 (backlog=True)
+2026-06-24 20:41:37,660 INFO watch.py: spawned child for review 6ed5456085 (owner=watcher-crash pid=18277, inflight=1)
+2026-06-24 20:41:37,666 INFO watch.py: spawned child for review 6867a98d2d (owner=watcher-crash pid=18278, inflight=2)
+2026-06-24 20:41:38,476 WARNING watch.py: child for review 6ed5456085 exited 1 (reaped; no relaunch — see crash model B1)
+2026-06-24 20:41:38,476 WARNING watch.py: child for review 6ed5456085 stderr tail:
+BOOM-CRASH-MARKER traceback line for review 6ed5456085
+2026-06-24 20:41:38,485 WARNING watch.py: crash-signal: review 6ed5456085 flipped to reviewer ('agent process exited 1 without finishing')
+2026-06-24 20:41:38,485 WARNING watch.py: child for review 6867a98d2d exited 1 (reaped; no relaunch — see crash model B1)
+2026-06-24 20:41:38,485 WARNING watch.py: child for review 6867a98d2d stderr tail:
+BOOM-CRASH-MARKER traceback line for review 6867a98d2d
+2026-06-24 20:41:38,490 WARNING watch.py: crash-signal: review 6867a98d2d flipped to reviewer ('agent process exited 1 without finishing')
+2026-06-24 20:41:38,496 INFO watch.py: spawned child for review 7d81f9201f (owner=watcher-crash pid=18286, inflight=1)
+2026-06-24 20:41:40,509 WARNING watch.py: child for review 7d81f9201f exited 1 (reaped; no relaunch — see crash model B1)
+2026-06-24 20:41:40,510 WARNING watch.py: child for review 7d81f9201f stderr tail:
+BOOM-CRASH-MARKER traceback line for review 7d81f9201f
+2026-06-24 20:41:40,520 WARNING watch.py: crash-signal: review 7d81f9201f flipped to reviewer ('agent process exited 1 without finishing')

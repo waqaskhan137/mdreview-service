@@ -3,13 +3,14 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-24. **sprint-24 (watcher-observability, GH #26) ACTIVE — G1 PASS, implementing MR-066/067/068.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-24. **sprint-24 (watcher-observability, GH #26) CLOSED at G7 — MR-066/067/068 done; epic complete; awaiting the standing dev→main PR.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
-**EPIC `watcher-observability` (GH #26) — sprint-24, all 3 tickets `done`, AWAITING G7. G1 PASS 2026-06-24** (staff-critic
-GO-WITH-NITS, `reviews/watcher-observability-plan-review-2026-06-24.md`; both pivotal pins verified
-against the code, five nits folded). Makes a stuck/crashed agent run visible — triggered by a live
+**EPIC `watcher-observability` (GH #26) COMPLETE. sprint-24 CLOSED at G7 2026-06-24** (staff-critic PASS,
+`reviews/sprint-24-close-review-2026-06-24.md`; independent — rebuilt a throwaway container on scratch
+port 8182 and re-drove all three tickets via node-CDP + real `watch.py` stub runs incl. the conflation
+guard; F1 resolved, F2/F3/F4 accepted non-blocking). G1 PASS 2026-06-24 (GO-WITH-NITS, five nits folded). Makes a stuck/crashed agent run visible — triggered by a live
 bug (Send-to-agent with no watcher running spun the banner ~20 min: the waiting-for-pickup state has
 no timeout and MR-062's spinner made it look like "working"). Three tickets, no `app.py` change, no
 auto-relaunch. **MR-066** `ready` (ui): client-side pickup-timeout in `renderBanner` — after

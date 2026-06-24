@@ -1,0 +1,7 @@
+2026-06-24 20:42:00,624 INFO watch.py: logging to /Users/apple/Dev/personal/tools-utilities/mdreview-service/.scratch/watch-falsepos.log
+2026-06-24 20:42:00,624 INFO watch.py: owner=watcher-fp base=http://localhost:8182 cursor=1782330120.625 (backlog=False)
+2026-06-24 20:42:01,466 INFO watch.py: spawned child for review 8b0942f251 (owner=watcher-fp pid=18361, inflight=1)
+2026-06-24 20:42:03,484 WARNING watch.py: child for review 8b0942f251 exited 1 (reaped; no relaunch — see crash model B1)
+2026-06-24 20:42:03,485 WARNING watch.py: child for review 8b0942f251 stderr tail:
+FALSEPOS-teardown-error after a successful done
+2026-06-24 20:42:03,490 INFO watch.py: crash-signal: review 8b0942f251 already handed back (turn=reviewer state=done) — no false 'stopped'

@@ -1,6 +1,6 @@
 ---
 epic: watcher-observability
-status: active
+status: done
 created: 2026-06-24
 source: docs/process/requirements/watcher-observability.md
 gate: passed 2026-06-24
