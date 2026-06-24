@@ -1,13 +1,13 @@
 ---
 id: MR-055
 title: Stale-lease takeover on `/handoff {state:working}` (TTL single-source + reclaim-vs-takeover re-check)
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: svc             # svc | ui | infra | docs
 priority: P1           # P0 | P1 | P2 | P3
 sprint: sprint-17
 epic: agent-watcher
 depends_on: [MR-054]
-branch:                # MR-055-slug, once work starts
+branch: MR-055-stale-lease-takeover-handoff-working
 created: 2026-06-24
 updated: 2026-06-24
 ---
@@ -90,15 +90,37 @@ strict superset of today's grant set; a *fresh* foreign lease still `409`s.
 
 ## Work log
 
-_Filled in during implementation._
-
-- `YYYY-MM-DD` — what changed, files touched.
+- `2026-06-24` — Implemented the stale-lease takeover.
+  - `app.py`: added `LEASE_TTL_S = float(os.environ.get("MDREVIEW_LEASE_TTL_S", "180"))` by
+    `WAIT_TIMEOUT_S` (seconds; env-overridable for fast smokes), with a mirror comment pointing at
+    `viewer.html STALE_S`. Relaxed the `{state:working}` arm: grant when `cur_owner in (None,"",owner)`
+    (normal claim/renew, regardless of `turn`) **or** when the lease is stale
+    (`now - (agent_status.at or 0) > LEASE_TTL_S`) **and** `mt.get("turn") == "agent"`. A fresh foreign
+    lease, or a stale-but-already-reclaimed lease (`turn != "agent"`), still returns
+    `409 {"error":"lease held","owner":...}`. Read of `turn` + write of `agent_status` happen inside the
+    existing single `with _lock:` block (no TOCTOU vs the reclaim arm). Full read-mutate-write of the
+    whole meta dict; **no** new persisted key. Restated the full decision table in a comment.
+  - `viewer.html`: extended the `STALE_S = 180` comment to note it mirrors `app.py LEASE_TTL_S` (single
+    source of truth, both seconds). Comment-only — no viewer behavior change, no render-smoke owed.
+  - Docs: `README.md` `/handoff` row and `CLAUDE.md` "turn baton / Claim the lease" updated to note a
+    stale foreign lease is taken over (fresh still 409s; stale-but-reclaimed still 409s). `AGENTS.md`
+    only lists the tool (no grant-condition prose) — left untouched.
 
 ## Validation
 
-_How this was verified._
-
-- `YYYY-MM-DD` — what was checked and the result.
+- `2026-06-24` — `python3 -m py_compile app.py` → pass (`PY_COMPILE_OK`).
+- Curl smokes against a throwaway `PORT=8158 MDREVIEW_DATA=/tmp/mr055-$$ MDREVIEW_LEASE_TTL_S=2`
+  instance (never 8139/8137):
+  1. **Fresh foreign lease 409s** — flip `{to:agent}`, owner A `{state:working,owner:A}` → 200;
+     owner B immediately → **409** `{"error":"lease held","owner":"A"}`.
+  2. **Stale lease taken over** — after `sleep 2.5` (> TTL=2s), owner B `{state:working,owner:B}` →
+     **200**, lease owner now `B` (confirmed via `/status` `agent_status.owner`).
+  3. **Stale-but-reclaimed still 409s** — A claims, lease goes stale, reclaim
+     `{to:reviewer,by:reviewer}` (turn → reviewer, `agent_status` left stale, lease_owner still A);
+     owner B's stale claim → **409** `{"error":"lease held","owner":"A"}` (turn != agent → takeover
+     refused).
+  4. `LEASE_TTL_S` defaults to `180.0` with the env var unset; mirror comments present at both sites
+     (`app.py:58` `LEASE_TTL_S`, `viewer.html:219-220` `STALE_S` ↔ `LEASE_TTL_S`).
 
 ## Follow-ups
 
