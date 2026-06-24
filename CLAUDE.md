@@ -110,7 +110,14 @@ This makes a review a back-and-forth workspace. Your side of the loop:
    next poll. (`turn`/`agent_status` flow through `GET /api/reviews` too, so the list is the queue.)
 2. **Claim the lease.** `ping_working(document_id, owner="<your session id>")` right away, then
    periodically while you work, so the viewer shows *"Agent is working…"* instead of a stale
-   *"Agent may have stopped"* hint. A review already leased by a **different**, **live** owner returns
+   *"Agent may have stopped"* hint. **(MR-073 / #27) While you hold the turn the viewer renders a
+   live progress timeline + a ticking timer** — *Connected → Editing → Updating comments → Done* —
+   **derived purely from the `/status` signals it already polls** (`source_updated` / `comments_updated`
+   crossing `turn_updated` marks the *editing* / *updating-comments* steps), so a long run reads as
+   progress, not a freeze, and the human sees how long you took ("Agent revised in M:SS" on `hand_back`).
+   You do nothing extra to drive it — just claim, edit, resolve, and hand back as usual. (The literal
+   per-tool-call stream is a deferred follow-on; the timeline is step-level. The final duration is
+   client-captured, so a page opened *after* you finish shows the result but no duration.) A review already leased by a **different**, **live** owner returns
    **409** — back off and skip it (one agent per review). A lease whose last ping is older than
    `LEASE_TTL_S` (180s) is **stale** and a foreign owner may take it over (recovery from a dead
    session), so a 409 means the holder is alive, not merely present. (A stale lease the human has

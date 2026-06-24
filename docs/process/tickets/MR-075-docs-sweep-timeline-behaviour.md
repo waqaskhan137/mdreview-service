@@ -1,12 +1,13 @@
 ---
 id: MR-075
 title: "Docs sweep: agent-turn progress timeline + timer behaviour"
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: docs            # svc | ui | infra | docs
 priority: P2           # P0 | P1 | P2 | P3
 sprint: sprint-26
 epic: viewer-transparency
 depends_on: [MR-073]
+branch: dev
 created: 2026-06-24
 updated: 2026-06-24
 ---
@@ -36,9 +37,13 @@ that the viewer now shows a live progress timeline + timer while an agent works.
 - Epic plan: `epics/viewer-transparency-plan.md` (MR-075). Depends on MR-073 being real so the prose
   matches what ships. Docs-only — no container needed; gate is the grep + py_compile sanity.
 
+## Work log
+
+- `2026-06-24` — `CLAUDE.md` turn-baton section: documented the MR-073 live progress timeline + ticking timer + final revision duration (derived from `/status`, agent does nothing extra; step-level, the literal tool-call stream deferred; final duration client-captured). No stale "static banner" claim.
+
 ## Validation
 
-_How this was verified._
+_Verified 2026-06-24 — grep coverage + py_compile sanity. PASS._
 
 - Grep the touched docs cover the timeline + timer + the client-capture limitation + the deferred
   stream-json note; confirm no "static/opaque banner" claim remains. `py_compile` sanity.

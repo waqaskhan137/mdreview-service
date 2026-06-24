@@ -1,12 +1,13 @@
 ---
 id: MR-073
 title: "Live progress timeline + elapsed/duration timer in the working banner (derived from /status)"
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: ui              # svc | ui | infra | docs
 priority: P1           # P0 | P1 | P2 | P3
 sprint: sprint-26
 epic: viewer-transparency
 depends_on: []
+branch: dev
 created: 2026-06-24
 updated: 2026-06-24
 ---
@@ -60,9 +61,31 @@ tool-call stream (Tier-2) is explicitly out of scope (deferred).
 - `viewer.html` is JS-rendered and this is a *time-dependent, signal-sequenced* state — `render-smoke.sh`
   CANNOT drive it.
 
+## Work log
+
+- `2026-06-24` — `viewer.html`: restructured the banner markup (`#turnbody` > `.turnhead`[`#turntext`
+  + `#turntimer`] + `#turnsteps`); added the timeline CSS (`#turnbanner.steps #turnsteps`, `li.done/.active`,
+  active-step `turnspin` + reduced-motion fallback); in `renderBanner` added module state
+  (`_turnId/_turnStartAt/_turnEdited/_turnCommented/_lastStatus/_timerIv`), `renderSteps()`, `fmtDur()`,
+  `startTicker()` (a fetch-free 1s clock). Working arm derives steps from `source_updated/comments_updated
+  > turn_updated` (cumulative, reset on a new turn), shows the live timer; done arm shows the terminal
+  timeline + client-captured "Agent revised in M:SS" ("Resolved comments" relabel only on `done`). Wraps
+  the MR-062/066/067/068 arms. No `app.py` change. Committed on dev.
+
 ## Validation
 
-_How this was verified — a node-CDP lifecycle driver against a **rebuilt throwaway container**._
+_Verified 2026-06-24 (G4) via a from-source browser smoke (app.py on scratch port 8185; viewer.html is
+served from disk so behaviorally identical to a container). **PASS.** The comprehensive node-CDP drive
+(all edge paths + both panes + reduced-motion) is the formal G7 gate, re-driven independently below._
+
+- Drove a review Send → claim → edit → done in Chrome: claimed → banner `turnbanner show steps`, "Agent
+  is working…", `#turntimer` "0:30", steps [Connected **active**, Editing pending, Updating pending], no
+  JS error. After `PUT /source` → [Connected **done**, Editing **active**, Updating pending], timer
+  advanced 0:59→1:02 (the ticker ticks). After hand_back `done` → "Agent updated the draft: … Your turn."
+  + **"Agent revised in 1:12"**, steps [Connected done, Editing done, Updating pending]. Renders cleanly
+  in dark mode. No regression of the existing banner states observed.
+
+### Owed at G7 (the formal gate — re-drive against a rebuilt container)
 
 - New `timeline_smoke.py` (the `agent_smoke.py:112-148` CDP pattern) on a throwaway image/port/`MDREVIEW_DATA`
   under `.scratch/` (never :8139/:8137): create a review, open `/review/{id}` over CDP, walk the
