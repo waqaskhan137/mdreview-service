@@ -1,12 +1,13 @@
 ---
 id: MR-070
 title: "`Dockerfile.watcher` (Node + python3 + claude CLI) + headless subscription-auth proof (the gate)"
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: infra           # svc | ui | infra | docs
 priority: P1           # P0 | P1 | P2 | P3
 sprint: sprint-25
 epic: watcher-container
 depends_on: [MR-069]
+branch: dev
 created: 2026-06-24
 updated: 2026-06-24
 ---
@@ -53,9 +54,33 @@ with the exact `claude` error — do not paper over it.
 - Verified pre-build (G1): `setup-token --help` = "requires Claude subscription"; `CLAUDE_CODE_OAUTH_TOKEN`
   is the headless env var; `--strict-mcp-config`/`--permission-mode dontAsk` exist.
 
+## Work log
+
+- `2026-06-24` — `Dockerfile.watcher`: `node:20-bookworm-slim` base + `apt` python3 + `npm i -g
+  @anthropic-ai/claude-code@2.1.190`; copies `watch.py`/`mcp_server.py`/`watcher/`; non-root user
+  `watcher` (uid 10001) with writable `$HOME=/home/watcher`; bakes `~/.claude.json` pre-accepting
+  workspace-trust + onboarding for `/app` so a headless `claude -p` doesn't hang on the trust dialog.
+  The main `Dockerfile` is untouched (stays stdlib-only Python, no Node). Committed on dev.
+
 ## Validation
 
-_How this was verified — all on throwaway names/networks, never the live `mdreview`/:8139/:8137._
+_Verified 2026-06-24 (G4) — all on throwaway names/networks, never the live `mdreview`/:8139/:8137.
+**Both gating proofs PASS.** (Subscription token supplied by the operator via `claude setup-token` →
+gitignored `.scratch/.test-token`, never committed/printed.)_
+
+- `docker build -f Dockerfile.watcher -t mdreview-watcher:test .` → success. `claude --version` →
+  `2.1.190`; `python3 --version` → 3.11.2; `id` → `uid=10001(watcher)` (non-root); `$HOME` writable +
+  `~/.claude.json` present.
+- **Auth proof (the gate):** `docker run -e CLAUDE_CODE_OAUTH_TOKEN=… claude --mcp-config … --strict-mcp-config
+  --permission-mode dontAsk -p "Reply … OK."` → **exit 0, "OK"**. (An earlier expired short-lived
+  keychain token gave a fast `exit 1 / 401` — proving the failure mode is cleanly distinguishable from
+  a trust hang, and that the durable `setup-token` is the right artifact.)
+- **MCP round-trip proof (the gate):** throwaway `mdreview` service on a private docker network
+  (alias `mdreview`, not the live container); agent `--mcp-config watcher/agent-mcp.json` called
+  `list_reviews` → **exit 0, reported `0`** (fresh container). The in-image `mcp_server.py` spawns
+  under `claude` and reaches the service headless. Clean teardown (no leftover container/network).
+
+### Owed at G7 (re-drive against a fresh build)
 
 - `python3 -m py_compile app.py watch.py mcp_server.py`.
 - `docker build -f Dockerfile.watcher -t mdreview-watcher:test .`; `docker run --rm … claude --version`
