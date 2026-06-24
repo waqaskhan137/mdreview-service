@@ -26,9 +26,9 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-066 | Viewer: pickup-timeout cue + non-spinning `.warn` state (Half 1) | ui | P1 | ready |
-| MR-067 | Watcher: capture child stderr + structured log + crash `hand_back` signal (Half 2) | svc | P1 | ready |
-| MR-068 | Viewer: render the watcher "agent run stopped" blocked signal (Half 2) | ui | P1 | ready |
+| MR-066 | Viewer: pickup-timeout cue + non-spinning `.warn` state (Half 1) | ui | P1 | done |
+| MR-067 | Watcher: capture child stderr + structured log + crash `hand_back` signal (Half 2) | svc | P1 | done |
+| MR-068 | Viewer: render the watcher "agent run stopped" blocked signal (Half 2) | ui | P1 | done |
 
 ## Preferred execution order
 
@@ -48,6 +48,11 @@ _Filled in as the sprint runs and at close._
 
 - G1 PASS 2026-06-24 (staff-critic GO-WITH-NITS, five nits folded — see
   `reviews/watcher-observability-plan-review-2026-06-24.md`).
+- 2026-06-24 — all three tickets implemented + G4-validated (behavioral, working-tree service on
+  scratch port 8181): MR-066 warn-cue past grace + spinner within grace; MR-067 crash signal +
+  false-positive guard + happy-path (the conflation guard verified); MR-068 crash banner end-to-end +
+  question no-regression. Evidence: `reviews/sprint-24-render-evidence-2026-06-24/`. Awaiting G7
+  (staff-critic re-drive against a rebuilt container).
 
 ## Close gate (G7)
 

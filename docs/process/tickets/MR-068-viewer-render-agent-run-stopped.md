@@ -1,12 +1,13 @@
 ---
 id: MR-068
 title: "Viewer: render the watcher \"agent run stopped\" blocked signal (Half 2)"
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: ui              # svc | ui | infra | docs
 priority: P1           # P0 | P1 | P2 | P3
 sprint: sprint-24
 epic: watcher-observability
 depends_on: [MR-066, MR-067]
+branch: dev
 created: 2026-06-24
 updated: 2026-06-24
 ---
@@ -46,7 +47,27 @@ the end-to-end watcher→service→viewer proof — hence its own gate, separate
 - The signal contract MR-068 renders is pinned by MR-067: `state:"blocked"`, `message:"agent process
   exited <code> without finishing"`.
 
+## Work log
+
+- `2026-06-24` — `viewer.html`: in the reviewer-turn `state==='blocked'` arm of `renderBanner`, branch
+  on the watcher's crash message prefix (`as.message.indexOf('agent process exited')===0`) → render
+  `"Agent run stopped: <message>. Your turn."` with the MR-066 `.warn` class (no spinner); else keep
+  today's `"Agent needs you: …"` for a deliberate agent question. Copy says "Your turn" (not "Take back
+  the turn") because the watcher's `hand_back` already flipped the turn to the reviewer. Committed on dev.
+
 ## Validation
+
+_Verified 2026-06-24 (G4) end-to-end (watcher → service → viewer) against the working-tree service on
+scratch port 8181. Result: **PASS**. Evidence: `reviews/sprint-24-render-evidence-2026-06-24/SUMMARY.md`
+(MR-068 section)._
+
+- Crash signal (review `310fec7735`, left `blocked` by the MR-067 crash run): banner
+  `className="turnbanner show warn"`; text `"Agent run stopped: agent process exited 1 without
+  finishing. Your turn."`; `::before animationName==="none"` (no spinner). PASS.
+- No-regression — a deliberate agent question (`96f35fcf16`, message "Do you mean X or Y here?") renders
+  `"Agent needs you: …"` with NO `.warn`/`loading`. PASS (a question is not mistaken for a crash).
+
+### Owed at G7 (re-drive against the rebuilt container)
 
 _How this was verified — node-CDP drive against the **rebuilt container**._
 

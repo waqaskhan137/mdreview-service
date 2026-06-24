@@ -1,12 +1,13 @@
 ---
 id: MR-067
 title: "Watcher: capture child stderr + structured log + crash `hand_back` signal (Half 2)"
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: svc             # svc | ui | infra | docs (watch.py is service-side server code, not containerized)
 priority: P1           # P0 | P1 | P2 | P3
 sprint: sprint-24
 epic: watcher-observability
 depends_on: []
+branch: dev
 created: 2026-06-24
 updated: 2026-06-24
 ---
@@ -68,7 +69,35 @@ hand-back arm already exists (`app.py:623-629`).
 - **No `app.py` change** — no new route, no new `agent_status` state, no new `/handoff` arm, no new
   `meta.json` key.
 
+## Work log
+
+- `2026-06-24` — `watch.py`: added `import logging`/`import tempfile`; a `log` logger + `_setup_logging()`
+  (stderr always, +`FileHandler` when `WATCH_LOG_FILE` set, `--verbose`/`WATCH_VERBOSE`→DEBUG), called
+  first in `main()`; migrated all 15 `print()` sites to `log.info/warning` (stripped the redundant
+  `watch.py:` literal now in the formatter); `_spawn` captures child stderr to a `tempfile.TemporaryFile`
+  (not PIPE — avoids the chatty-child deadlock) attached as `proc._errf`; `_reap` reads the tail
+  (`_read_errtail`), logs it on a non-zero exit, and calls `_signal_crash`; `_signal_crash` does the
+  MANDATORY `GET /status` re-check (skip if `turn!=agent` or `state==done`) then POSTs
+  `hand_back{to:reviewer,state:blocked,message:"agent process exited N without finishing"}`. README
+  runbook env-var table + the crash-diagnosis paragraph + the module-docstring Config block updated. No
+  `app.py` change (the blocked arm already exists, `app.py:623-629`). Committed on dev.
+
 ## Validation
+
+_Verified 2026-06-24 (G4) via three host runs of `watch.py` against the service from the working tree
+(scratch port 8181), `WATCH_LOG_FILE` set, bash stub launch commands. Result: **PASS**. Logs:
+`reviews/sprint-24-render-evidence-2026-06-24/watch-{crash,falsepos,happy}.log`._
+
+- **Crash** (exit 1, no hand_back): log captured exit code + stderr marker `BOOM-CRASH-MARKER`;
+  `/status` re-check saw `turn=agent` → signal POSTed → `turn=reviewer`, `agent_status.state=blocked`,
+  message `"agent process exited 1 without finishing"`. PASS.
+- **False-positive guard** (hand_back `done` THEN exit 1): re-check saw `turn=reviewer`/`state=done` →
+  *"no false 'stopped'"* logged, signal SKIPPED; review stayed `done`. PASS (the G1-critic guard).
+- **Happy path** (hand_back `done`, exit 0): no signal; review stayed `done`. PASS.
+- `py_compile watch.py` + `py_compile app.py` pass; unconfigured watcher still exits 2; `WATCH_LOG_FILE`
+  wiring writes the `FileHandler` file.
+
+### Owed at G7 (re-drive against the rebuilt container)
 
 _How this was verified — localhost throwaway runs under `.scratch/`, `WATCH_LOG_FILE=.scratch/watch.log`._
 

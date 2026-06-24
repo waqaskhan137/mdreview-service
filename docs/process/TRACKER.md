@@ -7,7 +7,7 @@ Last updated: 2026-06-24. **sprint-24 (watcher-observability, GH #26) ACTIVE —
 
 ## Active sprint
 
-**EPIC `watcher-observability` (GH #26) — sprint-24 ACTIVE, G1 PASS 2026-06-24** (staff-critic
+**EPIC `watcher-observability` (GH #26) — sprint-24, all 3 tickets `done`, AWAITING G7. G1 PASS 2026-06-24** (staff-critic
 GO-WITH-NITS, `reviews/watcher-observability-plan-review-2026-06-24.md`; both pivotal pins verified
 against the code, five nits folded). Makes a stuck/crashed agent run visible — triggered by a live
 bug (Send-to-agent with no watcher running spun the banner ~20 min: the waiting-for-pickup state has
