@@ -1,13 +1,13 @@
 ---
 id: MR-060
 title: "Watcher must-configure launch stub — refuse-to-start at startup when `WATCH_LAUNCH_CMD` unset + runbook recipes + injection caveat (`docs`)"
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: svc             # svc | ui | infra | docs  (svc; carries its same-change docs sweep per the C1/C2/C3 precedent)
 priority: P1           # P0 | P1 | P2 | P3
 sprint: sprint-20
 epic: watcher-launch-fix
 depends_on: []
-branch:                # MR-060-slug, once work starts
+branch: MR-060-watcher-must-configure-launch-stub
 created: 2026-06-24
 updated: 2026-06-24
 ---
@@ -120,15 +120,54 @@ docs sweep. No `app.py` / Dockerfile / UI change.
 
 ## Work log
 
-_Filled in during implementation._
-
-- `YYYY-MM-DD` — what changed, files touched.
+- `2026-06-24` — Implemented Option B in `watch.py`:
+  - `DEFAULT_LAUNCH_CMD = None` (inert sentinel; removed the runnable `claude -p` argv and its
+    prompt). No executable Claude command left in the loop.
+  - Added `launch_configured()` (mirrors `arming_configured()`): `bool(os.environ.get("WATCH_LAUNCH_CMD"))`.
+  - Added `require_launch_configured_or_exit()`; wired into `main()` AFTER
+    `require_trusted_base_or_exit(BASE)` and BEFORE `_arming_startup_notice()` / `run()`. On unset
+    `WATCH_LAUNCH_CMD` it writes guidance to stderr (names the var, says the value must include the
+    permission stance, points to the README "Watcher" runbook) and `sys.exit(2)`. Comment records
+    the startup-not-spawn-time rationale (a spawn-time exit strands `turn==agent`).
+  - Made `_launch_argv()` defensive: the unset branch now `raise RuntimeError(...)` ("should have
+    been caught at startup") instead of `list(None)`.
+  - Docs sweep, all 8 spots: 3 in `watch.py` (module docstring, config comment, the
+    `DEFAULT_LAUNCH_CMD` block comment incl. the now-removed "ONLY Claude-specific knowledge"
+    claim); 4 in `README.md` ("Watcher" intro, example block, generic-template para, env-var table
+    row); 1 in `CLAUDE.md` (watcher para). Every "default Claude headless" / "falls back to
+    `DEFAULT_LAUNCH_CMD`" assertion flipped to the must-configure-stub truth.
+  - Added the README "Watcher" runbook recipes: scoped/recommended (`--permission-mode dontAsk` +
+    `--allowedTools "mcp__mdreview__*"`, with the "allowedTools alone stalls via the no-TTY
+    fall-through" rationale and the glob-free anchoring rule) and full-autonomy
+    (`--dangerously-skip-permissions`, trusted/localhost only), plus the explicit prompt-injection
+    caveat.
+- Files touched: `watch.py`, `README.md`, `CLAUDE.md` (committed `7b1dc06`). No `app.py` / Dockerfile
+  / UI change.
 
 ## Validation
 
-_How this was verified._
-
-- `YYYY-MM-DD` — what was checked and the result.
+- `2026-06-24` — `python3 -m py_compile watch.py` → PASS (`PY_COMPILE OK`).
+- Throwaway service: `MDREVIEW_DATA=.scratch/mr060-svc PORT=8151 python3 app.py` (scratch port,
+  never 8139/8137; no `docker compose up`). `/healthz` → `{"ok": true}`.
+- **Arm A (unconfigured exits 2 at STARTUP):** `env -u WATCH_LAUNCH_CMD
+  MDREVIEW_BASE=http://localhost:8151 python3 watch.py` →
+  - exit code **2**;
+  - stderr guidance present, naming `WATCH_LAUNCH_CMD` and pointing to the README "Watcher" runbook;
+  - the `run()` banner (`owner=… base=… cursor=…`) was **ABSENT** from stdout → it exited at startup,
+    before any `/wait` poll and before any lease claim (no review was flipped/claimed in this arm).
+- **Arm B (configured runs the full loop):** stub `WATCH_LAUNCH_CMD='["bash",".scratch/stub.sh"]'`
+  (the stub POSTs lease-renew `{"state":"working","owner":…}` then hand-back
+  `{"to":"reviewer","state":"done",…}`). Created a review, flipped it with `{"to":"agent"}`
+  (`turn==agent`), ran `python3 -u watch.py --backlog` →
+  - banner present (`watch.py: owner=… base=http://localhost:8151 cursor=0.000 (backlog=True)`);
+  - `spawned child for review 5220d731ce …` → claimed the lease (200) and spawned the stub;
+  - final `turn` flipped back to **reviewer** → the stub handed back; the gate does not break the
+    normal path.
+- Sweep grep (`grep -rin headless|DEFAULT_LAUNCH_CMD|WATCH_LAUNCH_CMD watch.py README.md CLAUDE.md`):
+  every hit is new-behavior-consistent (must-configure stub / exit-2 / runbook recipe); no surviving
+  "default Claude headless" / "falls back to `DEFAULT_LAUNCH_CMD`" claim. Positive checks confirm
+  "refuses to start", `dontAsk`, and `mcp__mdreview__*` are present in the README.
+- `.scratch/` artifacts cleaned up after the run.
 
 ## Follow-ups
 

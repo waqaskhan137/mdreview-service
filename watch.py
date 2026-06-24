@@ -4,9 +4,10 @@
 A stdlib-only sibling of mcp_server.py, run where the operator's agent runs. It long-polls the
 service's C1 /wait endpoint for reviews newly flipped to turn==agent (the "Send to agent" baton),
 claims each review's cooperative lease (POST /handoff {state:working}), and — on a winning claim —
-spawns the operator's configured launch command (default Claude headless). It is a CREDENTIALED
-process spawner, so its load-bearing safety property is the fail-closed trusted-base check (Step 0):
-it refuses to start against a base it cannot vouch for, rather than warn-and-continue.
+spawns the operator's configured launch command; with WATCH_LAUNCH_CMD unset it REFUSES to start
+(exit 2 with guidance) — there is no runnable default. It is a CREDENTIALED process spawner, so its
+load-bearing safety property is the fail-closed trusted-base check (Step 0): it refuses to start
+against a base it cannot vouch for, rather than warn-and-continue.
 
 The launch mechanism is a GENERIC, operator-configured command template (WC-2): the loop only knows
 "spawn this argv with this env." Nothing Claude-specific lives in the loop — env is the entire
@@ -39,7 +40,8 @@ Config (all env, stdlib-idiomatic):
   WATCH_SINCE               "0" (or --backlog) to opt into the existing agent-turn backlog; default=now
   WATCH_WAIT_TIMEOUT_S      client long-poll timeout (default 25; server caps it to its WAIT_TIMEOUT_S)
   WATCH_LAUNCH_CMD          launch command, argv via a JSON array (preferred) or a shlex string;
-                            spawned WITHOUT a shell. Unset => DEFAULT_LAUNCH_CMD (Claude headless).
+                            spawned WITHOUT a shell. Required; unset => the watcher exits 2 at
+                            startup with guidance (must-configure stub, no runnable default).
   WATCH_MAX_CONCURRENT      max simultaneous live children (default 3); enforced BEFORE the claim.
   WATCH_MAX_LAUNCHES_PER_HOUR  rolling 3600s spawn cap (default 30); at the cap, defer (no claim).
   WATCH_MAX_ATTEMPTS_PER_REVIEW  per-review spawn cap (default 5) over WATCH_ATTEMPT_WINDOW_S; once a
@@ -77,16 +79,14 @@ LAUNCH_WINDOW_S = 3600.0
 MAX_ATTEMPTS_PER_REVIEW = int(os.environ.get("WATCH_MAX_ATTEMPTS_PER_REVIEW", "5"))
 ATTEMPT_WINDOW_S = float(os.environ.get("WATCH_ATTEMPT_WINDOW_S", "3600"))
 
-# Default launch command when WATCH_LAUNCH_CMD is unset. Claude headless, reading the child env
-# contract (REVIEW_ID/MDREVIEW_BASE/MDREVIEW_OWNER) — the ONLY Claude-specific knowledge in this
-# file, and it lives in a constant, never in the loop. Operators override via WATCH_LAUNCH_CMD.
-DEFAULT_LAUNCH_CMD = [
-    "claude", "-p",
-    "You are the mdreview handoff agent. The review id is in $REVIEW_ID, the service base in "
-    "$MDREVIEW_BASE, your lease owner id in $MDREVIEW_OWNER. Renew the lease with ping_working, "
-    "read the open comments, apply the requested edits via update_source, resolve what you "
-    "addressed, then hand_back to the reviewer.",
-]
+# Inert must-configure stub: there is NO runnable default launch command. WATCH_LAUNCH_CMD is
+# required; when it is unset the watcher refuses to start (require_launch_configured_or_exit in
+# main() exits 2 with guidance) rather than spawn anything. The sentinel is None — never a runnable
+# argv — so no Claude (or any) command lives in the loop. The agent command AND its permission
+# stance are an explicit one-time operator choice (see README "Watcher" runbook for the recipes),
+# not a baked-in default that silently no-ops headless. _launch_argv() raises if it ever sees the
+# sentinel, because the startup gate guarantees WATCH_LAUNCH_CMD is set by the time it runs.
+DEFAULT_LAUNCH_CMD = None
 
 
 # ---- C3 arming / allowlist: a LOCAL operator gate (never an HTTP capability) ----
@@ -106,6 +106,13 @@ def arming_configured():
     """True iff EITHER arming source is set — even if the resulting allowlist is empty. "Configured
     but empty" is run-but-gate-everything (spawn nothing), NOT "unconfigured" (which would EXIT)."""
     return bool(WATCH_ARMED_FILE) or _WATCH_ARMED_ENV_RAW is not None
+
+
+def launch_configured():
+    """True iff the operator set a launch command. Mirrors arming_configured(): DEFAULT_LAUNCH_CMD is
+    an inert sentinel (None), so an unset WATCH_LAUNCH_CMD means there is no runnable launch command
+    and the watcher must refuse to start (require_launch_configured_or_exit in main())."""
+    return bool(os.environ.get("WATCH_LAUNCH_CMD"))
 
 
 def _valid_id(token, source):
@@ -205,6 +212,31 @@ def require_trusted_base_or_exit(base):
         "  To run on this base, either vouch for it with WATCH_TRUSTED_BASE, or configure arming\n"
         "  (WATCH_ARMED_FILE/WATCH_ARMED) to run armed reviews only.\n"
         % (base, trust)
+    )
+    sys.exit(2)
+
+
+def require_launch_configured_or_exit():
+    """Refuse to start (sys.exit(2)) when WATCH_LAUNCH_CMD is unset — the must-configure gate.
+
+    LOAD-BEARING: this is a STARTUP exit, never a per-review one. _spawn()/_launch_argv() run only
+    AFTER handle() POSTs /handoff {state:working} and wins the lease on a 200; the server does NOT
+    bump turn_updated on a {state:working} lease write (only on a real reviewer->agent flip), so a
+    spawn-time exit would claim the lease, die, and STRAND the review at turn==agent with no
+    re-surfacing on the edge-triggered /wait?since=cursor. Refusing at startup means no lease is ever
+    claimed — the only failure mode that does not strand a review. The exit-with-guidance lives ONLY
+    here; _launch_argv() merely asserts (it is unreachable unset once this gate has run)."""
+    if launch_configured():
+        return
+    sys.stderr.write(
+        "watch.py refusing to start: WATCH_LAUNCH_CMD is unset.\n"
+        "  There is no runnable default launch command (a bare `claude -p` silently no-ops\n"
+        "  headless), so the watcher will not claim a lease it cannot honour.\n"
+        "  Set WATCH_LAUNCH_CMD to the agent command AND its permission stance (a JSON-array argv,\n"
+        "  e.g. '[\"claude\",\"-p\",\"--permission-mode\",\"dontAsk\",\"--allowedTools\",\n"
+        "  \"mcp__mdreview__*\",\"<prompt>\"]').\n"
+        "  See the README \"Watcher (optional) — operator runbook\" for the scoped and full-autonomy\n"
+        "  recipes and the prompt-injection trade-off.\n"
     )
     sys.exit(2)
 
@@ -332,12 +364,19 @@ def _per_review_capped(review_id):
 # ---- launch template parsing (WC-2: argv, NEVER a shell) ----
 def _launch_argv():
     """Resolve WATCH_LAUNCH_CMD to an argv list: a JSON array (preferred) or a shlex-split string.
-    Unset => DEFAULT_LAUNCH_CMD. The result is spawned WITHOUT a shell (no shell=True, no id
-    interpolation into a command string) — env is the interface, so the template needs no
-    placeholder."""
+    The result is spawned WITHOUT a shell (no shell=True, no id interpolation into a command string)
+    — env is the interface, so the template needs no placeholder.
+
+    Defensive, not the gate: the user-facing exit-2-with-guidance lives ONLY in main()
+    (require_launch_configured_or_exit), which runs at startup before any spawn. By the time
+    _launch_argv() is reached, WATCH_LAUNCH_CMD is guaranteed set, so the unset branch is unreachable
+    in normal operation — it raises (rather than do list(None) -> opaque TypeError) so a future
+    refactor that drops the startup gate fails loud."""
     raw = os.environ.get("WATCH_LAUNCH_CMD")
     if not raw:
-        return list(DEFAULT_LAUNCH_CMD)
+        raise RuntimeError("WATCH_LAUNCH_CMD unset — should have been caught at startup by "
+                           "require_launch_configured_or_exit(); DEFAULT_LAUNCH_CMD is an inert "
+                           "sentinel with no runnable default")
     try:
         argv = json.loads(raw)
     except ValueError:
@@ -490,6 +529,9 @@ def _arming_startup_notice():
 
 def main():
     require_trusted_base_or_exit(BASE)   # Step 0: FIRST, before any network call. Refuse-and-exit.
+    require_launch_configured_or_exit()  # must-configure gate: refuse-and-exit if WATCH_LAUNCH_CMD
+                                         # unset. AFTER the trusted-base crux, BEFORE run() — a
+                                         # startup exit, never spawn-time (would strand turn==agent).
     _arming_startup_notice()             # W2: announce the gate when arming is configured
     try:
         run()
