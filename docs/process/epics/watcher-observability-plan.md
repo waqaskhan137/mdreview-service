@@ -1,10 +1,10 @@
 ---
 epic: watcher-observability
-status: draft
+status: active
 created: 2026-06-24
 source: docs/process/requirements/watcher-observability.md
-gate: G1 not passed
-review:
+gate: passed 2026-06-24
+review: reviews/watcher-observability-plan-review-2026-06-24.md
 related_sprints: []
 related_tickets: []
 ---
@@ -123,11 +123,28 @@ Two changes, both in the spawn/reap path, both stdlib-only:
   `stderr`/`stdout` to `Popen`, so the child inherits the watcher's streams and a crash trace is lost
   among `print()`s. Change the spawn to capture stderr (a per-child `subprocess.PIPE` read on reap, or
   redirect to a per-review temp; PIPE-on-reap is simplest and bounded since these are short runs) and
-  emit **structured, timestamped** records — switch the watcher's `print()`s to the stdlib `logging`
-  module writing to a **documented log location** (a `WATCH_LOG_FILE` env, default a documented path;
-  `--verbose` raises the level). On a non-zero (or hand_back-less) exit, log a record carrying the
-  review id, exit code, the resolved argv, and the captured stderr tail. This is the operator-facing
-  half of #26: minimal shape, `logging` to a documented file, **not** a framework.
+  emit **structured, timestamped** records via the stdlib `logging` module. On a non-zero (or
+  hand_back-less) exit, log a record carrying the review id, exit code, the resolved argv, and the
+  captured stderr tail. This is the operator-facing half of #26: minimal shape, `logging` to a
+  documented file, **not** a framework.
+  - **Migration scope (pinned, no implementer guess): MR-067 owns the FULL `print()`→`logging`
+    migration** of `watch.py` (~15 call sites: the B1 reap traces at `watch.py:311,316`, the
+    capacity/skip/cap lines, the cursor-seed/startup notices, the spawn line). A half-migration —
+    some events going through `logging`, others still `print()` — is worse than either, because the
+    operator's documented log would then be missing the very lines (capacity skips, lease 409s) that
+    contextualize a crash. The migration is mechanical (`print(x)` → `log.info/warning(x)`), keeps
+    every existing message string, and adds the structured crash record. No behavior changes beyond
+    where the bytes go.
+  - **`WATCH_LOG_FILE` default (pinned): unset ⇒ log to stderr only; set ⇒ also write that file.**
+    The watcher is the non-containerized sibling — there is **no `/data` mount to default a path
+    into**, so a baked-in file path would write to the operator's CWD by surprise. Default is
+    therefore stderr (a `StreamHandler`), preserving today's "wherever the operator redirected"
+    behavior by default; setting `WATCH_LOG_FILE=./watch.log` (or any path) adds a `FileHandler` to
+    that exact path. `--verbose` raises the level (INFO→DEBUG). Document both `WATCH_LOG_FILE` and
+    `--verbose` in the README **"Watcher (optional) — operator runbook"** section and in `watch.py`'s
+    module docstring Config block (which already enumerates the env vars). The MR-067 validation
+    must set `WATCH_LOG_FILE` to a concrete `.scratch/` path so the `grep "exited 1"` assertion has
+    a real file to read.
 - **Signal the crashed run back to the reviewer.** In `_reap` (`watch.py:299-318`), when a child
   exits non-zero, POST `/api/reviews/{rid}/handoff`
   `{to:"reviewer", state:"blocked", owner:OWNER, message:"agent process exited <code> without
@@ -138,12 +155,23 @@ Two changes, both in the spawn/reap path, both stdlib-only:
   only. This stays within the **B1 no-relaunch** model: it reaps, logs, **signals**, and moves on —
   no re-spawn.
 
-A subtlety to encode (do not regress B1): the watcher signals **only** when its own child exited
-non-zero and it still believes it owns the lease. If the child *did* `hand_back` before dying (turn
-already with the reviewer), the watcher must not stomp a newer state — check/skip rather than
-unconditionally POST. (A best-effort `GET /status` before the signal, or accept the rare benign
-double-flip — pin the simpler in the ticket; recommended: signal unconditionally on non-zero exit,
-since a normal-exit child that already handed back exits 0 and never reaches this branch.)
+A subtlety to encode (do not regress B1, and do not lie about a successful run): the watcher must
+**re-check `/status` BEFORE it POSTs the crash signal — this is MANDATORY, not optional.** The
+premise that "a child that handed back exits 0 and never reaches the non-zero branch" is **not
+guaranteed**: the child is an arbitrary operator launch command (a Claude agent under a wrapper). It
+can POST a successful `done` `hand_back` partway through and *then* exit non-zero for an unrelated
+reason — a cleanup error, `set -e`, a SIGTERM during teardown. Unconditionally signalling on a
+non-zero exit would then **stomp the just-written `done` state** with a false "agent run stopped."
+
+So in `_reap`, on a non-zero child exit, before POSTing the blocked/stopped signal:
+`GET /api/reviews/{rid}/status`, and **SKIP the signal** if `turn != "agent"` (the child already
+handed the turn back) **or** `agent_status.state == "done"`. Only signal when the re-check confirms
+the review is still stranded at `turn == "agent"` — which is exactly the genuine-crash case (a child
+that died before `hand_back` leaves `turn=agent` with a stale `working` lease, so the re-check sees
+`turn=agent` and correctly signals). The guard suppresses *only* the false positive; it never
+suppresses a real crash. The `/status` read is a cheap GET; a failed read logs and skips the signal
+(never crashes the loop) — the safe direction, since a missed signal still self-heals via the 180s
+stale banner plus the Half-1 pickup-timeout cue.
 
 ## Measured forks (render/behavior-observable, settled against the code, not argued)
 
@@ -242,9 +270,11 @@ Each phase is independently shippable and leaves the service in a better state t
    `hand_back{state:blocked}` signal. Independent of MR-066 to *emit*; the viewer render of it
    depends on MR-066's `.warn` class.
 3. **MR-068 (ui, Phase 2)** — render the watcher's blocked crash signal as the stopped-state `.warn`
-   banner. `depends_on: [MR-066, MR-067]` (needs the `.warn` class and a real signal to verify
-   end-to-end). Optionally folded into MR-066 if scope stays small — keep separate so the end-to-end
-   watcher→viewer proof is its own gate.
+   banner. `depends_on: [MR-066, MR-067]` (the `.warn` class is **defined in MR-066**, so MR-068 is
+   purely a render-arm change, not a class redefine; it also needs MR-067's real signal to verify
+   end-to-end). **Keep MR-068 separate from MR-066** — folding it in would lose Half-1's
+   independent-ship property (MR-066 must ship without waiting on MR-067's signal), and the
+   watcher→viewer end-to-end proof deserves its own gate.
 
 ## Ticket breakdown
 
@@ -266,6 +296,9 @@ MR-067 → none to emit; MR-068 → [MR-066, MR-067]. Sprint: **sprint-24**.)
   (new constant `PICKUP_GRACE_S=60` next to `STALE_S`, commented).
 - ≤ grace: today's "Sent — waiting…" + spinner. > grace: "No agent has picked this up — is a watcher
   running? Take back the turn." with NO spinner and a new `.warn` class.
+- **MR-066 defines the `.warn` CSS class outright** (the non-spinning warning treatment — accent
+  border/tint via an existing token, no animation), so MR-068 reuses it without redefining. The class
+  ships in this ticket even though MR-066 only wires it onto the parked-timeout row.
 - The three agent-turn states (pre-grace spinner, working spinner, timed-out warning) are visually
   distinct per the decision table; reclaim button stays available in all agent-turn rows.
 - `.warn` adds no animation (reduced-motion safe); `.loading` reduced-motion behavior unchanged.
@@ -285,20 +318,38 @@ MR-067 → none to emit; MR-068 → [MR-066, MR-067]. Sprint: **sprint-24**.)
 **MR-067 (svc/watcher, Half 2)**
 - `_spawn` captures the child's stderr (PIPE-on-reap or per-review redirect); `_reap` reads it on a
   non-zero exit.
-- The watcher uses stdlib `logging` to a **documented** log location (`WATCH_LOG_FILE` env, default
-  documented in the README "Watcher" runbook; `--verbose` controls level) and emits a structured,
-  timestamped record on non-zero exit carrying review id, exit code, resolved argv, and stderr tail.
-- On a non-zero child exit, `_reap` POSTs `/handoff {to:reviewer, state:blocked, owner:OWNER,
-  message:"agent process exited <code> without finishing"}` — a short fixed reason, never raw stderr.
-- B1 unchanged: no relaunch; the per-review/global caps untouched; the signal is best-effort (a
-  failed POST logs and continues, never crashes the loop).
-- **Validation:** `py_compile watch.py` + `py_compile app.py`. A **localhost throwaway run** with a
-  **crash-stub** `WATCH_LAUNCH_CMD` (claims the lease via the child env then exits non-zero WITHOUT
-  `hand_back`): assert (a) the watcher log captures the exit code + stderr; (b) the review's
-  `GET /status` shows `turn==reviewer` + `agent_status.state=="blocked"` with the stopped message.
-  Plus **happy-path no-regression**: a stub that *does* `hand_back` leaves the normal "your turn"
-  state and the watcher does NOT emit a crash signal. Evidence under the same sprint-24 render-evidence
-  dir. (All throwaway data + crash-stub scripts under the gitignored `.scratch/`, cleaned after.)
+- **Full `print()`→`logging` migration** of `watch.py` (all ~15 call sites, including the B1 reap
+  traces at `watch.py:311,316`, capacity/skip/cap lines, cursor-seed/startup notices, spawn line) —
+  no half-migration. Every existing message string is preserved; only the sink changes.
+- **`WATCH_LOG_FILE` default = unset ⇒ stderr only (`StreamHandler`); set ⇒ also write that exact
+  file (`FileHandler`).** No baked-in path (the watcher has no `/data` mount; a default file path
+  would surprise-write the operator's CWD). `--verbose` raises the level (INFO→DEBUG). Document both
+  `WATCH_LOG_FILE` and `--verbose` in the README "Watcher (optional) — operator runbook" **and** in
+  `watch.py`'s module-docstring Config block.
+- On a non-zero exit, emit a structured, timestamped record carrying review id, exit code, resolved
+  argv, and the captured stderr tail.
+- **Crash signal with a MANDATORY `/status` re-check guard.** On a non-zero child exit, `_reap`
+  first `GET /api/reviews/{rid}/status` and **SKIPS the signal** when `turn != "agent"` **or**
+  `agent_status.state == "done"` (the child handed back before its non-zero teardown — do not stomp
+  a successful `done`). Only when the re-check confirms `turn == "agent"` does it POST
+  `/handoff {to:reviewer, state:blocked, owner:OWNER, message:"agent process exited <code> without
+  finishing"}` — a short fixed reason, never raw stderr.
+- B1 unchanged: no relaunch; the per-review/global caps untouched; the signal AND its re-check are
+  best-effort (a failed read/POST logs and continues, never crashes the loop).
+- **Validation:** `py_compile watch.py` + `py_compile app.py`. **Localhost throwaway runs** under
+  `.scratch/` with `WATCH_LOG_FILE` set to a concrete `.scratch/watch.log` path:
+  - **Crash stub** (claims the lease via the child env, writes a stderr marker, exits non-zero
+    WITHOUT `hand_back`): assert (a) the log captures the exit code + the stderr marker
+    (`grep "exited 1" .scratch/watch.log` and the marker); (b) `GET /status` shows `turn==reviewer`
+    + `agent_status.state=="blocked"` with the stopped message.
+  - **False-positive stub (the conflation guard test): hands back `done` and THEN exits NON-ZERO.**
+    Assert the watcher's `/status` re-check **SKIPS** the signal — the review stays `turn==reviewer`
+    + `agent_status.state=="done"`, and **no** false "agent run stopped" is written. Without this
+    test the guard ships untested.
+  - **Happy-path no-regression:** a stub that hands back `done` and exits 0 leaves the normal "your
+    turn"/done state and the watcher emits no crash signal.
+  Evidence under `reviews/sprint-24-render-evidence-2026-06-24/`. (All throwaway data + stub scripts
+  under the gitignored `.scratch/`, cleaned after.)
 
 **MR-068 (ui, Half 2)**
 - The reviewer-turn `state==='blocked'` arm renders the watcher's crash message as a distinct
@@ -316,7 +367,7 @@ MR-067 → none to emit; MR-068 → [MR-066, MR-067]. Sprint: **sprint-24**.)
 |---|---|
 | A *live* watcher trips the 60s warning during a slow pickup (false "no agent"). | 60s >> one ~25s long-poll cycle + claim/spawn; the moment the watcher claims, `agent_status` becomes `working` and the banner flips to the spinner on the next ~2s poll. The warning is non-destructive (it only offers "Take back the turn"), so a false positive costs nothing irreversible. Tune `PICKUP_GRACE_S` if field data shows slower pickups. |
 | Old reviews with `turn_updated==0` show the warning immediately. | Correct/safe direction: an ancient parked review with no recorded flip *should* warn, not spin forever. Documented in the ticket. |
-| The watcher's crash signal stomps a state the child already set by `hand_back`. | A child that handed back exits 0 and never reaches the non-zero branch; the non-zero branch only fires on a genuine crash where no fresh state was set. Pin "signal on non-zero exit only"; optionally re-check `/status` first. No relaunch, so no storm. |
+| The watcher's crash signal stomps a state the child already set by `hand_back` (e.g. a child that POSTs `done` then exits non-zero in teardown). | **MANDATORY `/status` re-check before the signal** (pinned in MR-067): skip when `turn != "agent"` or `agent_status.state == "done"`, so a successful `done` is never overwritten by a false "stopped." A genuine crash strands at `turn=agent` and is correctly signalled. Tested by the false-positive stub. No relaunch, so no storm. |
 | Raw stderr leaks internals to a public no-auth viewer. | The viewer-visible message is a short fixed reason; raw stderr stays in the operator log only. Asserted in MR-067 validation. |
 | `render-smoke.sh` can't prove a time-dependent banner. | Use the node-CDP `Runtime.evaluate` driver per the brief's Validation section; `render-smoke.sh`'s flat matcher is insufficient and is explicitly not relied on for the timeout transition. |
 | MR-068 blocks on MR-067's signal shape drifting. | `depends_on` recorded; MR-067 pins the exact `message`/state contract MR-068 renders. |
@@ -356,12 +407,54 @@ All against a **rebuilt throwaway container** on a scratch port (never 8137/8139
    curl -s "$BASE/api/reviews/$id/status"          # turn=="reviewer", agent_status.state=="blocked"
    ```
    Then drive the viewer (node-CDP) and assert the "agent run stopped — Take back the turn" `.warn`
-   banner (no spinner). **Happy-path no-regression:** a hand_back-ing stub leaves `turn==reviewer` +
-   `agent_status.state=="done"` and the banner shows "Agent updated the draft… Your turn." with no
-   crash signal emitted.
+   banner (no spinner).
 
-4. **No-regression of existing banners.** Working (`agent_status.state=="working"`, fresh) still
+4. **Half 2 — false-positive guard (`done`-then-non-zero).** A stub that POSTs `hand_back {state:done}`
+   and *then* exits non-zero. Assert the watcher's mandatory `/status` re-check **SKIPS** the crash
+   signal:
+   ```bash
+   curl -s "$BASE/api/reviews/$id/status"   # MUST stay turn=="reviewer", agent_status.state=="done"
+   grep -L "blocked" "$WATCH_LOG_FILE"      # no "stopped/blocked" signal emitted for this review
+   ```
+
+5. **Half 2 — happy-path no-regression.** A stub that hands back `done` and exits 0 leaves
+   `turn==reviewer` + `agent_status.state=="done"`; the banner shows "Agent updated the draft…
+   Your turn." with no crash signal emitted.
+
+6. **No-regression of existing banners.** Working (`agent_status.state=="working"`, fresh) still
    spins; stale-working still shows "Agent may have stopped"; reviewer/done still shows "Your turn."
 
 Evidence committed under `reviews/sprint-24-render-evidence-2026-06-24/` (both-pane screenshots +
 the CDP/log assertions), per the G7 render-evidence convention.
+
+## Review resolutions
+
+### 2026-06-24 — staff-critic review (GO-WITH-NITS), five items folded in
+
+Both pivotal pins were verified correct by the critic against the code (the ~2s poll
+unconditionally re-invokes `renderBanner` at `viewer.html:668`; the existing
+`hand_back{state:blocked}` arm at `app.py:623-629` does everything claimed and `_reap` can call it).
+The five nits are resolved:
+
+1. **MR-067 — mandatory `/status` re-check before the crash signal.** Changed the Watcher approach
+   section and the MR-067 ACs from "optionally re-check" to a **MANDATORY** guard: on a non-zero
+   exit, `GET /status` and SKIP the signal if `turn != "agent"` or `agent_status.state == "done"`.
+   Rationale folded in: the child is an arbitrary operator command and can POST `done` then exit
+   non-zero in teardown, so the unconditional version would stomp a successful run with a false
+   "stopped." The risk-table row was updated to match (was "optionally re-check").
+2. **MR-067 — false-positive test added.** Added a `done`-then-non-zero stub variant to the MR-067
+   ACs and to the epic-level verification (step 4), asserting the re-check SKIPS the signal (review
+   stays `done`, no false "stopped"). The conflation guard no longer ships untested.
+3. **MR-067 — print()→logging migration scope pinned.** Stated explicitly that MR-067 owns the
+   **FULL** migration of all ~15 `watch.py` `print()` sites (B1 reap traces at `watch.py:311,316`,
+   capacity/skip/cap lines, cursor-seed/startup notices, spawn line), not a half-migration; message
+   strings preserved, only the sink changes.
+4. **MR-067 — `WATCH_LOG_FILE` default pinned.** Pinned: unset ⇒ stderr-only (`StreamHandler`); set
+   ⇒ also write that exact file (`FileHandler`). No baked-in path (the watcher has no `/data` mount).
+   Documented in the README "Watcher" runbook and `watch.py`'s docstring Config block. Validation now
+   sets a concrete `.scratch/watch.log` so the `grep "exited 1"` assertion has a real file.
+5. **MR-066/MR-068 — `.warn` class ownership pinned.** Stated that the `.warn` class is **defined in
+   MR-066** outright; MR-068 is purely a render-arm change, not a redefine. MR-068 is kept SEPARATE
+   from MR-066 (preserving Half-1's independent-ship property and giving the watcher→viewer
+   end-to-end proof its own gate), per the critic's confirmation. Sequencing MR-066 → MR-067 → MR-068
+   stands. Grace=60s, the existing-`hand_back` mechanism, and the 3-ticket split are unchanged.
