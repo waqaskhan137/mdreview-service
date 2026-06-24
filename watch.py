@@ -350,10 +350,10 @@ def _reap():
         if code == 0:
             log.info("child for review %s exited 0 (reaped)", rid)
         else:
-            # A non-zero exit is logged but NOT retried (B1). MR-067: capture the stderr tail to the
-            # operator log so the crash is diagnosable, then signal the reviewer (guarded re-check).
-            log.warning("child for review %s exited %s (reaped; no relaunch — see crash model B1)",
-                        rid, code)
+            # A non-zero exit is logged but NOT retried (B1). MR-067: capture the stderr tail + the
+            # resolved argv to the operator log so the crash is diagnosable, then signal the reviewer.
+            log.warning("child for review %s exited %s (reaped; no relaunch — see crash model B1); argv=%r",
+                        rid, code, getattr(proc, "_argv", None))
             if tail.strip():
                 log.warning("child for review %s stderr tail:\n%s", rid, tail.strip())
             _signal_crash(rid, code)
@@ -500,8 +500,10 @@ def _spawn(review_id):
     # multi-minute agent would fill a 64KB pipe buffer and DEADLOCK if nobody reads until reap;
     # an OS file never blocks the writer. _reap reads its tail on a non-zero exit.
     errf = tempfile.TemporaryFile(mode="w+b")
-    proc = subprocess.Popen(_launch_argv(), env=child_env, stderr=errf)   # non-blocking; never shell=True
+    argv = _launch_argv()
+    proc = subprocess.Popen(argv, env=child_env, stderr=errf)   # non-blocking; never shell=True
     proc._errf = errf                            # MR-067: read on reap (Popen accepts ad-hoc attrs)
+    proc._argv = argv                            # MR-067: the resolved argv, logged in the crash record
     now = time.time()
     _inflight[review_id] = proc
     _launch_times.append(now)
