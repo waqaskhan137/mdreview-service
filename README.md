@@ -181,19 +181,49 @@ no auth — fine for the trusted-network posture, but keep auth in front if expo
 
 `watch.py` is a stdlib-only sibling of `mcp_server.py` that closes the handoff loop without a human
 in the relay: it long-polls the service for reviews the reviewer flipped to `turn==agent` ("Send to
-agent"), claims each review's cooperative lease, and **spawns the operator's configured agent
-command** (default Claude headless) to do the work. It runs **where the operator's agent runs** (like
+agent"), claims each review's cooperative lease, and spawns the operator's **required**
+`WATCH_LAUNCH_CMD`; with it **unset the watcher refuses to start** (exit `2` with guidance) — there is no runnable default. It runs **where the operator's agent runs** (like
 `mcp_server.py`) and is **NOT containerized** — `python3 watch.py` is the only way it runs; compose
 does not start it.
 
 ```bash
-# trusted-base mode: a loopback service, default launch command (Claude headless)
-MDREVIEW_BASE=http://localhost:8137 python3 watch.py
+# trusted-base mode: a loopback service. WATCH_LAUNCH_CMD is REQUIRED (no default); the
+# scoped/recommended recipe (mdreview-tools-only, robustly headless) is:
+MDREVIEW_BASE=http://localhost:8137 \
+  WATCH_LAUNCH_CMD='["claude","-p","--permission-mode","dontAsk","--allowedTools","mcp__mdreview__*","<prompt>"]' \
+  python3 watch.py
 
 # with a non-loopback base, you MUST vouch for it explicitly (exact match):
 MDREVIEW_BASE=http://10.0.0.5:8137 WATCH_TRUSTED_BASE=http://10.0.0.5:8137 \
-  WATCH_LAUNCH_CMD='["claude","-p","..."]' python3 watch.py
+  WATCH_LAUNCH_CMD='["claude","-p","--permission-mode","dontAsk","--allowedTools","mcp__mdreview__*","<prompt>"]' \
+  python3 watch.py
 ```
+
+**Configuring the launch command (the recipes).** `WATCH_LAUNCH_CMD` must carry **both** the agent
+command **and its permission stance**; an unconfigured watcher exits `2` rather than spawn a command
+that silently no-ops headless. The agent runs with **no TTY**, so any tool whose use would otherwise
+raise an interactive approval prompt stalls the run.
+
+- **Scoped / recommended (headless, mdreview-tools-only):**
+  `WATCH_LAUNCH_CMD='["claude","-p","--permission-mode","dontAsk","--allowedTools","mcp__mdreview__*","<prompt>"]'`.
+  `--allowedTools` **alone is not robustly headless**: an unlisted tool the agent reaches for
+  (`Read`/`Bash`/`TodoWrite`/a web fetch) falls through to the no-TTY permission prompt and stalls (a
+  narrowed reprise of the original no-op defect). **`--permission-mode dontAsk` converts that
+  fall-through into a clean deny** — listed tools are approved, everything else is denied outright
+  with no prompt. **Anchoring rule:** the MCP server segment must be **glob-free** —
+  `mcp__mdreview__*` is valid (server `mdreview`, any tool); `mcp__*` and `*` are ignored with a
+  startup warning, so they grant nothing.
+- **Full-autonomy (only if you accept it, trusted/localhost only):**
+  `WATCH_LAUNCH_CMD='["claude","--dangerously-skip-permissions","-p","<prompt>"]'`. Every tool is
+  permitted with no prompt. Use this **only** on a base whose reviewer comments you fully trust.
+
+**Prompt-injection caveat (load-bearing).** On a public or armed base the launched agent **executes
+instructions embedded in reviewer comments** — the open comments are its instruction, and a reviewer
+is anyone with the URL on the no-auth service. The `WATCH_LAUNCH_CMD` permission posture is what
+**bounds the blast radius**: a comment that says "shell out and exfiltrate via Bash" is a clean deny
+under the scoped `dontAsk` + `mcp__mdreview__*` recipe, but is executed under
+`--dangerously-skip-permissions`. **Use the scoped posture, not `--dangerously-skip-permissions`, on
+any base where comments aren't fully trusted.**
 
 **Fail-closed trusted base (the safety crux).** `watch.py` is a *credentialed process spawner*, so it
 **refuses to start** (exit `2`, no network call) against a base it cannot vouch for. With
@@ -206,7 +236,7 @@ refusal by design — the fix is the correct vouch, not a looser comparand.
 env." `WATCH_LAUNCH_CMD` is read as a **JSON array** (preferred, e.g. `'["claude","-p","..."]'`) or
 a plain string parsed with `shlex.split`; either way it is spawned with `subprocess.Popen(argv, …)`
 **without a shell** (never `shell=True`, never the review id interpolated into a command string).
-Unset, it falls back to a named `DEFAULT_LAUNCH_CMD` (Claude headless). The child receives the review
+Unset, the watcher **refuses to start** (exit `2`) with guidance to set `WATCH_LAUNCH_CMD` including its permission stance — there is no runnable default. The child receives the review
 via **env, not argv** — the interface is `REVIEW_ID`, `MDREVIEW_BASE`, and `MDREVIEW_OWNER` (the
 watcher's lease owner, so the child renews the **same** lease via `ping_working` — a same-owner `200`,
 not a foreign `409`). The **child** owns the heartbeat and `hand_back`; the watcher claims once, then
@@ -267,7 +297,7 @@ the human (the 180s stale "Agent may have stopped" banner) or a `--backlog`/rest
 | `WATCH_TRUSTED_BASE` | _(unset)_ | Explicit vouch for a non-loopback base; **exact** string match of `MDREVIEW_BASE` (no wildcard/prefix). Unset ⇒ loopback only. |
 | `WATCH_ARMED_FILE` | _(unset)_ | Path to the local allowlist file (one id/line, `#` comments, bad/`*` tokens dropped); re-read per check (append-a-line, no restart). |
 | `WATCH_ARMED` | _(unset)_ | Inline armed id-list (comma/space-separated), unioned with the file; fixed at process start. |
-| `WATCH_LAUNCH_CMD` | `DEFAULT_LAUNCH_CMD` (Claude headless) | Launch argv as a JSON array (preferred) or a `shlex` string; spawned **without** a shell. |
+| `WATCH_LAUNCH_CMD` | **required — unset exits `2` at startup** | Launch argv as a JSON array (preferred) or a `shlex` string; spawned **without** a shell. Must include the agent command **and its permission stance** (see the recipes above); there is no runnable default. |
 | `WATCH_MAX_CONCURRENT` | `3` | Max simultaneous live children (enforced before the claim). |
 | `WATCH_MAX_LAUNCHES_PER_HOUR` | `30` | Rolling 3600s spawn cap across all reviews (enforced before the claim). |
 | `WATCH_MAX_ATTEMPTS_PER_REVIEW` | `5` | Per-review spawn cap within `WATCH_ATTEMPT_WINDOW_S`; bounds the re-Send/re-surface loop for one id. |
