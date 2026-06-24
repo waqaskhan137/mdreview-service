@@ -1,13 +1,13 @@
 ---
 id: MR-061
 title: "Animate the viewer's `working`-state turn banner (CSS-only ellipsis)"
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: ui              # svc | ui | infra | docs
 priority: P2           # P0 | P1 | P2 | P3
 sprint: sprint-21
 epic: working-banner-animation
 depends_on: []
-branch:                # MR-061-slug, once work starts
+branch: MR-061-animate-working-banner
 created: 2026-06-24
 updated: 2026-06-24
 ---
@@ -122,3 +122,28 @@ _How this was verified._
 ## Follow-ups
 
 Anything deliberately deferred. Move real follow-ups to `backlog.md` or a new ticket.
+
+## Work log
+
+- `2026-06-24` — `viewer.html` only (8 insertions, 1 deletion). CSS near `.turnbanner` (~:84): a
+  `#turnbanner.working #turntext::after{content:"…";color:var(--muted);animation:turnworking …}`
+  pulsing-opacity ellipsis, a `@keyframes turnworking{0%,100%{opacity:.3}50%{opacity:1}}`, and a
+  `@media (prefers-reduced-motion:reduce)` block that sets `animation:none;opacity:1`. In
+  `renderBanner` (~:234-235): `bar.classList.remove('working')` at the top (after the `if(!bar)return`
+  guard) and `bar.classList.add('working')` ONLY in the genuine working arm, with the literal trailing
+  "…" dropped from that message so the `::after` is the sole ellipsis. Only the working state animates;
+  the stale "may have stopped", parked, your-turn, done, blocked arms are unchanged. No
+  `app.py`/Dockerfile/MCP/dependency change.
+
+## Validation
+
+- `2026-06-24` — `python3 -m py_compile app.py` OK (app.py untouched). G4/G7 **render-smoke from a
+  rebuilt throwaway image** (`mdreview-mr061-smoke`, disposable container on scratch port 8766 — never
+  8139/8137, never `docker compose up`): forced the working state via `POST /handoff {to:agent}` then
+  `POST /handoff {state:working,owner:smoke-owner}`. Results — `scripts/render-smoke.sh` on the working
+  banner: `#turnbanner` 1, `#turntext` 1, `.working` 1 (exit 0). **Negative:** after a
+  `{to:reviewer,by:reviewer}` reclaim, `.working` → 0 nodes / exit 1 (only the working state carries
+  the class). **Both panes:** light + dark screenshots show the banner + ellipsis legible. **Reduced
+  motion (CDP `Emulation.setEmulatedMedia`):** `getComputedStyle(#turntext,'::after').animationName`
+  = `'none'` under `reduce`, `'turnworking'` under `no-preference`. Evidence:
+  `reviews/sprint-21-render-evidence-2026-06-24/` (SMOKE.md + banner-light.png + banner-dark.png).
