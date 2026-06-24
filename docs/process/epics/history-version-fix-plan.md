@@ -1,6 +1,6 @@
 ---
 epic: history-version-fix
-status: active          # draft until G1 passes
+status: done           # shipped: MR-064 + MR-065 (sprint-23), G7 PASS 2026-06-24 (closes #18)
 created: 2026-06-24
 source: requirements/history-version-fix.md   # GH issue #18, groomed + staff-critic reviewed
 gate: passed 2026-06-24    # tickets blocked until passed

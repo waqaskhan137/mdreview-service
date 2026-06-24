@@ -7,7 +7,9 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**EPIC `history-version-fix` — sprint-23 MR-064 + MR-065 DONE, pending G7 close** (2026-06-24, G1 PASS). A small two-ticket
+**EPIC `history-version-fix` COMPLETE.** **sprint-23 CLOSED at G7 2026-06-24** (staff-critic PASS,
+`reviews/sprint-23-close-review-2026-06-24.md`; independent — the critic re-drove the History modal with a
+fresh node-CDP script, 11/11 incl. the v0 edge; GH #18 closed). A small two-ticket
 batch fixing the document History modal: it mislabels versions (tops out at `v(N-1)` while the
 dashboard badge shows `vN`, never lists the current live draft) and stamps every round "0 notes" (the
 retired `notes.json` count, untruthful and unrecoverable for existing rounds). Implements GH **#18**.
@@ -283,4 +285,4 @@ _none_
 | watcher-launch-fix | **done** (MR-060 shipped, sprint-20 G7 PASS 2026-06-24) — follow-up to the done agent-watcher epic (inert must-configure launch stub + runbook) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-20 |
 | working-banner-animation | **done** (MR-061 shipped, sprint-21 G7 PASS 2026-06-24) — standalone small `ui` enhancement, slice of #27 (CSS-only animated ellipsis on the working-state turn banner) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-21 |
 | watcher-ux-fixes | **done** (MR-062 + MR-063 shipped, sprint-22 G7 PASS 2026-06-24) — two-ticket watcher UX batch: a rotating spinner on both agent-turn waiting states (supersedes MR-061) + fixed the README scoped launch-recipe arg order (GH #25) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-22 |
-| history-version-fix | active (MR-064 + MR-065 ready) — fix the History modal's version labels (list the current draft, reconcile the off-by-one) + remove the untruthful per-round "0 notes" count; implements GH #18 | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-23 |
+| history-version-fix | **done** (MR-064 + MR-065 shipped, sprint-23 G7 PASS 2026-06-24, closes #18) — fixed the History modal's version labels (current-draft entry reconciles the off-by-one) + removed the untruthful per-round "0 notes" count | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-23 |

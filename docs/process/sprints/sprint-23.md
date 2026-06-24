@@ -1,11 +1,11 @@
 ---
 id: sprint-23
 name: history-version-fix — labels + notes-count
-status: active         # planning | active | closed
+status: closed         # planning | active | closed
 start: 2026-06-24
 end: 2026-06-27
 goal: Reconcile the History modal's version labels with the dashboard badge (list the current draft on top, relabel archived rounds) and remove the untruthful per-round "0 notes" count at its source.
-close_review:          # reviews/sprint-23-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: reviews/sprint-23-close-review-2026-06-24.md   # G7 PASS 2026-06-24 (staff-critic, independent; re-drove the node-CDP modal verify)
 ---
 
 ## Goal
@@ -41,20 +41,32 @@ The intended order, accounting for dependencies. Unblocking work first. MR-065 `
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+**Closed 2026-06-24, G7 PASS** (staff-critic, independent — `reviews/sprint-23-close-review-2026-06-24.md`).
+MR-064 + MR-065 `done`, no carry-overs. **This closes the `history-version-fix` epic — epic `done`.** GH #18 closed.
 
-- Scope changes, carry-overs to the next sprint, what went well / poorly.
+- **Shipped (GH #18, two defects):** MR-064 (svc) — `snapshot_round` stops writing the untruthful per-round
+  notes count (it counted the retired `notes.json`, always 0 since the comments era); `round.json` is now
+  `{round, ts}`, README `/history` shape updated. MR-065 (ui) — the History modal lists the current draft
+  as a `current (vN)` top entry that reconciles with the dashboard `vN` badge (Defect A), relabels archived
+  rounds `v{round} · earlier draft` newest-first, and drops the "0 notes" label (Defect B).
+- **The modal-verification wall (named-recurrence solved):** `render-smoke.sh` can't open the click-populated
+  History modal (sprint-07 hit this and waived it as cosmetic). Here the modal DOM WAS the deliverable, so
+  the smoke is a **node-CDP eval driver** (the `agent_smoke.py` WebSocket/`Runtime.evaluate` pattern) — G1
+  caught that bare render-smoke would false-pass, and both G7 (the implementer's + the critic's independent
+  re-run, 11/11) drove it for real. Worth promoting node-CDP as the standard for any click-gated viewer DOM.
+- **Carry-overs:** none. #18 is fully resolved. Relationship to #19 (a future version-picker/diff) left
+  un-cornered — the labels are now trustworthy, the on-disk round-n/`/history/{n}` are unchanged.
 
 ## Close gate (G7)
 
 The sprint cannot be marked `closed` until:
 
-- [ ] every committed ticket is `done` or explicitly carried over (note where);
-- [ ] a **staff-critic sprint-close review** exists at
-      `reviews/sprint-23-close-review-YYYY-MM-DD.md`, verifying shipped work against each ticket's
-      acceptance criteria, **including a render smoke** of any page touched, and its findings are
-      resolved or carried;
-- [ ] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
+- [x] every committed ticket is `done` or explicitly carried over (note where) — MR-064 + MR-065 done, no carry-overs;
+- [x] a **staff-critic sprint-close review** exists at
+      `reviews/sprint-23-close-review-2026-06-24.md`, verifying shipped work against each ticket's
+      acceptance criteria, **including a render smoke** of the touched page (the History modal, re-driven
+      independently by the critic via node-CDP — render-smoke.sh can't open it), and its findings resolved;
+- [x] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
 
 **G7 scope note (history-version-fix specifics).** **MR-065 IS a product-page change** — it edits
 `viewer.html` (baked into the container at build time). The History modal is `display:none` until
