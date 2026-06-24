@@ -177,6 +177,59 @@ host-reachable URL (e.g. `https://review.example.com`); otherwise the link may b
 **Exposure.** `list_reviews` (like `GET /api/reviews` and the dashboard) returns every review with
 no auth — fine for the trusted-network posture, but keep auth in front if exposed.
 
+## Watcher (optional, trusted-base mode)
+
+`watch.py` is a stdlib-only sibling of `mcp_server.py` that closes the handoff loop without a human
+in the relay: it long-polls the service for reviews the reviewer flipped to `turn==agent` ("Send to
+agent"), claims each review's cooperative lease, and **spawns the operator's configured agent
+command** (default Claude headless) to do the work. It runs **where the operator's agent runs** (like
+`mcp_server.py`) and is **NOT containerized** — `python3 watch.py` is the only way it runs; compose
+does not start it.
+
+```bash
+# trusted-base mode: a loopback service, default launch command (Claude headless)
+MDREVIEW_BASE=http://localhost:8137 python3 watch.py
+
+# with a non-loopback base, you MUST vouch for it explicitly (exact match):
+MDREVIEW_BASE=http://10.0.0.5:8137 WATCH_TRUSTED_BASE=http://10.0.0.5:8137 \
+  WATCH_LAUNCH_CMD='["claude","-p","..."]' python3 watch.py
+```
+
+**Fail-closed trusted base (the safety crux).** `watch.py` is a *credentialed process spawner*, so it
+**refuses to start** (exit `2`, no network call) against a base it cannot vouch for. With
+`WATCH_TRUSTED_BASE` unset it allows **loopback only** (`localhost`/`127.0.0.1`/`::1`); for any other
+base you must set `WATCH_TRUSTED_BASE` to an **EXACT** string match of `MDREVIEW_BASE` (no wildcard,
+no prefix, so `localhost.evil.com` is refused). A mismatch (http vs https, `:443` vs bare) is a
+refusal by design — the fix is the correct vouch, not a looser comparand.
+
+**Generic launch template (no shell injection).** The watcher only knows "spawn this argv with this
+env." `WATCH_LAUNCH_CMD` is read as a **JSON array** (preferred, e.g. `'["claude","-p","..."]'`) or
+a plain string parsed with `shlex.split`; either way it is spawned with `subprocess.Popen(argv, …)`
+**without a shell** (never `shell=True`, never the review id interpolated into a command string).
+Unset, it falls back to a named `DEFAULT_LAUNCH_CMD` (Claude headless). The child receives the review
+via **env, not argv** — the interface is `REVIEW_ID`, `MDREVIEW_BASE`, and `MDREVIEW_OWNER` (the
+watcher's lease owner, so the child renews the **same** lease via `ping_working` — a same-owner `200`,
+not a foreign `409`). The **child** owns the heartbeat and `hand_back`; the watcher claims once, then
+only reaps + logs the child on exit.
+
+**Caps (bound normal-load spend).** `WATCH_MAX_CONCURRENT` (default `3`) caps simultaneous live
+children; `WATCH_MAX_LAUNCHES_PER_HOUR` (default `30`) caps spawns over a rolling 3600s window. Both
+are enforced **before** the claim (so the watcher never claims a lease it cannot spawn) and are
+env-overridable. These bound the **normal** case (many distinct reviews flipped to agent); they do
+**not** bound a crash-loop, because a child that exits before `hand_back` **strands** its review at
+`turn==agent` (the server bumps `turn_updated` only on a real reviewer→agent flip), and the
+edge-triggered poll never re-surfaces it — the failure mode is fail-safe **under**-spawn, recovered by
+the human (the 180s stale "Agent may have stopped" banner) or a `--backlog`/restart re-seed, never an
+auto-relaunch. The per-review attempt cap for paths where relaunches *do* happen is a later increment.
+
+**Config (env):** `MDREVIEW_BASE`, `WATCH_TRUSTED_BASE`, `WATCH_LAUNCH_CMD`, `WATCH_MAX_CONCURRENT`,
+`WATCH_MAX_LAUNCHES_PER_HOUR`, `WATCH_OWNER` (stable lease owner id; default pid-derived),
+`WATCH_SINCE` (`0`, or `--backlog`, to process the existing agent-turn backlog; default = now).
+
+> This documents **trusted-base mode** only. The full arming / **untrusted-base** runbook (running
+> against a public instance, the operator allowlist, the per-review attempt cap) is a later increment
+> (C3); it is deliberately out of scope here.
+
 ## Notes
 
 - Multi-tenant by id, so concurrent reviews never collide. No auth (intended for trusted /

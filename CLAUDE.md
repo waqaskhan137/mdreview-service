@@ -127,6 +127,15 @@ replaces the old "watch `comments_updated` go quiet" heuristic. **Reconnect note
 `ping_working` are new MCP tools, so a stale stdio server won't list them until the client reconnects
 (a render/HTTP change needs no reconnect; a new tool does — see "Calling it over MCP").
 
+**Automating your side of the baton (`watch.py`).** An optional stdlib sibling, `watch.py`, closes
+this loop without a human relaying the URL: it long-polls for reviews flipped to `turn==agent`,
+claims the lease, and spawns a configured agent command (default Claude headless) whose child env is
+the `REVIEW_ID` / `MDREVIEW_BASE` / `MDREVIEW_OWNER` contract above — so the spawned agent renews the
+**same** lease and hands back. It runs where your agent runs (like `mcp_server.py`, not containerized)
+and is **fail-closed**: it refuses a non-loopback base without an exact `WATCH_TRUSTED_BASE` vouch.
+See README **"Watcher (optional, trusted-base mode)"** for the env vars and caps. C2 documents
+trusted-base mode only; the untrusted-base / public-instance runbook is C3.
+
 ## Comments (threaded resolution)
 
 The viewer's primary feedback surface is **threaded comments** (a reviewer highlights text → a
