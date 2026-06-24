@@ -183,8 +183,10 @@ no auth — fine for the trusted-network posture, but keep auth in front if expo
 in the relay: it long-polls the service for reviews the reviewer flipped to `turn==agent` ("Send to
 agent"), claims each review's cooperative lease, and spawns the operator's **required**
 `WATCH_LAUNCH_CMD`; with it **unset the watcher refuses to start** (exit `2` with guidance) — there is no runnable default. It runs **where the operator's agent runs** (like
-`mcp_server.py`) and is **NOT containerized** — `python3 watch.py` is the only way it runs; compose
-does not start it.
+`mcp_server.py`). It runs **two ways**: on the host (`python3 watch.py`, below — the answer for a
+public/shared instance), or as an **opt-in container** (`docker compose --profile watcher up` — the
+local-use path, see **"Containerized watcher"** below). A plain `docker compose up` does **not** start
+it; it is off unless you ask for the profile.
 
 ```bash
 # trusted-base mode: a loopback service. WATCH_LAUNCH_CMD is REQUIRED (no default); the
@@ -292,6 +294,47 @@ crash-loop: a child that exits before `hand_back` **strands** its review at `tur
 bumps `turn_updated` only on a real reviewer→agent flip), the edge-triggered poll never re-surfaces it,
 and the watcher **never auto-relaunches** — the failure mode is a fail-safe **under**-spawn, recovered by
 the human (the 180s stale "Agent may have stopped" banner) or a `--backlog`/restart re-seed.
+
+### Containerized watcher (opt-in, Claude subscription auth)
+
+For **local single-user** use you can run the watcher as a compose service instead of on the host —
+authenticated by your Claude **subscription** (no API key, no per-token billing). It is **off by
+default**: a plain `docker compose up` starts only the service; you opt in with `--profile watcher`.
+
+> ⚠️ **Local use only.** The containerized watcher runs with `WATCH_ARMED*` unset, so it
+> **auto-actions every review you Send to the agent** — fine when you are the only commenter, unsafe on
+> a shared/public instance (a comment is attacker-controllable input the agent will execute). For a
+> public instance use the **host** watcher above with **arming** (`WATCH_ARMED_FILE`), which is also the
+> per-review opt-in escape hatch here if you want it.
+
+```bash
+# 1. One-time: mint a LONG-LIVED subscription token (requires a Claude subscription; NOT an API key).
+#    Run on a machine where you're logged in to Claude:
+claude setup-token
+# 2. Put it in a gitignored .env (compose reads it automatically; never commit it):
+cp .env.example .env
+#    edit .env →  CLAUDE_CODE_OAUTH_TOKEN=<the token from step 1>
+# 3. Start the service + the watcher:
+docker compose --profile watcher up -d --build
+# 4. Startup auth-probe — catch an EXPIRED token at deploy time, not as a silently stranded review:
+docker compose --profile watcher exec watcher \
+  claude --strict-mcp-config --permission-mode dontAsk -p "Reply OK."
+#    exit 0 / "OK"  => auth good.   401 / non-zero => token expired or wrong → re-run setup-token.
+```
+
+Now "Send to agent" in the viewer is picked up automatically: the watcher container spawns a `claude`
+agent (scoped to the mdreview MCP tools), which reads your open comments, edits the draft, resolves
+them, and hands the turn back — the page live-updates as it goes.
+
+- **Rotation.** `setup-token` mints a long-lived token, but to rotate: run `claude setup-token` again,
+  replace the value in `.env`, and `docker compose --profile watcher up -d` (recreates the watcher).
+  Re-run the step-4 probe after rotating. (You can revoke old tokens from your Claude account.)
+- **Linux hosts — credentials-file alternative.** On Linux the CLI stores creds in a file
+  (`~/.claude/.credentials.json`), so instead of `setup-token` you can bind-mount it read-only into the
+  watcher (`-v ~/.claude:/home/watcher/.claude:ro`). **This does not work on macOS**, where the token
+  lives in the Keychain (not a mountable file) — there, `setup-token` is the path.
+- **The token never enters git.** `.env` is gitignored; `.env.example` ships empty. Don't paste the
+  token anywhere it would be committed or logged.
 
 **Full env-var reference (operator config):**
 
