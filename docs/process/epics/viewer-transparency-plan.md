@@ -1,12 +1,12 @@
 ---
 epic: viewer-transparency
-status: draft          # draft | active | done  (stays draft until G1 passes)
+status: active          # draft | active | done  (stays draft until G1 passes)
 created: 2026-06-24
 source: docs/process/requirements/viewer-transparency.md
-gate: G1 not passed    # G1 (Plan Gate): not passed | passed YYYY-MM-DD — tickets blocked until passed
-review:                # reviews/viewer-transparency-plan-review-YYYY-MM-DD.md once reviewed
-related_sprints: []    # [sprint-26]
-related_tickets: []    # empty until G1 passes and tickets are created
+gate: passed 2026-06-24    # G1 (Plan Gate): not passed | passed YYYY-MM-DD — tickets blocked until passed
+review: reviews/viewer-transparency-plan-review-2026-06-24.md
+related_sprints: [sprint-26]    # [sprint-26]
+related_tickets: [MR-073, MR-075]    # empty until G1 passes and tickets are created
 ---
 
 # Viewer agent-turn transparency Plan
@@ -89,9 +89,10 @@ against `app.py`:
 |---------------|--------------|-------------------|
 | **Sent / waiting for pickup** | `turn=="agent"` AND `agent_status==null`, within `PICKUP_GRACE_S` | already rendered by MR-062/066 (`viewer.html:249-257`) — keep |
 | **No agent picked this up** | `turn=="agent"` AND `agent_status==null`, past `PICKUP_GRACE_S` | already rendered by MR-066 (`viewer.html:253-254`) — keep |
-| **Connected / claimed** | `agent_status.state=="working"` first observed (the lease claim) | `app.py:660-664` writes `state:"working"` on a granted claim |
+| **Connected — reading your comments** | `agent_status.state=="working"` first observed (the lease claim). "Reading" is the **resting label** of this step — it is NOT independently derivable (a read is a GET that bumps nothing), so it is **merged into claimed**, not shown as its own timed step. | `app.py:660-664` writes `state:"working"` on a granted claim; no `/status` signal marks "reading" |
 | **Editing the draft** | `source_updated` increased since the turn began (`> turn_updated`) | `app.py:553-558` bumps `source_updated` on PUT /source |
-| **Resolving comments** | `comments_updated` increased since the turn began (`> turn_updated`) | `app.py:751,771,790` bump `comments_updated` on reply/resolve/create |
+| **Updating comments** (signal-honest label; NOT "Resolving") | `comments_updated` increased since the turn began (`> turn_updated`) — covers reply/resolve/reopen/create/delete, not resolve alone | `app.py:751,771,790` bump `comments_updated` on **create/delete/reply/resolve/reopen** |
+| **Resolved comments** (only when finished) | the **Updating-comments** step is relabelled "Resolved comments" **only** if the terminal state is `done`; on `blocked` ("Agent needs you") it stays "Updating comments" | terminal `state=="done"` (`app.py:623-629`) is the only honest "resolved" signal |
 | **(optional) live status line** | `agent_status.message` non-empty (option B decoration) | `app.py:661` persists `message`; `mcp_server.py:454-456` forwards it |
 | **Live elapsed timer** | `turn=="agent"` AND `state=="working"`: `elapsed = now - turn_updated` | `app.py:636` sets `turn_updated` on the reviewer→agent flip (the Send time) |
 | **Final revision duration** | on `done`: `now_observed_done - firstSeenAgentAt` (client-captured start; see timer note) | start NOT recoverable from `/status` — `app.py:629` re-bumps `turn_updated` on hand_back |
@@ -100,8 +101,14 @@ against `app.py`:
 | **Agent needs you** | `state=="blocked"`, other message | already rendered (`viewer.html:272`) — keep |
 | **May have stopped (stale lease)** | `agent_status.at` older than `STALE_S` | already rendered by MR-066 (`viewer.html:259`) — keep |
 
-The new work is the **middle three rows** (connected / editing / resolving) and assembling all rows
-into a *cumulative, ordered, live* timeline rather than one mutually-exclusive line. The first/last
+The new work is the **middle three rows** (connected-reading / editing / updating-comments) and
+assembling all rows into a *cumulative, ordered, live* timeline rather than one mutually-exclusive
+line. Two signal-honesty rules are load-bearing and called out above: (1) `comments_updated` is
+**not** resolve-specific — it bumps on reply/reopen/create/delete too (`app.py:751/771/790`) — so the
+step is labelled "Updating comments", and the literal word "Resolved" appears **only** on terminal
+`done`, never on a turn where the agent merely posted a clarifying reply then handed back `blocked`;
+(2) "reading" has **no** derivable signal (a read is a GET that bumps nothing), so it is the resting
+label of the claimed step, not a fake timed step. The first/last
 rows are MR-062/066/067/068 behaviour the timeline **wraps and preserves**, never re-implements.
 
 ### Service (`app.py`)
@@ -125,10 +132,22 @@ rows are MR-062/066/067/068 behaviour the timeline **wraps and preserves**, neve
   poll** (`viewer.html:679-696`) that already calls it. The banner element (`#turnbanner` /
   `#turntext`, `viewer.html:177`) gains a child timeline container (`#turnsteps`) holding an ordered
   list of step nodes; `renderBanner` computes which steps are *done*, which is *active* (the live
-  one), and which are *pending*, from the signal mapping above.
+  one), and which are *pending*, from the signal mapping above. Steps, in order: **Connected — reading
+  your comments** → **Editing the draft** → **Updating comments** → terminal.
+- **Signal-honest labels (load-bearing).** Two labels must not over-claim their signal:
+  - The comment-activity step is labelled **"Updating comments"** (or "Commenting"), **not
+    "Resolving"** — because `comments_updated` bumps on reply/reopen/create/delete as well as resolve
+    (`app.py:751/771/790`). It is relabelled **"Resolved comments"** *only* when the terminal state is
+    `done` (the agent actually finished). On the `blocked` / "Agent needs you" path — e.g. the agent
+    posts a clarifying **reply** then hand_backs `blocked` — the step stays "Updating comments" and the
+    word "resolved" must **never** appear (nothing was resolved that turn).
+  - **"Reading" is a resting label, not a signal.** A read is a GET that bumps nothing in `/status`,
+    so there is no derivable "reading" event. It is folded into the post-claim step as its resting
+    text ("Connected — reading your comments"), representing the brief's *reading* stage without
+    inventing a fake signal or a separately-timed step.
 - **Track per-turn baselines in module state.** On a `turn_updated` change (a new turn began), capture
-  the baseline `source_updated`/`comments_updated` so "editing"/"resolving" fire on an increase
-  *within this turn*, not a stale bump from a prior round. This mirrors the existing `lastSrc`/`lastCmt`
+  the baseline `source_updated`/`comments_updated` so the "editing"/"updating comments" steps fire on
+  an increase *within this turn*, not a stale bump from a prior round. This mirrors the existing `lastSrc`/`lastCmt`
   module vars (`viewer.html:221-222`) — reuse that pattern; add `turnBaseSrc`/`turnBaseCmt`/`turnStart`.
 - **Liveness without a new animation.** The active step reuses the **existing** `.loading` spinner
   CSS (`viewer.html:87-89`) — already reduced-motion-safe (`@media (prefers-reduced-motion:reduce)`
@@ -276,8 +295,9 @@ Deferred (backlog, not sprint-26): **Tier-2 stream-json events** — `watch.py` 
 
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|
-| **"Editing"/"resolving" misfires from a *stale* `source_updated`/`comments_updated` bump** carried over from a prior round (the timeline shows "editing" before the agent has edited). | Medium | Baseline `source_updated`/`comments_updated` against `turn_updated` at turn start (the per-turn-baseline state); only an increase **after** the current turn began counts. Verified in the CDP drive by asserting "editing" is absent until the PUT and present after. |
-| **Steps fire out of order / one tick skips a step** (agent edits and resolves between two 2s polls, so "editing" and "resolving" both first appear on the same tick). | Medium | Design the timeline as **cumulative** (a step, once its signal has fired this turn, stays "done") rather than a single current-step pointer — so a skipped intermediate poll still shows both steps reached, not a lost one. The CDP drive asserts cumulative presence, not exact tick timing. |
+| **"Editing"/"updating comments" misfires from a *stale* `source_updated`/`comments_updated` bump** carried over from a prior round (the timeline shows "editing" before the agent has edited). | Medium | Baseline `source_updated`/`comments_updated` against `turn_updated` at turn start (the per-turn-baseline state); only an increase **after** the current turn began counts. Verified in the CDP drive by asserting "editing" is absent until the PUT and present after. |
+| **The comment step over-claims "Resolved" when nothing was resolved** — `comments_updated` bumps on reply/reopen/create/delete too (`app.py:751/771/790`), so an agent that posts a clarifying reply then hand_backs `blocked` ("Agent needs you") would falsely read as "resolved". | Medium | Label the step **"Updating comments"**, never "Resolving", off the raw `comments_updated` bump; show the word "Resolved" **only** when the terminal state is `done`. The CDP drive includes a **reply-then-`blocked`** path asserting the step never claims "resolved" on that turn. |
+| **Steps fire out of order / one tick skips a step** (agent edits and comments between two 2s polls, so "editing" and "updating comments" both first appear on the same tick). | Medium | Design the timeline as **cumulative** (a step, once its signal has fired this turn, stays "done") rather than a single current-step pointer — so a skipped intermediate poll still shows both steps reached, not a lost one. The CDP drive asserts cumulative presence, not exact tick timing. |
 | **Regressing MR-062/066/067/068** by rewriting `renderBanner`. | Medium | The timeline **wraps** the existing arms (the same `turn`/`as.state`/`at`/`turn_updated` conditions, table above), not replaces them. The CDP drive re-asserts each shipped state (pickup-timeout, stale-lease, run-stopped, agent-needs-you) still renders. |
 | **Liveness invisible in a backgrounded/headless tab** (CSS animation frozen → can't prove "live"). | Medium | Per the project memory, prove liveness via computed `animationName`/`currentTime` and CDP reduced-motion stepping, **not** by screenshot/eye. The CDP driver reads `getComputedStyle(activeStep).animationName` and asserts it is the spin keyframe in the active step and `'none'` under emulated reduced-motion. |
 | **Over-building toward Tier-2.** | Low (pinned) | (C) is explicitly deferred; the plan ships only derived signals. The fork is resolved on record, so the implementer does not re-litigate it. |
@@ -299,17 +319,26 @@ state that `render-smoke.sh` cannot drive.
    POSTing to the real `/api/reviews/{id}/handoff` + `/source` + `/comments` endpoints between CDP
    reads, asserting the live DOM after each step:
    - **Send** (`POST /handoff {to:agent}`) → assert the banner shows "waiting for pickup" / sent.
-   - **Claim** (`POST /handoff {state:working,owner:...}`) → assert a **"connected/claimed"** step is
-     present and active, AND the **live timer** (`#turntimer`) shows a `M:SS` value.
+   - **Claim** (`POST /handoff {state:working,owner:...}`) → assert the **"Connected — reading your
+     comments"** step is present and active (the merged claimed+reading step), AND the **live timer**
+     (`#turntimer`) shows a `M:SS` value.
    - **Timer ticks** → with the 2s poll **suppressed** (do not feed a new `/status`), read `#turntimer`,
      wait ~1.2s, read again; assert the elapsed value **advanced** (proves the fetch-free 1s clock tick,
      not just a poll refresh) — per the hidden-tab memo, read the rendered text, not a screenshot.
    - **Edit** (`PUT /source`) → assert an **"editing"** step appears and is now marked done/active;
      assert it was **absent** before this step (the baseline guard).
-   - **Resolve** (create + `POST /comments/{cid}/resolve`) → assert a **"resolving"** step appears.
-   - **Hand back** (`POST /handoff {to:reviewer,state:done,message:"…"}`) → assert a **"done — draft
-     updated"** terminal state with the message AND a **final revision duration** ("Agent revised in
-     M:SS") computed from the client-captured start (the page watched the whole run, so it has one).
+   - **Updating comments** (create + `POST /comments/{cid}/resolve`) → assert an **"Updating comments"**
+     step appears.
+   - **Hand back done** (`POST /handoff {to:reviewer,state:done,message:"…"}`) → assert a **"done —
+     draft updated"** terminal state with the message; assert the comment step is now relabelled
+     **"Resolved comments"** (allowed only because terminal state is `done`); AND a **final revision
+     duration** ("Agent revised in M:SS") computed from the client-captured start (the page watched the
+     whole run, so it has one).
+   - **Signal-honesty path — reply-then-`blocked`** (separate review: claim, create a comment, `POST
+     /comments/{cid}/reply` (NO resolve), then `POST /handoff {to:reviewer,state:blocked,message:"need
+     a decision"}`) → assert the comment step shows **"Updating comments"** (or "Commenting") and the
+     word **"Resolved" NEVER appears** (nothing was resolved this turn), and the terminal banner is the
+     "Agent needs you" state — proving the label is signal-honest, not over-claiming `comments_updated`.
    - **Reopen-after-done guard** (same review, fresh CDP page load AFTER the hand_back) → assert the
      banner shows the plain done text with **no** duration (the documented limitation: a page that
      never observed `turn=="agent"` shows no bogus number).
@@ -337,9 +366,10 @@ Example `/status` body the timeline reduces (confirming the fields exist, `app.p
  "turn": "agent", "turn_updated": 1719249990.0,
  "agent_status": {"state": "working", "message": "editing the rename", "owner": "watch-…", "at": 1719250012.0}}
 ```
-Reduction: `turn=="agent"` + `state=="working"` + `at` fresh → claimed/working; `source_updated >
-turn_updated` → editing reached; `comments_updated > turn_updated` → resolving reached; `message`
-present → show "editing the rename" on the active step.
+Reduction: `turn=="agent"` + `state=="working"` + `at` fresh → "Connected — reading your comments"
+(claimed); `source_updated > turn_updated` → "Editing the draft" reached; `comments_updated >
+turn_updated` → "Updating comments" reached (NOT "Resolved" — that word appears only on terminal
+`done`); `message` present → show "editing the rename" on the active step.
 
 **MR-074 (svc, if shipped):** `python3 -m py_compile app.py`; `curl -s -X POST .../handoff -d
 '{"state":"working","owner":"x","message":"reading 2 comments"}'` then `curl -s .../status` and
@@ -379,11 +409,19 @@ not a design fork).
   documented; the server-recorded alternative (record elapsed at the `app.py:623-629` hand_back arm) is
   a small additive `svc` follow-on left out of scope. If the owner wants a durable duration that
   survives a post-`done` reload (e.g. for an audit/history view), that flips the `svc` add into scope.
+- **(load-bearing) The comment step is labelled by its honest signal, not "Resolved".** Decision (not
+  an open assumption): `comments_updated` is not resolve-specific (`app.py:751/771/790` bump it on
+  reply/reopen/create/delete too), so the step reads "Updating comments" and only says "Resolved" on
+  terminal `done`. This prevents the reply-then-`blocked` path falsely claiming a resolution.
+- **(decision) "Reading" is merged into the claimed step, not a separate timed step.** There is **no**
+  derivable "reading" signal — a read is a GET that bumps nothing — so the brief's *reading* stage is
+  represented as the resting label of the claimed step ("Connected — reading your comments"). No fake
+  signal is invented. This is a pinned decision, not an open question.
 
-**Open question for the owner (not blocking; safe default chosen):** Do you want the literal
-agent tool-call stream (every `tool_use`/`text` event, Tier-2/C), or is the **step-level** timeline
-(claimed → editing → resolving → done, Tier-1/A) the ask? Defaulting to step-level (A) and deferring
-the raw stream (C) to the backlog; say so if you want the raw stream and (C) re-enters scope.
+**Open question — RESOLVED at G1 (owner picked step-level).** The owner confirmed **step-level
+stages** (claimed/reading → editing → updating comments → done), **not** the literal agent tool-call
+stream. So Tier-1 (A) ships as-is and the raw-event stream (C)/stream-json stays deferred to the
+backlog — no scope expansion.
 
 ## Relationships
 
@@ -413,3 +451,26 @@ Tier-1 and the same UI surface). Changes:
   duration. Added a `#turntimer` selector to the render-smoke first-paint check and two timer risks.
 - **Source reference:** the brief's 2026-06-24 **Amendments** entry is now noted in the
   source-requirement line; `source:` frontmatter unchanged (same file).
+
+### 2026-06-24 — G1 verdict GO-WITH-NITS: two signal-honesty nits folded into MR-073
+The critic verified every code claim (derived timeline, client-side timer, MR-074-cut all confirmed
+sound) and the owner picked **step-level stages** (not the literal tool-call stream), so Tier-1 ships
+as-is and (C)/stream-json stays deferred — no scope expansion. Two worth-fixing nits folded into
+MR-073:
+- **Nit 1 — "resolving" over-claimed its signal.** `comments_updated` bumps on
+  reply/reopen/create/delete too (`app.py:751/771/790`), not just resolve, so an agent that posts a
+  clarifying reply then hand_backs `blocked` ("Agent needs you") would have falsely lit "resolving".
+  **Fix:** the step is now labelled **"Updating comments"** off the raw bump, and the word "Resolved"
+  appears **only** when the terminal state is `done`. Updated the signal table (split into
+  "Updating comments" + a `done`-gated "Resolved comments" row), the post-table signal-honesty rules,
+  the UI labels bullet, a new dedicated risk row, the per-turn-baseline note, and **added a node-CDP
+  reply-then-`blocked` assertion** that the word "Resolved" never appears that turn.
+- **Nit 2 — no derivable "reading" signal.** A read is a GET that bumps nothing in `/status`, so
+  "reading" cannot be a separate timed step. **Fix:** made the decision explicit — "reading" is folded
+  into the post-claim step as its **resting label** ("Connected — reading your comments"), representing
+  the brief's *reading* stage without inventing a fake signal. Updated the signal table, the
+  post-table rules, the UI section, the ordered-steps list, the CDP claim assertion, and added it as a
+  pinned decision in Assumptions. No "reading" event/endpoint is invented.
+- **Open question closed:** the owner's step-level choice is recorded in Assumptions; (C) stays
+  backlog-deferred. Everything else pinned: step-level derived timeline, the timer, MR-074 default-cut,
+  MR-075 docs sweep.
