@@ -23,8 +23,8 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-073 | Live progress timeline + elapsed/duration timer in the working banner (derived from /status) | ui | P1 | ready |
-| MR-075 | Docs sweep: agent-turn progress timeline + timer behaviour | docs | P2 | ready |
+| MR-073 | Live progress timeline + elapsed/duration timer in the working banner (derived from /status) | ui | P1 | done |
+| MR-075 | Docs sweep: agent-turn progress timeline + timer behaviour | docs | P2 | done |
 
 ## Preferred execution order
 
@@ -36,6 +36,7 @@ A ticket counts as committed only when its `sprint:` field points here.
 - G1 PASS 2026-06-24 (staff-critic GO-WITH-NITS, 2 nits folded; owner chose step-level over the literal
   tool-call stream — see `reviews/viewer-transparency-plan-review-2026-06-24.md`). MR-074 cut (the
   `ping_working` `message` already round-trips; only the viewer display was missing → MR-073).
+- 2026-06-24 — both tickets implemented + G4-validated (from-source browser smoke on scratch ports: claim→edit→done shows the live timeline + ticking timer + 'Agent revised in M:SS'; a second smoke proved the comment path lights 'Updating comments' → relabels 'Resolved comments' on done). Deployed to the live :8139 (data preserved, watcher running) and the owner confirmed **"working as expected."** Awaiting G7 (staff-critic CDP re-drive).
 
 ## Close gate (G7)
 
