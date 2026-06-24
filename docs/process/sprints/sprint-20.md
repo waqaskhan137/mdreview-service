@@ -25,7 +25,7 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-060 | Watcher must-configure launch stub — refuse-to-start at startup when `WATCH_LAUNCH_CMD` unset + runbook recipes + injection caveat (svc + same-change docs) | svc | P1 | ready |
+| MR-060 | Watcher must-configure launch stub — refuse-to-start at startup when `WATCH_LAUNCH_CMD` unset + runbook recipes + injection caveat (svc + same-change docs) | svc | P1 | done |
 
 ## Preferred execution order
 

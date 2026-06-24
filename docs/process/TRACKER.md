@@ -7,8 +7,8 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**sprint-20 (watcher-launch-fix — inert default + runbook) ACTIVE** (start 2026-06-24, end
-2026-06-27). Epic `watcher-launch-fix` cleared G1 2026-06-24 (PASS-WITH-NITS, scaffolding findings
+**sprint-20 (watcher-launch-fix — inert default + runbook) — MR-060 DONE, pending G7 close** (2026-06-24).
+Epic `watcher-launch-fix` cleared G1 2026-06-24 (PASS-WITH-NITS, scaffolding findings
 folded) — a small `svc`(+same-change `docs`) follow-up to the now-done `agent-watcher` epic. The shipped
 watcher's runnable `DEFAULT_LAUNCH_CMD` (`claude -p …`) **silently no-ops headless** (MCP tool use routes
 to a no-TTY approval prompt; the agent claims the lease and hands back without doing the work). Option B
@@ -104,9 +104,7 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-060 | Watcher must-configure launch stub — refuse-to-start at startup when `WATCH_LAUNCH_CMD` unset + runbook recipes + injection caveat (svc + same-change docs) | svc | P1 | sprint-20 |
+_none_
 
 ## in-progress
 
@@ -120,6 +118,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-060 | Watcher must-configure launch stub — refuse-to-start at startup when `WATCH_LAUNCH_CMD` unset + runbook recipes + injection caveat | svc | P1 | sprint-20 |
 | MR-059 | `watch.py` per-review attempt cap + full operator runbook — bound the re-Send loop, document the public-instance arming story | svc | P1 | sprint-19 |
 | MR-058 | `watch.py` arming / allowlist — relax C2's fail-closed Step 0 (local `WATCH_ARMED_FILE`/`WATCH_ARMED`, run-but-gate) | svc | P1 | sprint-19 |
 | MR-057 | `watch.py` spawn + child env contract + caps (generic launch template, default Claude) + trusted-base runbook stub | svc | P1 | sprint-18 |
