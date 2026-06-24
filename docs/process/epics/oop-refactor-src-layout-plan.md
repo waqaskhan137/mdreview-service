@@ -5,8 +5,8 @@ created: 2026-06-25
 source: requirements/oop-refactor-src-layout.md
 gate: passed 2026-06-25 # G1 (Plan Gate): not passed | passed YYYY-MM-DD; tickets blocked until passed
 review: reviews/oop-refactor-src-layout-plan-review-2026-06-25-r2.md  # G1 cleared PASS-WITH-NITS (r1 CHANGES-REQUESTED, 1 blocker fixed)
-related_sprints: []
-related_tickets: []
+related_sprints: [sprint-27]
+related_tickets: [MR-076, MR-077, MR-078, MR-079, MR-080, MR-081, MR-082, MR-083, MR-084, MR-085, MR-086]
 ---
 
 # OOP Refactor + `src/` Restructure Plan
