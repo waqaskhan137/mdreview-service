@@ -7,8 +7,9 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**sprint-20 (watcher-launch-fix — inert default + runbook) — MR-060 DONE, pending G7 close** (2026-06-24).
-Epic `watcher-launch-fix` cleared G1 2026-06-24 (PASS-WITH-NITS, scaffolding findings
+**EPIC `watcher-launch-fix` COMPLETE.** **sprint-20 (inert default + runbook) CLOSED at G7 2026-06-24**
+(staff-critic PASS, `reviews/sprint-20-close-review-2026-06-24.md`; independent — the critic re-ran the
+startup-exit + configured-runs + docs-sweep against a `.scratch/` throwaway). Epic cleared G1 2026-06-24 (PASS-WITH-NITS, scaffolding findings
 folded) — a small `svc`(+same-change `docs`) follow-up to the now-done `agent-watcher` epic. The shipped
 watcher's runnable `DEFAULT_LAUNCH_CMD` (`claude -p …`) **silently no-ops headless** (MCP tool use routes
 to a no-TTY approval prompt; the agent claims the lease and hands back without doing the work). Option B
@@ -207,4 +208,4 @@ _none_
 | legacy-feedback-retire | done (merged to main 2026-06-23, PR #11; with MR-048 + MR-049) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
 | agent-handoff-baton | done on `dev` (3 chunks: MR-051+MR-052+MR-053; sprints 14/15/16 CLOSED G7 PASS; PR #17 pending) | G1 passed 2026-06-23 | sprint-14/15/16 |
 | agent-watcher | **done** (all 3 chunks shipped: C1 sprint-17 + C2 sprint-18 + C3 sprint-19, each G7 PASS) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1), sprint-18 (C2), sprint-19 (C3) |
-| watcher-launch-fix | active (G1 cleared; MR-060 ready) — follow-up to the done agent-watcher epic (inert must-configure launch stub + runbook) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-20 |
+| watcher-launch-fix | **done** (MR-060 shipped, sprint-20 G7 PASS 2026-06-24) — follow-up to the done agent-watcher epic (inert must-configure launch stub + runbook) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-20 |

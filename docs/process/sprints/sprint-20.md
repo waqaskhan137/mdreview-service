@@ -1,11 +1,11 @@
 ---
 id: sprint-20
 name: watcher-launch-fix — inert default + runbook
-status: active         # planning | active | closed
+status: closed         # planning | active | closed
 start: 2026-06-24
 end: 2026-06-27
 goal: Replace the watcher's silently-no-op runnable Claude default with an inert must-configure stub that refuses to start (exit 2 with guidance) when WATCH_LAUNCH_CMD is unset, plus the runbook recipes and injection caveat.
-close_review:          # reviews/sprint-NN-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: reviews/sprint-20-close-review-2026-06-24.md   # G7 PASS 2026-06-24 (staff-critic, independent)
 ---
 
 ## Goal
@@ -37,20 +37,35 @@ The intended order, accounting for dependencies. Unblocking work first.
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+**Closed 2026-06-24, G7 PASS** (staff-critic, independent — `reviews/sprint-20-close-review-2026-06-24.md`).
+MR-060 `done`, no carry-overs. **This closes the single-ticket `watcher-launch-fix` epic — epic `done`.**
 
-- Scope changes, carry-overs to the next sprint, what went well / poorly.
+- **Shipped:** MR-060 — the watcher's silently-no-op `DEFAULT_LAUNCH_CMD` (`claude -p`) is now an inert
+  `None` sentinel; `require_launch_configured_or_exit()` in `main()` (after the trusted-base gate, before
+  `run()`) makes the watcher **exit 2 at startup with guidance** when `WATCH_LAUNCH_CMD` is unset — never
+  claiming a lease it can't honour. `_launch_argv()` raises defensively. The 8 "default Claude headless"
+  doc spots swept; the runbook gained the scoped (`dontAsk` + `allowedTools mcp__mdreview__*`) +
+  full-autonomy recipes + the injection caveat.
+- **G7 critic re-ran** Arm A (startup exit-2, banner absent, no lease claimed), Arm B (configured stub
+  runs the loop), sentinel safety, gate ordering, and the docs sweep against a `.scratch/` throwaway —
+  all PASS. The whole fix flows from the agent-watcher B1 model (a lease claim doesn't bump
+  `turn_updated`, so a per-review exit would strand the review — hence the startup gate).
+- **Carry-overs:** none. The launch-fix is complete.
+- **Process note:** scaffold committed to `dev` before dispatching the impl subagent (C1-retro lesson),
+  and the impl subagent used `.scratch/` for all smokes (no out-of-project writes) — both held cleanly.
 
 ## Close gate (G7)
 
 The sprint cannot be marked `closed` until:
 
-- [ ] every committed ticket is `done` or explicitly carried over (note where);
-- [ ] a **staff-critic sprint-close review** exists at
-      `reviews/sprint-NN-close-review-YYYY-MM-DD.md`, verifying shipped work against each
+- [x] every committed ticket is `done` or explicitly carried over (note where) — MR-060 done, no carry-overs;
+- [x] a **staff-critic sprint-close review** exists at
+      `reviews/sprint-20-close-review-2026-06-24.md`, verifying shipped work against each
       ticket's acceptance criteria, **including a render smoke** of any page touched, and its
-      findings are resolved or carried;
-- [ ] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
+      findings are resolved or carried. (Touches no product page — `watch.py` + Markdown docs — so no
+      `docker build`/`render-smoke.sh` is owed; the lack of one is COMPLIANT. The G7 smoke — `py_compile`
+      + the 2-arm stub-launch — was re-run independently by the critic.)
+- [x] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
 
 **G7 scope note (watcher-launch-fix specifics).** This sprint touches **no product page** — it extends
 `watch.py` (a server-side sibling script like `mcp_server.py`) and edits Markdown docs (`README.md` /

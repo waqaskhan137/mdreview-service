@@ -1,6 +1,6 @@
 ---
 epic: watcher-launch-fix
-status: active
+status: done           # shipped: MR-060 (sprint-20), G7 PASS 2026-06-24
 created: 2026-06-24
 source: requirements/watcher-launch-fix.md   # verbatim critic-gated proposal (mdreview 05ff768234, two staff-critic rounds, verdict GO)
 gate: passed 2026-06-24   # G1 PASS-WITH-NITS, scaffolding findings folded; ticket unblocked
