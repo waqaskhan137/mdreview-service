@@ -1,7 +1,7 @@
 ---
 id: MR-064
 title: "snapshot_round: stop writing the retired notes count into round.json (+ README.md:55 shape)"
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done          # backlog | ready | in-progress | review | done | blocked
 layer: svc             # svc | ui | infra | docs
 priority: P2           # P0 | P1 | P2 | P3
 sprint: sprint-23
@@ -85,3 +85,21 @@ _How this was verified._
 ## Follow-ups
 
 Anything deliberately deferred. Move real follow-ups to `backlog.md` or a new ticket.
+
+## Work log
+
+- `2026-06-24` — `app.py` + `README.md`. `snapshot_round` (app.py ~:196-200) no longer reads
+  `notes.json` for a count nor writes `notes_total`/`notes_addressed` into `round.json` — the round
+  record is now `{round, ts}` only (the count was computed from the retired `notes.json`, always 0 in
+  the comments era, and `comments.json` is not per-round snapshotted so a truthful count is
+  unrecoverable). The `source.md`/`feedback.md`/`notes.json` FILE copy (app.py:192-195) and the
+  `revision = n+1` bump are unchanged; the comment-aware per-review `notes_total` in `summary()`
+  (app.py:160) is a different field, untouched. `README.md:55` `/history` shape updated to `{round, ts}`.
+
+## Validation
+
+- `2026-06-24` — `py_compile app.py` OK. Curl smoke on a throwaway instance (`.scratch/mr064`, scratch
+  port 8172): POST a review → `PUT /source` ×2 (revision=2). `GET /history` → `[{round:1,ts},{round:0,ts}]`
+  — only `round`+`ts`, no `notes_total`. `GET /history/0` keys = `[feedback, notes, round, source, ts]`,
+  `notes_total` absent. `README:55` grep: 0 `notes_total`. Sole per-round consumer (`viewer.html:679`)
+  is changed in MR-065; MCP `get_history` is a passthrough (no field indexed) so nothing breaks.

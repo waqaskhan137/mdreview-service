@@ -52,7 +52,7 @@ Feedback and source persist in the `/data` volume across restarts.
 | GET | `/api/reviews/{id}/feedback` | | `{markdown, notes[], ...meta}` — `notes[]` is legacy notes **plus a projection of the comments** (so this read path stays live) |
 | GET | `/api/reviews/{id}/status` | | `{source_updated, feedback_updated, comments_updated, turn, turn_updated, handoff, agent_status}` |
 | POST | `/api/reviews/{id}/handoff` | `{to:"agent"}` · `{to:"reviewer", state, message}` · `{state:"working", owner, message?}` · `{to:"reviewer", by:"reviewer"}` | meta — the **turn baton**: flip to the agent, hand back (done/blocked), claim/renew the lease (`409` on a *fresh* foreign owner; a **stale** foreign lease — older than `LEASE_TTL_S`, 180s — is taken over unless already reclaimed), or reviewer reclaim; `400` on an unrecognized body |
-| GET | `/api/reviews/{id}/history` | | `{rounds[]}` — `{round, ts, notes_total, notes_addressed}`, newest first |
+| GET | `/api/reviews/{id}/history` | | `{rounds[]}` — `{round, ts}`, newest first |
 | GET | `/api/reviews/{id}/history/{n}` | | one round: `{source, feedback, notes[], ...round meta}` |
 | GET | `/api/reviews/{id}/comments` | `?status=open\|resolved\|reopened\|all` (default `all`) | `{comments[]}` — the threaded comments |
 | POST | `/api/reviews/{id}/comments` | `{anchor{quoted_text, block_num?, start?, end?}, text, role?}` | `{comment}` (201; reviewer authors) |

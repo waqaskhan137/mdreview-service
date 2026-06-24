@@ -193,11 +193,13 @@ def snapshot_round(rid):
         src = os.path.join(d, fn)
         if os.path.isfile(src):
             shutil.copy(src, os.path.join(rd, fn))
-    notes = _read_json(os.path.join(d, "notes.json"), [])
+    # round.json records only the round index + timestamp (MR-064 / #18). The per-round note count
+    # was removed: it was computed from the retired notes.json (always 0 in the comments era — the
+    # viewer authors comments since MR-036 — and comments.json is not per-round snapshotted, so a
+    # truthful count is unrecoverable). The comment-aware per-review notes_total in summary() is a
+    # different field and is unaffected.
     _write(os.path.join(rd, "round.json"), json.dumps({
         "round": n, "ts": time.time(),
-        "notes_total": len(notes),
-        "notes_addressed": sum(1 for x in notes if x.get("addressed")),
     }))
     m["revision"] = n + 1
     _write(os.path.join(d, "meta.json"), json.dumps(m))
