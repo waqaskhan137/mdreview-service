@@ -26,8 +26,8 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-062 | Replace MR-061's pulse with a rotating CSS spinner on both agent-turn waiting states (restore stash) | ui | P2 | ready |
-| MR-063 | Fix the scoped watcher launch recipe arg order — `-p` prompt last (GH #25) | docs | P1 | ready |
+| MR-062 | Replace MR-061's pulse with a rotating CSS spinner on both agent-turn waiting states (restore stash) | ui | P2 | done |
+| MR-063 | Fix the scoped watcher launch recipe arg order — `-p` prompt last (GH #25) | docs | P1 | done |
 
 ## Preferred execution order
 

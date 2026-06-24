@@ -7,8 +7,8 @@ Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (st
 
 ## Active sprint
 
-**EPIC `watcher-ux-fixes` ACTIVE — sprint-22 (spinner + recipe arg-order) ACTIVE 2026-06-24.** Epic
-cleared **G1 2026-06-24** (PASS-WITH-NITS, the MR-062 smoke-recipe nits folded:
+**EPIC `watcher-ux-fixes` — sprint-22 (spinner + recipe arg-order) MR-062 + MR-063 DONE, pending G7 close** (2026-06-24).
+Epic cleared **G1 2026-06-24** (PASS-WITH-NITS, the MR-062 smoke-recipe nits folded:
 viewer route `/review/{id}`, stale state non-force-stampable → code inspection, reviewer-flip body
 `{to:reviewer,by:reviewer}`, reduced-motion probe targets `::before`). A small two-ticket batch
 cleaning up watcher rough edges the product owner hit testing end-to-end — both fixes already designed
@@ -148,10 +148,7 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-062 | Replace MR-061's pulse with a rotating CSS spinner on both agent-turn waiting states (restore stash) | ui | P2 | sprint-22 |
-| MR-063 | Fix the scoped watcher launch recipe arg order — `-p` prompt last (GH #25) | docs | P1 | sprint-22 |
+_none_
 
 ## in-progress
 
@@ -165,6 +162,8 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-063 | Fix the scoped watcher launch recipe arg order — `-p` prompt last (GH #25) | docs | P1 | sprint-22 |
+| MR-062 | Replace MR-061's pulse with a rotating CSS spinner on both agent-turn waiting states | ui | P2 | sprint-22 |
 | MR-061 | Animate the viewer's `working`-state turn banner (CSS-only ellipsis) | ui | P2 | sprint-21 |
 | MR-060 | Watcher must-configure launch stub — refuse-to-start at startup when `WATCH_LAUNCH_CMD` unset + runbook recipes + injection caveat | svc | P1 | sprint-20 |
 | MR-059 | `watch.py` per-review attempt cap + full operator runbook — bound the re-Send loop, document the public-instance arming story | svc | P1 | sprint-19 |
