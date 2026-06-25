@@ -386,7 +386,12 @@ function renderBanner(st){
     }
     else msg="Your turn. Comment, then Send to agent.";
     reclaim.style.display='none';
-    send.disabled=false;send.textContent="Send to agent";
+    // gate: the agent's whole instruction IS the open comments, so with none there is nothing to
+    // send — disable + grey (the .sendagent[disabled] rule handles the greying).
+    const noOpen=(comments||[]).filter(c=>c.status!=='resolved').length===0;
+    send.disabled=noOpen;
+    send.title=noOpen?"Add a comment first — the agent acts on your open comments":"";
+    send.textContent="Send to agent";
   }
   tt.textContent=msg;
   bar.classList.add('show');
@@ -723,6 +728,7 @@ function renderAll(){
   });
   A.querySelectorAll('mark.cmt').forEach(m=>m.onclick=()=>focusPair(m.dataset.id));
   layoutComments();
+  if(_lastStatus)renderBanner(_lastStatus);   // keep the Send-to-agent gate in sync as comments change
 }
 function layoutComments(){
   const A=$("#article"),G=$("#gutter");if(!A||!G)return;
