@@ -1,10 +1,10 @@
-# Watcher image (MR-070 / #30): runs watch.py and spawns a `claude` agent per Sent review,
+# Watcher image (MR-070 / #30): runs the watcher package and spawns a `claude` agent per Sent review,
 # authenticated by the operator's Claude SUBSCRIPTION (CLAUDE_CODE_OAUTH_TOKEN from `claude
 # setup-token`, NOT an API key). Kept SEPARATE from the stdlib-only service image — Node + the
 # claude CLI live ONLY here; the main `Dockerfile` stays python:3.12-slim with no Node.
 FROM node:20-bookworm-slim
 
-# python3 for watch.py + mcp_server.py (stdlib only, no pip), plus the claude CLI via npm.
+# python3 for the watcher + mcp packages (stdlib only, no pip), plus the claude CLI via npm.
 # Pin the CLI version for reproducible builds (verified to read CLAUDE_CODE_OAUTH_TOKEN).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 ca-certificates \
@@ -16,7 +16,12 @@ RUN apt-get update \
 # even when auth comes purely from the env token.
 RUN useradd -m -u 10001 watcher
 WORKDIR /app
-COPY src/watch.py src/mcp_server.py ./
+# Mirror the service image: copy src/ as a package root and resolve via PYTHONPATH. The watcher needs
+# its own `watcher` package plus the `mcp` package (the spawned claude agent's MCP server, launched
+# via /app/src/mcp_server.py — see infra/watcher/agent-mcp.json). The src/ launch scripts land under
+# /app/watcher/ (distinct from the python package at /app/src/watcher/).
+ENV PYTHONPATH=/app/src
+COPY src/ ./src/
 COPY infra/watcher/ ./watcher/
 RUN chown -R watcher:watcher /app
 
@@ -30,6 +35,6 @@ RUN mkdir -p /home/watcher/.claude \
  && printf '%s' '{"hasCompletedOnboarding":true,"bypassPermissionsModeAccepted":true,"projects":{"/app":{"hasTrustDialogAccepted":true,"hasCompletedProjectOnboarding":true}}}' \
     > /home/watcher/.claude.json
 
-# watch.py refuses to start without WATCH_LAUNCH_CMD (set by compose); MR-070's auth proofs invoke
+# The watcher refuses to start without WATCH_LAUNCH_CMD (set by compose); MR-070's auth proofs invoke
 # `claude ...` directly, so this CMD is only the real-deploy entrypoint.
-CMD ["python3", "watch.py"]
+CMD ["python3", "-m", "watcher"]
