@@ -1,13 +1,13 @@
 ---
 id: MR-088
 title: Viewer re-skin — chrome (top bar + breadcrumb + title meta) + baton banner + numbered lines + article typography
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: ui              # svc | ui | infra | docs
 priority: P1           # P0 | P1 | P2 | P3
 sprint: sprint-28
 epic: viewer-dashboard-reskin
 depends_on: []
-branch:                # MR-088-viewer-reskin-chrome, once work starts
+branch: feat/ui-updates   # cycle runs on feat/ui-updates (off dev), single-flight
 created: 2026-06-25
 updated: 2026-06-25
 ---
@@ -70,12 +70,36 @@ bottom dock are MR-089.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-25` — Re-skinned the viewer chrome in `viewer.html` (CSS + markup + small JS; no JS
+  contract changed). Palette swapped to the mockup (violet `--accent` baton/comments, blue `--blue`
+  headings/links, `--noteline` violet) with the dark theme preserved via the
+  `@media (prefers-color-scheme:dark)` token swap. New full-width sticky `.topbar`: `← Reviews` +
+  `#filename` (basename of `source_path`, violet) on the left, `#topstate` (`vN · <turn state>`) on
+  the right, set in `renderBanner`. Added `#breadcrumb` (`project / session / source_path`, present
+  segments only — `renderChrome()`, legacy-safe). Removed the `.howto` box (the mockup has none; the
+  baton banner already carries the guidance). `#doctitle` → sans bold; `#docmeta` appends `· vN`.
+  `#article h2` → blue uppercase; blockquote → violet left bar; links/footnotes → blue. Numbered
+  `.blk .num` restyled (tabular, lighter). Re-skinned the baton banner (`.turnbanner`) to the violet
+  treatment with a pencil-icon `::before` and a right-hand `.turnactions` column; **moved `#sendbtn`
+  into the banner** (was in the dock) next to `#reclaimbtn` — `renderBanner`'s show/disable/relabel
+  logic and all ids (`#turntext/#turntimer/#turnsteps/#turnbanner` classes) unchanged. `STALE_S=180`
+  and its mirror comment untouched.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-25` — `python3 -m py_compile app.py` green; viewer inline JS parses (`new Function`).
+- Render-smoke (throwaway :8155, `turn=reviewer` fixture with comments): `.topbar .home #filename
+  .breadcrumb #doctitle #docmeta #turnbanner #sendbtn #reclaimbtn .blk(6) .num(6) #article` all
+  ≥1 node, exit 0.
+- `grep STALE_S viewer.html` → still `180` with the mirror comment (Key constraint #2).
+- Both panes vs mockup: light (`.scratch/shots/viewer-mine-light.png`) + dark
+  (`viewer-mine-dark.png`), captured via `preferredColorScheme=1`/`=0` (never `--force-dark-mode`) —
+  top bar, breadcrumb, sans title, violet baton + pencil icon + blue "Send to agent →", blue
+  section headings, violet blockquote bar, numbered lines all match; baton legible on both panes.
+- Baton functional spot-check carried into MR-089's verification (Send flips turn; banner states).
 
 ## Follow-ups
 
 - Reviewer-side Resolve button is a deliberate non-goal (epic D3) — handled (rejected) in MR-089's surface.
+- Comment-entry tint (`.gentry.reviewer`/`.gentry.agent`) still amber/teal pending MR-089 (the
+  comments-rail ticket) — palette tokens already violet, the hard-coded entry backgrounds change there.
