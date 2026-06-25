@@ -1,13 +1,13 @@
 ---
 id: MR-084
 title: Extract reviews.py + ReviewService (lifecycle, summary/list, history, inline doc reads)
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-27
 epic: oop-refactor-src-layout
 depends_on: [MR-083]
-branch:
+branch: refactor/oop-src-layout
 created: 2026-06-25
 updated: 2026-06-25
 ---
@@ -20,21 +20,21 @@ Move the review lifecycle, summary/list, history snapshot+reads, and the raw `so
 
 ## Acceptance criteria
 
-- [ ] `src/mdreview/reviews.py` defines `ReviewService(store, comments)` with: `meta`, `bump(rid,
+- [x] `src/mdreview/reviews.py` defines `ReviewService(store, comments)` with: `meta`, `bump(rid,
       field)`, `summary` (verbatim, folds comment counts via `CommentService`), `list_reviews`,
       `snapshot_round`, `create_review`, `exists(rid)`, `read_source(rid)`, `feedback(rid)` (the
       `feedback.md` + `notes.json` + `_comment_as_note` projection), `history(rid)`, `history_round(rid,
       n)`.
-- [ ] The router's existence guard, `GET /source` raw read (`app.py:551`), `GET /feedback`
+- [x] The router's existence guard, `GET /source` raw read (`app.py:551`), `GET /feedback`
       (`app.py:566-574`), and both `/history` arms (`app.py:677-704`) call `ReviewService`; `bump`
       goes through `ReviewService.bump`, taken under the lock exactly where it is today.
-- [ ] **(G1 nit) The `/feedback` projection diff runs WITH a comment present** — create a comment,
+- [x] **(G1 nit) The `/feedback` projection diff runs WITH a comment present** — create a comment,
       then read `/feedback` and diff — so `_comment_as_note` (`app.py:573`, its only call site) is
       actually exercised, not just the zero-comment path. Plus POST → 2×PUT → `GET /history` shows the
       rounds; `summary` counts fold the comment.
-- [ ] **Additive-default-safe reads preserved:** missing `turn`/`revision`/`handoff`/`agent_status`
+- [x] **Additive-default-safe reads preserved:** missing `turn`/`revision`/`handoff`/`agent_status`
       default (no `KeyError`) for legacy reviews; `summary()` stays lock-free.
-- [ ] Golden-transcript byte-identical; `python3 -m py_compile src/app.py src/mdreview/reviews.py`.
+- [x] Golden-transcript byte-identical; `python3 -m py_compile src/app.py src/mdreview/reviews.py`.
 
 ## Notes / context
 
@@ -45,11 +45,25 @@ Move the review lifecycle, summary/list, history snapshot+reads, and the raw `so
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-25` — Created `src/mdreview/reviews.py` with `ReviewService(store, comments)`: `meta`,
+  `bump`, `summary` (comment-aware, via `self.comments`), `list_reviews`, `snapshot_round`,
+  `create`, `exists`, `read_source`, `put_source` (snapshot+overwrite+bump), `feedback` (the
+  projection, delegating to `CommentService.as_note`), `delete` (rmtree), `history`,
+  `history_round`. Logic moved verbatim. In `src/app.py`: `_reviews = ReviewService(_store,
+  _comments)`; removed the 6 review defs + the `list_comments`/`_comment_as_note` shims; converted
+  ~13 existence guards + `meta`/`bump`/`list_reviews`/`create`/source/feedback/history/delete arms to
+  `_reviews.*`; dropped the now-unused `_exists` store shim and the `secrets`/`shutil` imports.
+  Files: `src/mdreview/reviews.py`, `src/app.py`.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-25` — `python3 -m py_compile src/app.py src/mdreview/reviews.py` → OK. Golden sweep →
+  **byte-identical** (41/41): create, list (with `?turn=` filter), meta, GET/PUT source (snapshot +
+  revision bump), GET feedback **with a comment present** (2 oracle sections exercise
+  `_comment_as_note` for open + resolved, the folded G1 nit), status, GET `/history` +
+  `/history/{n}` + missing-round 404, DELETE review. The handler's remaining store-shim users are
+  the handoff arm (`_dir`/`_read_json`/`_write` -> MR-085) and the web/static/asset/`_wait` reads
+  (-> MR-086); `_exists` is fully gone.
 
 ## Follow-ups
 

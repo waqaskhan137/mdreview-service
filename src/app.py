@@ -29,8 +29,6 @@ import base64
 import json
 import os
 import re
-import secrets
-import shutil
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -41,6 +39,7 @@ from mdreview.config import (
 from mdreview.store import Store
 from mdreview.comments import CommentService
 from mdreview.assets import AssetService
+from mdreview.reviews import ReviewService
 
 # The single persistence seam (MR-081). Store owns DATA_DIR + the ONE threading.Condition (MR-054:
 # one Condition over one lock; notify under the same lock as the write) + the typed read/write
@@ -50,7 +49,6 @@ from mdreview.assets import AssetService
 _store = Store(DATA_DIR)
 _lock = _store.lock                 # the one Condition, owned by _store (never re-created)
 _dir = _store.dir
-_exists = _store.exists
 _read = _store.read_text
 _read_bytes = _store.read_bytes
 _read_json = _store.read_json
@@ -63,104 +61,7 @@ _to_float = _store.to_float
 # the in-place route arms call directly.
 _comments = CommentService(_store)
 _assets = AssetService(_store)
-
-
-def meta(rid):
-    return _read_json(os.path.join(_dir(rid), "meta.json"), {})
-
-
-def bump(rid, field):
-    p = os.path.join(_dir(rid), "meta.json")
-    m = _read_json(p, {})
-    m[field] = time.time()
-    _write(p, json.dumps(m))
-
-
-def summary(rid):
-    """meta augmented with note counts, revision, and a derived status.
-
-    Comment-aware: counts fold in comments (each counts toward total; a resolved comment counts
-    toward addressed) so the dashboard never shows "0 / awaiting" for a review with open comments.
-    A review with no comments derives exactly as before (the comment contribution is zero).
-    """
-    m = dict(meta(rid))
-    notes = _read_json(os.path.join(_dir(rid), "notes.json"), [])
-    comments = list_comments(rid)
-    total = len(notes) + len(comments)
-    addressed = (sum(1 for n in notes if n.get("addressed"))
-                 + sum(1 for c in comments if c.get("status") == "resolved"))
-    m["notes_total"] = total
-    m["notes_addressed"] = addressed
-    m["revision"] = m.get("revision", 0)
-    # MR-054: legacy reviews with no turn key read as "reviewer" so the ?turn= filter is filterable,
-    # never None/absent (the additive-default-safe rule).
-    m["turn"] = m.get("turn", "reviewer")
-    if not m.get("feedback_updated") and total == 0:
-        m["status"] = "awaiting"
-    elif total and addressed == total:
-        m["status"] = "resolved"
-    else:
-        m["status"] = "feedback"
-    return m
-
-
-def list_reviews():
-    out = [summary(name) for name in os.listdir(DATA_DIR) if _exists(name)]
-    out.sort(key=lambda r: r.get("created", 0), reverse=True)
-    return out
-
-
-def snapshot_round(rid):
-    """Archive the current source + feedback as a closed history round; bump revision.
-
-    Called under _lock before a PUT overwrites source.md, so each agent revision leaves
-    the outgoing draft and the feedback it accumulated recoverable.
-    """
-    d = _dir(rid)
-    m = _read_json(os.path.join(d, "meta.json"), {})
-    n = int(m.get("revision", 0) or 0)
-    rd = os.path.join(d, "history", "round-%d" % n)
-    os.makedirs(rd, exist_ok=True)
-    for fn in ("source.md", "feedback.md", "notes.json"):
-        src = os.path.join(d, fn)
-        if os.path.isfile(src):
-            shutil.copy(src, os.path.join(rd, fn))
-    # round.json records only the round index + timestamp (MR-064 / #18). The per-round note count
-    # was removed: it was computed from the retired notes.json (always 0 in the comments era — the
-    # viewer authors comments since MR-036 — and comments.json is not per-round snapshotted, so a
-    # truthful count is unrecoverable). The comment-aware per-review notes_total in summary() is a
-    # different field and is unaffected.
-    _write(os.path.join(rd, "round.json"), json.dumps({
-        "round": n, "ts": time.time(),
-    }))
-    m["revision"] = n + 1
-    _write(os.path.join(d, "meta.json"), json.dumps(m))
-
-
-def create_review(markdown, title, project="", source_path="", session=""):
-    rid = secrets.token_hex(5)
-    d = _dir(rid)
-    os.makedirs(d, exist_ok=True)
-    now = time.time()
-    _write(os.path.join(d, "source.md"), markdown or "")
-    _write(os.path.join(d, "feedback.md"), "")
-    _write(os.path.join(d, "notes.json"), "[]")
-    _write(os.path.join(d, "meta.json"), json.dumps({
-        "id": rid, "title": title or "", "created": now,
-        "source_updated": now,
-        "project": project or "", "source_path": source_path or "",
-        "session": session or "",
-    }))
-    return rid
-
-
-# ---- comments ----
-# The threaded open -> resolved -> reopened state machine now lives in mdreview.comments
-# .CommentService (instantiated above as _comments). These two names stay as shims for the
-# not-yet-extracted summary() and the GET /feedback projection; they retire when reviews extracts
-# (MR-084). The comment route arms call _comments.* directly.
-list_comments = _comments.list
-_comment_as_note = _comments.as_note
+_reviews = ReviewService(_store, _comments)
 
 
 class H(BaseHTTPRequestHandler):
@@ -228,7 +129,7 @@ class H(BaseHTTPRequestHandler):
                     and m.get("turn_updated", 0) > since)
 
         def changed_rows():
-            return [r for r in list_reviews() if matches(r)]
+            return [r for r in _reviews.list_reviews() if matches(r)]
 
         with _lock:
             rows = changed_rows()                       # baseline scan, once on entry
@@ -282,7 +183,7 @@ class H(BaseHTTPRequestHandler):
                               "text/html; charset=utf-8")
 
         if path == "/api/reviews" and m == "GET":
-            reviews = list_reviews()
+            reviews = _reviews.list_reviews()
             # MR-054: optional ?turn= filter. Filtered in Python after list_reviews() (summary() is
             # where the turn default lands); an empty/absent value means no filter (return all),
             # preserving today's behavior. No new field, no cross-review aggregation.
@@ -300,9 +201,9 @@ class H(BaseHTTPRequestHandler):
 
         if path == "/api/reviews" and m == "POST":
             b = self._body_json()
-            rid = create_review(b.get("markdown", ""), b.get("title", ""),
-                                b.get("project", ""), b.get("source_path", ""),
-                                b.get("session", ""))
+            rid = _reviews.create(b.get("markdown", ""), b.get("title", ""),
+                                  b.get("project", ""), b.get("source_path", ""),
+                                  b.get("session", ""))
             base = self._base()
             return self._json(201, {
                 "id": rid,
@@ -315,44 +216,38 @@ class H(BaseHTTPRequestHandler):
         mo = re.fullmatch(r"/api/reviews/" + RID, path)
         if mo:
             rid = mo.group(1)
-            if not _exists(rid):
+            if not _reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             if m == "GET":
-                return self._json(200, meta(rid))
+                return self._json(200, _reviews.meta(rid))
             if m == "DELETE":
-                shutil.rmtree(_dir(rid), ignore_errors=True)
+                _reviews.delete(rid)
                 return self._json(200, {"deleted": rid})
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/source", path)
         if mo:
             rid = mo.group(1)
-            if not _exists(rid):
+            if not _reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             if m == "GET":
-                return self._send(200, _read(os.path.join(_dir(rid), "source.md")),
+                return self._send(200, _reviews.read_source(rid),
                                   "text/markdown; charset=utf-8")
             if m == "PUT":
                 b = self._body_json()
                 with _lock:
-                    snapshot_round(rid)
-                    _write(os.path.join(_dir(rid), "source.md"), b.get("markdown", ""))
-                    bump(rid, "source_updated")
-                return self._json(200, meta(rid))
+                    _reviews.put_source(rid, b.get("markdown", ""))
+                return self._json(200, _reviews.meta(rid))
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/feedback", path)
         if mo:
             rid = mo.group(1)
-            if not _exists(rid):
+            if not _reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             if m == "GET":
-                out = dict(meta(rid))
-                out["markdown"] = _read(os.path.join(_dir(rid), "feedback.md"))
-                # comment-aware: union of on-disk notes + a read-time projection of comments, so an
-                # agent's existing get_feedback path still returns the human's live input once
-                # authoring moves onto comments. notes.json on disk is never rewritten here.
-                out["notes"] = (_read_json(os.path.join(_dir(rid), "notes.json"), [])
-                                + [_comment_as_note(c) for c in list_comments(rid)])
-                return self._json(200, out)
+                # comment-aware: meta + feedback.md + a union of on-disk notes and a read-time
+                # projection of comments (ReviewService.feedback delegates the projection to
+                # CommentService). notes.json on disk is never rewritten here.
+                return self._json(200, _reviews.feedback(rid))
             if m == "POST":
                 # Retired (MR-046). The viewer wrote notes/feedback here until MR-036; it authors
                 # comments now (POST /comments). The write is gone — return an explicit 410 (not a
@@ -364,9 +259,9 @@ class H(BaseHTTPRequestHandler):
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/status", path)
         if mo and m == "GET":
             rid = mo.group(1)
-            if not _exists(rid):
+            if not _reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
-            mt = meta(rid)
+            mt = _reviews.meta(rid)
             return self._json(200, {
                 "source_updated": mt.get("source_updated", 0),
                 "feedback_updated": mt.get("feedback_updated", 0),
@@ -387,7 +282,7 @@ class H(BaseHTTPRequestHandler):
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/handoff", path)
         if mo and m == "POST":
             rid = mo.group(1)
-            if not _exists(rid):
+            if not _reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             b = self._body_json()
             to, by, state = b.get("to"), b.get("by"), b.get("state")
@@ -453,41 +348,29 @@ class H(BaseHTTPRequestHandler):
                     _lock.notify_all()
             if err:
                 return self._json(*err)
-            return self._json(200, meta(rid))
+            return self._json(200, _reviews.meta(rid))
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/history", path)
         if mo and m == "GET":
             rid = mo.group(1)
-            if not _exists(rid):
+            if not _reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
-            hd = os.path.join(_dir(rid), "history")
-            rounds = []
-            if os.path.isdir(hd):
-                for name in os.listdir(hd):
-                    rj = _read_json(os.path.join(hd, name, "round.json"), None)
-                    if rj:
-                        rounds.append(rj)
-            rounds.sort(key=lambda r: r.get("round", 0), reverse=True)
-            return self._json(200, {"rounds": rounds})
+            return self._json(200, {"rounds": _reviews.history(rid)})
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/history/(\d+)", path)
         if mo and m == "GET":
             rid, n = mo.group(1), mo.group(2)
-            if not _exists(rid):
+            if not _reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
-            rd = os.path.join(_dir(rid), "history", "round-%s" % n)
-            if not os.path.isfile(os.path.join(rd, "round.json")):
+            out = _reviews.history_round(rid, n)
+            if out is None:
                 return self._json(404, {"error": "no such round"})
-            out = dict(_read_json(os.path.join(rd, "round.json"), {}))
-            out["source"] = _read(os.path.join(rd, "source.md"))
-            out["feedback"] = _read(os.path.join(rd, "feedback.md"))
-            out["notes"] = _read_json(os.path.join(rd, "notes.json"), [])
             return self._json(200, out)
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/assets", path)
         if mo:
             rid = mo.group(1)
-            if not _exists(rid):
+            if not _reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             base = self._base()
             if m == "GET":
@@ -518,7 +401,7 @@ class H(BaseHTTPRequestHandler):
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/comments", path)
         if mo:
             rid = mo.group(1)
-            if not _exists(rid):
+            if not _reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             if m == "GET":
                 q = parse_qs(urlparse(self.path).query)
@@ -529,13 +412,13 @@ class H(BaseHTTPRequestHandler):
                 with _lock:
                     c = _comments.create(rid, b.get("anchor") or {}, b.get("text", ""),
                                          b.get("author"), b.get("role", "reviewer"))
-                    bump(rid, "comments_updated")
+                    _reviews.bump(rid, "comments_updated")
                 return self._json(201, c)
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/comments/(c[A-Za-z0-9]{10})", path)
         if mo and m in ("GET", "DELETE"):
             rid, cid = mo.group(1), mo.group(2)
-            if not _exists(rid):
+            if not _reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             if m == "GET":
                 c = _comments.get(rid, cid)
@@ -546,14 +429,14 @@ class H(BaseHTTPRequestHandler):
             with _lock:
                 if not _comments.delete(rid, cid):
                     return self._json(404, {"error": "no such comment"})
-                bump(rid, "comments_updated")
+                _reviews.bump(rid, "comments_updated")
             return self._json(200, {"deleted": cid})
 
         mo = re.fullmatch(
             r"/api/reviews/" + RID + r"/comments/(c[A-Za-z0-9]{10})/(reply|resolve|reopen)", path)
         if mo and m == "POST":
             rid, cid, action = mo.group(1), mo.group(2), mo.group(3)
-            if not _exists(rid):
+            if not _reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             b = self._body_json()
             if action == "reply":
@@ -565,13 +448,13 @@ class H(BaseHTTPRequestHandler):
             with _lock:
                 code, payload = _comments.apply_transition(rid, cid, action, by, text)
                 if code == 200:
-                    bump(rid, "comments_updated")
+                    _reviews.bump(rid, "comments_updated")
             return self._json(code, payload)
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/asset/([A-Za-z0-9._-]+)", path)
         if mo and m == "GET":
             rid, stored = mo.group(1), mo.group(2)
-            if not _exists(rid):
+            if not _reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             # resolve via the manifest only; never path-join the request segment
             entry = _assets.find(rid, stored)
@@ -585,7 +468,7 @@ class H(BaseHTTPRequestHandler):
         mo = re.fullmatch(r"/review/" + RID, path)
         if mo and m == "GET":
             rid = mo.group(1)
-            if not _exists(rid):
+            if not _reviews.exists(rid):
                 return self._send(404, "review not found", "text/plain")
             return self._send(200, _read(os.path.join(WEB_DIR, "viewer.html")),
                               "text/html; charset=utf-8")
