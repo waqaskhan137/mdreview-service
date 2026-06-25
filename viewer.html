@@ -7,28 +7,39 @@
 <link rel="stylesheet" href="/static/katex.min.css">
 <link rel="stylesheet" href="/static/hljs-github.css">
 <style>
-  :root{--bg:#fafaf9;--text:#1a1a1a;--muted:#6b6b6b;--accent:#0f766e;--rule:#e6e4e0;--noteline:#e0a800;}
-  @media (prefers-color-scheme: dark){:root{--bg:#111;--text:#f1efec;--muted:#9a9a9a;--accent:#2dd4bf;--rule:#2a2a2a;--noteline:#d4a017;}}
+  /* Light palette = the new mockup (violet baton/comments, blue headings/links); dark derived via
+     the existing token swap (mockup is light-only). --accent is the violet primary used by the
+     baton + comment threads; --blue is section headings + links; --noteline = the comment margin
+     bar (violet, was amber). */
+  :root{--bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--muted2:#6e727e;--rule:#e6e7ee;--accent:#5b30d6;--accent-bg:#eee9fd;--blue:#1d4fbf;--blue-bg:#e9f0fd;--noteline:#5b30d6;--link:#2f6fed;
+    --baton-ico:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>');}
+  @media (prefers-color-scheme: dark){:root{--bg:#0f1014;--panel:#17181d;--text:#e9eaf0;--muted:#9a9fb0;--muted2:#878c9c;--rule:#26282f;--accent:#b9a3f5;--accent-bg:#2a2147;--blue:#9cc0f5;--blue-bg:#16243f;--noteline:#b9a3f5;--link:#7ba6f5;}}
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:Charter,Georgia,Cambria,"Times New Roman",serif;font-size:20px;line-height:1.7;}
-  .wrap{max-width:720px;margin:0 auto;padding:48px 24px 160px 64px;}
-  .topbar{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;}
-  .topbar .home{color:inherit;text-decoration:none;}
-  .topbar .home:hover{color:var(--accent);}
-  .filename{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--accent);margin:0 0 4px;text-transform:none;letter-spacing:0;}
-  .howto{font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13.5px;line-height:1.6;color:var(--muted);background:rgba(127,127,127,.06);border:1px solid var(--rule);border-radius:8px;padding:11px 15px;margin:16px 0 36px;}
-  .howto b{color:var(--text);}
+  .wrap{max-width:720px;margin:0 auto;padding:40px 24px 160px 64px;}
+  /* full-width sticky top bar (mockup): ← Reviews + filename (left), vN · turn-state (right) */
+  .topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 26px;border-bottom:1px solid var(--rule);background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;}
+  .topbar .tb-left{display:flex;align-items:center;gap:10px;min-width:0;}
+  .topbar .home{color:var(--muted);text-decoration:none;font-weight:500;white-space:nowrap;}
+  .topbar .home:hover{color:var(--text);}
+  .topbar .tb-sep{color:var(--rule);}
+  .filename{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tb-right{font-size:12px;color:var(--muted);letter-spacing:.03em;white-space:nowrap;font-variant:small-caps;}
+  /* breadcrumb above the title: project / session / source_path (present segments only) */
+  .breadcrumb{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:12.5px;color:var(--muted2);margin:0 0 14px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+  .breadcrumb .sep{color:var(--rule);}
+  .breadcrumb:empty{display:none;}
   /* rendered markdown */
   #article h1{font-size:38px;line-height:1.15;letter-spacing:-.02em;margin:.2em 0 .3em;font-weight:700;}
-  #article h2{font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);margin:0;font-weight:600;}
+  #article h2{font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;letter-spacing:.05em;text-transform:uppercase;color:var(--blue);margin:0;font-weight:700;}
   #article h3{font-size:22px;margin:0;font-weight:600;}
   #article p{margin:0;}
   #article ul,#article ol{margin:0;padding-left:1.4em;}
   #article li{margin:.2em 0;}
-  #article blockquote{margin:0;padding-left:1em;border-left:3px solid var(--rule);color:var(--muted);font-style:italic;}
+  #article blockquote{margin:0;padding-left:1em;border-left:3px solid var(--accent);color:var(--muted);font-style:italic;}
   #article pre{background:rgba(127,127,127,.1);padding:14px;border-radius:8px;overflow:auto;font-size:14px;}
   #article code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em;}
-  #article a{color:var(--accent);}
+  #article a{color:var(--blue);}
   #article table{border-collapse:collapse;width:100%;margin:8px 0;font-size:15px;line-height:1.45;display:block;overflow-x:auto;}
   #article th,#article td{border:1px solid var(--rule);padding:6px 10px;text-align:left;vertical-align:top;}
   #article th{background:rgba(127,127,127,.1);font-weight:600;}
@@ -50,19 +61,19 @@
   .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;padding:0;margin:-1px;}
   #article .footnotes{margin-top:32px;border-top:1px solid var(--rule);padding-top:6px;font-size:15px;color:var(--muted);}
   #article .footnotes ol{padding-left:1.2em;}
-  #article sup a,#article .footnotes a{color:var(--accent);text-decoration:none;}
+  #article sup a,#article .footnotes a{color:var(--blue);text-decoration:none;}
   #article hr{border:none;border-top:1px solid var(--rule);margin:8px 0;}
-  #doctitle{font-size:38px;line-height:1.15;letter-spacing:-.02em;margin:10px 0 6px;font-weight:700;}
+  #doctitle{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:34px;line-height:1.15;letter-spacing:-.5px;margin:4px 0 8px;font-weight:700;}
   #doctitle:empty{display:none;}
-  #docmeta{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:var(--muted);margin:0 0 26px;}
+  #docmeta{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:var(--muted2);margin:0 0 24px;}
   #article .mermaid{margin:10px 0;text-align:center;}
   #article .mermaid svg{max-width:100%;height:auto;}
   /* block wrapper + margin number */
   .blk{position:relative;padding:6px 0;margin:16px 0;border-radius:6px;transition:background .15s;}
   .blk:hover{background:rgba(127,127,127,.06);}
-  .blk .num{position:absolute;left:-46px;top:9px;width:32px;text-align:right;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;color:var(--muted);cursor:pointer;user-select:none;opacity:.5;}
+  .blk .num{position:absolute;left:-46px;top:9px;width:32px;text-align:right;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:11.5px;color:var(--muted2);cursor:pointer;user-select:none;opacity:.5;font-variant-numeric:tabular-nums;}
   .blk .num:hover{opacity:1;color:var(--accent);}
-  .blk.has-note{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(212,160,23,.07);}
+  .blk.has-note{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
   .blk.has-note .num::after{content:" \25CF";color:var(--noteline);}
   @media (max-width:820px){.blk .num{left:-30px;width:22px;font-size:11px;}.wrap{padding-left:40px;}}
   #addbtn{position:absolute;z-index:50;display:none;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-family:-apple-system,sans-serif;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);}
@@ -70,17 +81,27 @@
   #pop .q{font-size:13px;color:var(--muted);font-style:italic;margin:0 0 8px;max-height:64px;overflow:auto;font-family:-apple-system,sans-serif;}
   #pop textarea{width:100%;min-height:74px;font-family:-apple-system,sans-serif;font-size:14px;border:1px solid var(--rule);border-radius:6px;padding:8px;background:var(--bg);color:var(--text);resize:vertical;}
   #pop .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;}
-  .btn{font-family:-apple-system,sans-serif;font-size:13px;border-radius:6px;padding:7px 14px;cursor:pointer;border:1px solid var(--rule);background:var(--bg);color:var(--text);}
-  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn{font-family:-apple-system,sans-serif;font-size:13px;border-radius:8px;padding:7px 14px;cursor:pointer;border:1px solid var(--rule);background:var(--panel);color:var(--text);}
+  .btn:hover{border-color:var(--muted2);}
+  .btn.primary{background:var(--link);color:#fff;border-color:var(--link);}
+  .btn.primary:hover{filter:brightness(1.06);border-color:var(--link);}
+  /* baton action column (mockup: Send to agent on the right of the violet banner) */
+  .turnactions{flex:0 0 auto;display:flex;flex-direction:column;gap:6px;align-items:stretch;}
+  #sendbtn:not([disabled])::after{content:" \2192";}
   #dock{position:fixed;right:18px;bottom:18px;z-index:55;font-family:-apple-system,sans-serif;}
   #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--rule);border-radius:30px;padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
   #count{font-size:13px;color:var(--muted);}
   /* MR-052: turn baton — Send button, status banner, reclaim control */
   .btn.sendagent[disabled]{opacity:.5;cursor:default;}
-  .turnbanner{display:none;align-items:flex-start;gap:10px;margin:0 0 22px;padding:9px 13px;border:1px solid var(--rule);border-radius:8px;background:rgba(127,127,127,.07);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:var(--text);}
+  /* baton banner — the mockup's violet "Your turn" treatment (left accent bar + icon), hosting the
+     Send button on the right. renderBanner toggles loading/warn/steps; only CSS changed here. */
+  .turnbanner{display:none;align-items:center;gap:13px;margin:0 0 24px;padding:14px 16px;border:1px solid var(--accent-bg);border-left:3px solid var(--accent);border-radius:11px;background:var(--accent-bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:var(--text);}
+  .turnbanner::before{content:"";flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:var(--accent) var(--baton-ico) center/15px no-repeat;}
+  .turnbanner.warn::before,.turnbanner.loading::before{display:none;}
   .turnbanner.show{display:flex;}
-  #turnbody{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0;}
+  #turnbody{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;}
   .turnhead{display:flex;align-items:baseline;gap:10px;}
+  #turntext{font-weight:600;}
   .turnhead #turntext{flex:1;}
   #turntimer{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;white-space:nowrap;}
   .turnbanner .reclaim{font-size:12px;padding:4px 11px;white-space:nowrap;}
@@ -117,8 +138,8 @@
   .gcard .gx{position:absolute;top:5px;right:8px;border:none;background:none;color:var(--muted);font-size:16px;cursor:pointer;line-height:1;}
   .gcard.addressed{opacity:.55;border-left-color:var(--muted);}
   .gcard.addressed .gnote{text-decoration:line-through;}
-  mark.cmt{background:rgba(212,160,23,.28);color:inherit;border-radius:2px;padding:.5px 0;cursor:pointer;transition:background .15s;}
-  mark.cmt.active{background:rgba(212,160,23,.62);}
+  mark.cmt{background:rgba(91,48,214,.18);color:inherit;border-radius:2px;padding:.5px 0;cursor:pointer;transition:background .15s;}
+  mark.cmt.active{background:rgba(91,48,214,.40);}
   #histmodal{display:none;position:fixed;inset:0;z-index:85;background:rgba(0,0,0,.45);align-items:center;justify-content:center;}
   #histbox{width:min(720px,92vw);max-height:82vh;overflow:auto;background:var(--bg);border-radius:12px;padding:18px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13.5px;}
   #histbox h3{margin:0 0 12px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
@@ -130,7 +151,7 @@
   .histdoc{border:1px solid var(--rule);border-radius:8px;padding:12px 14px;font-family:Charter,Georgia,serif;font-size:15px;line-height:1.5;max-height:38vh;overflow:auto;}
   .histbtnrow{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
   /* MR-036: a block carrying an open comment gets the margin bar + dot */
-  .blk.has-comment{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(212,160,23,.07);}
+  .blk.has-comment{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
   .blk.has-comment .num::after{content:" \25CF";color:var(--noteline);}
   /* MR-036: threaded comment cards (gutter when wide, docked panel when narrow) */
   .gcard{cursor:default;padding:9px 11px;}
@@ -141,11 +162,11 @@
   .gcard .ghead .gdel.armed{color:#fff;background:#c0392b;font-weight:600;}
   .gthread{display:flex;flex-direction:column;gap:5px;}
   .gentry{border-left:3px solid var(--rule);background:rgba(127,127,127,.05);border-radius:4px;padding:4px 8px;}
-  .gentry.reviewer{border-left-color:var(--noteline);background:rgba(212,160,23,.09);}
-  .gentry.agent{border-left-color:var(--accent);background:rgba(45,212,191,.10);}
+  .gentry.reviewer{border-left-color:var(--noteline);background:rgba(91,48,214,.07);}
+  .gentry.agent{border-left-color:var(--blue);background:rgba(29,79,191,.08);}
   .gentry .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted);margin-right:5px;}
   .gentry.reviewer .grole{color:var(--noteline);}
-  .gentry.agent .grole{color:var(--accent);}
+  .gentry.agent .grole{color:var(--blue);}
   .gentry .gtext{color:var(--text);}
   .gentry .gtext>:first-child{margin-top:0;}
   .gentry .gtext>:last-child{margin-bottom:0;}
@@ -177,15 +198,12 @@
 </style>
 </head>
 <body>
+<header class="topbar">
+  <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span><span class="filename" id="filename">loading…</span></div>
+  <div class="tb-right" id="topstate"></div>
+</header>
 <div class="wrap">
-  <p class="topbar"><a href="/" class="home" title="Back to all reviews">&larr; mdreview</a> &middot; inline feedback</p>
-  <p class="filename" id="filename">loading...</p>
-  <div class="howto">
-    <b>Select text</b> to start a comment on those words, or <b>click a paragraph number</b> in the
-    left margin to comment on the whole block. Comments are <b>threads</b> the AI reads over MCP — it
-    can reply or mark them <b>resolved</b>. Resolved comments move to the <b>Resolved</b> panel, where
-    you can reopen them. This page live-updates as the AI acts.
-  </div>
+  <nav class="breadcrumb" id="breadcrumb"></nav>
   <h1 id="doctitle"></h1>
   <div id="docmeta"></div>
   <div id="turnbanner" class="turnbanner">
@@ -193,7 +211,10 @@
       <div class="turnhead"><span id="turntext"></span><span id="turntimer"></span></div>
       <ol id="turnsteps"></ol>
     </div>
-    <button class="btn reclaim" id="reclaimbtn">Take back the turn</button>
+    <div class="turnactions">
+      <button class="btn primary sendagent" id="sendbtn">Send to agent</button>
+      <button class="btn reclaim" id="reclaimbtn">Take back the turn</button>
+    </div>
   </div>
   <div id="article">Loading...</div>
 </div>
@@ -207,7 +228,6 @@
 
 <div id="dock"><div id="dockbar">
   <span id="count">0 open</span>
-  <button class="btn primary sendagent" id="sendbtn">Send to agent</button>
   <button class="btn" id="cmtbtn">Comments</button>
   <button class="btn" id="resbtn">Resolved 0</button>
   <button class="btn" id="histbtn">History</button>
@@ -244,6 +264,15 @@ let confirming=null;    // comment_id with a pending inline delete-confirm (guar
 
 function toast(msg){const t=$("#toast");t.textContent=msg;t.style.opacity=1;clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.opacity=0,1800);}
 function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function fileBase(p){return (p||"").split('/').pop()||p;}
+// chrome derived from META (top-bar filename + breadcrumb). Legacy reviews lack provenance keys —
+// render only the segments present (back-compat: never assume project/session/source_path exist).
+function renderChrome(){
+  $("#filename").textContent=fileBase(META.source_path)||META.title||('review '+ID);
+  const segs=[META.project,META.session,META.source_path].filter(Boolean);
+  const bc=$("#breadcrumb");
+  if(bc)bc.innerHTML=segs.map(s=>`<span>${escapeHtml(s)}</span>`).join('<span class="sep">/</span>');
+}
 
 // --- MR-052: turn baton UI (Send / status banner / reclaim), driven purely by the /status body ---
 const STALE_S=180;   // lease-heartbeat staleness (~3 min); agent_status.at is epoch SECONDS (float).
@@ -361,6 +390,13 @@ function renderBanner(st){
   }
   tt.textContent=msg;
   bar.classList.add('show');
+  // top-bar right: vN · <turn state> (mockup). Derived from the same turn/agent_status.
+  const ts=$("#topstate");
+  if(ts){
+    const lbl = turn==='agent' ? ((as&&as.state==='working')?'agent working':'waiting for agent') : 'your turn';
+    const rev = (st&&st.revision)||META.revision||0;
+    ts.textContent = (rev?('v'+rev+' · '):'')+lbl;
+  }
 }
 $("#sendbtn").onclick=async()=>{
   if($("#sendbtn").disabled)return;
@@ -474,8 +510,8 @@ async function boot(){
   setupMarked();  // register marked extensions (math, footnotes, …) once, before any marked.parse()
   initMermaid();
   META=await fetch(API).then(r=>r.json()).catch(()=>({}));
-  $("#filename").textContent=META.title||('review '+ID);
   document.title="mdreview · "+(META.title||ID);
+  renderChrome();
   await fetchComments();   // the shared server-side comments are the single feedback surface
   await load();
   poll();
@@ -501,7 +537,8 @@ async function load(){
   // word count + reading time, from prose (drop fenced code/diagram blocks)
   const prose=md.replace(/```[\s\S]*?```/g,' ');
   const words=(prose.trim().match(/\S+/g)||[]).length;
-  const dm=$("#docmeta");if(dm)dm.textContent=words.toLocaleString()+" words  ·  ~"+Math.max(1,Math.round(words/200))+" min read";
+  const rev=(st&&st.revision)||META.revision||0;
+  const dm=$("#docmeta");if(dm)dm.textContent=words.toLocaleString()+" words  ·  ~"+Math.max(1,Math.round(words/200))+" min read"+(rev?("  ·  v"+rev):"");
   const html=window.marked?marked.parse(md):("<pre>"+escapeHtml(md)+"</pre>");
   const art=$("#article");art.innerHTML=html;
   await rewriteAssetImages(art);   // repoint local <img> at served assets before reparenting

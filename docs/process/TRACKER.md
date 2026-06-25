@@ -7,6 +7,24 @@ Last updated: 2026-06-25. **sprint-26 (viewer-transparency, GH #27) CLOSED at G7
 
 ## Active sprint
 
+**EPIC `viewer-dashboard-reskin` COMPLETE. sprint-28 CLOSED at G7 2026-06-25** (staff-critic
+PASS-with-conditions, `reviews/sprint-28-close-review-2026-06-25.md`; independent — rebuilt throwaway
+container + both-pane render-smoke + dark-pane computed-style + wide-mode `body.gutter-on` check; all
+5 findings resolved in `3f85c50`, 0 blockers). G1 PASS 2026-06-25
+(staff-critic PASS-with-conditions, `reviews/viewer-dashboard-reskin-plan-review-2026-06-25.md`; all
+4 conditions folded into the plan r1). **Awaiting the standing dev→main PR.** Re-skin `dashboard.html` + `viewer.html` **in place** to the
+new mockup (`.scratch/mockup-viewer-dashboard.html`) — the same visual language the landing page moved
+to (commit `0e83ec8`) — preserving all wiring and the buildless/stdlib architecture. Scope:
+"Re-skin + supported IA" (sidebar inbox driven by the existing turn baton; no new backend; the
+"agent watcher · connected" indicator dropped). **MR-087** `ready` (ui): dashboard sidebar inbox +
+projects filter + restyled cards with baton badges. **MR-088** `ready` (ui): viewer chrome + baton
+banner + numbered lines + article typography. **MR-089** `ready` (ui, depends MR-088): viewer COMMENTS
+rail + Resolved + bottom dock (C1 — verify wide mode actually engages, not just `.gcard` presence).
+**MR-090** `ready` (docs, depends 087-089): grep-gated docs sweep. No `svc` change (every datum the
+new IA needs is already on `GET /api/reviews`).
+
+---
+
 **EPIC `viewer-transparency` (GH #27) COMPLETE. sprint-26 CLOSED at G7 2026-06-25** (staff-critic PASS, `reviews/sprint-26-close-review-2026-06-24.md`; independent — rebuilt container + node-CDP lifecycle re-drive incl. signal-honesty + no-regression + both panes; W1 resolved, owner confirmed working). G1 PASS 2026-06-24 (GO-WITH-NITS)**.** (staff-critic
 GO-WITH-NITS, `reviews/viewer-transparency-plan-review-2026-06-24.md`; 2 nits folded; owner chose
 **step-level** over the literal tool-call stream). While an agent works a turn, the viewer shows a
@@ -235,6 +253,10 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-090 | Docs sweep — README / CLAUDE for the re-skinned dashboard & viewer affordances | docs | P2 | sprint-28 |
+| MR-089 | Viewer re-skin — COMMENTS right rail + Resolved panel + bottom open/resolved/history dock | ui | P1 | sprint-28 |
+| MR-088 | Viewer re-skin — chrome (top bar + breadcrumb + title meta) + baton banner + numbered lines + article typography | ui | P1 | sprint-28 |
+| MR-087 | Dashboard re-skin — sidebar inbox + projects filter + restyled cards with baton badges | ui | P1 | sprint-28 |
 | MR-065 | History modal: list current draft as `current (vN)`, relabel rounds, drop "0 notes" (GH #18) | ui | P2 | sprint-23 |
 | MR-064 | snapshot_round: stop writing the retired notes count into round.json (+ README /history shape) (GH #18) | svc | P2 | sprint-23 |
 | MR-063 | Fix the scoped watcher launch recipe arg order — `-p` prompt last (GH #25) | docs | P1 | sprint-22 |
