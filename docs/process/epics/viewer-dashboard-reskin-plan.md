@@ -1,11 +1,11 @@
 ---
 epic: viewer-dashboard-reskin
-status: draft          # draft | active | done  (stays draft until G1 passes)
+status: active         # draft | active | done  (stays draft until G1 passes)
 created: 2026-06-25
 source: requirements/viewer-dashboard-reskin.md
-gate: G1 not passed    # G1 (Plan Gate): not passed | passed YYYY-MM-DD — tickets blocked until passed
-review:                # reviews/viewer-dashboard-reskin-plan-review-YYYY-MM-DD.md once reviewed
-related_sprints: []    # [sprint-28]
+gate: passed 2026-06-25   # G1 (Plan Gate): staff-critic PASS-with-conditions, all 4 conditions folded in (r1)
+review: reviews/viewer-dashboard-reskin-plan-review-2026-06-25.md
+related_sprints: [sprint-28]
 related_tickets: []    # empty until G1 passes and tickets are created
 ---
 
@@ -139,20 +139,25 @@ filter-to-project capability is preserved via the sidebar. Recorded as a non-goa
 ### D2 — Card status badge: derive the four baton labels from `turn` + `agent_status`
 
 The mockup's cards show one of four badges: **Your turn**, **Agent working**, **Waiting for agent**,
-**Resolved**. These are derivable per row with no new data:
+**Resolved**. These are derivable per row with no new data and, deliberately, **with no staleness
+test on the card**:
 
 | Badge | Predicate (`r` = review row) |
 |---|---|
 | Resolved | `r.status === "resolved"` |
-| Agent working | `r.turn === "agent" && r.agent_status && r.agent_status.state === "working" && (now − agent_status.at) <= STALE_S` |
-| Waiting for agent | `r.turn === "agent"` and not the above (parked, or stale lease) |
+| Agent working | `r.turn === "agent" && r.agent_status && r.agent_status.state === "working"` |
+| Waiting for agent | `r.turn === "agent"` and not the above (parked / no working lease) |
 | Your turn | `r.turn === "reviewer"` and not resolved |
 
-`STALE_S` here is the **same 180s** the viewer uses (footgun: it mirrors `app.py:57`
-`LEASE_TTL_S=180`). The dashboard does not currently know about `STALE_S`; introducing the constant on
-the dashboard widens the mirror obligation to a **second** file. See Risk R1 — the mitigation is to
-add the same `STALE_S` source-of-truth comment to `dashboard.html` pointing at `app.py:57`, identical
-to the viewer's.
+**No `STALE_S` freshness check on the dashboard (decided against the second mirror).** The badge does
+*not* test `(now − agent_status.at) <= STALE_S`. The dashboard is a glance view; the **viewer** is the
+authoritative staleness surface (its own `#turntimer`/`renderBanner` flips to "may have stopped" when
+the lease ages past `STALE_S`). A stale `working` lease that still shows "Agent working" on a *card* is
+a minor, self-correcting cosmetic inaccuracy — and avoiding a second `dashboard.html` file that must
+hand-mirror `app.py:57` `LEASE_TTL_S` (which is itself env-overridable via `MDREVIEW_LEASE_TTL_S`, so a
+hardcoded `180` literal would silently disagree under an override) is the simpler, drift-free choice.
+So `dashboard.html` introduces **no** `STALE_S` constant; the staleness clock stays in exactly one UI
+file (the viewer, where it is functional, not cosmetic). See Risk R1.
 
 ### D3 — Viewer COMMENTS panel reuses the existing gutter, re-styled as a fixed right rail
 
@@ -161,10 +166,16 @@ of thread cards (`.gcard`) anchored to blocks, plus the Resolved panel and the b
 re-skin **re-styles** `#gutter` / `.gcard` / `#dock` / `#resolved` and **keeps**:
 - `highlightComment()` (text-anchor + `mark.cmt` highlight by `quoted_text`/`block_num`) — unchanged.
 - `layoutComments()`'s **fit-based** wide/narrow decision (`window.innerWidth >= rect.right + 320`,
-  line 693). This is the post-sprint-01 fix: it is a *fit* test, not a pixel breakpoint, and the
-  re-skin **must keep it a fit test** (footgun #6: behavior, not a hard-coded `<=NNNpx`). The new
-  right-rail width and the article column width feed that geometry, so if the rail width changes the
-  number `320` and the doc `max-width` must be re-derived together, not guessed.
+  line 693) which toggles `body.gutter-on` (line 694). This is the post-sprint-01 fix: it is a *fit*
+  test, not a pixel breakpoint, and the re-skin **must keep it a fit test** (footgun #6: behavior, not
+  a hard-coded `<=NNNpx`). The new right-rail width and the article column width feed that geometry, so
+  if the rail width changes the number `320` and the doc `max-width` must be re-derived together, not
+  guessed. **A too-tight `320`/doc-width pairing fails only in a band (~1100–1280px laptop widths) and
+  resolves wide at 1400px**, so verification must prove wide mode *actually engaged* — assert the
+  `body.gutter-on` class (the positive marker the code toggles), not merely that a `.gcard` node exists
+  (cards stay in the DOM in the docked branch too, line 704, so `.gcard` presence does not distinguish
+  rail-beside-doc from collapsed) — and must capture at an **intermediate** width, not only 1400px.
+  See Verification §3 and Risk R3 for the concrete recipe.
 - `renderAll()`'s card construction, reply/resolve/reopen/delete wiring, focus-pair, counts.
 - The narrow-screen docked fallback (`#gutter.docked`) — the mockup is a wide layout, but the viewer
   must still degrade on a phone, so the docked fallback stays.
@@ -190,9 +201,10 @@ sensitive surfaces; verification captures **both** panes (light via `preferredCo
 
 The mockup shows a number per block in the left margin — that is `numberBlocks()` (line 513), already
 shipped. It wraps each top-level `#article` child in a `.blk` with a `.num`. Mermaid and KaTeX are
-already handled: `renderMermaid()` runs **before** `numberBlocks()`? — verified order in `load()`
-(line 508): `numberBlocks()` then `renderMermaid()`. The re-skin must **not** reorder these (mermaid
-replaces a `code.language-mermaid` with a `.mermaid` div; numbering wraps whatever children exist).
+already handled: `load()` runs `numberBlocks()` (line 508) **then** `await renderMermaid()` (line 509)
+— numbering first, mermaid second — and the re-skin must **not** reorder them (numbering wraps
+whatever children exist; `renderMermaid()` then replaces each `code.language-mermaid` with a `.mermaid`
+div *after* numbering, so reordering would either skip the mermaid block or double-wrap it).
 The re-skin only restyles `.blk` / `.num` (the mockup's number is lighter-weight, left-margin); the
 `.blk.has-comment` margin-bar + dot stays. The left-margin geometry uses the existing
 `@media (max-width:820px)` narrowing of `.num` left offset (line 67) — that is a *number position*
@@ -265,11 +277,18 @@ Split into two tickets if the diff is large (chrome+article vs comments-rail+doc
 rail is where the load-bearing JS (`layoutComments`, `highlightComment`, `renderAll`) is most at risk
 and deserves an isolated render-smoke. Independently shippable: dashboard untouched.
 
-### Phase 3 — Docs sweep
-Update `README.md` / `CLAUDE.md` wherever they describe the dashboard's chip filters or the viewer's
-affordances that changed (the dashboard "filters" mention; any viewer UI description). Same-sprint
-docs-sweep ticket (process Definition of Done allows deferral to a same-sprint sweep named in the
-deferring ticket's Work log; it is **not** carry-over-eligible per G7).
+### Phase 3 — Docs sweep (grep-gated; likely a no-op)
+A **grep-gated** sweep, not a mandated edit. I grepped `README.md` and `CLAUDE.md` for dashboard-
+affordance and viewer-UI references and found **no** description of the chip filters (`All / Has notes
+/ Done`), the `Group by project` toggle, or the comment-rail affordances that change — so there is
+likely **nothing to edit**. The only dashboard mentions are unrelated to the changed UI: `README.md:70`
+(provenance grouping), `README.md:75` / `CLAUDE.md:189` (the `awaiting/feedback/resolved` status
+derivation — unchanged), `README.md:43` (the `/` route), `README.md:177`/`378` (cross-review exposure).
+The ticket's **closing condition is the grep, not an edit**: run it, edit only any reference that
+actually describes a removed/changed affordance, and **close cleanly as a no-op if grep finds nothing**
+— it must not manufacture a doc change to look complete. Same-sprint docs-sweep (process Definition of
+Done allows deferral to a same-sprint sweep named in the deferring ticket's Work log; it is **not**
+carry-over-eligible per G7).
 
 ## Non-goals
 
@@ -293,9 +312,11 @@ Hard rules the implementation must not violate (the project footguns, made speci
 1. **Buildless, stdlib-only, zero pip.** Edits are inline `<style>`/`<script>` in the two existing
    HTML files. No bundler, no React, no build step. The React mockup is a **visual spec only** and is
    never shipped.
-2. **`STALE_S` stays mirrored.** `viewer.html` `STALE_S=180` (line 249) **must** equal `app.py:57`
-   `LEASE_TTL_S=180`; keep the source-of-truth comment. If D2's dashboard badge introduces `STALE_S`
-   to `dashboard.html`, that file now also mirrors `app.py:57` — add the same comment there (Risk R1).
+2. **`STALE_S` stays mirrored in the viewer only — and the dashboard adds no second mirror.**
+   `viewer.html` `STALE_S=180` (line 249) **must** equal `app.py:57` `LEASE_TTL_S=180`; keep the
+   source-of-truth comment. The dashboard badge (D2) deliberately uses no `STALE_S` freshness test, so
+   `dashboard.html` **must not** introduce a `STALE_S` constant (it would be a second hand-mirror of an
+   env-overridable TTL). The staleness clock lives in exactly one UI file (Risk R1).
 3. **Back-compat of `meta.json`.** Legacy reviews lack `project`/`session`/`source_path`/`turn`/
    `agent_status`. Every new render path defaults missing keys (render only present breadcrumb
    segments; `turn` defaults `"reviewer"` as `summary()` already does at `app.py:165`). Never assume
@@ -330,8 +351,9 @@ Hard rules the implementation must not violate (the project footguns, made speci
    visible sidebar IA first).
 2. **Phase 2 — Viewer re-skin** (chrome+article first, then comments-rail+dock if split — the rail
    carries the highest-risk JS and gets its own render-smoke).
-3. **Phase 3 — Docs sweep** (after both screens land, so it documents the shipped reality; must be
-   `done` before sprint close, never carried over).
+3. **Phase 3 — Docs sweep** (grep-gated; after both screens land, so it documents the shipped reality;
+   likely a no-op per the grep above, but must still be `done` before sprint close — a clean no-op
+   closes it — never carried over).
 
 Service-before-UI ordering is moot here (no `svc` ticket). Within the sprint, dashboard and viewer are
 independent and could be done in either order; dashboard first is preferred as the lower-risk warm-up.
@@ -347,19 +369,29 @@ collide). Target sprint **sprint-28** (no sprint below sprint-28).
 | MR-### | Dashboard re-skin: sidebar inbox (D1) + projects filter + restyled cards with baton badges (D2), search/delete/empty carried forward | ui | 1 |
 | MR-### | Viewer re-skin: chrome (top bar + breadcrumb + title meta) + baton banner restyle + numbered-line + article typography | ui | 2 |
 | MR-### | Viewer re-skin: COMMENTS right rail + Resolved panel + bottom open/resolved/history dock (re-style `#gutter`/`.gcard`/`#dock`, keep `layoutComments`/`highlightComment`/`renderAll`) | ui | 2 |
-| MR-### | Docs sweep: update README.md / CLAUDE.md where they describe the dashboard chip filters / viewer affordances that changed | docs | 3 |
+| MR-### | Docs sweep (grep-gated): grep README.md / CLAUDE.md for dashboard-affordance / viewer-UI references; edit only any that describe a removed/changed affordance; close cleanly as a no-op if grep finds none (grep already shows no chip-filter description exists) | docs | 3 |
 
 If the viewer diff is small enough to validate in one render-smoke, the two Phase-2 `ui` tickets may
 collapse into one at grooming; keep them split if the comment-rail JS rewiring is non-trivial (it is
 the highest-risk surface).
 
+**Mandatory AC on the COMMENTS-rail ticket (row 3, the `#gutter`/`.gcard`/`#dock` re-style)** — this
+is a hard acceptance bullet the orchestrator must carry into the ticket, not just plan prose:
+- The comment rail's wide-mode fit is proven by asserting **`body.gutter-on` is present** (the positive
+  marker `layoutComments()` toggles at `viewer.html:694`) at a width-controlled `--dump-dom` (or CDP
+  `classList.contains('gutter-on')`) **at ~1180px AND 1400px** — `.gcard` DOM-presence does **not**
+  discharge this AC, because the cards stay in the DOM when the rail is docked/collapsed (line 704), and
+  `render-smoke.sh`'s fixed ~800px viewport never engages wide mode. If `body.gutter-on` is absent at
+  1180px, the re-derived `320`/doc-width pairing is too tight and the ticket fails. A docked/narrow shot
+  (~560px) confirms the fallback still degrades without overlapping the article.
+
 ## Risks & mitigations
 
 | # | Risk | Mitigation |
 |---|------|------------|
-| R1 | D2's dashboard badge needs `STALE_S=180`, creating a **second** file that must mirror `app.py:57`. Drift would mislabel "Agent working" vs "Waiting". | Add the same source-of-truth comment to `dashboard.html` pointing at `app.py:57`; both viewer and dashboard `STALE_S` move with `LEASE_TTL_S`. Call it out in the ticket AC. |
+| R1 | A dashboard freshness check would create a **second** UI file mirroring `app.py:57` `LEASE_TTL_S` — which is env-overridable (`MDREVIEW_LEASE_TTL_S`), so a hardcoded `180` literal would silently disagree under an override, and no comment catches it. | **Avoided by design (D2):** the dashboard badge uses `agent_status.state === "working"` with **no** `STALE_S` test, so `dashboard.html` introduces no second mirror. The staleness clock stays only in the viewer (authoritative surface); a stale "working" card is an accepted minor cosmetic inaccuracy. Nothing to mirror. |
 | R2 | Renaming an id/class the load-bearing JS reads silently breaks comments/baton/live-reload while still returning 200. | Core principle + render-smoke asserting the *functional* DOM nodes (comment cards, baton banner, numbered blocks) from the rebuilt container, not a status code. Prefer keeping ids, changing CSS only. |
-| R3 | Re-skinning the comment rail breaks `layoutComments()` fit geometry (cards mispositioned or hidden). | Keep the fit test (`innerWidth >= rect.right + 320`); re-derive `320`/doc-width together; render-smoke asserts `.gcard` present and a manual/captured wide+narrow check confirms positioning. |
+| R3 | Re-skinning the comment rail breaks `layoutComments()` fit geometry — a too-tight `320`/doc-width pairing collapses the rail in a ~1100–1280px band while still resolving wide at 1400px, so a 1400-only check ships the bug clean. `.gcard` presence cannot catch it (cards stay in the DOM in the docked branch, line 704). | Keep the fit test (`innerWidth >= rect.right + 320`); re-derive `320`/doc-width together. **Verification asserts wide mode actually engaged** via the positive marker `body.gutter-on` (render-smoke the class the code toggles at line 694, or measure `#gutter` `display`/`left` via CDP), **at an intermediate width (~1180px)** in addition to 1400px — not `.gcard` presence at 1400px alone. This is an explicit AC bullet on the comments-rail ticket. |
 | R4 | Dark pane regresses (palette tuned for the light mockup) — the asymmetric-fix footgun. | Both-pane capture per screen via `preferredColorScheme` emulation (never `--force-dark-mode`); baton + comment cards specifically checked on both panes. |
 | R5 | Legacy reviews (no provenance/turn keys) crash the new breadcrumb/badge render. | Default every missing key; render only present breadcrumb segments; verification includes a fixture review with **no** project/session/turn. |
 | R6 | The mockup tempts a reviewer-side Resolve button or session tree (scope creep into behavior change). | Both explicitly non-goals; tickets re-skin existing affordances only. |
@@ -417,9 +449,36 @@ scripts/render-smoke.sh "$BASE/review/<id>" \
 - `#turnbanner` + `#sendbtn` prove the baton banner rendered (and `renderBanner` ran); seed the
   viewer fixture as `turn=reviewer` so the banner shows "Your turn".
 - `.blk` + `.num` prove `numberBlocks()` ran on the re-skinned article.
-- `.gcard` proves the comment rail rendered threads (seed open comments first).
+- `.gcard` proves the comment cards exist in the DOM — **but `.gcard` alone does NOT prove the rail
+  rendered beside the doc**: the cards stay in the DOM in the docked/narrow branch too
+  (`viewer.html:704`), and `render-smoke.sh` runs Chrome at its **fixed default viewport (no
+  `--window-size`, ~800px wide)**, where `layoutComments()` resolves *narrow* and never toggles
+  `body.gutter-on`. So `body.gutter-on` is **not** assertable through `render-smoke.sh`.
+
+**Comment-rail wide-mode fit assertion (C1 / R3) — width-controlled, not via render-smoke.** Prove the
+re-derived `320`/doc-width pairing actually engages wide mode at the **boundary band it governs**
+(~1100–1280px), not only where everything trivially fits (1400px). `layoutComments()` toggles
+`body.gutter-on` (`viewer.html:694`) iff `innerWidth >= rect.right + 320`; dump the rendered DOM at two
+widths and assert the class is present at both:
+```bash
+CH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+for W in 1180 1400; do
+  "$CH" --headless=new --disable-gpu --no-sandbox --hide-scrollbars \
+    --virtual-time-budget=3000 --window-size="$W",1000 --dump-dom "$BASE/review/<id>" \
+    | grep -q 'class="[^"]*gutter-on' \
+    && echo "ok  : body.gutter-on engaged at ${W}px (rail beside doc)" \
+    || { echo "FAIL: rail collapsed at ${W}px — 320/doc-width pairing too tight"; exit 1; }
+done
+```
+(`--dump-dom` serializes the DOM *after* the render-wait, so the JS-toggled `gutter-on` class on
+`<body>` is captured; the `grep` matches the class within the `<body>` class attribute. CDP
+`Runtime.evaluate` of `document.body.classList.contains('gutter-on')` is an equivalent assertion if
+preferred.) Also capture a narrow shot (e.g. `--window-size=560,900`) to confirm the docked fallback
+still degrades — the rail must collapse, not overlap the article.
+
 Both-pane screenshots of `/review/<id>` via `preferredColorScheme=1` / `=0` (never
-`--force-dark-mode`), specifically inspecting the baton banner + comment cards on each pane (R4).
+`--force-dark-mode`), specifically inspecting the baton banner + comment cards on each pane (R4); take
+the wide captures at **1180px and 1400px** so the dark/light proof and the fit proof share fixtures.
 
 **4. Functional regression (no behavior lost)** — beyond DOM presence:
 - **Comments:** select text → "+ comment" → save (`POST /comments`); reply; the agent-side
@@ -427,8 +486,9 @@ Both-pane screenshots of `/review/<id>` via `preferredColorScheme=1` / `=0` (nev
   `PUT /source` to the fixture and confirm the viewer re-renders ("Draft updated by AI" toast) without
   a manual refresh.
 - **Baton:** click "Send to agent" → `turn` flips to `agent`, banner shows working state; reclaim →
-  `turn` back to `reviewer`. Confirm `STALE_S=180` is still present and still equals `app.py:57`
-  (grep both; R1).
+  `turn` back to `reviewer`. Confirm the **viewer's** `STALE_S=180` (the only UI mirror) is still
+  present and still equals `app.py:57`, and confirm `dashboard.html` introduced **no** `STALE_S`
+  constant (`grep -c STALE_S dashboard.html` → 0; R1).
 - **Staleness timer:** with a `working` lease, the `#turntimer`/`#turnsteps` timeline ticks; let the
   lease age past `STALE_S` → banner flips to "may have stopped" (the existing `startTicker`/
   `renderBanner` path, unchanged).
