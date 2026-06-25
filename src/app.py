@@ -37,7 +37,10 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+# ponytail: repo-root anchor; MDREVIEW_WEB_DIR overrides in container/tests. src/app.py -> up 2 to
+# repo root, then /web (this becomes a 3-deep walk once it moves to src/mdreview/config.py in MR-080).
+WEB_DIR = os.environ.get("MDREVIEW_WEB_DIR") or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
 DATA_DIR = os.environ.get("MDREVIEW_DATA", "/data")
 PORT = int(os.environ.get("PORT", "8080"))
 PUBLIC_BASE = os.environ.get("MDREVIEW_PUBLIC_BASE", "").rstrip("/")
@@ -497,7 +500,7 @@ class H(BaseHTTPRequestHandler):
             }
             if path == "/api" or "application/json" in self.headers.get("Accept", ""):
                 return self._json(200, descriptor)
-            return self._send(200, _read(os.path.join(HERE, "dashboard.html")),
+            return self._send(200, _read(os.path.join(WEB_DIR, "dashboard.html")),
                               "text/html; charset=utf-8")
 
         if path == "/api/reviews" and m == "GET":
@@ -809,13 +812,13 @@ class H(BaseHTTPRequestHandler):
             rid = mo.group(1)
             if not _exists(rid):
                 return self._send(404, "review not found", "text/plain")
-            return self._send(200, _read(os.path.join(HERE, "viewer.html")),
+            return self._send(200, _read(os.path.join(WEB_DIR, "viewer.html")),
                               "text/html; charset=utf-8")
 
         mo = re.fullmatch(r"/static/([A-Za-z0-9._-]+)", path)
         if mo and m == "GET":
             fn = mo.group(1)
-            p = os.path.join(HERE, "static", fn)
+            p = os.path.join(WEB_DIR, "static", fn)
             if os.path.isfile(p):
                 # binary read: KaTeX ships .woff2 fonts + .css that the utf-8 _read crashes on
                 return self._send(200, _read_bytes(p), _ctype_for(fn))
