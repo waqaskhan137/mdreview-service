@@ -40,6 +40,7 @@ from mdreview.store import Store
 from mdreview.comments import CommentService
 from mdreview.assets import AssetService
 from mdreview.reviews import ReviewService
+from mdreview.handoff import HandoffService
 
 # The single persistence seam (MR-081). Store owns DATA_DIR + the ONE threading.Condition (MR-054:
 # one Condition over one lock; notify under the same lock as the write) + the typed read/write
@@ -48,11 +49,10 @@ from mdreview.reviews import ReviewService
 # removed as its callers migrate to services (enforced gone in server.py, MR-086).
 _store = Store(DATA_DIR)
 _lock = _store.lock                 # the one Condition, owned by _store (never re-created)
-_dir = _store.dir
+# Remaining store shims, used only by the web-file / asset-byte / long-poll arms that stay framing
+# concerns; converted to store calls via the server's composition root in MR-086.
 _read = _store.read_text
 _read_bytes = _store.read_bytes
-_read_json = _store.read_json
-_write = _store.write_text
 _ctype_for = _store.ctype_for
 _to_float = _store.to_float
 
@@ -62,6 +62,7 @@ _to_float = _store.to_float
 _comments = CommentService(_store)
 _assets = AssetService(_store)
 _reviews = ReviewService(_store, _comments)
+_handoff = HandoffService(_store, LEASE_TTL_S)
 
 
 class H(BaseHTTPRequestHandler):
@@ -273,79 +274,16 @@ class H(BaseHTTPRequestHandler):
                 "agent_status": mt.get("agent_status"),
             })
 
-        # Turn baton handoff (MR-051). Guarded read-check-write of meta.json under _lock: turn/owner
-        # are control state both the viewer and an agent write concurrently, so read the CURRENT
-        # turn/owner, decide, write once. Never a bare bump() (unlocked, assumes the caller holds
-        # _lock, as PUT /source does). Body forms dispatch in a PINNED order so an ambiguous body
-        # (e.g. {to:reviewer,by:reviewer,state:done}) is deterministic: reclaim, hand-back, flip,
-        # lease; anything else is a 400.
+        # Turn baton handoff (MR-051/054/055). The guarded read-decide-write of the turn/lease state
+        # lives in HandoffService.apply, called under the one lock so the write and the /wait wake are
+        # atomic (no flip is missed); the arm just frames the request.
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/handoff", path)
         if mo and m == "POST":
             rid = mo.group(1)
             if not _reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
-            b = self._body_json()
-            to, by, state = b.get("to"), b.get("by"), b.get("state")
-            p = os.path.join(_dir(rid), "meta.json")
-            err = None
             with _lock:
-                mt = _read_json(p, {})
-                now = time.time()
-                if to == "reviewer" and by == "reviewer":
-                    # reclaim: force the turn back regardless of state (leave agent_status so the
-                    # banner can still read a stale state if it wants).
-                    mt["turn"] = "reviewer"
-                    mt["turn_updated"] = now
-                elif to == "reviewer" and state in ("done", "blocked"):
-                    # hand-back: the agent returns the turn with its state + message.
-                    prev = mt.get("agent_status") or {}
-                    mt["turn"] = "reviewer"
-                    mt["agent_status"] = {"state": state, "message": b.get("message", ""),
-                                          "owner": b.get("owner", prev.get("owner", "")), "at": now}
-                    mt["turn_updated"] = now
-                elif to == "agent":
-                    # flip: idempotent. Bump turn_updated only on an actual reviewer->agent flip.
-                    if mt.get("turn", "reviewer") != "agent":
-                        mt["turn"] = "agent"
-                        mt["agent_status"] = None          # parked, not yet claimed
-                        mt["handoff"] = {"by": "reviewer", "at": now}
-                        mt["turn_updated"] = now
-                elif state == "working":
-                    # lease claim/renew/takeover. turn_updated is NOT bumped (no flip).
-                    # Decision table (cur = existing lease owner; turn = mt["turn"]):
-                    #   cur unset/"" .......................... grant  (normal claim)
-                    #   cur == owner .......................... grant  (normal renew)
-                    #   foreign + fresh (now-at <= TTL) ....... 409    (live owner; never preempt)
-                    #   foreign + stale + turn == "agent" ..... grant  (MR-055 takeover; dead session)
-                    #   foreign + stale + turn != "agent" ..... 409    (already reclaimed by human)
-                    # The normal unset/equal-owner path grants regardless of turn; only the STALENESS
-                    # grant is gated on turn == "agent". turn is read and agent_status is written under
-                    # the SAME _lock as the reclaim arm, so there is no TOCTOU vs a concurrent reclaim
-                    # (the reclaim arm forces turn="reviewer" but leaves agent_status, so a lease can be
-                    # both stale AND already reclaimed — this re-check rejects that takeover).
-                    owner = b.get("owner", "")
-                    cur = mt.get("agent_status") or {}
-                    cur_owner = cur.get("owner")
-                    stale = (now - (cur.get("at") or 0)) > LEASE_TTL_S
-                    if cur_owner in (None, "", owner):
-                        grant = True
-                    elif stale and mt.get("turn") == "agent":
-                        grant = True            # stale foreign lease + turn still ours: take it over
-                    else:
-                        grant = False           # fresh foreign lease, or stale-but-already-reclaimed
-                    if grant:
-                        mt["agent_status"] = {"state": "working", "message": b.get("message", ""),
-                                              "owner": owner, "at": now}
-                    else:
-                        err = (409, {"error": "lease held", "owner": cur_owner})
-                else:
-                    err = (400, {"error": "unrecognized handoff body"})
-                if err is None:
-                    _write(p, json.dumps(mt))
-                    # MR-054: wake parked /wait waiters under the lock, so the write and the wake are
-                    # atomic and no flip is missed. notify_all on any successful write; the /wait
-                    # predicate (turn_updated > since), not the arm, decides who actually returns.
-                    _lock.notify_all()
+                err = _handoff.apply(rid, self._body_json())
             if err:
                 return self._json(*err)
             return self._json(200, _reviews.meta(rid))

@@ -225,7 +225,6 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
-| MR-085 | Extract `handoff.py` + `HandoffService` (turn baton + lease decision table) | svc | P1 | sprint-27 |
 | MR-086 | Rename `src/app.py`→`src/mdreview/server.py`, add `__main__.py`, flip entrypoint to `python -m mdreview` | svc | P1 | sprint-27 |
 
 ## in-progress
@@ -240,6 +239,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-085 | Extract `handoff.py` + `HandoffService` (turn baton + lease table); byte-identical + lease matrix 5/5 (TTL=0 stale paths) | svc | P1 | sprint-27 |
 | MR-084 | Extract `reviews.py` + `ReviewService` (lifecycle/summary/list/history/source/feedback/delete); byte-identical incl. /feedback-with-comment | svc | P1 | sprint-27 |
 | MR-083 | Extract `assets.py` + `AssetService` (content-hash + manifest); byte-identical + agent_smoke render proof (nw=1); folded agent_smoke 18->20 | svc | P1 | sprint-27 |
 | MR-082 | Extract `comments.py` + `CommentService` (G1-blocker inline GET/DELETE arms -> named methods); byte-identical lifecycle | svc | P1 | sprint-27 |
