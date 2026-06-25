@@ -225,7 +225,6 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
-| MR-082 | Extract `comments.py` + `CommentService` (state machine, incl. the inline GET/DELETE arms) | svc | P1 | sprint-27 |
 | MR-083 | Extract `assets.py` + `AssetService` (content-hash storage + manifest) | svc | P1 | sprint-27 |
 | MR-084 | Extract `reviews.py` + `ReviewService` (lifecycle, summary/list, history, inline doc reads) | svc | P1 | sprint-27 |
 | MR-085 | Extract `handoff.py` + `HandoffService` (turn baton + lease decision table) | svc | P1 | sprint-27 |
@@ -243,6 +242,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-082 | Extract `comments.py` + `CommentService` (G1-blocker inline GET/DELETE arms -> named methods); byte-identical lifecycle | svc | P1 | sprint-27 |
 | MR-081 | Extract `store.py` + `Store` (the one Condition + typed IO); byte-identical + long-poll wake smoke (1.08s, not 20s timeout) | svc | P1 | sprint-27 |
 | MR-080 | Extract `config.py` (constants + `WEB_DIR` 3-deep anchor) + package skeleton (`src/mdreview/`); byte-identical | svc | P1 | sprint-27 |
 | MR-079 | Repoint live `py_compile` gate + `render-smoke.sh` path + layer-table/page paths to `src/`+`tests/`+`web/` (frozen history untouched) | docs | P2 | sprint-27 |

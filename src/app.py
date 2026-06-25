@@ -40,6 +40,7 @@ from mdreview.config import (
     DATA_DIR, LEASE_TTL_S, PORT, PUBLIC_BASE, RID, WAIT_TIMEOUT_S, WEB_DIR,
 )
 from mdreview.store import Store
+from mdreview.comments import CommentService
 
 # The single persistence seam (MR-081). Store owns DATA_DIR + the ONE threading.Condition (MR-054:
 # one Condition over one lock; notify under the same lock as the write) + the typed read/write
@@ -56,6 +57,11 @@ _read_json = _store.read_json
 _write = _store.write_text
 _ctype_for = _store.ctype_for
 _to_float = _store.to_float
+
+# Service objects take the single _store (constructor injection). The composition root in server.py
+# (MR-086) will build these and hang them off the server; for now they are module-level singletons
+# the in-place route arms call directly.
+_comments = CommentService(_store)
 
 
 def meta(rid):
@@ -191,120 +197,12 @@ def attach_asset(rid, name, data):
 
 
 # ---- comments ----
-# Threaded, server-side comments live in _dir(rid)/comments.json (a sibling of notes.json,
-# untouched by snapshot_round). Each is the single source of truth for one review thread, shared
-# by the viewer and MCP; the state machine (open -> resolved -> reopened) is enforced server-side
-# (apply_comment_transition, below). thread[] and status_history[] are append-only; status is a
-# derived pointer. Legacy notes.json data on disk is never rewritten — but the agent/dashboard read
-# paths (GET /feedback, summary()) are made comment-aware by *read-time projection* so nothing the
-# human says is lost once viewer authoring moves onto comments.
-def _comments_path(rid):
-    return os.path.join(_dir(rid), "comments.json")
-
-
-def list_comments(rid, status="all"):
-    arr = _read_json(_comments_path(rid), [])
-    if status and status != "all":
-        return [c for c in arr if c.get("status") == status]
-    return arr
-
-
-def _write_comments(rid, arr):
-    """Whole-file write of the comment array. Caller holds _lock."""
-    _write(_comments_path(rid), json.dumps(arr))
-
-
-def _find_comment(arr, cid):
-    return next((c for c in arr if c.get("comment_id") == cid), None)
-
-
-def _comment_as_note(c):
-    """Read-time projection of one comment into the legacy {num,quote,note,addressed} note shape.
-
-    Pure (no write). Used to keep GET /feedback returning the human's live input once authoring
-    moves onto comments. `note` is the full thread, role-prefixed, so no entry is lost.
-    """
-    anc = c.get("anchor") or {}
-    thread = c.get("thread") or []
-    note = "\n".join("%s: %s" % (e.get("role", "reviewer"), e.get("text", "")) for e in thread)
-    return {
-        "num": anc.get("block_num", ""),
-        "quote": anc.get("quoted_text", ""),
-        "note": note,
-        "addressed": c.get("status") == "resolved",
-    }
-
-
-def create_comment(rid, anchor, text, author=None, role="reviewer"):
-    """Append a new open comment with one thread entry. Caller holds _lock."""
-    now = time.time()
-    role = role if role in ("reviewer", "agent") else "reviewer"
-    author = author or role
-    anchor = anchor or {}
-    c = {
-        "comment_id": "c" + secrets.token_hex(5),
-        "status": "open",
-        "anchor": {
-            "quoted_text": anchor.get("quoted_text", ""),
-            "block_num": anchor.get("block_num", ""),
-            "start": anchor.get("start"),
-            "end": anchor.get("end"),
-        },
-        "thread": [{"author": author, "role": role, "text": text or "", "ts": now}],
-        "created_by": author,
-        "created_at": now,
-        "resolved_by": None,
-        "resolved_at": None,
-        "status_history": [{"from": None, "to": "open", "by": author, "ts": now}],
-    }
-    arr = _read_json(_comments_path(rid), [])
-    arr.append(c)
-    _write_comments(rid, arr)
-    return c
-
-
-def apply_comment_transition(rid, cid, action, by, text=None):
-    """The single writer for comment state transitions, shared by the viewer and MCP routes so the
-    two can never diverge. Caller holds _lock.
-
-    Returns (http_code, payload): 200 + the updated comment on success; 409 + {error,status} on an
-    illegal transition (resolve a non-open/reopened, reopen a non-resolved); 404 + {error} when the
-    comment is missing. thread[] and status_history[] are append-only — never rewritten.
-    """
-    arr = _read_json(_comments_path(rid), [])
-    c = _find_comment(arr, cid)
-    if c is None:
-        return 404, {"error": "no such comment"}
-    now = time.time()
-    cur = c.get("status")
-    if action == "reply":
-        # legal in every state (incl. resolved — discussion without un-resolving); status unchanged.
-        if not (text and text.strip()):
-            return 400, {"error": "reply text required"}
-        role = by if by in ("reviewer", "agent") else "reviewer"
-        c["thread"].append({"author": role, "role": role, "text": text, "ts": now})
-    elif action == "resolve":
-        if cur not in ("open", "reopened"):
-            return 409, {"error": "comment is not open/reopened", "status": cur}
-        if text:  # optional justification, appended as the final agent entry before the flip
-            c["thread"].append({"author": "agent", "role": "agent", "text": text, "ts": now})
-        c["status"] = "resolved"
-        c["resolved_by"] = "agent"
-        c["resolved_at"] = now
-        c["status_history"].append({"from": cur, "to": "resolved", "by": "agent", "ts": now})
-    elif action == "reopen":
-        if cur != "resolved":
-            return 409, {"error": "comment is not resolved", "status": cur}
-        if text:  # optional reviewer reply, appended before the flip
-            c["thread"].append({"author": "reviewer", "role": "reviewer", "text": text, "ts": now})
-        c["status"] = "reopened"
-        c["resolved_by"] = None
-        c["resolved_at"] = None
-        c["status_history"].append({"from": cur, "to": "reopened", "by": "reviewer", "ts": now})
-    else:
-        return 400, {"error": "unknown action"}
-    _write_comments(rid, arr)
-    return 200, c
+# The threaded open -> resolved -> reopened state machine now lives in mdreview.comments
+# .CommentService (instantiated above as _comments). These two names stay as shims for the
+# not-yet-extracted summary() and the GET /feedback projection; they retire when reviews extracts
+# (MR-084). The comment route arms call _comments.* directly.
+list_comments = _comments.list
+_comment_as_note = _comments.as_note
 
 
 class H(BaseHTTPRequestHandler):
@@ -667,12 +565,12 @@ class H(BaseHTTPRequestHandler):
             if m == "GET":
                 q = parse_qs(urlparse(self.path).query)
                 status = (q.get("status") or ["all"])[0] or "all"
-                return self._json(200, {"comments": list_comments(rid, status)})
+                return self._json(200, {"comments": _comments.list(rid, status)})
             if m == "POST":
                 b = self._body_json()
                 with _lock:
-                    c = create_comment(rid, b.get("anchor") or {}, b.get("text", ""),
-                                       b.get("author"), b.get("role", "reviewer"))
+                    c = _comments.create(rid, b.get("anchor") or {}, b.get("text", ""),
+                                         b.get("author"), b.get("role", "reviewer"))
                     bump(rid, "comments_updated")
                 return self._json(201, c)
 
@@ -682,17 +580,14 @@ class H(BaseHTTPRequestHandler):
             if not _exists(rid):
                 return self._json(404, {"error": "not found"})
             if m == "GET":
-                c = _find_comment(list_comments(rid), cid)
+                c = _comments.get(rid, cid)
                 if not c:
                     return self._json(404, {"error": "no such comment"})
                 return self._json(200, c)
-            # DELETE: hard-remove a comment (junk cleanup) — distinct from resolve, which only hides it.
+            # DELETE: hard-remove a comment (junk cleanup), distinct from resolve, which only hides it.
             with _lock:
-                arr = _read_json(_comments_path(rid), [])
-                kept = [x for x in arr if x.get("comment_id") != cid]
-                if len(kept) == len(arr):
+                if not _comments.delete(rid, cid):
                     return self._json(404, {"error": "no such comment"})
-                _write_comments(rid, kept)
                 bump(rid, "comments_updated")
             return self._json(200, {"deleted": cid})
 
@@ -710,7 +605,7 @@ class H(BaseHTTPRequestHandler):
             else:                                                    # reopen
                 by, text = "reviewer", b.get("text")                 # reviewer reply optional
             with _lock:
-                code, payload = apply_comment_transition(rid, cid, action, by, text)
+                code, payload = _comments.apply_transition(rid, cid, action, by, text)
                 if code == 200:
                     bump(rid, "comments_updated")
             return self._json(code, payload)
