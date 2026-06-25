@@ -42,27 +42,26 @@ from mdreview.assets import AssetService
 from mdreview.reviews import ReviewService
 from mdreview.handoff import HandoffService
 
-# The single persistence seam (MR-081). Store owns DATA_DIR + the ONE threading.Condition (MR-054:
-# one Condition over one lock; notify under the same lock as the write) + the typed read/write
-# helpers. The module-level names below are thin shims so the route arms and the not-yet-extracted
-# reviews/comments/assets functions read unchanged; each delegates to the single _store and is
-# removed as its callers migrate to services (enforced gone in server.py, MR-086).
-_store = Store(DATA_DIR)
-_lock = _store.lock                 # the one Condition, owned by _store (never re-created)
-# Remaining store shims, used only by the web-file / asset-byte / long-poll arms that stay framing
-# concerns; converted to store calls via the server's composition root in MR-086.
-_read = _store.read_text
-_read_bytes = _store.read_bytes
-_ctype_for = _store.ctype_for
-_to_float = _store.to_float
+class Services:
+    """The composition root's bundle: one Store, injected into each service (constructor injection).
+    The per-request handler reads these off the server as self.server.app.<name>, decoupled from how
+    they are constructed; no service builds its own dependencies or its own lock."""
 
-# Service objects take the single _store (constructor injection). The composition root in server.py
-# (MR-086) will build these and hang them off the server; for now they are module-level singletons
-# the in-place route arms call directly.
-_comments = CommentService(_store)
-_assets = AssetService(_store)
-_reviews = ReviewService(_store, _comments)
-_handoff = HandoffService(_store, LEASE_TTL_S)
+    def __init__(self, store):
+        self.store = store
+        self.comments = CommentService(store)
+        self.assets = AssetService(store)
+        self.reviews = ReviewService(store, self.comments)
+        self.handoff = HandoffService(store, LEASE_TTL_S)
+
+
+class MdreviewServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer carrying the wired Services bundle so the per-request handler can reach it
+    via self.server.app (the IoC seam; the handler never constructs a service)."""
+
+    def __init__(self, addr, handler, app):
+        super().__init__(addr, handler)
+        self.app = app
 
 
 class H(BaseHTTPRequestHandler):
@@ -110,18 +109,19 @@ class H(BaseHTTPRequestHandler):
         never busy-loops the watcher. Missing since defaults to now() (block for the next flip, the
         safer degrade); since=0 is the explicit backlog opt-in.
 
-        Parks on _lock.wait(timeout), which RELEASES _lock while blocked, so a concurrent writer is
+        Parks on app.store.lock.wait(timeout), which RELEASES app.store.lock while blocked, so a concurrent writer is
         never deadlocked behind a parked waiter. On wake it re-runs the predicate scan under the lock
         (notify_all wakes every waiter and wait() can wake spuriously). The scan is O(all-reviews),
         but at this scale (a handful of reviews, one operator) that is trivially cheap, and re-scanning
         is correct under rapid flips where carrying only the single last-changed rid could miss an edge.
         """
+        app = self.server.app
         qs = parse_qs(query)
         turn_q = qs.get("turn", [""])[0]
         since_raw = qs.get("since", [None])[0]
         # Missing since => now (block for the next flip), NOT since=0 (the explicit backlog opt-in).
-        since = time.time() if since_raw is None else _to_float(since_raw, 0.0)
-        client_timeout = _to_float(qs.get("timeout", [None])[0], WAIT_TIMEOUT_S)
+        since = time.time() if since_raw is None else app.store.to_float(since_raw, 0.0)
+        client_timeout = app.store.to_float(qs.get("timeout", [None])[0], WAIT_TIMEOUT_S)
         timeout = max(0.0, min(client_timeout, WAIT_TIMEOUT_S))
         deadline = time.time() + timeout
 
@@ -130,15 +130,15 @@ class H(BaseHTTPRequestHandler):
                     and m.get("turn_updated", 0) > since)
 
         def changed_rows():
-            return [r for r in _reviews.list_reviews() if matches(r)]
+            return [r for r in app.reviews.list_reviews() if matches(r)]
 
-        with _lock:
+        with app.store.lock:
             rows = changed_rows()                       # baseline scan, once on entry
             while not rows:
                 remaining = deadline - time.time()
                 if remaining <= 0:
                     return self._json(200, {"reviews": [], "timeout": True})
-                _lock.wait(remaining)   # releases _lock while parked
+                app.store.lock.wait(remaining)   # releases app.store.lock while parked
                 rows = changed_rows()   # re-scan on wake; cheap at this scale and correct under rapid flips
         return self._json(200, {"reviews": rows})
 
@@ -163,6 +163,7 @@ class H(BaseHTTPRequestHandler):
 
     # ---- router ----
     def route(self, m):
+        app = self.server.app
         path = urlparse(self.path).path
         if len(path) > 1:
             path = path.rstrip("/")
@@ -180,11 +181,11 @@ class H(BaseHTTPRequestHandler):
             }
             if path == "/api" or "application/json" in self.headers.get("Accept", ""):
                 return self._json(200, descriptor)
-            return self._send(200, _read(os.path.join(WEB_DIR, "dashboard.html")),
+            return self._send(200, app.store.read_text(os.path.join(WEB_DIR, "dashboard.html")),
                               "text/html; charset=utf-8")
 
         if path == "/api/reviews" and m == "GET":
-            reviews = _reviews.list_reviews()
+            reviews = app.reviews.list_reviews()
             # MR-054: optional ?turn= filter. Filtered in Python after list_reviews() (summary() is
             # where the turn default lands); an empty/absent value means no filter (return all),
             # preserving today's behavior. No new field, no cross-review aggregation.
@@ -202,7 +203,7 @@ class H(BaseHTTPRequestHandler):
 
         if path == "/api/reviews" and m == "POST":
             b = self._body_json()
-            rid = _reviews.create(b.get("markdown", ""), b.get("title", ""),
+            rid = app.reviews.create(b.get("markdown", ""), b.get("title", ""),
                                   b.get("project", ""), b.get("source_path", ""),
                                   b.get("session", ""))
             base = self._base()
@@ -217,38 +218,38 @@ class H(BaseHTTPRequestHandler):
         mo = re.fullmatch(r"/api/reviews/" + RID, path)
         if mo:
             rid = mo.group(1)
-            if not _reviews.exists(rid):
+            if not app.reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             if m == "GET":
-                return self._json(200, _reviews.meta(rid))
+                return self._json(200, app.reviews.meta(rid))
             if m == "DELETE":
-                _reviews.delete(rid)
+                app.reviews.delete(rid)
                 return self._json(200, {"deleted": rid})
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/source", path)
         if mo:
             rid = mo.group(1)
-            if not _reviews.exists(rid):
+            if not app.reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             if m == "GET":
-                return self._send(200, _reviews.read_source(rid),
+                return self._send(200, app.reviews.read_source(rid),
                                   "text/markdown; charset=utf-8")
             if m == "PUT":
                 b = self._body_json()
-                with _lock:
-                    _reviews.put_source(rid, b.get("markdown", ""))
-                return self._json(200, _reviews.meta(rid))
+                with app.store.lock:
+                    app.reviews.put_source(rid, b.get("markdown", ""))
+                return self._json(200, app.reviews.meta(rid))
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/feedback", path)
         if mo:
             rid = mo.group(1)
-            if not _reviews.exists(rid):
+            if not app.reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             if m == "GET":
                 # comment-aware: meta + feedback.md + a union of on-disk notes and a read-time
                 # projection of comments (ReviewService.feedback delegates the projection to
                 # CommentService). notes.json on disk is never rewritten here.
-                return self._json(200, _reviews.feedback(rid))
+                return self._json(200, app.reviews.feedback(rid))
             if m == "POST":
                 # Retired (MR-046). The viewer wrote notes/feedback here until MR-036; it authors
                 # comments now (POST /comments). The write is gone — return an explicit 410 (not a
@@ -260,9 +261,9 @@ class H(BaseHTTPRequestHandler):
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/status", path)
         if mo and m == "GET":
             rid = mo.group(1)
-            if not _reviews.exists(rid):
+            if not app.reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
-            mt = _reviews.meta(rid)
+            mt = app.reviews.meta(rid)
             return self._json(200, {
                 "source_updated": mt.get("source_updated", 0),
                 "feedback_updated": mt.get("feedback_updated", 0),
@@ -280,27 +281,27 @@ class H(BaseHTTPRequestHandler):
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/handoff", path)
         if mo and m == "POST":
             rid = mo.group(1)
-            if not _reviews.exists(rid):
+            if not app.reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
-            with _lock:
-                err = _handoff.apply(rid, self._body_json())
+            with app.store.lock:
+                err = app.handoff.apply(rid, self._body_json())
             if err:
                 return self._json(*err)
-            return self._json(200, _reviews.meta(rid))
+            return self._json(200, app.reviews.meta(rid))
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/history", path)
         if mo and m == "GET":
             rid = mo.group(1)
-            if not _reviews.exists(rid):
+            if not app.reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
-            return self._json(200, {"rounds": _reviews.history(rid)})
+            return self._json(200, {"rounds": app.reviews.history(rid)})
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/history/(\d+)", path)
         if mo and m == "GET":
             rid, n = mo.group(1), mo.group(2)
-            if not _reviews.exists(rid):
+            if not app.reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
-            out = _reviews.history_round(rid, n)
+            out = app.reviews.history_round(rid, n)
             if out is None:
                 return self._json(404, {"error": "no such round"})
             return self._json(200, out)
@@ -308,12 +309,12 @@ class H(BaseHTTPRequestHandler):
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/assets", path)
         if mo:
             rid = mo.group(1)
-            if not _reviews.exists(rid):
+            if not app.reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             base = self._base()
             if m == "GET":
                 out = []
-                for e in _assets.list(rid):
+                for e in app.assets.list(rid):
                     d = dict(e)
                     d["url"] = f"{base}/api/reviews/{rid}/asset/{e['stored']}"
                     out.append(d)
@@ -328,8 +329,8 @@ class H(BaseHTTPRequestHandler):
                     data = base64.b64decode(c64, validate=True)
                 except (ValueError, TypeError):
                     return self._json(400, {"error": "content_b64 is not valid base64"})
-                with _lock:
-                    entry = _assets.attach(rid, name, data)
+                with app.store.lock:
+                    entry = app.assets.attach(rid, name, data)
                 return self._json(201, {
                     "name": entry["name"], "stored": entry["stored"],
                     "url": f"{base}/api/reviews/{rid}/asset/{entry['stored']}",
@@ -339,42 +340,42 @@ class H(BaseHTTPRequestHandler):
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/comments", path)
         if mo:
             rid = mo.group(1)
-            if not _reviews.exists(rid):
+            if not app.reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             if m == "GET":
                 q = parse_qs(urlparse(self.path).query)
                 status = (q.get("status") or ["all"])[0] or "all"
-                return self._json(200, {"comments": _comments.list(rid, status)})
+                return self._json(200, {"comments": app.comments.list(rid, status)})
             if m == "POST":
                 b = self._body_json()
-                with _lock:
-                    c = _comments.create(rid, b.get("anchor") or {}, b.get("text", ""),
+                with app.store.lock:
+                    c = app.comments.create(rid, b.get("anchor") or {}, b.get("text", ""),
                                          b.get("author"), b.get("role", "reviewer"))
-                    _reviews.bump(rid, "comments_updated")
+                    app.reviews.bump(rid, "comments_updated")
                 return self._json(201, c)
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/comments/(c[A-Za-z0-9]{10})", path)
         if mo and m in ("GET", "DELETE"):
             rid, cid = mo.group(1), mo.group(2)
-            if not _reviews.exists(rid):
+            if not app.reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             if m == "GET":
-                c = _comments.get(rid, cid)
+                c = app.comments.get(rid, cid)
                 if not c:
                     return self._json(404, {"error": "no such comment"})
                 return self._json(200, c)
             # DELETE: hard-remove a comment (junk cleanup), distinct from resolve, which only hides it.
-            with _lock:
-                if not _comments.delete(rid, cid):
+            with app.store.lock:
+                if not app.comments.delete(rid, cid):
                     return self._json(404, {"error": "no such comment"})
-                _reviews.bump(rid, "comments_updated")
+                app.reviews.bump(rid, "comments_updated")
             return self._json(200, {"deleted": cid})
 
         mo = re.fullmatch(
             r"/api/reviews/" + RID + r"/comments/(c[A-Za-z0-9]{10})/(reply|resolve|reopen)", path)
         if mo and m == "POST":
             rid, cid, action = mo.group(1), mo.group(2), mo.group(3)
-            if not _reviews.exists(rid):
+            if not app.reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             b = self._body_json()
             if action == "reply":
@@ -383,32 +384,32 @@ class H(BaseHTTPRequestHandler):
                 by, text = "agent", b.get("justification")          # justification optional
             else:                                                    # reopen
                 by, text = "reviewer", b.get("text")                 # reviewer reply optional
-            with _lock:
-                code, payload = _comments.apply_transition(rid, cid, action, by, text)
+            with app.store.lock:
+                code, payload = app.comments.apply_transition(rid, cid, action, by, text)
                 if code == 200:
-                    _reviews.bump(rid, "comments_updated")
+                    app.reviews.bump(rid, "comments_updated")
             return self._json(code, payload)
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/asset/([A-Za-z0-9._-]+)", path)
         if mo and m == "GET":
             rid, stored = mo.group(1), mo.group(2)
-            if not _reviews.exists(rid):
+            if not app.reviews.exists(rid):
                 return self._json(404, {"error": "not found"})
             # resolve via the manifest only; never path-join the request segment
-            entry = _assets.find(rid, stored)
+            entry = app.assets.find(rid, stored)
             if not entry:
                 return self._send(404, "asset not found", "text/plain")
-            p = _assets.path(rid, stored)
+            p = app.assets.path(rid, stored)
             if not os.path.isfile(p):
                 return self._send(404, "asset not found", "text/plain")
-            return self._send(200, _read_bytes(p), entry.get("ctype") or _ctype_for(stored))
+            return self._send(200, app.store.read_bytes(p), entry.get("ctype") or app.store.ctype_for(stored))
 
         mo = re.fullmatch(r"/review/" + RID, path)
         if mo and m == "GET":
             rid = mo.group(1)
-            if not _reviews.exists(rid):
+            if not app.reviews.exists(rid):
                 return self._send(404, "review not found", "text/plain")
-            return self._send(200, _read(os.path.join(WEB_DIR, "viewer.html")),
+            return self._send(200, app.store.read_text(os.path.join(WEB_DIR, "viewer.html")),
                               "text/html; charset=utf-8")
 
         mo = re.fullmatch(r"/static/([A-Za-z0-9._-]+)", path)
@@ -417,15 +418,16 @@ class H(BaseHTTPRequestHandler):
             p = os.path.join(WEB_DIR, "static", fn)
             if os.path.isfile(p):
                 # binary read: KaTeX ships .woff2 fonts + .css that the utf-8 _read crashes on
-                return self._send(200, _read_bytes(p), _ctype_for(fn))
+                return self._send(200, app.store.read_bytes(p), app.store.ctype_for(fn))
             return self._send(404, "not found", "text/plain")
 
         self._json(404, {"error": "no route", "method": m, "path": path})
 
 
 def main():
+    app = Services(Store(DATA_DIR))
     print(f"mdreview-service listening on :{PORT}  data={DATA_DIR}", flush=True)
-    ThreadingHTTPServer(("0.0.0.0", PORT), H).serve_forever()
+    MdreviewServer(("0.0.0.0", PORT), H, app).serve_forever()
 
 
 if __name__ == "__main__":
