@@ -25,10 +25,10 @@ A ticket counts as committed only when its `sprint:` field points here.
 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
-| MR-087 | Dashboard re-skin — sidebar inbox + projects filter + restyled cards with baton badges | ui | P1 | ready |
-| MR-088 | Viewer re-skin — chrome (top bar + breadcrumb + title meta) + baton banner + numbered lines + article typography | ui | P1 | ready |
-| MR-089 | Viewer re-skin — COMMENTS right rail + Resolved panel + bottom open/resolved/history dock | ui | P1 | ready |
-| MR-090 | Docs sweep — README / CLAUDE for the re-skinned dashboard & viewer affordances | docs | P2 | ready |
+| MR-087 | Dashboard re-skin — sidebar inbox + projects filter + restyled cards with baton badges | ui | P1 | done |
+| MR-088 | Viewer re-skin — chrome (top bar + breadcrumb + title meta) + baton banner + numbered lines + article typography | ui | P1 | done |
+| MR-089 | Viewer re-skin — COMMENTS right rail + Resolved panel + bottom open/resolved/history dock | ui | P1 | done |
+| MR-090 | Docs sweep — README / CLAUDE for the re-skinned dashboard & viewer affordances | docs | P2 | done |
 
 ## Preferred execution order
 
@@ -48,9 +48,10 @@ _Filled in as the sprint runs and at close._
 
 The sprint cannot be marked `closed` until:
 
-- [ ] every committed ticket is `done` or explicitly carried over (note where);
-- [ ] no committed ticket has docs deferred to a docs-sweep ticket that is not yet `done` (MR-090 is
-      not carry-over-eligible);
+- [x] every committed ticket is `done` or explicitly carried over (note where); — MR-087/088/089/090
+      all `done`, none carried over.
+- [x] no committed ticket has docs deferred to a docs-sweep ticket that is not yet `done` (MR-090 is
+      not carry-over-eligible); — MR-090 `done` within the sprint.
 - [ ] a **staff-critic sprint-close review** exists at `reviews/sprint-28-close-review-YYYY-MM-DD.md`,
       verifying shipped work against each ticket's acceptance criteria, **including a render smoke** —
       because product pages (`viewer.html`, `dashboard.html`) were touched, `scripts/render-smoke.sh`
