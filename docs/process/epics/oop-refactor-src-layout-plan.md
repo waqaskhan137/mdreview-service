@@ -1,6 +1,6 @@
 ---
 epic: oop-refactor-src-layout
-status: active         # draft | active | done  (stays draft until G1 passes)
+status: done           # draft | active | done  (stays draft until G1 passes)
 created: 2026-06-25
 source: requirements/oop-refactor-src-layout.md
 gate: passed 2026-06-25 # G1 (Plan Gate): not passed | passed YYYY-MM-DD; tickets blocked until passed

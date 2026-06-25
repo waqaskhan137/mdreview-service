@@ -1,0 +1,7 @@
+Independent G7 render-smoke (staff-critic), rebuilt container mdreview-oop-g7 on :8160, 2026-06-25T01:27:49Z
+--- viewer /review/a3dc5db7f0 ---
+  ok : #article (1 node)
+  ok : h1 (2 nodes)
+--- dashboard / ---
+  ok : #list (1 node)
+  ok : .card (1 node)
