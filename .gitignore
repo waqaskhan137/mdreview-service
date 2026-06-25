@@ -4,6 +4,10 @@ data/
 __pycache__/
 .DS_Store
 
+# editor-local config (personal, machine-specific) — e.g. VSCode debug configs.
+# Kept out of the locked root's policy: ignored, so it never shows as untracked.
+.vscode/
+
 # in-project scratch for smokes / throwaway service data dirs / temp scripts.
 # Kept INSIDE the repo (never /tmp or an external scratchpad) so it needs no
 # out-of-project write permission. Never committed.
