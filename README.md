@@ -67,10 +67,15 @@ Feedback and source persist in the `/data` volume across restarts.
 | GET | `/review/{id}` | | viewer HTML (human opens) |
 | GET | `/healthz` | | `{ok}` |
 
-**Provenance (optional, on POST):** `project` and `session` group a review on the dashboard
-(`project › session › files`); `source_path` records the file it came from. Untagged reviews
-group under "Ungrouped". The fields are stored in `meta.json`; existing reviews without them are
-unaffected.
+**Provenance (optional, on POST):** `project` and `session` organize a review on the dashboard —
+the left sidebar lists **Projects** you can filter the grid by, and each card shows a
+`project / session / source_path` crumb; `source_path` records the file it came from. Untagged
+reviews still appear under **All reviews** (just not under a project). The fields are stored in
+`meta.json`; existing reviews without them are unaffected.
+
+The dashboard sidebar also has a turn-baton **Inbox** — *All reviews*, *Needs you* (your turn),
+*Agent working*, *Resolved* — and each card carries the matching status badge, derived from the
+same `turn`/`status` already on `GET /api/reviews` (no extra call).
 
 **Status** (in the list/dashboard) is derived per review: `awaiting` (no feedback yet),
 `feedback` (notes/comments outstanding), `resolved` (all notes addressed **and** all comments

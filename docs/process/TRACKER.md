@@ -7,7 +7,25 @@ Last updated: 2026-06-25. **sprint-26 (viewer-transparency, GH #27) CLOSED at G7
 
 ## Active sprint
 
-**EPIC `oop-refactor-src-layout` COMPLETE. sprint-27 CLOSED at G7 2026-06-25** (staff-critic close PASS 0 BLOCKER/0 SHOULD/2 NIT, `reviews/sprint-27-close-review-2026-06-25.md`; independent — rebuilt the container, re-drove the full HTTP contract + per-page DOM + lease/wake + mcp/agent smokes, live `:8139` untouched). G1 PASS 2026-06-25 (2 rounds; r1 CHANGES-REQUESTED on 1 blocker [the router→service boundary missed the inline GET/DELETE comment arms + a gameable acceptance grep], fixed in r2). Tier B internal-quality refactor on branch `refactor/oop-src-layout` (off `dev`): all 11 tickets (MR-076-086) `done`; all code under `src/` (the `src/mdreview/` package: `config`/`store`/`comments`/`assets`/`reviews`/`handoff`/`server` + `__main__`, plus standalone `mcp_server.py`/`watch.py`), clean root, frontend→`web/`, smokes→`tests/`, infra at root. `app.py`'s 833-line monolith is wired by **constructor injection** (one `Store` into the service classes, bundled on `MdreviewServer` the handler reads via `self.server.app`); ships from `python -m mdreview`. **Byte-identical** (golden curl transcript 41/41 at every commit); no-store-helper contract ZERO hits. **Awaiting the dev→main PR (owner's G8 call; note the parallel `feat/ui-updates` will conflict — coordinate the rebase).**
+**EPIC `oop-refactor-src-layout` COMPLETE. sprint-27 CLOSED at G7 2026-06-25** (staff-critic close PASS 0 BLOCKER/0 SHOULD/2 NIT, `reviews/sprint-27-close-review-2026-06-25.md`; independent rebuild + full HTTP contract + per-page DOM + lease/wake + mcp/agent smokes, live `:8139` untouched). G1 PASS 2026-06-25 (2 rounds; r1 CHANGES-REQUESTED on 1 blocker [the router→service boundary missed the inline GET/DELETE comment arms + a gameable acceptance grep], fixed in r2). Tier B internal-quality refactor on branch `refactor/oop-src-layout`: all 11 tickets (MR-076-086) `done`; all code under `src/` (the `src/mdreview/` package: `config`/`store`/`comments`/`assets`/`reviews`/`handoff`/`server` + `__main__`, plus standalone `mcp_server.py`/`watch.py`), clean root, frontend→`web/`, smokes→`tests/`, infra at root. `app.py`'s monolith is wired by **constructor injection** (one `Store` into the service classes, bundled on `MdreviewServer` the handler reads via `self.server.app`); ships from `python -m mdreview`. **Byte-identical** API (golden curl transcript 41/41 at every commit); no-store-helper contract ZERO hits. **Merged current `dev` (incl. the sprint-28 viewer-dashboard reskin) into the branch, so the reskin is preserved at `web/viewer.html` + `web/dashboard.html`; PR #33 → dev (owner's G8 call).**
+
+**EPIC `viewer-dashboard-reskin` COMPLETE. sprint-28 CLOSED at G7 2026-06-25** (staff-critic
+PASS-with-conditions, `reviews/sprint-28-close-review-2026-06-25.md`; independent — rebuilt throwaway
+container + both-pane render-smoke + dark-pane computed-style + wide-mode `body.gutter-on` check; all
+5 findings resolved in `3f85c50`, 0 blockers). G1 PASS 2026-06-25
+(staff-critic PASS-with-conditions, `reviews/viewer-dashboard-reskin-plan-review-2026-06-25.md`; all
+4 conditions folded into the plan r1). **Awaiting the standing dev→main PR.** Re-skin `dashboard.html` + `viewer.html` **in place** to the
+new mockup (`.scratch/mockup-viewer-dashboard.html`) — the same visual language the landing page moved
+to (commit `0e83ec8`) — preserving all wiring and the buildless/stdlib architecture. Scope:
+"Re-skin + supported IA" (sidebar inbox driven by the existing turn baton; no new backend; the
+"agent watcher · connected" indicator dropped). **MR-087** `ready` (ui): dashboard sidebar inbox +
+projects filter + restyled cards with baton badges. **MR-088** `ready` (ui): viewer chrome + baton
+banner + numbered lines + article typography. **MR-089** `ready` (ui, depends MR-088): viewer COMMENTS
+rail + Resolved + bottom dock (C1 — verify wide mode actually engages, not just `.gcard` presence).
+**MR-090** `ready` (docs, depends 087-089): grep-gated docs sweep. No `svc` change (every datum the
+new IA needs is already on `GET /api/reviews`).
+
+---
 
 **EPIC `viewer-transparency` (GH #27) COMPLETE. sprint-26 CLOSED at G7 2026-06-25** (staff-critic PASS, `reviews/sprint-26-close-review-2026-06-24.md`; independent — rebuilt container + node-CDP lifecycle re-drive incl. signal-honesty + no-regression + both panes; W1 resolved, owner confirmed working). G1 PASS 2026-06-24 (GO-WITH-NITS)**.** (staff-critic
 GO-WITH-NITS, `reviews/viewer-transparency-plan-review-2026-06-24.md`; 2 nits folded; owner chose
@@ -238,6 +256,10 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-090 | Docs sweep — README / CLAUDE for the re-skinned dashboard & viewer affordances | docs | P2 | sprint-28 |
+| MR-089 | Viewer re-skin — COMMENTS right rail + Resolved panel + bottom open/resolved/history dock | ui | P1 | sprint-28 |
+| MR-088 | Viewer re-skin — chrome (top bar + breadcrumb + title meta) + baton banner + numbered lines + article typography | ui | P1 | sprint-28 |
+| MR-087 | Dashboard re-skin — sidebar inbox + projects filter + restyled cards with baton badges | ui | P1 | sprint-28 |
 | MR-086 | `src/app.py`->`src/mdreview/server.py` + `Services`/`MdreviewServer` composition root + `__main__`; no-store-helper ZERO; `python -m mdreview`; all smokes + container PASS | svc | P1 | sprint-27 |
 | MR-085 | Extract `handoff.py` + `HandoffService` (turn baton + lease table); byte-identical + lease matrix 5/5 (TTL=0 stale paths) | svc | P1 | sprint-27 |
 | MR-084 | Extract `reviews.py` + `ReviewService` (lifecycle/summary/list/history/source/feedback/delete); byte-identical incl. /feedback-with-comment | svc | P1 | sprint-27 |

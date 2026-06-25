@@ -12,7 +12,7 @@ Base URL: wherever the container is published (default `http://localhost:8137`).
 BASE=http://localhost:8137
 
 # 1. Submit a document for review. project/session/source_path are optional provenance
-#    that groups the review on the dashboard (project > session > files).
+#    shown on the dashboard (a sidebar Projects filter + a project/session/source_path card crumb).
 resp=$(curl -s -X POST "$BASE/api/reviews" -H 'Content-Type: application/json' \
   -d '{"title":"My draft","markdown":"# My draft\n\nFirst paragraph...\n",
        "project":"my-repo","session":"run-42","source_path":"docs/my-draft.md"}')
