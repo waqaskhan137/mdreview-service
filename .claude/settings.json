@@ -1,5 +1,17 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/lock-root.py\"",
+            "statusMessage": "Enforcing the locked repo root"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

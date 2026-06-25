@@ -6,6 +6,41 @@ an isolated session keyed by `id`. You never spawn a process or touch shared fil
 
 Base URL: wherever the container is published (default `http://localhost:8137`).
 
+## The repo root is LOCKED — do not scatter files
+
+The root layout is final and deliberately minimal. The COMPLETE approved root is exactly:
+
+```text
+src/  web/  tests/  docs/  infra/  .claude/  .github/
+README.md  CLAUDE.md  LICENSE  Makefile  .gitignore
+```
+
+**Do not create any new file or directory at the repo root.** This is default-DENY: a new
+root entry needs explicit human approval, must be justified, and the answer is almost always
+**no**. Editing the existing root files/dirs above is fine — *adding* to the root is not.
+(A `PreToolUse` hook, `.claude/hooks/lock-root.py`, enforces this for `Write`/`Edit` — but
+honor it regardless; the hook is a backstop, not a license to try.)
+
+Before you reach for the root, put it where it belongs (you almost never need root):
+
+- service code → `src/mdreview/`; standalone scripts → `src/`
+- frontend → `web/app/`; public landing page → `web/site/`
+- tests / smokes → `tests/`
+- docs, plans, notes, design writeups → `docs/`
+- Dockerfiles, compose, `.env*`, container assets → `infra/`
+- throwaway temp files / scratch data / one-off scripts → the gitignored `.scratch/`
+  (never tracked, never the root)
+
+If you genuinely think a NEW root entry is required: **do not create it.** Stop and ask the
+human with (1) what it is, (2) why it cannot live in a subdirectory, (3) what breaks without
+it at root. Wait for an explicit yes. Assume no.
+
+Common offenders that must NOT land at root (they go in a subdir or `.scratch/`): helper
+scripts, generated output, logs, `.bak`/backups, notes/TODO files, ad-hoc tool configs
+(linters, formatters, editor configs, `requirements.txt`, lockfiles), data dumps, "quick
+test" files. A tool that wants to drop a config at root is a proposal to bring to the human,
+not an action to take.
+
 ## The contract
 
 ```bash
