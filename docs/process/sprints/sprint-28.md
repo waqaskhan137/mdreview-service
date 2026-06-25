@@ -1,11 +1,11 @@
 ---
 id: sprint-28
 name: viewer-dashboard-reskin
-status: active         # planning | active | closed
+status: closed         # planning | active | closed
 start: 2026-06-25
 end: 2026-06-27
 goal: Re-skin the dashboard and viewer in place to the new mockup, preserving all wiring and the buildless/stdlib architecture.
-close_review:          # reviews/sprint-28-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review: reviews/sprint-28-close-review-2026-06-25.md   # G7 PASS-with-conditions, all 5 findings resolved (3f85c50)
 ---
 
 ## Goal
@@ -42,7 +42,31 @@ highest-risk JS surface) gets its own ticket after the viewer chrome lands.
 
 ## Notes / retro
 
-_Filled in as the sprint runs and at close._
+**Closed 2026-06-25, G7 PASS-with-conditions** (`reviews/sprint-28-close-review-2026-06-25.md`,
+independent staff-critic; all 5 findings resolved in `3f85c50`, 0 blockers). Both app screens
+(`dashboard.html`, `viewer.html`) re-skinned in place to the mockup — sidebar turn-baton Inbox +
+Projects filter + baton-badge cards on the dashboard; top-bar/breadcrumb chrome, violet baton banner
+(Send moved in from the dock), numbered lines, blue headings, and the violet threaded comments rail
+on the viewer. **No `svc` change** (every datum the new IA needs was already on `GET /api/reviews`);
+buildless/stdlib preserved; dark theme kept on both files (verified by dark-pane computed-style
+contrast, not just screenshots); `STALE_S` mirror untouched and no second mirror introduced.
+
+**What went well:** the planner's footgun map (STALE_S mirror, fit-test, legacy back-compat, "200 is
+not a render") held up — zero wiring regressions; the side-by-side mockup capture loop caught the
+real fidelity gaps (project-only crumb, hairline divider, status dot) fast.
+
+**G7 findings (all resolved, record-accuracy not defects):** the one MAJOR (F1) was a planning-estimate
+in MR-089's C1 AC (~1180px) that didn't match the measured ~1315px wide-mode boundary — the geometry is
+pre-existing and unregressed (proven by `git diff 8d4227c^`), so the AC was reconciled to reality rather
+than the code changed. Two MINOR were grep-claim/branch-provenance accuracy (F2 STALE_S grep, F3 the
+MR-064 `app.py` ride-along from `dev`). Two NIT were dead dashboard code (orphan `.watcher` CSS,
+unreachable `"Ungrouped"`), removed.
+
+**Carry-overs:** none. MR-090 (docs sweep) closed within the sprint (not carry-over-eligible).
+
+**Follow-up (backlog, not blocking):** the mockup's static "COMMENTS · N open" rail header was
+deliberately not added (the floating text-anchored `layoutComments` model is preserved per D3; the
+open count lives in the dock pill). Revisit only if a static rail header is wanted.
 
 ## Close gate (G7)
 
@@ -52,11 +76,11 @@ The sprint cannot be marked `closed` until:
       all `done`, none carried over.
 - [x] no committed ticket has docs deferred to a docs-sweep ticket that is not yet `done` (MR-090 is
       not carry-over-eligible); — MR-090 `done` within the sprint.
-- [ ] a **staff-critic sprint-close review** exists at `reviews/sprint-28-close-review-YYYY-MM-DD.md`,
-      verifying shipped work against each ticket's acceptance criteria, **including a render smoke** —
-      because product pages (`viewer.html`, `dashboard.html`) were touched, `scripts/render-smoke.sh`
-      against each page asserting its DOM nodes + screenshots under
-      `reviews/sprint-28-render-evidence-*` (plus the comment-rail wide-mode `body.gutter-on` check),
-      and the container rebuild + `curl /healthz` + `/api/reviews` smoke — and its findings are
-      resolved or carried;
-- [ ] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.
+- [x] a **staff-critic sprint-close review** exists at
+      `reviews/sprint-28-close-review-2026-06-25.md` (independent, PASS-with-conditions), verifying
+      shipped work against each ticket's AC, **including a render smoke** — both pages'
+      `scripts/render-smoke.sh` DOM assertions + screenshots + dark-pane computed-style + the wide-mode
+      `body.gutter-on` check under `reviews/sprint-28-render-evidence-2026-06-25/`, plus the
+      throwaway-container rebuild + `curl /healthz` + `/api/reviews` smoke — all 5 findings resolved
+      (`3f85c50`), 0 blockers.
+- [x] retro + carry-overs (none) recorded above, and `close_review:` set in frontmatter.

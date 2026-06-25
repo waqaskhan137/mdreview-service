@@ -7,9 +7,12 @@ Last updated: 2026-06-25. **sprint-26 (viewer-transparency, GH #27) CLOSED at G7
 
 ## Active sprint
 
-**EPIC `viewer-dashboard-reskin` ACTIVE — sprint-28 opening 2026-06-25.** G1 PASS 2026-06-25
+**EPIC `viewer-dashboard-reskin` COMPLETE. sprint-28 CLOSED at G7 2026-06-25** (staff-critic
+PASS-with-conditions, `reviews/sprint-28-close-review-2026-06-25.md`; independent — rebuilt throwaway
+container + both-pane render-smoke + dark-pane computed-style + wide-mode `body.gutter-on` check; all
+5 findings resolved in `3f85c50`, 0 blockers). G1 PASS 2026-06-25
 (staff-critic PASS-with-conditions, `reviews/viewer-dashboard-reskin-plan-review-2026-06-25.md`; all
-4 conditions folded into the plan r1). Re-skin `dashboard.html` + `viewer.html` **in place** to the
+4 conditions folded into the plan r1). **Awaiting the standing dev→main PR.** Re-skin `dashboard.html` + `viewer.html` **in place** to the
 new mockup (`.scratch/mockup-viewer-dashboard.html`) — the same visual language the landing page moved
 to (commit `0e83ec8`) — preserving all wiring and the buildless/stdlib architecture. Scope:
 "Re-skin + supported IA" (sidebar inbox driven by the existing turn baton; no new backend; the
