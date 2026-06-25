@@ -254,8 +254,8 @@ plan -> independent review (G1) -> tickets -> sprint -> implement -> close revie
 using the `mdreview-planner` and `cycle-retrospective` agents and the global `staff-critic`.
 
 - Tickets `MR-###` in `docs/process/tickets/`; the board is `docs/process/TRACKER.md`.
-- Validation gate: `python3 -m py_compile app.py` (+ `docker build` for infra, a browser render
-  for UI). No test framework.
+- Validation gate: `python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py`
+  (+ `docker build` for infra, a browser render for UI). No test framework.
 - Commits: conventional subject with the ticket ID; this repo keeps the `Co-Authored-By: Claude`
   trailer.
 - For the current epic / sprint and shipped history, see `docs/process/TRACKER.md` (source of
