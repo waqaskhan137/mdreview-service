@@ -225,7 +225,6 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
-| MR-080 | Extract `config.py` (constants + `WEB_DIR`, drop `HERE`) + package skeleton | svc | P1 | sprint-27 |
 | MR-081 | Extract `store.py` + `Store` (typed I/O + the one Condition) | svc | P1 | sprint-27 |
 | MR-082 | Extract `comments.py` + `CommentService` (state machine, incl. the inline GET/DELETE arms) | svc | P1 | sprint-27 |
 | MR-083 | Extract `assets.py` + `AssetService` (content-hash storage + manifest) | svc | P1 | sprint-27 |
@@ -245,6 +244,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-080 | Extract `config.py` (constants + `WEB_DIR` 3-deep anchor) + package skeleton (`src/mdreview/`); byte-identical | svc | P1 | sprint-27 |
 | MR-079 | Repoint live `py_compile` gate + `render-smoke.sh` path + layer-table/page paths to `src/`+`tests/`+`web/` (frozen history untouched) | docs | P2 | sprint-27 |
 | MR-078 | Move `mcp_server.py`/`watch.py`→`src/`, smokes→`tests/`; fix `SERVER` path + `Dockerfile.watcher` COPY (stable `/app` dests); mcp_smoke + watcher build green | infra | P1 | sprint-27 |
 | MR-077 | Service `Dockerfile` → `src/`+`web/` layout (`MDREVIEW_WEB_DIR`/`PYTHONPATH`, `CMD python src/app.py`); build + container render-smoke green | infra | P1 | sprint-27 |

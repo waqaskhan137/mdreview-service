@@ -37,29 +37,17 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-# ponytail: repo-root anchor; MDREVIEW_WEB_DIR overrides in container/tests. src/app.py -> up 2 to
-# repo root, then /web (this becomes a 3-deep walk once it moves to src/mdreview/config.py in MR-080).
-WEB_DIR = os.environ.get("MDREVIEW_WEB_DIR") or os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
-DATA_DIR = os.environ.get("MDREVIEW_DATA", "/data")
-PORT = int(os.environ.get("PORT", "8080"))
-PUBLIC_BASE = os.environ.get("MDREVIEW_PUBLIC_BASE", "").rstrip("/")
+from mdreview.config import (
+    DATA_DIR, LEASE_TTL_S, PORT, PUBLIC_BASE, RID, WAIT_TIMEOUT_S, WEB_DIR,
+)
 
-os.makedirs(DATA_DIR, exist_ok=True)
 # Condition over the ONE global lock (MR-054). A Condition is itself a context manager that
-# acquires/releases its internal lock, so every existing `with _lock:` site is unchanged — the swap
+# acquires/releases its internal lock, so every existing `with _lock:` site is unchanged: the swap
 # from Lock() to Condition() is transparent. The /wait long-poll parks on _lock.wait(timeout) (which
 # releases the lock while blocked) and /handoff calls _lock.notify_all() after a write under the lock.
 # One Condition over one lock: never a second lock, or a flip could be missed / a writer could run
 # while a waiter holds the lock.
 _lock = threading.Condition()
-# Bounded server-side timeout for the /wait long-poll (seconds); a client ?timeout= is capped to it.
-WAIT_TIMEOUT_S = float(os.environ.get("MDREVIEW_WAIT_TIMEOUT_S", "25"))
-# Lease staleness TTL in SECONDS (agent_status.at is epoch seconds, float — never milliseconds).
-# A foreign /handoff {state:working} lease older than this is taken over (MR-055). MIRRORS the
-# viewer's STALE_S in viewer.html — single source of truth; the two MUST move together (both seconds).
-LEASE_TTL_S = float(os.environ.get("MDREVIEW_LEASE_TTL_S", "180"))
-RID = r"([A-Za-z0-9]{4,40})"
 
 
 def _dir(rid):
