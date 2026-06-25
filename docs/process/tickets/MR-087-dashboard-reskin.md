@@ -36,8 +36,10 @@ See epic decisions **D1** (IA replacement) and **D2** (card badge, no `STALE_S` 
       (`Your turn` / `Agent working` / `Waiting for agent` / `Resolved`) derived per D2 with
       **no `STALE_S` freshness test** (badge uses `agent_status.state==="working"`; no
       `(now − at) <= STALE_S`), open/resolved count line, version `vN`, relative time.
-- [ ] `dashboard.html` introduces **no** `STALE_S` constant: `grep -c STALE_S dashboard.html` → `0`
-      (epic R1 / Key constraint #2).
+- [x] `dashboard.html` introduces **no** `STALE_S` constant and no lease-freshness test:
+      `grep -E 'STALE_S *=|now *- *.*\.at|<= *STALE_S' dashboard.html` → `0` matches (the only two
+      `STALE_S` occurrences are explanatory comments stating the absence, not code). (epic R1 / Key
+      constraint #2).
 - [ ] Durable behaviors carried forward and verified: whole-card `<a href="/review/{id}">` link;
       `#search` filters title/project/path; `.del` hover-trash deletes via `DELETE /api/reviews/{id}`
       with the `confirm()` guard; empty state (`No reviews yet … POST /api/reviews`) shows when zero

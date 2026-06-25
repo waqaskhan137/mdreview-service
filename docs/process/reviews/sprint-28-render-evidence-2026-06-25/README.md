@@ -33,6 +33,8 @@ Drove headless Chrome on the **dark** pane (the invisibility-risk pane) and read
 ## Functional regression (live, during implementation — see MR-088/089 Validation)
 Baton Send (now in the banner) flips `turn`→`agent` + `#topstate`→"waiting for agent" + disables;
 reclaim → `reviewer`; resolving a comment live-updates the rail (3→2 cards) via the poll; comment
-anchoring (`mark.cmt`) intact; `body.gutter-on` wide-mode engages at 1400px, docks below ~1270px
-(pre-existing geometry, unchanged). `grep -c STALE_S dashboard.html` → 0; `viewer.html` STALE_S=180
-with its mirror comment intact.
+anchoring (`mark.cmt`) intact; `body.gutter-on` wide-mode engages at **~1315px** and docks below
+(pre-existing geometry — `git diff 8d4227c^ -- viewer.html` shows the `+320` fit constant and
+`max-width:720` unchanged). No second STALE_S mirror on the dashboard:
+`grep -E 'STALE_S *=|<= *STALE_S' dashboard.html` → 0 (the two literal `STALE_S` hits are
+explanatory comments). `viewer.html` STALE_S=180 with its `app.py:57` mirror comment intact.
