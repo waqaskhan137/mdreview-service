@@ -1,13 +1,13 @@
 ---
 id: MR-090
 title: Docs sweep — update README / CLAUDE for the re-skinned dashboard & viewer affordances
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: docs            # svc | ui | infra | docs
 priority: P2           # P0 | P1 | P2 | P3
 sprint: sprint-28
 epic: viewer-dashboard-reskin
 depends_on: [MR-087, MR-088, MR-089]
-branch:                # MR-090-docs-sweep, once work starts
+branch: feat/ui-updates   # cycle runs on feat/ui-updates (off dev), single-flight
 created: 2026-06-25
 updated: 2026-06-25
 ---
@@ -46,12 +46,24 @@ sprint close, per G7).
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-25` — Grep-gated sweep of `README.md`/`CLAUDE.md`/`AGENTS.md`. Confirmed N1: **no**
+  chip-filter / "Has notes" / "Done" / "Group by project" text existed (nothing to fix there). Two
+  real stale spots updated to the shipped IA: (1) `README.md` provenance paragraph — was
+  "group … (project › session › files)" / "Untagged reviews group under Ungrouped" (the old
+  collapsible tree); now describes the sidebar **Projects** filter + the `project / session /
+  source_path` card crumb + "All reviews" for untagged, plus a sentence on the new turn-baton
+  **Inbox**. (2) The identical curl-example comment in `CLAUDE.md:15` and `AGENTS.md:15` —
+  "groups the review on the dashboard (project > session > files)" → "shown on the dashboard (a
+  sidebar Projects filter + a project/session/source_path card crumb)". The dropped
+  "agent watcher · connected" indicator never appeared in docs (nothing to remove); the removed
+  viewer howto box had no doc reference.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-25` — `python3 -m py_compile app.py` green (docs-only). Post-sweep grep for
+  `Ungrouped|project › session|chip|Has notes|Group by project|inline feedback` across
+  README/CLAUDE/AGENTS → no matches. No render-smoke (no product page touched by this ticket).
 
 ## Follow-ups
 
-None expected.
+None.
