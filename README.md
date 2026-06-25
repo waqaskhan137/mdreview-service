@@ -126,12 +126,14 @@ no-auth service. Poll `comments_updated` (on `GET /status`) to live-reload threa
 
 ## MCP server (optional)
 
-`src/mcp_server.py` is a thin, stdlib-only **MCP** server (stdio, JSON-RPC 2.0, spec rev `2025-06-18`)
-that exposes the review API as first-class tools, so an MCP-speaking agent can call it without
-hand-rolling HTTP. It wraps the running HTTP service and adds no state — the service is unchanged.
+The **`mcp` package** (`src/mcp/`) is a thin, stdlib-only **MCP** server (stdio, JSON-RPC 2.0, spec
+rev `2025-06-18`) that exposes the review API as first-class tools, so an MCP-speaking agent can call
+it without hand-rolling HTTP. It wraps the running HTTP service and adds no state — the service is
+unchanged. `src/mcp_server.py` is a thin entry point kept at the src/ root so the path below (and any
+`.mcp.json` config pointing at it) keeps working; the canonical form is `python -m mcp`.
 
 ```bash
-# point it at a running mdreview-service and run it over stdio
+# point it at a running mdreview-service and run it over stdio (python -m mcp is equivalent)
 MDREVIEW_BASE=http://localhost:8137 python3 src/mcp_server.py
 # smoke it (stdlib only, no deps):
 MDREVIEW_BASE=http://localhost:8137 python3 tests/mcp_smoke.py
@@ -184,7 +186,7 @@ no auth — fine for the trusted-network posture, but keep auth in front if expo
 
 ## Watcher (optional) — operator runbook
 
-`src/watch.py` is a stdlib-only sibling of `src/mcp_server.py` that closes the handoff loop without a human
+The **`watcher` package** (`src/watcher/`, thin entry point `src/watch.py`, canonical `python -m watcher`) is a stdlib-only sibling of the `mcp` package that closes the handoff loop without a human
 in the relay: it long-polls the service for reviews the reviewer flipped to `turn==agent` ("Send to
 agent"), claims each review's cooperative lease, and spawns the operator's **required**
 `WATCH_LAUNCH_CMD`; with it **unset the watcher refuses to start** (exit `2` with guidance) — there is no runnable default. It runs **where the operator's agent runs** (like

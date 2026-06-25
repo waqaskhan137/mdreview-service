@@ -55,7 +55,7 @@ verification.
   assert the real behavior — not just `/healthz`. Drive the actual scenario the fix changed (e.g. a
   history-shape change → `POST` a review, `PUT /source` ×2, `GET /history` + `/history/{n}` and
   assert the new fields). py_compile is a pre-check, not the QC.
-- **`src/mcp_server.py` (the stdio MCP wrapper) / the `mcp__mdreview__*` tool surface:** the API is HTTP
+- **The `mcp` package (`src/mcp/`, thin entry point `src/mcp_server.py`) / the `mcp__mdreview__*` tool surface:** the API is HTTP
   but the wrapper is **stdio JSON-RPC** — curl can't reach it. Drive it with the repo's stdlib smokes
   (`tests/mcp_smoke.py` / `tests/agent_smoke.py`, which spawn the wrapper over stdio against a throwaway
   `MDREVIEW_BASE`). For a tool-surface change (new/renamed tool, schema, the staleness contract)
@@ -82,7 +82,7 @@ verification.
     the property), plus a CDP `prefers-reduced-motion: reduce` probe (`animationName === 'none'`), and
     check both light + dark panes via scheme emulation.
   - Capture a **screenshot** of the verified state as evidence.
-- **`src/watch.py` / the watcher:** the safety smokes (fail-closed trusted-base **exit 2**, arming gates
+- **The `watcher` package (`src/watcher/`, thin entry point `src/watch.py`):** the safety smokes (fail-closed trusted-base **exit 2**, arming gates
   the right reviews, the caps) on a localhost throwaway with a **stub** launch command; AND, when the
   fix concerns the agent loop, run the **live loop** (below).
 - **The full agent loop (the headline QC): comment -> Send -> agent edits -> hands back.** Start the

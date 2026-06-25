@@ -77,7 +77,7 @@ contract; your plan is the artifact that clears **Gate G1**.
      close-and-ship reference; it belongs here, where you write the commands.)
 7. **Conventions:** dates `Europe/London`; commits keep the `Co-Authored-By: Claude` trailer and
    reference the ticket ID; the validation gate is `python3 -m py_compile src/mdreview/*.py
-   src/mcp_server.py src/watch.py` (+ `docker build -f infra/Dockerfile` for infra, render-smoke
+   src/mcp/*.py src/watcher/*.py src/mcp_server.py src/watch.py` (+ `docker build -f infra/Dockerfile` for infra, render-smoke
    for ui). There is no test framework.
 8. **Prefer additive, default-safe designs** so a missing file/key preserves today's behavior.
 9. **Packaging: served files live under `web/app/` and are copied wholesale.** `infra/Dockerfile`

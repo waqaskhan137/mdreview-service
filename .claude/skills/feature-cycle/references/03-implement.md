@@ -12,7 +12,7 @@ For each ticket:
    `layer`; if you discover a missing prerequisite, **stop and apply the blocking rule** (new
    prerequisite ticket or deliberate scope widen), never bury it.
 4. **Validate (G4):**
-   - `svc`: `python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py`; then run it and curl the affected endpoints
+   - `svc`: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/mcp_server.py src/watch.py`; then run it and curl the affected endpoints
      (`PORT=8137 MDREVIEW_DATA=/tmp/mr PYTHONPATH=src python3 -m mdreview` on a free port, or rebuild the container).
    - `infra`: `docker build -f infra/Dockerfile -t mdreview-service .` must pass.
    - `ui`: rebuild from the image (`make up`) and run
