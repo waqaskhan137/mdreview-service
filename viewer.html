@@ -138,8 +138,8 @@
   .gcard .gx{position:absolute;top:5px;right:8px;border:none;background:none;color:var(--muted);font-size:16px;cursor:pointer;line-height:1;}
   .gcard.addressed{opacity:.55;border-left-color:var(--muted);}
   .gcard.addressed .gnote{text-decoration:line-through;}
-  mark.cmt{background:rgba(212,160,23,.28);color:inherit;border-radius:2px;padding:.5px 0;cursor:pointer;transition:background .15s;}
-  mark.cmt.active{background:rgba(212,160,23,.62);}
+  mark.cmt{background:rgba(91,48,214,.18);color:inherit;border-radius:2px;padding:.5px 0;cursor:pointer;transition:background .15s;}
+  mark.cmt.active{background:rgba(91,48,214,.40);}
   #histmodal{display:none;position:fixed;inset:0;z-index:85;background:rgba(0,0,0,.45);align-items:center;justify-content:center;}
   #histbox{width:min(720px,92vw);max-height:82vh;overflow:auto;background:var(--bg);border-radius:12px;padding:18px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13.5px;}
   #histbox h3{margin:0 0 12px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
@@ -151,7 +151,7 @@
   .histdoc{border:1px solid var(--rule);border-radius:8px;padding:12px 14px;font-family:Charter,Georgia,serif;font-size:15px;line-height:1.5;max-height:38vh;overflow:auto;}
   .histbtnrow{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
   /* MR-036: a block carrying an open comment gets the margin bar + dot */
-  .blk.has-comment{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(212,160,23,.07);}
+  .blk.has-comment{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
   .blk.has-comment .num::after{content:" \25CF";color:var(--noteline);}
   /* MR-036: threaded comment cards (gutter when wide, docked panel when narrow) */
   .gcard{cursor:default;padding:9px 11px;}
@@ -162,11 +162,11 @@
   .gcard .ghead .gdel.armed{color:#fff;background:#c0392b;font-weight:600;}
   .gthread{display:flex;flex-direction:column;gap:5px;}
   .gentry{border-left:3px solid var(--rule);background:rgba(127,127,127,.05);border-radius:4px;padding:4px 8px;}
-  .gentry.reviewer{border-left-color:var(--noteline);background:rgba(212,160,23,.09);}
-  .gentry.agent{border-left-color:var(--accent);background:rgba(45,212,191,.10);}
+  .gentry.reviewer{border-left-color:var(--noteline);background:rgba(91,48,214,.07);}
+  .gentry.agent{border-left-color:var(--blue);background:rgba(29,79,191,.08);}
   .gentry .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted);margin-right:5px;}
   .gentry.reviewer .grole{color:var(--noteline);}
-  .gentry.agent .grole{color:var(--accent);}
+  .gentry.agent .grole{color:var(--blue);}
   .gentry .gtext{color:var(--text);}
   .gentry .gtext>:first-child{margin-top:0;}
   .gentry .gtext>:last-child{margin-bottom:0;}
