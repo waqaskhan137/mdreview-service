@@ -1,13 +1,13 @@
 ---
 id: MR-087
 title: Dashboard re-skin — sidebar inbox + projects filter + restyled cards with baton badges
-status: ready          # backlog | ready | in-progress | review | done | blocked
+status: done           # backlog | ready | in-progress | review | done | blocked
 layer: ui              # svc | ui | infra | docs
 priority: P1           # P0 | P1 | P2 | P3
 sprint: sprint-28
 epic: viewer-dashboard-reskin
 depends_on: []
-branch:                # MR-087-dashboard-reskin, once work starts
+branch: feat/ui-updates   # cycle runs on feat/ui-updates (off dev), single-flight; commits carry the ticket ID
 created: 2026-06-25
 updated: 2026-06-25
 ---
@@ -76,11 +76,34 @@ See epic decisions **D1** (IA replacement) and **D2** (card badge, no `STALE_S` 
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-06-25` — Rewrote `dashboard.html` to the mockup. New flex shell: 256px left sidebar
+  (brand, **Inbox** nav with live counts, **Projects** list derived from distinct `project`
+  values) + main column (active-filter `#h1`, sub-count, top-right `#search`, "Recent activity"
+  eyebrow, card grid). Cards restyled to the mockup: project-only crumb (left) + `vN` (right),
+  bold title, baton status badge + relative time, hairline divider, status-colored footer dot +
+  open/resolved count. Status-colored left accent per card (`s-your-turn`/`s-agent-working`/
+  `s-waiting`/`s-resolved`). `statusOf()` derives the four baton labels from `turn`+`agent_status`+
+  `status` with **no `STALE_S` freshness test** (D2/R1). Removed the chip filters + grouped/flat
+  tree and their handlers; rewired `applyFilter()` to the inbox/project predicates (`INBOX` map) +
+  search, looking reviews up by `data-id`. Kept `load()`, `rel()` (+ `toLocaleDateString`
+  fallback), `esc()`, the hover-`.del` delete with `confirm()`, the empty state, and the whole-card
+  `<a href="/review/{id}">` link. Dark theme preserved via the `@media (prefers-color-scheme:dark)`
+  token swap; no new font (system sans stack, not Geist — no-pip footgun). No `app.py` change.
 
 ## Validation
 
-_How this was verified._
+- `2026-06-25` — `python3 -m py_compile app.py` green; inline-JS parses (`new Function`).
+- Render-smoke (throwaway instance, scratch port 8155, 5 seeded baton-state fixtures + a legacy
+  no-provenance review): `.side .brand .nav-item(7) #projlist #search .eyebrow .grid .card(6)
+  .badge(6) .divider(6) .countline(6) .del(6)` all ≥1 node, exit 0.
+- `grep -c STALE_S dashboard.html` → 0 (R1 satisfied — no second mirror).
+- Functional click-through (live tab): Inbox filters partition correctly — Needs you → 2
+  `your-turn`; Agent working → 3 `turn===agent` (`agent-working`+`waiting`); Resolved → 1
+  `resolved`. Search "cache" → 2 matching titles. Project "inference-gateway" → scopes to 3 +
+  `#h1` updates. Hover-delete buttons present (6).
+- Both panes: light screenshot matches the mockup (`.scratch/shots/dash-mine-light2.png` vs
+  `dash-mock-light.png` — captured via `preferredColorScheme=1`, never `--force-dark-mode`); dark
+  pane verified in the live OS-dark tab.
 
 ## Follow-ups
 
