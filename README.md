@@ -126,15 +126,15 @@ no-auth service. Poll `comments_updated` (on `GET /status`) to live-reload threa
 
 ## MCP server (optional)
 
-`mcp_server.py` is a thin, stdlib-only **MCP** server (stdio, JSON-RPC 2.0, spec rev `2025-06-18`)
+`src/mcp_server.py` is a thin, stdlib-only **MCP** server (stdio, JSON-RPC 2.0, spec rev `2025-06-18`)
 that exposes the review API as first-class tools, so an MCP-speaking agent can call it without
 hand-rolling HTTP. It wraps the running HTTP service and adds no state — the service is unchanged.
 
 ```bash
 # point it at a running mdreview-service and run it over stdio
-MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py
+MDREVIEW_BASE=http://localhost:8137 python3 src/mcp_server.py
 # smoke it (stdlib only, no deps):
-MDREVIEW_BASE=http://localhost:8137 python3 mcp_smoke.py
+MDREVIEW_BASE=http://localhost:8137 python3 tests/mcp_smoke.py
 ```
 
 Example MCP client config (stdio):
@@ -144,7 +144,7 @@ Example MCP client config (stdio):
   "mcpServers": {
     "mdreview": {
       "command": "python3",
-      "args": ["/path/to/mdreview-service/mcp_server.py"],
+      "args": ["/path/to/mdreview-service/src/mcp_server.py"],
       "env": { "MDREVIEW_BASE": "http://localhost:8137" }
     }
   }
@@ -167,11 +167,11 @@ call (bad/expired id, service down) returns an `isError: true` result; an unknow
 JSON-RPC `-32602` error.
 
 **Staleness.** A stdio MCP server loads its code + tool list once at process start; editing
-`mcp_server.py` does nothing until the client **reconnects**. `server_info` reports the *running*
-wrapper's `tools_hash`/version; a **human/CI** compares it to the on-disk `python3 mcp_server.py
+`src/mcp_server.py` does nothing until the client **reconnects**. `server_info` reports the *running*
+wrapper's `tools_hash`/version; a **human/CI** compares it to the on-disk `python3 src/mcp_server.py
 --print-version` and reconnects on a mismatch (the server can signal its identity but cannot reload
 itself; an HTTP/render change needs no reconnect — the wrapper just proxies — a change to
-`mcp_server.py` itself does).
+`src/mcp_server.py` itself does).
 
 **Reachable `review_url`.** The wrapper relays the service's `review_url`, which the service
 derives from the request `Host` header unless `MDREVIEW_PUBLIC_BASE` is set. So a human handed the
@@ -184,11 +184,11 @@ no auth — fine for the trusted-network posture, but keep auth in front if expo
 
 ## Watcher (optional) — operator runbook
 
-`watch.py` is a stdlib-only sibling of `mcp_server.py` that closes the handoff loop without a human
+`src/watch.py` is a stdlib-only sibling of `src/mcp_server.py` that closes the handoff loop without a human
 in the relay: it long-polls the service for reviews the reviewer flipped to `turn==agent` ("Send to
 agent"), claims each review's cooperative lease, and spawns the operator's **required**
 `WATCH_LAUNCH_CMD`; with it **unset the watcher refuses to start** (exit `2` with guidance) — there is no runnable default. It runs **where the operator's agent runs** (like
-`mcp_server.py`). It runs **two ways**: on the host (`python3 watch.py`, below — the answer for a
+`src/mcp_server.py`). It runs **two ways**: on the host (`python3 src/watch.py`, below — the answer for a
 public/shared instance), or as an **opt-in container** (`make watcher` — the
 local-use path, see **"Containerized watcher"** below). A plain `make up` does **not** start
 it; it is off unless you ask for the profile.
@@ -198,12 +198,12 @@ it; it is off unless you ask for the profile.
 # scoped/recommended recipe (mdreview-tools-only, robustly headless) is:
 MDREVIEW_BASE=http://localhost:8137 \
   WATCH_LAUNCH_CMD='["claude","--permission-mode","dontAsk","--allowedTools","mcp__mdreview__*","-p","<prompt>"]' \
-  python3 watch.py
+  python3 src/watch.py
 
 # with a non-loopback base, you MUST vouch for it explicitly (exact match):
 MDREVIEW_BASE=http://10.0.0.5:8137 WATCH_TRUSTED_BASE=http://10.0.0.5:8137 \
   WATCH_LAUNCH_CMD='["claude","--permission-mode","dontAsk","--allowedTools","mcp__mdreview__*","-p","<prompt>"]' \
-  python3 watch.py
+  python3 src/watch.py
 ```
 
 **Configuring the launch command (the recipes).** `WATCH_LAUNCH_CMD` must carry **both** the agent
@@ -236,7 +236,7 @@ under the scoped `dontAsk` + `mcp__mdreview__*` recipe, but is executed under
 `--dangerously-skip-permissions`. **Use the scoped posture, not `--dangerously-skip-permissions`, on
 any base where comments aren't fully trusted.**
 
-**Fail-closed trusted base (the safety crux).** `watch.py` is a *credentialed process spawner*, so it
+**Fail-closed trusted base (the safety crux).** `src/watch.py` is a *credentialed process spawner*, so it
 **refuses to start** (exit `2`, no network call) against a base it cannot vouch for. With
 `WATCH_TRUSTED_BASE` unset it allows **loopback only** (`localhost`/`127.0.0.1`/`::1`); for any other
 base you must set `WATCH_TRUSTED_BASE` to an **EXACT** string match of `MDREVIEW_BASE` (no wildcard,
@@ -268,7 +268,7 @@ a vouch), a non-loopback base still **EXITs `2`** — arming is the *only* way t
   fixed at process start (the file is the live-editable surface).
 
 **Local-only, and why it is the whole security boundary.** The allowlist is **operator-local config a
-service request cannot influence**: there is **no endpoint to arm a review** (`watch.py` reads it from
+service request cannot influence**: there is **no endpoint to arm a review** (`src/watch.py` reads it from
 disk/env; the service never sees it), so on a no-auth public instance a review **cannot arm itself**.
 **Provenance is not a trust boundary** on the no-auth service — anyone with the URL can set
 `project`/`session` and press "Send to agent" — so the *only* thing standing between a public Send and a
@@ -279,7 +279,7 @@ file as you would any credential-adjacent config.
 # public-instance operation: arm specific reviews, no WATCH_TRUSTED_BASE vouch needed.
 # Review ids are what /api/reviews returns (10 hex chars, e.g. secrets.token_hex(5)) — not "rev_..".
 printf '%s\n' '4b09a6cbe0' 'd2abf53a16' > ~/.mdreview-armed
-WATCH_ARMED_FILE=~/.mdreview-armed MDREVIEW_BASE=https://public.example python3 watch.py
+WATCH_ARMED_FILE=~/.mdreview-armed MDREVIEW_BASE=https://public.example python3 src/watch.py
 # un-armed reviews flipped to turn==agent are skipped (no lease claim); only the two armed ids run.
 ```
 
@@ -351,7 +351,7 @@ them, and hands the turn back — the page live-updates as it goes.
 
 | Env var | Default | Meaning |
 | --- | --- | --- |
-| `MDREVIEW_BASE` | `http://localhost:8137` | Service base URL the watcher polls (same as `mcp_server.py`). |
+| `MDREVIEW_BASE` | `http://localhost:8137` | Service base URL the watcher polls (same as `src/mcp_server.py`). |
 | `WATCH_TRUSTED_BASE` | _(unset)_ | Explicit vouch for a non-loopback base; **exact** string match of `MDREVIEW_BASE` (no wildcard/prefix). Unset ⇒ loopback only. |
 | `WATCH_ARMED_FILE` | _(unset)_ | Path to the local allowlist file (one id/line, `#` comments, bad/`*` tokens dropped); re-read per check (append-a-line, no restart). |
 | `WATCH_ARMED` | _(unset)_ | Inline armed id-list (comma/space-separated), unioned with the file; fixed at process start. |
@@ -384,6 +384,6 @@ stderr stays in the operator log (no-auth posture).
   trusted-network posture, but a reason to keep auth in front when exposed.
 - The **MCP wrapper** above was designed in [docs/future-mcp.md](docs/future-mcp.md), kept as its
   design/decision record.
-- For agent integration details, see [AGENTS.md](AGENTS.md).
+- For agent integration details, see [CLAUDE.md](CLAUDE.md).
 - A non-Docker, per-file CLI version lives in `../mdreview` (writes feedback to a file next to
   the source). This service is the networked, multi-session form.

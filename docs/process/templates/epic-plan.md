@@ -28,10 +28,10 @@ The one idea that keeps the design coherent — the constraint everything else s
 
 The shape of the solution, split by area where useful.
 
-### Service (`app.py`)
+### Service (`src/mdreview/server.py`)
 - …
 
-### UI (`viewer.html` / `dashboard.html` / `static/`)
+### UI (`web/app/viewer.html` / `web/app/dashboard.html` / `web/app/static/`)
 - …
 
 ## Rollout phases

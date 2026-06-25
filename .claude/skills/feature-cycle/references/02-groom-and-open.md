@@ -14,8 +14,8 @@ For each ticket fill: `id`, `title`, `layer` (`svc`/`ui`/`infra`/`docs`), `prior
 
 - **Goal** — the outcome, not the implementation.
 - **Acceptance criteria** — specific and checkable, including the validation line
-  (`python3 -m py_compile app.py` plus the layer's smoke).
-- **Notes / context** — `path:line` references into `app.py` / `viewer.html` etc., and the epic.
+  (`python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py` plus the layer's smoke).
+- **Notes / context** — `path:line` references into `src/mdreview/server.py` / `web/app/viewer.html` etc., and the epic.
 
 A ticket reaches **G2 (`ready`)** only when AC are written, dependencies identified, `layer` +
 `priority` set, no open questions, roughly sized. Set `status: ready`.

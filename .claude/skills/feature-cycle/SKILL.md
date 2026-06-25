@@ -76,7 +76,7 @@ Use `TaskCreate`/`TaskUpdate` to track phases in-session (convenience only).
 - **Commit hygiene:** every commit references the ticket ID. Conventional-commit subject
   (`feat(svc): ... (MR-###)`). This repo **keeps** the `Co-Authored-By: Claude` trailer (see
   README divergences).
-- **Validation is the gate:** `python3 -m py_compile app.py` must pass before any commit; for
+- **Validation is the gate:** `python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py` must pass before any commit; for
   `infra` changes, `docker build -f infra/Dockerfile` must pass; for `ui` changes, a curl smoke + a browser open of
   the touched page.
 - **Dates** are `Europe/London`.
@@ -107,7 +107,7 @@ Use `TaskCreate`/`TaskUpdate` to track phases in-session (convenience only).
 
 - Explicit slug required; **fail loud** on any ticket-ID / sprint-number / file collision — never
   silently overwrite or reuse.
-- `python3 -m py_compile app.py` must pass before any commit. For a running container, rebuild
+- `python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py` must pass before any commit. For a running container, rebuild
   with `make up` and smoke `curl localhost:8137/healthz`.
 - **Phase 6 render-smoke must succeed** (every touched page opens and renders) or the cycle
   **parks** — it does not pass G7.

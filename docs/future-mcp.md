@@ -1,9 +1,9 @@
 # An MCP wrapper for mdreview-service
 
-Status: **SHIPPED** (2026-06-09, epic `mcp-wrapper` / sprint-04). Built as **`mcp_server.py`**
-(the stdlib stdio server) with **`mcp_smoke.py`** (the dependency-free smoke). This file was the
+Status: **SHIPPED** (2026-06-09, epic `mcp-wrapper` / sprint-04). Built as **`src/mcp_server.py`**
+(the stdlib stdio server) with **`tests/mcp_smoke.py`** (the dependency-free smoke). This file was the
 original sketch; the shape below is what was built. To run:
-`MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py` (see `README.md` for the client config
+`MDREVIEW_BASE=http://localhost:8137 python3 src/mcp_server.py` (see `README.md` for the client config
 and the `MDREVIEW_PUBLIC_BASE` reachability note).
 
 The implementation followed this sketch with two refinements decided during review: it is
@@ -50,8 +50,8 @@ as a clearly separate, optional component with its own dependencies).
 > `README.md` / `CLAUDE.md` for the current full set.
 
 **Staleness.** A stdio MCP server loads its code + tool list once at process start; editing
-`mcp_server.py` does nothing until the client **reconnects**. `server_info` reports the *running*
-wrapper's `tools_hash`; a **human/CI** compares it to the on-disk `python3 mcp_server.py
+`src/mcp_server.py` does nothing until the client **reconnects**. `server_info` reports the *running*
+wrapper's `tools_hash`; a **human/CI** compares it to the on-disk `python3 src/mcp_server.py
 --print-version` and reconnects on a mismatch (the server signals its identity, it cannot reload
 itself — an HTTP/render change needs no reconnect; a wrapper-code change does).
 
@@ -59,7 +59,7 @@ itself — an HTTP/render change needs no reconnect; a wrapper-code change does)
 
 - **Provenance** flows straight through `create_review` (`project`/`session`/`source_path`).
 - **Polling** stays the agent's job: `get_status` is the cheap signal; `get_feedback` returns the
-  notes. The "human is done" heuristic in `AGENTS.md` now watches `comments_updated` (the
+  notes. The "human is done" heuristic in `CLAUDE.md` now watches `comments_updated` (the
   pre-MR-036 `feedback_updated` write was retired — see the `legacy-feedback-retire` epic).
 - **No auth** in the wrapper either; it inherits the trusted-network posture of the service.
 

@@ -71,9 +71,9 @@ grooming.
 | `layer` | Means | Typical files |
 |---------|-------|---------------|
 | `svc` | the service: HTTP server, router, API, storage | `src/mdreview/**` |
-| `ui` | the human-facing pages and assets | `web/viewer.html`, `web/dashboard.html`, `web/static/**` |
+| `ui` | the human-facing pages and assets | `web/app/viewer.html`, `web/app/dashboard.html`, `web/app/static/**` |
 | `infra` | container, compose, config, deploy | `infra/Dockerfile`, `infra/docker-compose.yml`, `infra/.env*`, `vercel`/host config |
-| `docs` | documentation, this process | `README.md`, `AGENTS.md`, `CLAUDE.md`, `docs/**` |
+| `docs` | documentation, this process | `README.md`, `CLAUDE.md`, `docs/**` |
 
 ## Status lifecycle
 
@@ -132,7 +132,7 @@ immediately. If several are eligible, pick the highest `priority` first.
 ### Definition of Done
 
 A ticket is `done` only when: all acceptance criteria met; local validation passes; durable
-behavior changes are reflected in `README.md` / `AGENTS.md` / `CLAUDE.md` **in the same change**
+behavior changes are reflected in `README.md` / `CLAUDE.md` **in the same change**
 **or** deferred to a trailing **docs-sweep ticket within the same sprint** (the deferring ticket
 must name its sweep ticket in its Work log); the ticket's Work log + Validation are filled in; the
 work is committed (and pushed).
@@ -162,7 +162,7 @@ by default, not by memory. A failed gate is the gate doing its job.
 | **G4 — Review** | `in-progress` -> `review` | `python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py` passes (and `docker build -f infra/Dockerfile` for `infra`); **for `ui` tickets, a render-smoke from the rebuilt image passes** — `tests/render-smoke.sh <url> <selector>...` asserts the expected DOM nodes rendered (a 200 is not a render; see Development flow step 5); author self-checked the acceptance criteria. |
 | **G5 — Definition of Done** | `review` -> `done` | All AC met + validation + docs updated (in the same change, or deferred to a same-sprint docs-sweep ticket named in the Work log) + Work log/Validation filled + committed. |
 | **G6 — Sprint open** | -> sprint `active` | Every committed ticket is `ready`; the sprint has a goal and a committed-ticket list. |
-| **G7 — Sprint close** | sprint -> `closed` | Every committed ticket is `done` or explicitly carried over (**a docs-sweep ticket is NOT eligible for carry-over**); **no committed ticket has docs deferred to a docs-sweep ticket that is not yet `done`** (deferred docs are force-closed at sprint close, never carried across cycles); an **independent `staff-critic` sprint-close review** is recorded in `docs/process/reviews/` (reviewer is NOT the implementer), verifying shipped work against each ticket's acceptance criteria, **including a render smoke** (rebuild the container, `curl /healthz` + `/api/reviews`) — and, **only if a product page (`web/viewer.html` / `web/dashboard.html` / `web/static/**`) was touched this sprint**, `tests/render-smoke.sh` against each touched page asserting its DOM nodes plus a screenshot under `docs/process/reviews/sprint-NN-render-evidence-*`; a docs/infra-only sprint that touches no product page is **not** non-compliant for lacking the per-page DOM assertion and screenshot, but still owes the container rebuild + `curl /healthz` + `/api/reviews` smoke; retro + carry-overs are written into the sprint file. |
+| **G7 — Sprint close** | sprint -> `closed` | Every committed ticket is `done` or explicitly carried over (**a docs-sweep ticket is NOT eligible for carry-over**); **no committed ticket has docs deferred to a docs-sweep ticket that is not yet `done`** (deferred docs are force-closed at sprint close, never carried across cycles); an **independent `staff-critic` sprint-close review** is recorded in `docs/process/reviews/` (reviewer is NOT the implementer), verifying shipped work against each ticket's acceptance criteria, **including a render smoke** (rebuild the container, `curl /healthz` + `/api/reviews`) — and, **only if a product page (`web/app/viewer.html` / `web/app/dashboard.html` / `web/app/static/**`) was touched this sprint**, `tests/render-smoke.sh` against each touched page asserting its DOM nodes plus a screenshot under `docs/process/reviews/sprint-NN-render-evidence-*`; a docs/infra-only sprint that touches no product page is **not** non-compliant for lacking the per-page DOM assertion and screenshot, but still owes the container rebuild + `curl /healthz` + `/api/reviews` smoke; retro + carry-overs are written into the sprint file. |
 | **G8 — Promote to main** | `dev` -> `main` | **Explicit user go-ahead.** `dev` holds all work; `main` advances only when the user approves. A single standing `dev -> main` PR accumulates work until then. |
 
 **Two gates require a recorded independent review: G1 (before tickets exist) and G7 (before a
@@ -188,7 +188,7 @@ Naming by gate:
 
 **Citation convention.** In process docs, reviews, and plans, **cite gates and sections by name**
 (e.g. "the G7 pass-condition row", "the Definition of Done section"), not by line number — these
-docs grow and numeric anchors drift. **Reserve line numbers for code citations** (`app.py:NNN`).
+docs grow and numeric anchors drift. **Reserve line numbers for code citations** (`src/mdreview/server.py:NNN`).
 
 ## The board
 

@@ -23,8 +23,8 @@ Precondition: every committed ticket is `done`.
 1. **Render smoke (you):** rebuild the container (`make up`), then:
    - `curl -s localhost:8137/healthz` -> `{"ok":true}`;
    - `curl -s localhost:8137/api/reviews` (or other touched endpoints) returns sane JSON;
-   - **only if a product page (`viewer.html`/`dashboard.html`/`static/**`) was touched this
-     sprint** (see the G7 pass-condition row): run `scripts/render-smoke.sh` against each touched
+   - **only if a product page (`web/app/viewer.html`/`web/app/dashboard.html`/`web/app/static/**`) was touched this
+     sprint** (see the G7 pass-condition row): run `tests/render-smoke.sh` against each touched
      page and **open it** (`/`, `/review/<id>`) in a browser, screenshotting to
      `docs/process/reviews/sprint-NN-render-evidence-YYYY-MM-DD/` (a 200 is not proof a JS page renders). A
      docs/infra-only sprint that touches no product page skips this per-page step but still owes
