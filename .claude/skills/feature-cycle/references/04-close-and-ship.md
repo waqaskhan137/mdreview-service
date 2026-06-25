@@ -26,7 +26,7 @@ Precondition: every committed ticket is `done`.
    - **only if a product page (`viewer.html`/`dashboard.html`/`static/**`) was touched this
      sprint** (see the G7 pass-condition row): run `scripts/render-smoke.sh` against each touched
      page and **open it** (`/`, `/review/<id>`) in a browser, screenshotting to
-     `reviews/sprint-NN-render-evidence-YYYY-MM-DD/` (a 200 is not proof a JS page renders). A
+     `docs/process/reviews/sprint-NN-render-evidence-YYYY-MM-DD/` (a 200 is not proof a JS page renders). A
      docs/infra-only sprint that touches no product page skips this per-page step but still owes
      the rebuild + curl smoke above.
    - **(new) For theme/color work, a node-count smoke + a screenshot are not enough — add a
@@ -42,7 +42,7 @@ Precondition: every committed ticket is `done`.
      epic, draft `[BLOCKED]` PR, arm the retro marker, run Phase 10.
 2. **Independent review (staff-critic):** spawn `staff-critic` (reviewer != implementer) on the
    shipped diff + the render evidence. It writes
-   `reviews/sprint-NN-close-review-YYYY-MM-DD.md` (frontmatter `gate: G7`, `independent: true`,
+   `docs/process/reviews/sprint-NN-close-review-YYYY-MM-DD.md` (frontmatter `gate: G7`, `independent: true`,
    `verdict`, `status: open`), checking shipped work against **each ticket's acceptance criteria**.
 
 ## Phase 7 — fix findings (you)
@@ -72,7 +72,7 @@ ticket / `backlog.md`). Max 3 rounds, then park. On resolution:
 ## Phase 10 — cycle retrospective (automatic)
 
 Spawn the **`cycle-retrospective`** agent to meta-review THIS run (the cycle, not the feature). It
-writes `reviews/<slug>-cycle-retro-YYYY-MM-DD.md` with prioritized, tagged suggestions
+writes `docs/process/reviews/<slug>-cycle-retro-YYYY-MM-DD.md` with prioritized, tagged suggestions
 (`[process]`/`[skill]`/`[agent]`/`[feature]`) and SUGGESTS ONLY. Then:
 
 - clear the marker: `rm .claude/.feature-cycle-pending-retro`;

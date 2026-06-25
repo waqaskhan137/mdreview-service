@@ -5,7 +5,7 @@ status: planning       # planning | active | closed
 start: YYYY-MM-DD
 end: YYYY-MM-DD
 goal: <one sentence — what this sprint is meant to achieve>
-close_review:          # reviews/sprint-NN-close-review-YYYY-MM-DD.md — required by G7 before status: closed
+close_review:          # docs/process/reviews/sprint-NN-close-review-YYYY-MM-DD.md — required by G7 before status: closed
 ---
 
 ## Goal
@@ -38,7 +38,7 @@ The sprint cannot be marked `closed` until:
 
 - [ ] every committed ticket is `done` or explicitly carried over (note where);
 - [ ] a **staff-critic sprint-close review** exists at
-      `reviews/sprint-NN-close-review-YYYY-MM-DD.md`, verifying shipped work against each
+      `docs/process/reviews/sprint-NN-close-review-YYYY-MM-DD.md`, verifying shipped work against each
       ticket's acceptance criteria, **including a render smoke** of any page touched, and its
       findings are resolved or carried;
 - [ ] retro + carry-overs are recorded above, and `close_review:` is set in frontmatter.

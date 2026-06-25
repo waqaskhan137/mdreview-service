@@ -118,7 +118,7 @@ Return a tight report:
 - **VERDICT: PASS / FAIL / INCONCLUSIVE** (one word, up front).
 - **What you verified + how** — the exact scenario, the commands/assertions run, the throwaway
   port/container.
-- **Evidence** — smoke output / node-CDP JSON / screenshot paths (under `reviews/…` or `.scratch/`).
+- **Evidence** — smoke output / node-CDP JSON / screenshot paths (under `docs/process/reviews/…` or `.scratch/`).
 - **On FAIL:** the precise symptom (what the app did vs. what the fix claims) and the most likely
   cause/location, so the implementer can redo it without re-discovering the failure.
 - **On INCONCLUSIVE:** exactly what could not be verified and why (e.g. a dependency unavailable), so

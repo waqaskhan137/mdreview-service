@@ -7,7 +7,7 @@
 #
 # How it works: drive headless Chrome to serialize the RENDERED DOM (`--dump-dom`) AFTER a
 # render-wait (`--virtual-time-budget`, because the viewer renders via setTimeout fallbacks +
-# async mermaid — see reviews/sprint-01-close-review-2026-06-08.md). Then a stdlib Python HTML
+# async mermaid — see docs/process/reviews/sprint-01-close-review-2026-06-08.md). Then a stdlib Python HTML
 # parser COUNTS ELEMENTS matching each selector (text inside <style>/<script> is data, not
 # elements, so it is correctly ignored).
 #

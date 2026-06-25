@@ -33,7 +33,7 @@ docs/process/
   epics/           scoping docs: <slug>-plan.md
   tickets/         one file per ticket: MR-###-slug.md
   sprints/         one file per sprint: sprint-##.md
-  reviews/         independent critiques (gate evidence): <artifact>-review-YYYY-MM-DD.md
+  reviews/         gate evidence: critiques (<artifact>-review-YYYY-MM-DD.md) + render-evidence dirs (sprint-NN-render-evidence-YYYY-MM-DD/)
 ```
 
 ## Divergences from the source process (deliberate)
@@ -156,13 +156,13 @@ by default, not by memory. A failed gate is the gate doing its job.
 | Gate | Boundary | Pass condition |
 |------|----------|----------------|
 | **G0 — Requirement captured** | brief -> grooming | Verbatim source exists in `requirements/` and is not edited after capture. |
-| **G1 — Plan Gate** | epic plan -> tickets | The epic plan has a recorded **independent** review in `reviews/` (reviewer is NOT the plan's author: the `staff-critic` agent, or the product owner), **all blocker questions answered**, and explicit sign-off. Only then does the epic move to `status: active`/`gate: passed` and tickets may be created. |
+| **G1 — Plan Gate** | epic plan -> tickets | The epic plan has a recorded **independent** review in `docs/process/reviews/` (reviewer is NOT the plan's author: the `staff-critic` agent, or the product owner), **all blocker questions answered**, and explicit sign-off. Only then does the epic move to `status: active`/`gate: passed` and tickets may be created. |
 | **G2 — Definition of Ready** | ticket -> `ready` | Acceptance criteria written, dependencies identified, `layer` + `priority` set, no open questions, roughly sized. |
 | **G3 — Pickup** | `ready` -> `in-progress` | Active sprint + every `depends_on` is `done` + the one-in-progress rule. |
 | **G4 — Review** | `in-progress` -> `review` | `python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py` passes (and `docker build` for `infra`); **for `ui` tickets, a render-smoke from the rebuilt image passes** — `tests/render-smoke.sh <url> <selector>...` asserts the expected DOM nodes rendered (a 200 is not a render; see Development flow step 5); author self-checked the acceptance criteria. |
 | **G5 — Definition of Done** | `review` -> `done` | All AC met + validation + docs updated (in the same change, or deferred to a same-sprint docs-sweep ticket named in the Work log) + Work log/Validation filled + committed. |
 | **G6 — Sprint open** | -> sprint `active` | Every committed ticket is `ready`; the sprint has a goal and a committed-ticket list. |
-| **G7 — Sprint close** | sprint -> `closed` | Every committed ticket is `done` or explicitly carried over (**a docs-sweep ticket is NOT eligible for carry-over**); **no committed ticket has docs deferred to a docs-sweep ticket that is not yet `done`** (deferred docs are force-closed at sprint close, never carried across cycles); an **independent `staff-critic` sprint-close review** is recorded in `reviews/` (reviewer is NOT the implementer), verifying shipped work against each ticket's acceptance criteria, **including a render smoke** (rebuild the container, `curl /healthz` + `/api/reviews`) — and, **only if a product page (`web/viewer.html` / `web/dashboard.html` / `web/static/**`) was touched this sprint**, `tests/render-smoke.sh` against each touched page asserting its DOM nodes plus a screenshot under `reviews/sprint-NN-render-evidence-*`; a docs/infra-only sprint that touches no product page is **not** non-compliant for lacking the per-page DOM assertion and screenshot, but still owes the container rebuild + `curl /healthz` + `/api/reviews` smoke; retro + carry-overs are written into the sprint file. |
+| **G7 — Sprint close** | sprint -> `closed` | Every committed ticket is `done` or explicitly carried over (**a docs-sweep ticket is NOT eligible for carry-over**); **no committed ticket has docs deferred to a docs-sweep ticket that is not yet `done`** (deferred docs are force-closed at sprint close, never carried across cycles); an **independent `staff-critic` sprint-close review** is recorded in `docs/process/reviews/` (reviewer is NOT the implementer), verifying shipped work against each ticket's acceptance criteria, **including a render smoke** (rebuild the container, `curl /healthz` + `/api/reviews`) — and, **only if a product page (`web/viewer.html` / `web/dashboard.html` / `web/static/**`) was touched this sprint**, `tests/render-smoke.sh` against each touched page asserting its DOM nodes plus a screenshot under `docs/process/reviews/sprint-NN-render-evidence-*`; a docs/infra-only sprint that touches no product page is **not** non-compliant for lacking the per-page DOM assertion and screenshot, but still owes the container rebuild + `curl /healthz` + `/api/reviews` smoke; retro + carry-overs are written into the sprint file. |
 | **G8 — Promote to main** | `dev` -> `main` | **Explicit user go-ahead.** `dev` holds all work; `main` advances only when the user approves. A single standing `dev -> main` PR accumulates work until then. |
 
 **Two gates require a recorded independent review: G1 (before tickets exist) and G7 (before a
@@ -175,7 +175,7 @@ as a labelled, non-gating pre-pass (`independent: false`) but never satisfies th
 
 ### Reviews (gate evidence)
 
-Independent critiques live in `reviews/`, one file per review, named
+Independent critiques live in `docs/process/reviews/`, one file per review, named
 `<artifact-slug>-review-YYYY-MM-DD.md` (round suffix `-r2`, `-r3` for re-reviews). A review
 carries frontmatter: `review_of`, `gate`, `reviewer`, `independent` (`true`/`false`, must be
 `true` for G1/G7), `timestamp`, `verdict`, `status` (`open`|`resolved`); links to the artifact
@@ -203,7 +203,7 @@ truth; whenever a ticket's `status` changes, move its row to the matching sectio
   committed tickets, set `status: active` when it starts.
 - **New epic:** copy `templates/epic-plan.md` -> `epics/<slug>-plan.md` and scope it. **Do not
   create its tickets until it clears G1.**
-- **New review:** write `reviews/<artifact-slug>-review-YYYY-MM-DD.md` per the Reviews section.
+- **New review:** write `docs/process/reviews/<artifact-slug>-review-YYYY-MM-DD.md` per the Reviews section.
 
 ## Automation
 

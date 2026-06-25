@@ -46,7 +46,7 @@ ceremony.
 Loop (max 3 rounds, then park):
 
 1. Spawn `staff-critic` on `epics/<slug>-plan.md`. It writes
-   `reviews/<slug>-plan-review-YYYY-MM-DD.md` (round suffix `-r2`, `-r3`) with frontmatter
+   `docs/process/reviews/<slug>-plan-review-YYYY-MM-DD.md` (round suffix `-r2`, `-r3`) with frontmatter
    `review_of`, `gate: G1`, `reviewer`, `independent: true`, `verdict`, `status: open`, and a
    findings list + Resolution log.
 2. If PASS with no blockers -> set the review `status: resolved`, set the epic

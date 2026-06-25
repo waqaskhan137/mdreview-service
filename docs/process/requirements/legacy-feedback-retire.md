@@ -8,7 +8,7 @@ related_epic: epics/legacy-feedback-retire-plan.md
 # Brief — act on the ponytail audit's actionable findings
 
 The full source brief is the audit at
-[`reviews/ponytail-audit-2026-06-19.md`](../../../reviews/ponytail-audit-2026-06-19.md) (read it
+[`reviews/ponytail-audit-2026-06-19.md`](../reviews/ponytail-audit-2026-06-19.md) (read it
 in full — it carries the verification evidence and a v1→v2→v3 revision history). The actionable
 content is reproduced verbatim below so this requirement is self-contained.
 
