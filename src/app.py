@@ -26,7 +26,6 @@ API
   GET    /healthz                                             -> {ok}
 """
 import base64
-import hashlib
 import json
 import os
 import re
@@ -41,6 +40,7 @@ from mdreview.config import (
 )
 from mdreview.store import Store
 from mdreview.comments import CommentService
+from mdreview.assets import AssetService
 
 # The single persistence seam (MR-081). Store owns DATA_DIR + the ONE threading.Condition (MR-054:
 # one Condition over one lock; notify under the same lock as the write) + the typed read/write
@@ -62,6 +62,7 @@ _to_float = _store.to_float
 # (MR-086) will build these and hang them off the server; for now they are module-level singletons
 # the in-place route arms call directly.
 _comments = CommentService(_store)
+_assets = AssetService(_store)
 
 
 def meta(rid):
@@ -151,49 +152,6 @@ def create_review(markdown, title, project="", source_path="", session=""):
         "session": session or "",
     }))
     return rid
-
-
-# ---- assets ----
-# Per review, raw bytes live under _dir(rid)/assets/<stored> and a manifest at assets.json
-# (siblings of source.md/history/, untouched by snapshot_round, so assets survive every PUT
-# /source). The stored name is sha1(bytes)[:16] + the sanitized original extension: it can
-# never contain '/', '..' or NUL, so it is path-traversal-proof by construction and dedupes
-# identical bytes. The human-supplied name is kept only as a manifest match field; it never
-# appears in a filesystem path or a served URL.
-_EXT_RE = re.compile(r"\.[A-Za-z0-9]{1,8}$")
-
-
-def _assets_dir(rid):
-    return os.path.join(_dir(rid), "assets")
-
-
-def _assets_manifest(rid):
-    return os.path.join(_dir(rid), "assets.json")
-
-
-def list_assets(rid):
-    return _read_json(_assets_manifest(rid), [])
-
-
-def _stored_name(name, data):
-    mo = _EXT_RE.search(name or "")
-    ext = mo.group(0).lower() if mo else ""
-    return hashlib.sha1(data).hexdigest()[:16] + ext
-
-
-def attach_asset(rid, name, data):
-    """Store bytes under a content-hash name and upsert the manifest. Caller holds _lock."""
-    ad = _assets_dir(rid)
-    os.makedirs(ad, exist_ok=True)
-    stored = _stored_name(name, data)
-    with open(os.path.join(ad, stored), "wb") as f:
-        f.write(data)
-    entry = {"name": name, "stored": stored, "bytes": len(data),
-             "ctype": _ctype_for(name), "ts": time.time()}
-    manifest = [e for e in _read_json(_assets_manifest(rid), []) if e.get("name") != name]
-    manifest.append(entry)
-    _write(_assets_manifest(rid), json.dumps(manifest))
-    return entry
 
 
 # ---- comments ----
@@ -534,7 +492,7 @@ class H(BaseHTTPRequestHandler):
             base = self._base()
             if m == "GET":
                 out = []
-                for e in list_assets(rid):
+                for e in _assets.list(rid):
                     d = dict(e)
                     d["url"] = f"{base}/api/reviews/{rid}/asset/{e['stored']}"
                     out.append(d)
@@ -550,7 +508,7 @@ class H(BaseHTTPRequestHandler):
                 except (ValueError, TypeError):
                     return self._json(400, {"error": "content_b64 is not valid base64"})
                 with _lock:
-                    entry = attach_asset(rid, name, data)
+                    entry = _assets.attach(rid, name, data)
                 return self._json(201, {
                     "name": entry["name"], "stored": entry["stored"],
                     "url": f"{base}/api/reviews/{rid}/asset/{entry['stored']}",
@@ -616,10 +574,10 @@ class H(BaseHTTPRequestHandler):
             if not _exists(rid):
                 return self._json(404, {"error": "not found"})
             # resolve via the manifest only; never path-join the request segment
-            entry = next((e for e in list_assets(rid) if e.get("stored") == stored), None)
+            entry = _assets.find(rid, stored)
             if not entry:
                 return self._send(404, "asset not found", "text/plain")
-            p = os.path.join(_assets_dir(rid), stored)
+            p = _assets.path(rid, stored)
             if not os.path.isfile(p):
                 return self._send(404, "asset not found", "text/plain")
             return self._send(200, _read_bytes(p), entry.get("ctype") or _ctype_for(stored))
