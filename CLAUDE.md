@@ -236,7 +236,7 @@ wrapper just proxies — but a change to `mcp_server.py` itself does.)
 
 ```bash
 cd mdreview-service
-docker compose up -d --build         # localhost:8137
+make up         # localhost:8137
 # or pick another host port:
 docker run -d -p 9000:8080 -v my-mdreview:/data mdreview-service
 ```
@@ -255,7 +255,7 @@ using the `mdreview-planner` and `cycle-retrospective` agents and the global `st
 
 - Tickets `MR-###` in `docs/process/tickets/`; the board is `docs/process/TRACKER.md`.
 - Validation gate: `python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py`
-  (+ `docker build` for infra, a browser render for UI). No test framework.
+  (+ `docker build -f infra/Dockerfile` for infra, a browser render for UI). No test framework.
 - Commits: conventional subject with the ticket ID; this repo keeps the `Co-Authored-By: Claude`
   trailer.
 - For the current epic / sprint and shipped history, see `docs/process/TRACKER.md` (source of

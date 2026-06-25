@@ -41,7 +41,7 @@ docs/process/
 - **This tree is committed + pushed.** The whole point is cross-session durability, so the
   process must travel with the repo.
 - **No database / no Next build.** The validation gate is `python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py`
-  (+ `docker build` for infra changes) and a curl/browser render smoke, not `npm run build` or
+  (+ `docker build -f infra/Dockerfile` for infra changes) and a curl/browser render smoke, not `npm run build` or
   authenticated RSC renders.
 - **Single-flight.** One developer, one cycle at a time. The source's multi-agent collision and
   worktree-contention rails are dropped.
@@ -72,7 +72,7 @@ grooming.
 |---------|-------|---------------|
 | `svc` | the service: HTTP server, router, API, storage | `src/mdreview/**` |
 | `ui` | the human-facing pages and assets | `web/viewer.html`, `web/dashboard.html`, `web/static/**` |
-| `infra` | container, compose, config, deploy | `Dockerfile`, `docker-compose.yml`, `.env*`, `vercel`/host config |
+| `infra` | container, compose, config, deploy | `infra/Dockerfile`, `infra/docker-compose.yml`, `infra/.env*`, `vercel`/host config |
 | `docs` | documentation, this process | `README.md`, `AGENTS.md`, `CLAUDE.md`, `docs/**` |
 
 ## Status lifecycle
@@ -114,7 +114,7 @@ immediately. If several are eligible, pick the highest `priority` first.
 3. Verify dependencies are actually `done` in the tracker and reflected in the code.
 4. Implement on a ticket branch (`MR-###-slug`) cut from `dev` (small changes may commit to
    `dev` directly).
-5. Validate locally: `python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py`; for `infra`, `docker build`; for `ui`,
+5. Validate locally: `python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py`; for `infra`, `docker build -f infra/Dockerfile`; for `ui`,
    rebuild from the image and assert the rendered DOM nodes with
    `tests/render-smoke.sh <url> <selector>...` (a 200 is not a render; a screenshot proves
    first-paint only). See `CLAUDE.md` "Run".
@@ -159,7 +159,7 @@ by default, not by memory. A failed gate is the gate doing its job.
 | **G1 — Plan Gate** | epic plan -> tickets | The epic plan has a recorded **independent** review in `docs/process/reviews/` (reviewer is NOT the plan's author: the `staff-critic` agent, or the product owner), **all blocker questions answered**, and explicit sign-off. Only then does the epic move to `status: active`/`gate: passed` and tickets may be created. |
 | **G2 — Definition of Ready** | ticket -> `ready` | Acceptance criteria written, dependencies identified, `layer` + `priority` set, no open questions, roughly sized. |
 | **G3 — Pickup** | `ready` -> `in-progress` | Active sprint + every `depends_on` is `done` + the one-in-progress rule. |
-| **G4 — Review** | `in-progress` -> `review` | `python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py` passes (and `docker build` for `infra`); **for `ui` tickets, a render-smoke from the rebuilt image passes** — `tests/render-smoke.sh <url> <selector>...` asserts the expected DOM nodes rendered (a 200 is not a render; see Development flow step 5); author self-checked the acceptance criteria. |
+| **G4 — Review** | `in-progress` -> `review` | `python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py` passes (and `docker build -f infra/Dockerfile` for `infra`); **for `ui` tickets, a render-smoke from the rebuilt image passes** — `tests/render-smoke.sh <url> <selector>...` asserts the expected DOM nodes rendered (a 200 is not a render; see Development flow step 5); author self-checked the acceptance criteria. |
 | **G5 — Definition of Done** | `review` -> `done` | All AC met + validation + docs updated (in the same change, or deferred to a same-sprint docs-sweep ticket named in the Work log) + Work log/Validation filled + committed. |
 | **G6 — Sprint open** | -> sprint `active` | Every committed ticket is `ready`; the sprint has a goal and a committed-ticket list. |
 | **G7 — Sprint close** | sprint -> `closed` | Every committed ticket is `done` or explicitly carried over (**a docs-sweep ticket is NOT eligible for carry-over**); **no committed ticket has docs deferred to a docs-sweep ticket that is not yet `done`** (deferred docs are force-closed at sprint close, never carried across cycles); an **independent `staff-critic` sprint-close review** is recorded in `docs/process/reviews/` (reviewer is NOT the implementer), verifying shipped work against each ticket's acceptance criteria, **including a render smoke** (rebuild the container, `curl /healthz` + `/api/reviews`) — and, **only if a product page (`web/viewer.html` / `web/dashboard.html` / `web/static/**`) was touched this sprint**, `tests/render-smoke.sh` against each touched page asserting its DOM nodes plus a screenshot under `docs/process/reviews/sprint-NN-render-evidence-*`; a docs/infra-only sprint that touches no product page is **not** non-compliant for lacking the per-page DOM assertion and screenshot, but still owes the container rebuild + `curl /healthz` + `/api/reviews` smoke; retro + carry-overs are written into the sprint file. |

@@ -1,6 +1,8 @@
 services:
   mdreview:
-    build: .
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
     image: mdreview-service:latest
     container_name: mdreview
     ports:
@@ -19,8 +21,8 @@ services:
   # use only — it auto-actions every Sent review (WATCH_ARMED_FILE is the per-review opt-in escape).
   watcher:
     build:
-      context: .
-      dockerfile: Dockerfile.watcher
+      context: ..
+      dockerfile: infra/Dockerfile.watcher
     image: mdreview-watcher:latest
     profiles: ["watcher"]
     depends_on:

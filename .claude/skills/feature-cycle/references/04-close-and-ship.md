@@ -20,7 +20,7 @@ Precondition: every committed ticket is `done`.
    **Not in this step:** setting `close_review:`, setting `status: closed`, or writing the retro —
    those stay in **Phase 8**, because `close_review:` names the review file the critic *produces*
    and cannot exist before the critic runs.
-1. **Render smoke (you):** rebuild the container (`docker compose up -d --build`), then:
+1. **Render smoke (you):** rebuild the container (`make up`), then:
    - `curl -s localhost:8137/healthz` -> `{"ok":true}`;
    - `curl -s localhost:8137/api/reviews` (or other touched endpoints) returns sane JSON;
    - **only if a product page (`viewer.html`/`dashboard.html`/`static/**`) was touched this

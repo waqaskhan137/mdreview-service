@@ -14,8 +14,8 @@ For each ticket:
 4. **Validate (G4):**
    - `svc`: `python3 -m py_compile app.py`; then run it and curl the affected endpoints
      (`PORT=8137 MDREVIEW_DATA=/tmp/mr python3 app.py` on a free port, or rebuild the container).
-   - `infra`: `docker build -t mdreview-service .` must pass.
-   - `ui`: rebuild from the image (`docker compose up -d --build`) and run
+   - `infra`: `docker build -f infra/Dockerfile -t mdreview-service .` must pass.
+   - `ui`: rebuild from the image (`make up`) and run
      **`scripts/render-smoke.sh <url> <selector>...`** against the published port to assert the
      expected DOM nodes rendered (the viewer/dashboard are JS-rendered; a 200 is not a render and
      a screenshot proves first-paint only). This is the README G4 rule for `ui` tickets — run it,

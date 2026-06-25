@@ -42,7 +42,7 @@ verification.
   (e.g. 8150-8199); **never** `docker compose up` (it binds 8137 and a different, project-prefixed
   volume — a silent-data-loss footgun). Use a fresh throwaway volume, never the live `mdreview-data`.
   Tear the container + image down when finished.
-- **Verify against a REBUILT image** from the current working tree (`docker build -t <throwaway> .`),
+- **Verify against a REBUILT image** from the current working tree (`docker build -f infra/Dockerfile -t <throwaway> .`),
   not a stale container — the viewer/dashboard/app are baked in at build time.
 - **Bounded waits.** Any wait (the agent loop, health) has an explicit timeout (default ~2 min for
   the agent loop). A timeout is a reportable FAIL/issue, never a hang.

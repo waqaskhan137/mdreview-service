@@ -17,7 +17,7 @@ RUN apt-get update \
 RUN useradd -m -u 10001 watcher
 WORKDIR /app
 COPY src/watch.py src/mcp_server.py ./
-COPY watcher/ ./watcher/
+COPY infra/watcher/ ./watcher/
 RUN chown -R watcher:watcher /app
 
 USER watcher
