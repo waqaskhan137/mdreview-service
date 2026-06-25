@@ -4,7 +4,12 @@
 # auto-loads (do NOT add --project-directory, which would re-point .env at the cwd).
 COMPOSE := docker compose -f infra/docker-compose.yml
 
-.PHONY: build up down watcher smoke
+# Local run without Docker (stdlib only — no venv, no pip, no build). Override inline, e.g.
+#   make run PORT=9000 MDREVIEW_DATA=$HOME/.mdreview
+PORT ?= 8137
+MDREVIEW_DATA ?= $(CURDIR)/data
+
+.PHONY: build up down watcher smoke run
 
 build:    ## build the service image from the repo-root context
 	docker build -f infra/Dockerfile -t mdreview-service .
@@ -20,3 +25,6 @@ watcher:  ## run service + the opt-in watcher (needs a token in infra/.env)
 
 smoke:    ## healthcheck the running service
 	curl -fsS localhost:8137/healthz && echo
+
+run:      ## run the service locally WITHOUT Docker (PYTHONPATH=src; data in ./data, gitignored)
+	PYTHONPATH=src MDREVIEW_DATA=$(MDREVIEW_DATA) PORT=$(PORT) python3 -m mdreview
