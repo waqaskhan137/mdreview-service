@@ -16,7 +16,7 @@ RUN apt-get update \
 # even when auth comes purely from the env token.
 RUN useradd -m -u 10001 watcher
 WORKDIR /app
-COPY watch.py mcp_server.py ./
+COPY src/watch.py src/mcp_server.py ./
 COPY watcher/ ./watcher/
 RUN chown -R watcher:watcher /app
 

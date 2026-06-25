@@ -31,7 +31,7 @@ from html.parser import HTMLParser
 
 BASE = os.environ.get("MDREVIEW_BASE", "http://localhost:8137").rstrip("/")
 HERE = os.path.dirname(os.path.abspath(__file__))
-SERVER = os.path.join(HERE, "mcp_server.py")
+SERVER = os.path.join(HERE, "..", "src", "mcp_server.py")   # tests/ -> ../src/mcp_server.py (MR-078)
 
 # a real 1x1 PNG (the supported direction: a light-background raster); decodes to naturalWidth=1
 PIX = base64.b64decode(

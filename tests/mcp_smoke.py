@@ -16,7 +16,7 @@ import urllib.request
 
 BASE = os.environ.get("MDREVIEW_BASE", "http://localhost:8137")
 HERE = os.path.dirname(os.path.abspath(__file__))
-SERVER = os.path.join(HERE, "mcp_server.py")
+SERVER = os.path.join(HERE, "..", "src", "mcp_server.py")   # tests/ -> ../src/mcp_server.py (MR-078)
 
 INIT = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
         "params": {"protocolVersion": "2025-06-18", "capabilities": {},
