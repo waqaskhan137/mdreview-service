@@ -169,7 +169,8 @@ replaces the old "watch `comments_updated` go quiet" heuristic. **Reconnect note
 `ping_working` are new MCP tools, so a stale stdio server won't list them until the client reconnects
 (a render/HTTP change needs no reconnect; a new tool does — see "Calling it over MCP").
 
-**Automating your side of the baton (`watch.py`).** An optional stdlib sibling, `watch.py`, closes
+**Automating your side of the baton (the `watcher` package).** An optional stdlib sibling, the
+`watcher` package (`src/watcher/`, run as `python -m watcher` or the `src/watch.py` entry point), closes
 this loop without a human relaying the URL: it long-polls for reviews flipped to `turn==agent`,
 claims the lease, and spawns the operator's **required** launch command (`WATCH_LAUNCH_CMD`; unset ⇒ the watcher refuses to start with guidance, no runnable default) whose child env is
 the `REVIEW_ID` / `MDREVIEW_BASE` / `MDREVIEW_OWNER` contract above — so the spawned agent renews the
@@ -230,7 +231,8 @@ curl -s -X POST "$BASE/api/reviews/<id>/comments/<cid>/resolve" \
 
 ## Calling it over MCP (optional)
 
-`mcp_server.py` is a thin, stdlib-only stdio MCP server (JSON-RPC 2.0, spec rev `2025-06-18`)
+The `mcp` package (`src/mcp/`, run as `python -m mcp` or the `src/mcp_server.py` entry point) is a
+thin, stdlib-only stdio MCP server (JSON-RPC 2.0, spec rev `2025-06-18`)
 exposing the API as 20 tools (`create_review`, `list_reviews`, `get_review`, `get_source`, `get_feedback`,
 `get_status`, `update_source`, `get_history`, `attach_asset`, `list_assets`, `delete_review`, `server_info`,
 the comment tools `create_comment` (author a comment), `delete_comment` (hard-remove a junk comment), `list_comments`, `get_comment`, `reply_to_comment`,
@@ -238,7 +240,7 @@ the comment tools `create_comment` (author a comment), `delete_comment` (hard-re
 **turn-baton** tools `hand_back` (return the turn to the reviewer) and `ping_working` (claim/renew
 your lease while you hold the turn; **409** on a foreign owner)). The comment and baton
 tools take `document_id` (= the review id); their descriptions encode the workflow above. Run
-`MDREVIEW_BASE=http://localhost:8137 python3 mcp_server.py`; smoke with `mcp_smoke.py`. It wraps a
+`MDREVIEW_BASE=http://localhost:8137 python -m mcp` (or `python3 src/mcp_server.py`); smoke with `mcp_smoke.py`. It wraps a
 running service and adds no state. Set `MDREVIEW_PUBLIC_BASE` on the service so a relayed
 `review_url` is reachable. See `README.md` and `docs/future-mcp.md`.
 
@@ -289,7 +291,7 @@ plan -> independent review (G1) -> tickets -> sprint -> implement -> close revie
 using the `mdreview-planner` and `cycle-retrospective` agents and the global `staff-critic`.
 
 - Tickets `MR-###` in `docs/process/tickets/`; the board is `docs/process/TRACKER.md`.
-- Validation gate: `python3 -m py_compile src/mdreview/*.py src/mcp_server.py src/watch.py`
+- Validation gate: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/mcp_server.py src/watch.py`
   (+ `docker build -f infra/Dockerfile` for infra, a browser render for UI). No test framework.
 - Commits: conventional subject with the ticket ID; this repo keeps the `Co-Authored-By: Claude`
   trailer.
