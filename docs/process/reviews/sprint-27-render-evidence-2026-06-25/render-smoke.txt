@@ -1,0 +1,14 @@
+# sprint-27 render evidence — REFRESHED after merging dev (sprint-28 reskin) into the branch
+# rebuilt container, python -m mdreview, Thu 25 Jun 2026 11:48:52 BST. The refactored src/+web/ layout serves dev's reskinned viewer/dashboard.
+
+## viewer /review/15a028359c (reskin kept #article + h1)
+  ok : #article (1 node)
+  ok : h1 (2 nodes)
+
+## dashboard / (reskin: #list + .cardlink)
+  ok : #list (1 node)
+  ok : .cardlink (1 node)
+
+## healthz + container CMD
+{"ok": true}
+[python -m mdreview]

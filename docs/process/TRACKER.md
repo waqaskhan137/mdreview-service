@@ -7,6 +7,8 @@ Last updated: 2026-06-25. **sprint-26 (viewer-transparency, GH #27) CLOSED at G7
 
 ## Active sprint
 
+**EPIC `oop-refactor-src-layout` COMPLETE. sprint-27 CLOSED at G7 2026-06-25** (staff-critic close PASS 0 BLOCKER/0 SHOULD/2 NIT, `reviews/sprint-27-close-review-2026-06-25.md`; independent rebuild + full HTTP contract + per-page DOM + lease/wake + mcp/agent smokes, live `:8139` untouched). G1 PASS 2026-06-25 (2 rounds; r1 CHANGES-REQUESTED on 1 blocker [the router→service boundary missed the inline GET/DELETE comment arms + a gameable acceptance grep], fixed in r2). Tier B internal-quality refactor on branch `refactor/oop-src-layout`: all 11 tickets (MR-076-086) `done`; all code under `src/` (the `src/mdreview/` package: `config`/`store`/`comments`/`assets`/`reviews`/`handoff`/`server` + `__main__`, plus standalone `mcp_server.py`/`watch.py`), clean root, frontend→`web/`, smokes→`tests/`, infra at root. `app.py`'s monolith is wired by **constructor injection** (one `Store` into the service classes, bundled on `MdreviewServer` the handler reads via `self.server.app`); ships from `python -m mdreview`. **Byte-identical** API (golden curl transcript 41/41 at every commit); no-store-helper contract ZERO hits. **Merged current `dev` (incl. the sprint-28 viewer-dashboard reskin) into the branch, so the reskin is preserved at `web/viewer.html` + `web/dashboard.html`; PR #33 → dev (owner's G8 call).**
+
 **EPIC `viewer-dashboard-reskin` COMPLETE. sprint-28 CLOSED at G7 2026-06-25** (staff-critic
 PASS-with-conditions, `reviews/sprint-28-close-review-2026-06-25.md`; independent — rebuilt throwaway
 container + both-pane render-smoke + dark-pane computed-style + wide-mode `body.gutter-on` check; all
@@ -239,7 +241,8 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
 
 ## in-progress
 
@@ -257,6 +260,17 @@ _none_
 | MR-089 | Viewer re-skin — COMMENTS right rail + Resolved panel + bottom open/resolved/history dock | ui | P1 | sprint-28 |
 | MR-088 | Viewer re-skin — chrome (top bar + breadcrumb + title meta) + baton banner + numbered lines + article typography | ui | P1 | sprint-28 |
 | MR-087 | Dashboard re-skin — sidebar inbox + projects filter + restyled cards with baton badges | ui | P1 | sprint-28 |
+| MR-086 | `src/app.py`->`src/mdreview/server.py` + `Services`/`MdreviewServer` composition root + `__main__`; no-store-helper ZERO; `python -m mdreview`; all smokes + container PASS | svc | P1 | sprint-27 |
+| MR-085 | Extract `handoff.py` + `HandoffService` (turn baton + lease table); byte-identical + lease matrix 5/5 (TTL=0 stale paths) | svc | P1 | sprint-27 |
+| MR-084 | Extract `reviews.py` + `ReviewService` (lifecycle/summary/list/history/source/feedback/delete); byte-identical incl. /feedback-with-comment | svc | P1 | sprint-27 |
+| MR-083 | Extract `assets.py` + `AssetService` (content-hash + manifest); byte-identical + agent_smoke render proof (nw=1); folded agent_smoke 18->20 | svc | P1 | sprint-27 |
+| MR-082 | Extract `comments.py` + `CommentService` (G1-blocker inline GET/DELETE arms -> named methods); byte-identical lifecycle | svc | P1 | sprint-27 |
+| MR-081 | Extract `store.py` + `Store` (the one Condition + typed IO); byte-identical + long-poll wake smoke (1.08s, not 20s timeout) | svc | P1 | sprint-27 |
+| MR-080 | Extract `config.py` (constants + `WEB_DIR` 3-deep anchor) + package skeleton (`src/mdreview/`); byte-identical | svc | P1 | sprint-27 |
+| MR-079 | Repoint live `py_compile` gate + `render-smoke.sh` path + layer-table/page paths to `src/`+`tests/`+`web/` (frozen history untouched) | docs | P2 | sprint-27 |
+| MR-078 | Move `mcp_server.py`/`watch.py`→`src/`, smokes→`tests/`; fix `SERVER` path + `Dockerfile.watcher` COPY (stable `/app` dests); mcp_smoke + watcher build green | infra | P1 | sprint-27 |
+| MR-077 | Service `Dockerfile` → `src/`+`web/` layout (`MDREVIEW_WEB_DIR`/`PYTHONPATH`, `CMD python src/app.py`); build + container render-smoke green | infra | P1 | sprint-27 |
+| MR-076 | Relocate `app.py`→`src/app.py` + frontend→`web/` + `HERE`→`WEB_DIR`; golden-transcript oracle (byte-identical) | svc | P1 | sprint-27 |
 | MR-065 | History modal: list current draft as `current (vN)`, relabel rounds, drop "0 notes" (GH #18) | ui | P2 | sprint-23 |
 | MR-064 | snapshot_round: stop writing the retired notes count into round.json (+ README /history shape) (GH #18) | svc | P2 | sprint-23 |
 | MR-063 | Fix the scoped watcher launch recipe arg order — `-p` prompt last (GH #25) | docs | P1 | sprint-22 |
@@ -355,3 +369,4 @@ _none_
 | working-banner-animation | **done** (MR-061 shipped, sprint-21 G7 PASS 2026-06-24) — standalone small `ui` enhancement, slice of #27 (CSS-only animated ellipsis on the working-state turn banner) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-21 |
 | watcher-ux-fixes | **done** (MR-062 + MR-063 shipped, sprint-22 G7 PASS 2026-06-24) — two-ticket watcher UX batch: a rotating spinner on both agent-turn waiting states (supersedes MR-061) + fixed the README scoped launch-recipe arg order (GH #25) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-22 |
 | history-version-fix | **done** (MR-064 + MR-065 shipped, sprint-23 G7 PASS 2026-06-24, closes #18) — fixed the History modal's version labels (current-draft entry reconciles the off-by-one) + removed the untruthful per-round "0 notes" count | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-23 |
+| oop-refactor-src-layout | **done on `refactor/oop-src-layout`** (sprint-27 G7 PASS 2026-06-25; PR to dev/main pending the owner's G8 call) — Tier B internal refactor: all code under `src/` (the `src/mdreview/` package), clean root, `app.py` decomposed into 7 SRP modules wired by constructor injection (a `Store` into service classes; `python -m mdreview`); byte-identical API/`/data`/viewer | G1 passed 2026-06-25 (2 rounds, PASS-WITH-NITS; r1 1 blocker) | sprint-27 |

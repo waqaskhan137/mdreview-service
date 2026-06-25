@@ -21,7 +21,7 @@ re-running the behavioural smoke** (throwaway container, never composed over `:8
   [`MR-047`](../tickets/MR-047-retire-feedback-docs-sweep.md) (docs)
 - Epic / G1: [`epics/legacy-feedback-retire-plan.md`](../epics/legacy-feedback-retire-plan.md),
   [`reviews/legacy-feedback-retire-plan-review-2026-06-19-r2.md`](legacy-feedback-retire-plan-review-2026-06-19-r2.md)
-- Smoke evidence: [`reviews/sprint-13-close-smoke-2026-06-19.txt`](../../../reviews/sprint-13-close-smoke-2026-06-19.txt)
+- Smoke evidence: [`reviews/sprint-13-close-smoke-2026-06-19.txt`](../reviews/sprint-13-close-smoke-2026-06-19.txt)
 - Commit range: `e091509^..HEAD` (4 commits: scaffolding `e091509`, svc `cb9ead2`, docs `d5180c2`,
   reconcile+evidence `b95ebf7`).
 

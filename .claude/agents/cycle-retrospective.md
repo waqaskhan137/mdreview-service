@@ -24,8 +24,8 @@ suggestions fit the real process and footguns.
 ## Inputs (read all that exist for this run)
 - The brief: `requirements/<slug>.md`.
 - The plan: `epics/<slug>-plan.md` (esp. "Assumptions & open questions" and "Review resolutions").
-- Every G1 review: `reviews/<slug>-plan-review-*.md` (and round suffixes).
-- Every G7 artifact: `reviews/sprint-NN-close-review-*.md` and the render-evidence dir.
+- Every G1 review: `docs/process/reviews/<slug>-plan-review-*.md` (and round suffixes).
+- Every G7 artifact: `docs/process/reviews/sprint-NN-close-review-*.md` and the render-evidence dir.
 - The tickets for the sprint and the sprint file's Notes / retro.
 - `git log --oneline` for this epic's commits; diff size and commit count per ticket.
 - Any `## BLOCKED` notes / parks, and a draft PR if the run parked.

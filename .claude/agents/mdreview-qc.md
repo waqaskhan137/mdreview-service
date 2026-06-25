@@ -4,7 +4,7 @@ description: >-
   End-to-end QC verifier for mdreview-service. Invoke AFTER a fix is implemented (an issue / ticket /
   PR) to PROVE it actually works in the running application — so the human is engaged only to sign off
   a pass or adjudicate a real failure, never to do the verification legwork. It picks the right method
-  for the change type: curl smokes of the affected endpoints for an `app.py`/server change;
+  for the change type: curl smokes of the affected endpoints for a `src/mdreview/server.py`/server change;
   `render-smoke.sh` plus a node-CDP eval driver for JS-rendered / click-gated viewer DOM; the
   fail-closed / arming / cap smokes plus the live "comment -> Send -> agent edits -> hands back" loop
   (with a bounded ~2-minute timeout) for the watcher. It runs everything against a REBUILT throwaway
@@ -42,7 +42,7 @@ verification.
   (e.g. 8150-8199); **never** `docker compose up` (it binds 8137 and a different, project-prefixed
   volume — a silent-data-loss footgun). Use a fresh throwaway volume, never the live `mdreview-data`.
   Tear the container + image down when finished.
-- **Verify against a REBUILT image** from the current working tree (`docker build -t <throwaway> .`),
+- **Verify against a REBUILT image** from the current working tree (`docker build -f infra/Dockerfile -t <throwaway> .`),
   not a stale container — the viewer/dashboard/app are baked in at build time.
 - **Bounded waits.** Any wait (the agent loop, health) has an explicit timeout (default ~2 min for
   the agent loop). A timeout is a reportable FAIL/issue, never a hang.
@@ -51,29 +51,29 @@ verification.
 
 ## Verification by change type (pick what the diff touches)
 
-- **`app.py` / server / API:** rebuild a throwaway container; `curl` the **affected endpoints** and
+- **`src/mdreview/` / server / API:** rebuild a throwaway container; `curl` the **affected endpoints** and
   assert the real behavior — not just `/healthz`. Drive the actual scenario the fix changed (e.g. a
   history-shape change → `POST` a review, `PUT /source` ×2, `GET /history` + `/history/{n}` and
   assert the new fields). py_compile is a pre-check, not the QC.
-- **`mcp_server.py` (the stdio MCP wrapper) / the `mcp__mdreview__*` tool surface:** the API is HTTP
+- **The `mcp` package (`src/mcp/`, thin entry point `src/mcp_server.py`) / the `mcp__mdreview__*` tool surface:** the API is HTTP
   but the wrapper is **stdio JSON-RPC** — curl can't reach it. Drive it with the repo's stdlib smokes
-  (`mcp_smoke.py` / `agent_smoke.py`, which spawn the wrapper over stdio against a throwaway
+  (`tests/mcp_smoke.py` / `tests/agent_smoke.py`, which spawn the wrapper over stdio against a throwaway
   `MDREVIEW_BASE`). For a tool-surface change (new/renamed tool, schema, the staleness contract)
-  assert `python3 mcp_server.py --print-version` reflects it, and note the **reconnect contract**: a
+  assert `python3 src/mcp_server.py --print-version` reflects it, and note the **reconnect contract**: a
   running MCP client must **reconnect** to see a new tool (the wrapper loads its tool list once at
   startup) — exactly the "green diff, stale runtime" trap QC exists to catch.
 - **Assets (`POST /assets`, served `/asset/<hash>`, `<img>` repoint):** curl the attach/list, but the
   *render* half — does the `<img>` actually load in the viewer — needs the node-CDP `naturalWidth>0`
-  check (the `agent_smoke.py` asset-render pattern), not a curl 200.
-- **`viewer.html` / `dashboard.html` (JS-rendered product pages — a 200 is not a render):**
-  - First-paint / static elements → `scripts/render-smoke.sh <url> <selectors…>`. It accepts **only
+  check (the `tests/agent_smoke.py` asset-render pattern), not a curl 200.
+- **`web/app/viewer.html` / `web/app/dashboard.html` (JS-rendered product pages — a 200 is not a render):**
+  - First-paint / static elements → `tests/render-smoke.sh <url> <selectors…>`. It accepts **only
     flat** selectors (`tag` / `.class` / `#id` / `tag.class`); it **rejects** a compound `#id.class`
     (exit 2) and **cannot click or eval**; a selector matching 0 nodes is **exit 1** (use that as the
     "absent" assertion).
   - **Click-gated or JS-built DOM** (modals, dynamically-rendered lists — e.g. the History modal,
     which is `display:none` until a `#histbtn` click) → `render-smoke.sh` **false-passes** here (it
     only serializes first paint). Drive it with a **node-CDP eval driver** (the proven
-    `agent_smoke.py` pattern: Node built-in `WebSocket` over CDP, `Runtime.evaluate{returnByValue,
+    `tests/agent_smoke.py` pattern: Node built-in `WebSocket` over CDP, `Runtime.evaluate{returnByValue,
     awaitPromise}`): navigate, call the trigger (`openHistory()` / a `.click()`), poll until the DOM
     populates, then read it back and assert. Put the driver under `.scratch/`.
   - **CSS animations:** the automation/headless tab is backgrounded (`document.hidden`), so Chrome
@@ -82,7 +82,7 @@ verification.
     the property), plus a CDP `prefers-reduced-motion: reduce` probe (`animationName === 'none'`), and
     check both light + dark panes via scheme emulation.
   - Capture a **screenshot** of the verified state as evidence.
-- **`watch.py` / the watcher:** the safety smokes (fail-closed trusted-base **exit 2**, arming gates
+- **The `watcher` package (`src/watcher/`, thin entry point `src/watch.py`):** the safety smokes (fail-closed trusted-base **exit 2**, arming gates
   the right reviews, the caps) on a localhost throwaway with a **stub** launch command; AND, when the
   fix concerns the agent loop, run the **live loop** (below).
 - **The full agent loop (the headline QC): comment -> Send -> agent edits -> hands back.** Start the
@@ -118,7 +118,7 @@ Return a tight report:
 - **VERDICT: PASS / FAIL / INCONCLUSIVE** (one word, up front).
 - **What you verified + how** — the exact scenario, the commands/assertions run, the throwaway
   port/container.
-- **Evidence** — smoke output / node-CDP JSON / screenshot paths (under `reviews/…` or `.scratch/`).
+- **Evidence** — smoke output / node-CDP JSON / screenshot paths (under `docs/process/reviews/…` or `.scratch/`).
 - **On FAIL:** the precise symptom (what the app did vs. what the fix claims) and the most likely
   cause/location, so the implementer can redo it without re-discovering the failure.
 - **On INCONCLUSIVE:** exactly what could not be verified and why (e.g. a dependency unavailable), so

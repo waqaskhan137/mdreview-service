@@ -4,7 +4,7 @@ status: draft          # draft | active | done  (stays draft until G1 passes)
 created: YYYY-MM-DD
 source:                # requirements/<slug>.md — the verbatim brief this groomed from
 gate: G1 not passed    # G1 (Plan Gate): not passed | passed YYYY-MM-DD — tickets blocked until passed
-review:                # reviews/<slug>-plan-review-YYYY-MM-DD.md once reviewed
+review:                # docs/process/reviews/<slug>-plan-review-YYYY-MM-DD.md once reviewed
 related_sprints: []    # [sprint-01]
 related_tickets: []    # [MR-001, MR-002] — empty until G1 passes and tickets are created
 ---
@@ -28,10 +28,10 @@ The one idea that keeps the design coherent — the constraint everything else s
 
 The shape of the solution, split by area where useful.
 
-### Service (`app.py`)
+### Service (`src/mdreview/server.py`)
 - …
 
-### UI (`viewer.html` / `dashboard.html` / `static/`)
+### UI (`web/app/viewer.html` / `web/app/dashboard.html` / `web/app/static/`)
 - …
 
 ## Rollout phases
