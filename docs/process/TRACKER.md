@@ -7,6 +7,21 @@ Last updated: 2026-06-25. **sprint-26 (viewer-transparency, GH #27) CLOSED at G7
 
 ## Active sprint
 
+**EPIC `viewer-dashboard-reskin` ACTIVE — sprint-28 opening 2026-06-25.** G1 PASS 2026-06-25
+(staff-critic PASS-with-conditions, `reviews/viewer-dashboard-reskin-plan-review-2026-06-25.md`; all
+4 conditions folded into the plan r1). Re-skin `dashboard.html` + `viewer.html` **in place** to the
+new mockup (`.scratch/mockup-viewer-dashboard.html`) — the same visual language the landing page moved
+to (commit `0e83ec8`) — preserving all wiring and the buildless/stdlib architecture. Scope:
+"Re-skin + supported IA" (sidebar inbox driven by the existing turn baton; no new backend; the
+"agent watcher · connected" indicator dropped). **MR-087** `ready` (ui): dashboard sidebar inbox +
+projects filter + restyled cards with baton badges. **MR-088** `ready` (ui): viewer chrome + baton
+banner + numbered lines + article typography. **MR-089** `ready` (ui, depends MR-088): viewer COMMENTS
+rail + Resolved + bottom dock (C1 — verify wide mode actually engages, not just `.gcard` presence).
+**MR-090** `ready` (docs, depends 087-089): grep-gated docs sweep. No `svc` change (every datum the
+new IA needs is already on `GET /api/reviews`).
+
+---
+
 **EPIC `viewer-transparency` (GH #27) COMPLETE. sprint-26 CLOSED at G7 2026-06-25** (staff-critic PASS, `reviews/sprint-26-close-review-2026-06-24.md`; independent — rebuilt container + node-CDP lifecycle re-drive incl. signal-honesty + no-regression + both panes; W1 resolved, owner confirmed working). G1 PASS 2026-06-24 (GO-WITH-NITS)**.** (staff-critic
 GO-WITH-NITS, `reviews/viewer-transparency-plan-review-2026-06-24.md`; 2 nits folded; owner chose
 **step-level** over the literal tool-call stream). While an agent works a turn, the viewer shows a
@@ -221,7 +236,12 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
+| MR-087 | Dashboard re-skin — sidebar inbox + projects filter + restyled cards with baton badges | ui | P1 | sprint-28 |
+| MR-088 | Viewer re-skin — chrome (top bar + breadcrumb + title meta) + baton banner + numbered lines + article typography | ui | P1 | sprint-28 |
+| MR-089 | Viewer re-skin — COMMENTS right rail + Resolved panel + bottom open/resolved/history dock | ui | P1 | sprint-28 |
+| MR-090 | Docs sweep — README / CLAUDE for the re-skinned dashboard & viewer affordances | docs | P2 | sprint-28 |
 
 ## in-progress
 

@@ -6,7 +6,7 @@ source: requirements/viewer-dashboard-reskin.md
 gate: passed 2026-06-25   # G1 (Plan Gate): staff-critic PASS-with-conditions, all 4 conditions folded in (r1)
 review: reviews/viewer-dashboard-reskin-plan-review-2026-06-25.md
 related_sprints: [sprint-28]
-related_tickets: []    # empty until G1 passes and tickets are created
+related_tickets: [MR-087, MR-088, MR-089, MR-090]
 ---
 
 # Viewer & Dashboard Re-skin Plan
