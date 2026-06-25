@@ -98,7 +98,8 @@ See epic decisions **D1** (IA replacement) and **D2** (card badge, no `STALE_S` 
 - Render-smoke (throwaway instance, scratch port 8155, 5 seeded baton-state fixtures + a legacy
   no-provenance review): `.side .brand .nav-item(7) #projlist #search .eyebrow .grid .card(6)
   .badge(6) .divider(6) .countline(6) .del(6)` all ≥1 node, exit 0.
-- `grep -c STALE_S dashboard.html` → 0 (R1 satisfied — no second mirror).
+- `grep -E 'STALE_S *=|<= *STALE_S' dashboard.html` → 0 code matches (R1 satisfied — no second
+  mirror; the two literal `STALE_S` hits are explanatory comments stating the absence). (G7 F2)
 - Functional click-through (live tab): Inbox filters partition correctly — Needs you → 2
   `your-turn`; Agent working → 3 `turn===agent` (`agent-working`+`waiting`); Resolved → 1
   `resolved`. Search "cache" → 2 matching titles. Project "inference-gateway" → scopes to 3 +
