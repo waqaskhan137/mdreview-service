@@ -32,7 +32,6 @@ import os
 import re
 import secrets
 import shutil
-import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -40,88 +39,23 @@ from urllib.parse import parse_qs, urlparse
 from mdreview.config import (
     DATA_DIR, LEASE_TTL_S, PORT, PUBLIC_BASE, RID, WAIT_TIMEOUT_S, WEB_DIR,
 )
+from mdreview.store import Store
 
-# Condition over the ONE global lock (MR-054). A Condition is itself a context manager that
-# acquires/releases its internal lock, so every existing `with _lock:` site is unchanged: the swap
-# from Lock() to Condition() is transparent. The /wait long-poll parks on _lock.wait(timeout) (which
-# releases the lock while blocked) and /handoff calls _lock.notify_all() after a write under the lock.
-# One Condition over one lock: never a second lock, or a flip could be missed / a writer could run
-# while a waiter holds the lock.
-_lock = threading.Condition()
-
-
-def _dir(rid):
-    return os.path.join(DATA_DIR, rid)
-
-
-def _exists(rid):
-    return os.path.isfile(os.path.join(_dir(rid), "meta.json"))
-
-
-def _read(path, default=""):
-    try:
-        with open(path, encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return default
-
-
-def _read_bytes(path, default=b""):
-    """Binary read for assets served verbatim (fonts, images, css).
-
-    The text _read above decodes utf-8 and raises on the first font/image byte;
-    binary-served routes (/static/*, the asset GET) must use this instead.
-    """
-    try:
-        with open(path, "rb") as f:
-            return f.read()
-    except FileNotFoundError:
-        return default
-
-
-# Content types for files served out of static/ and for attached asset bytes (the type is
-# inferred from the attached name's extension). Anything unlisted -> application/octet-stream.
-_CTYPES = {
-    ".js": "text/javascript",
-    ".css": "text/css",
-    ".woff2": "font/woff2",
-    ".woff": "font/woff",
-    ".ttf": "font/ttf",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".svg": "image/svg+xml",
-    ".webp": "image/webp",
-    ".avif": "image/avif",
-    ".bmp": "image/bmp",
-    ".ico": "image/x-icon",
-}
-
-
-def _ctype_for(name):
-    return _CTYPES.get(os.path.splitext(name)[1].lower(), "application/octet-stream")
-
-
-def _read_json(path, default):
-    try:
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return default
-
-
-def _write(path, text):
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(text)
-
-
-def _to_float(s, default):
-    """Parse a query-string number, falling back to default on None/garbage (MR-054)."""
-    try:
-        return float(s)
-    except (TypeError, ValueError):
-        return default
+# The single persistence seam (MR-081). Store owns DATA_DIR + the ONE threading.Condition (MR-054:
+# one Condition over one lock; notify under the same lock as the write) + the typed read/write
+# helpers. The module-level names below are thin shims so the route arms and the not-yet-extracted
+# reviews/comments/assets functions read unchanged; each delegates to the single _store and is
+# removed as its callers migrate to services (enforced gone in server.py, MR-086).
+_store = Store(DATA_DIR)
+_lock = _store.lock                 # the one Condition, owned by _store (never re-created)
+_dir = _store.dir
+_exists = _store.exists
+_read = _store.read_text
+_read_bytes = _store.read_bytes
+_read_json = _store.read_json
+_write = _store.write_text
+_ctype_for = _store.ctype_for
+_to_float = _store.to_float
 
 
 def meta(rid):
