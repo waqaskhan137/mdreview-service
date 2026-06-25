@@ -66,6 +66,9 @@
     border-left:3px solid var(--rule);transition:border-color .12s,box-shadow .12s,transform .06s;}
   .card:hover{box-shadow:0 4px 16px rgba(20,22,40,.08);transform:translateY(-1px);}
   .card.is-hidden{display:none;}
+  .showmore{display:none;margin:18px auto 4px;padding:8px 18px;font:inherit;font-size:13px;color:var(--text);background:var(--panel);border:1px solid var(--rule);border-radius:8px;cursor:pointer;}
+  .showmore:hover{border-color:var(--muted2);}
+  .proj-more{padding:6px 10px 2px;color:var(--muted2);font-size:11.5px;}
   .card.s-your-turn{border-left-color:var(--violet);}
   .card.s-agent-working,.card.s-waiting{border-left-color:var(--blue);}
   .card.s-resolved{border-left-color:var(--green);}
@@ -73,7 +76,8 @@
     text-decoration:none;cursor:pointer;}
   .crumb{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted2);min-width:0;}
   .crumb .seg{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .crumb .rev{margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;flex:0 0 auto;}
+  .crumb .rev{margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;flex:0 0 auto;transition:opacity .12s;}
+  .card:hover .crumb .rev{opacity:0;}   /* hide the version on hover so the delete button isn't on top of it */
   .card .title{font-size:16px;font-weight:600;line-height:1.3;letter-spacing:-.15px;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding-right:26px;}
   .row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
@@ -140,6 +144,7 @@
     </div>
     <div class="eyebrow" id="eyebrow">Recent activity</div>
     <div id="list" class="grid"></div>
+    <button class="showmore" id="showmore">Show more</button>
     <div class="noresults" id="noresults">No reviews match your search.</div>
   </main>
 </div>
@@ -210,6 +215,8 @@ function card(r){
 
 let allReviews=[];
 let activeFilter="all";       // all | needs | working | resolved | project:<name>
+let shownCap=0;              // 0 ⇒ recompute to fit the viewport on the next applyFilter (no long scroll)
+const PROJ_TOP=8;            // projects shown in the sidebar; the rest are reachable via the search box
 
 async function load(){
   let data;
@@ -247,10 +254,16 @@ function render(){
   // projects list
   const byProj=new Map();
   for(const r of allReviews){ const p=r.project||""; if(p) byProj.set(p,(byProj.get(p)||0)+1); }
-  const projNames=[...byProj.keys()].sort((a,b)=>a.localeCompare(b));
-  $("#projlist").innerHTML = projNames.length
-    ? projNames.map(p=>`<button class="nav-item" data-filter="project:${esc(p)}"><span class="dot"></span><span class="nm">${esc(p)}</span><span class="ct">${byProj.get(p)}</span></button>`).join("")
-    : `<div class="proj-empty">No projects yet</div>`;
+  // most active first, then show only the top N — the rest are found via the search box (no sidebar scroll)
+  const projNames=[...byProj.keys()].sort((a,b)=>byProj.get(b)-byProj.get(a)||a.localeCompare(b));
+  if(!projNames.length){
+    $("#projlist").innerHTML = `<div class="proj-empty">No projects yet</div>`;
+  }else{
+    let h = projNames.slice(0,PROJ_TOP).map(p=>`<button class="nav-item" data-filter="project:${esc(p)}"><span class="dot"></span><span class="nm">${esc(p)}</span><span class="ct">${byProj.get(p)}</span></button>`).join("");
+    const extra = projNames.length - PROJ_TOP;
+    if(extra>0) h += `<div class="proj-more">+${extra} more · search to filter</div>`;
+    $("#projlist").innerHTML = h;
+  }
 
   // active nav highlight
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.filter===activeFilter));
@@ -272,21 +285,40 @@ function render(){
 }
 
 // live filter over rendered cards: active inbox/project predicate + search text
+// how many tiles fit above the fold: grid columns × rows that fit in the remaining viewport height.
+// Keeps the first screen to a viewport-worth so "Show more" is in reach without a long scroll.
+function viewportCap(){
+  const list=$("#list");
+  const top=Math.max(0, list.getBoundingClientRect().top);
+  const gtc=getComputedStyle(list).gridTemplateColumns;
+  const cols=(gtc && gtc!=='none') ? gtc.split(' ').filter(Boolean).length : 1;
+  const vis=list.querySelector('.card:not(.is-hidden)');
+  const ch=(vis && vis.offsetHeight) || 150;          // measured card height, else estimate
+  const gap=14;
+  const rows=Math.max(1, Math.floor((window.innerHeight - top - 24 + gap)/(ch + gap)));
+  return Math.max(cols, cols*rows);
+}
 function applyFilter(){
+  if(!shownCap) shownCap=viewportCap();               // (re)fit to the viewport when reset to 0
   const q=($("#search").value||"").toLowerCase().trim();
   const byId=new Map(allReviews.map(r=>[String(r.id),r]));
-  let shown=0;
+  let matched=0, shown=0;
   document.querySelectorAll('.card').forEach(c=>{
     const r=byId.get(c.dataset.id); if(!r) return;
     const hay=(c.dataset.title+" "+c.dataset.project+" "+c.dataset.path).toLowerCase();
-    const show = matchesFilter(r) && (!q || hay.includes(q));
-    c.classList.toggle('is-hidden', !show);
-    if(show) shown++;
+    const ok = matchesFilter(r) && (!q || hay.includes(q));
+    // matched = total passing the filter/search; displayed = the first `shownCap` of them (load-more)
+    let disp=false;
+    if(ok){ matched++; disp = matched<=shownCap; if(disp) shown++; }
+    c.classList.toggle('is-hidden', !disp);
   });
   const projects=new Set(allReviews.filter(r=>r.project).map(r=>r.project)).size;
-  $("#sub").textContent = `${shown} review${shown===1?"":"s"} · ${projects} project${projects===1?"":"s"}`;
-  $("#eyebrow").style.display = shown ? "" : "none";
-  $("#noresults").style.display=(allReviews.length && !shown)?"block":"none";
+  $("#sub").textContent = `${matched} review${matched===1?"":"s"} · ${projects} project${projects===1?"":"s"}`;
+  $("#eyebrow").style.display = matched ? "" : "none";
+  $("#noresults").style.display=(allReviews.length && !matched)?"block":"none";
+  // load-more control: visible only when matches exceed the current page cap
+  const more=$("#showmore"), rem=matched-shown;
+  if(more){ if(rem>0){ more.style.display="block"; more.textContent=`Show more (${rem})`; } else more.style.display="none"; }
 }
 
 document.addEventListener('click', async e=>{
@@ -298,11 +330,14 @@ document.addEventListener('click', async e=>{
     load();
     return;
   }
+  const sm=e.target.closest('#showmore');
+  if(sm){ shownCap+=viewportCap(); applyFilter(); return; }   // reveal one more viewport of tiles
   if(e.target.closest('a'))return;                              // the tile is a link → opens the review
   const nav=e.target.closest('.nav-item');
-  if(nav){ activeFilter=nav.dataset.filter; render(); return; }
+  if(nav){ activeFilter=nav.dataset.filter; shownCap=0; render(); return; }   // new filter → refit viewport
 });
-$("#search").addEventListener('input', applyFilter);
+$("#search").addEventListener('input', ()=>{ shownCap=0; applyFilter(); });   // new query → refit viewport
+let _rz; window.addEventListener('resize', ()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ shownCap=Math.max(shownCap, viewportCap()); applyFilter(); }, 120); });   // grow to fill on resize
 load();
 </script>
 </body>
