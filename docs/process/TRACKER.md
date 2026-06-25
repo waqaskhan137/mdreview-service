@@ -225,7 +225,6 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
-| MR-077 | Service `Dockerfile`: `COPY src/`+`web/`, `ENV MDREVIEW_WEB_DIR`/`PYTHONPATH`, `CMD python src/app.py` | infra | P1 | sprint-27 |
 | MR-078 | Move `mcp_server.py`/`watch.py`→`src/`, smokes+render-smoke→`tests/`, fix `SERVER` path, `Dockerfile.watcher` COPY | infra | P1 | sprint-27 |
 | MR-079 | Repoint the 3 live `py_compile` gate refs (incl. the G4 row) + `CLAUDE.md` to `src/...` | docs | P2 | sprint-27 |
 | MR-080 | Extract `config.py` (constants + `WEB_DIR`, drop `HERE`) + package skeleton | svc | P1 | sprint-27 |
@@ -248,6 +247,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-077 | Service `Dockerfile` → `src/`+`web/` layout (`MDREVIEW_WEB_DIR`/`PYTHONPATH`, `CMD python src/app.py`); build + container render-smoke green | infra | P1 | sprint-27 |
 | MR-076 | Relocate `app.py`→`src/app.py` + frontend→`web/` + `HERE`→`WEB_DIR`; golden-transcript oracle (byte-identical) | svc | P1 | sprint-27 |
 | MR-065 | History modal: list current draft as `current (vN)`, relabel rounds, drop "0 notes" (GH #18) | ui | P2 | sprint-23 |
 | MR-064 | snapshot_round: stop writing the retired notes count into round.json (+ README /history shape) (GH #18) | svc | P2 | sprint-23 |
