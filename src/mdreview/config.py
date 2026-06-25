@@ -7,9 +7,9 @@ src/mdreview/config.py it walks up three dirs (config.py -> mdreview -> src -> r
 import os
 
 # ponytail: repo-root anchor; MDREVIEW_WEB_DIR overrides in container/tests.
-# src/mdreview/config.py -> up 3 (config -> mdreview -> src -> repo root), then /web.
+# src/mdreview/config.py -> up 3 (config -> mdreview -> src -> repo root), then /web/app.
 WEB_DIR = os.environ.get("MDREVIEW_WEB_DIR") or os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web")
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web", "app")
 DATA_DIR = os.environ.get("MDREVIEW_DATA", "/data")
 PORT = int(os.environ.get("PORT", "8080"))
 PUBLIC_BASE = os.environ.get("MDREVIEW_PUBLIC_BASE", "").rstrip("/")

@@ -12,7 +12,7 @@ import threading
 
 
 class Store:
-    # Content types for files served out of web/static and for attached asset bytes (the type is
+    # Content types for files served out of web/app/static and for attached asset bytes (the type is
     # inferred from the attached name's extension). Anything unlisted -> application/octet-stream.
     _CTYPES = {
         ".js": "text/javascript",

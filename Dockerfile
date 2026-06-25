@@ -8,7 +8,7 @@ ENV MDREVIEW_DATA=/data \
 
 WORKDIR /app
 COPY src/ ./src/
-COPY web/ ./web/
+COPY web/app/ ./web/
 
 RUN mkdir -p /data
 VOLUME /data
