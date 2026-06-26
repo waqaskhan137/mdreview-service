@@ -1,0 +1,109 @@
+name: release
+
+# Tag-driven macOS release: build the .app (py2app), sign with Developer ID + hardened runtime,
+# notarize, staple, package as a DMG, and publish it on a GitHub Release.
+# RELEASES ONLY FROM main: a v* tag must point at a commit on main, or the job refuses (the guard
+# step below). So the flow is: land on main (the dev->main PR), then tag main:
+#   git checkout main && git pull && git tag v1.0.0 && git push origin v1.0.0
+# (or run manually via workflow_dispatch from main).
+# Requires repo secrets: APPLE_CERT_P12_BASE64, APPLE_CERT_PASSWORD, APPLE_TEAM_ID,
+#   APPLE_API_KEY_ID, APPLE_API_ISSUER_ID, APPLE_API_KEY_P8_BASE64.
+# NOTE: the cert MUST be a "Developer ID Application" certificate — Apple Development can't notarize.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to build (e.g. v0.0.1)'
+        required: true
+
+permissions:
+  contents: write          # create the GitHub Release + upload the DMG
+
+jobs:
+  macos:
+    runs-on: macos-14      # Apple Silicon runner (arm64)
+    env:
+      VERSION: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history so we can verify the tag is on main
+
+      - name: Enforce release from main
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag ${VERSION} (${GITHUB_SHA}) is not on main — releases must be tagged from main."
+            exit 1
+          fi
+          echo "Tag commit is on main — proceeding with the release."
+
+      - name: Use a framework Python (py2app requires one)
+        run: |
+          set -euo pipefail
+          brew install python@3.12 >/dev/null
+          PYBIN="$(brew --prefix python@3.12)/bin/python3.12"
+          "$PYBIN" -c 'import sysconfig,sys; sys.exit(0 if sysconfig.get_config_var("PYTHONFRAMEWORK") else 1)'
+          echo "PYBIN=$PYBIN" >> "$GITHUB_ENV"
+
+      - name: Import Developer ID certificate
+        env:
+          P12_B64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
+          P12_PW: ${{ secrets.APPLE_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$P12_B64" | base64 -d > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "" "$RUNNER_TEMP/build.keychain"
+          security set-keychain-settings "$RUNNER_TEMP/build.keychain"
+          security unlock-keychain -p "" "$RUNNER_TEMP/build.keychain"
+          security import "$RUNNER_TEMP/cert.p12" -k "$RUNNER_TEMP/build.keychain" -P "$P12_PW" -T /usr/bin/codesign
+          security list-keychains -d user -s "$RUNNER_TEMP/build.keychain" login.keychain-db
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" "$RUNNER_TEMP/build.keychain"
+          rm -f "$RUNNER_TEMP/cert.p12"
+          ID=$(security find-identity -v -p codesigning "$RUNNER_TEMP/build.keychain" | awk -F'"' '/Developer ID Application/{print $2; exit}')
+          test -n "$ID" || { echo "::error::No 'Developer ID Application' identity in the cert — notarization needs Developer ID, not Apple Development."; exit 1; }
+          echo "CODESIGN_IDENTITY=$ID" >> "$GITHUB_ENV"
+
+      - name: Build + sign the .app (hardened runtime)
+        run: bash infra/packaging/macos/build.sh
+
+      - name: Notarize + staple the .app
+        env:
+          KEY_B64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          ISSUER: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          APP=.scratch/macos-build/dist/mdreview.app
+          echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/key.p8"
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/app.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/app.zip" --key "$RUNNER_TEMP/key.p8" --key-id "$KEY_ID" --issuer "$ISSUER" --wait
+          xcrun stapler staple "$APP"
+          rm -f "$RUNNER_TEMP/app.zip"
+
+      - name: Package, notarize + staple the DMG
+        env:
+          KEY_B64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          ISSUER: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          APP=.scratch/macos-build/dist/mdreview.app
+          DMG="mdreview-${VERSION}-macos-arm64.dmg"
+          hdiutil create -volname "mdreview" -srcfolder "$APP" -ov -format UDZO "$DMG"
+          codesign --force -s "$CODESIGN_IDENTITY" --timestamp "$DMG"
+          xcrun notarytool submit "$DMG" --key "$RUNNER_TEMP/key.p8" --key-id "$KEY_ID" --issuer "$ISSUER" --wait
+          xcrun stapler staple "$DMG"
+          rm -f "$RUNNER_TEMP/key.p8"
+          echo "DMG=$DMG" >> "$GITHUB_ENV"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          files: ${{ env.DMG }}
+          generate_release_notes: true

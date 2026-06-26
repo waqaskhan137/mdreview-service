@@ -29,12 +29,13 @@ import base64
 import json
 import os
 import re
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 from mdreview.config import (
-    DATA_DIR, LEASE_TTL_S, PORT, PUBLIC_BASE, RID, WAIT_TIMEOUT_S, WEB_DIR,
+    APP_MODE, DATA_DIR, LEASE_TTL_S, PORT, PUBLIC_BASE, RID, WAIT_TIMEOUT_S, WEB_DIR,
 )
 from mdreview.store import Store
 from mdreview.comments import CommentService
@@ -170,6 +171,20 @@ class H(BaseHTTPRequestHandler):
 
         if path == "/healthz" and m == "GET":
             return self._json(200, {"ok": True})
+
+        # App-mode controls (the packaged local .app only). /api/app lets the dashboard decide whether
+        # to show the Quit button; /api/app/quit shuts the local app down. Both are inert (app_mode
+        # false / 404) on the shared/Docker service, so a browser can never stop it.
+        if path == "/api/app" and m == "GET":
+            return self._json(200, {"app_mode": APP_MODE})
+        if path == "/api/app/quit" and m == "POST":
+            if not APP_MODE:
+                return self._json(404, {"error": "not found"})
+            self._json(200, {"quitting": True})
+            # handler runs in the serve_forever thread, so httpd.shutdown() here would deadlock —
+            # os._exit after the response flushes is the clean break for a single local app.
+            threading.Timer(0.3, lambda: os._exit(0)).start()
+            return
 
         if path in ("/", "/api") and m == "GET":
             descriptor = {
