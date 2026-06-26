@@ -41,6 +41,7 @@ def main():
     os.makedirs(APP_SUPPORT, exist_ok=True)
     os.environ.setdefault("MDREVIEW_DATA", APP_SUPPORT)
     os.environ.setdefault("MDREVIEW_WEB_DIR", _web_dir())
+    os.environ.setdefault("MDREVIEW_APP_MODE", "1")   # enables the dashboard Quit control
     port = _free_port()
     os.environ["PORT"] = str(port)
     # MCP discovery: the stdio wrapper reads this to set MDREVIEW_BASE (P-MCP). It must still

@@ -19,6 +19,7 @@ mkdir -p "$OUT"
 "$VENV/bin/pip" install -q --upgrade pip py2app
 
 cd "$OUT"                                   # build/ dist/ .eggs/ land here (gitignored), not in the repo
+pkill -f "mdreview.app/Contents/MacOS" 2>/dev/null || true   # a running instance locks the bundle → py2app sign fails
 rm -rf dist build
 "$VENV/bin/python" "$HERE/setup.py" py2app --dist-dir "$OUT/dist" --bdist-base "$OUT/build"
 
