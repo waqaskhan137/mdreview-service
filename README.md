@@ -7,6 +7,10 @@ No per-process spawning, no shared filesystem with the agent.
 **Landing page:** [mdreview.waqasrana.space](https://mdreview.waqasrana.space/) (served from
 GitHub Pages via `.github/workflows/pages.yml`; source in `web/site/`).
 
+**Docs:** [mdreview.waqasrana.space/docs](https://mdreview.waqasrana.space/docs/) — onboarding,
+how-to, and troubleshooting, rendered through the service's own markdown renderer (source in
+`web/site/docs/`).
+
 Stdlib Python only (tiny image, no pip installs). Self-contained: the marked, Mermaid, KaTeX,
 highlight.js, and footnote renderers are vendored and served from `/static`, so the browser needs no
 CDN. The viewer renders Markdown the way a Jekyll/MathJax site does: **LaTeX math** (inline `$…$` /
