@@ -8,6 +8,11 @@ __pycache__/
 # Kept out of the locked root's policy: ignored, so it never shows as untracked.
 .vscode/
 
+# AI agent tooling/config — local only, removed from the repo (git rm --cached). Kept on disk so
+# the local lock-root hook / agents / skills still work; just no longer tracked or shipped to clones.
+.claude/
+CLAUDE.md
+
 # in-project scratch for smokes / throwaway service data dirs / temp scripts.
 # Kept INSIDE the repo (never /tmp or an external scratchpad) so it needs no
 # out-of-project write permission. Never committed.
