@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mdreview docs</title>
+<meta name="description" content="mdreview docs — onboarding, how-to, and troubleshooting for the human-in-the-loop markdown review service.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%232F6FED'/><stop offset='1' stop-color='%237C4DFF'/></linearGradient></defs><rect width='64' height='64' rx='15' fill='url(%23g)'/><text x='32' y='45' font-family='sans-serif' font-size='34' font-weight='700' fill='white' text-anchor='middle'>md</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<!-- vendored from web/app/static/ — same renderer the product ships (see vendor/VENDOR.txt) -->
+<link rel="stylesheet" href="vendor/hljs-github.css">
+<style>
+  /* brand tokens from the landing page (web/site/index.html); dark via the same swap the viewer uses */
+  :root{--bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--muted2:#6e727e;--rule:#e6e7ee;
+        --blue:#1d4fbf;--link:#2f6fed;--grad1:#2f6fed;--grad2:#7c4dff;--sidebar:#fff;}
+  @media (prefers-color-scheme: dark){:root{--bg:#0f1014;--panel:#17181d;--text:#e9eaf0;--muted:#9a9fb0;
+        --muted2:#878c9c;--rule:#26282f;--blue:#9cc0f5;--link:#7ba6f5;--sidebar:#131419;}}
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:'Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+       font-size:17px;line-height:1.7;-webkit-font-smoothing:antialiased;}
+  a{color:var(--link);}
+  .layout{display:flex;align-items:flex-start;min-height:100vh;}
+
+  /* sidebar */
+  .sidebar{position:sticky;top:0;height:100vh;flex:0 0 248px;background:var(--sidebar);
+           border-right:1px solid var(--rule);padding:26px 18px;overflow-y:auto;}
+  .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);margin:0 6px 22px;}
+  .brand .logo{width:30px;height:30px;border-radius:8px;
+               background:linear-gradient(135deg,var(--grad1),var(--grad2));
+               display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;}
+  .brand .name{font-weight:600;font-size:16px;}
+  .nav{display:flex;flex-direction:column;gap:2px;}
+  .nav a{display:block;padding:8px 12px;border-radius:8px;text-decoration:none;color:var(--muted);
+         font-size:14.5px;font-weight:500;}
+  .nav a:hover{background:rgba(127,127,127,.08);color:var(--text);}
+  .nav a.active{background:rgba(47,111,237,.12);color:var(--link);}
+  .nav .ext{margin-top:14px;border-top:1px solid var(--rule);padding-top:14px;}
+  .nav .ext a{color:var(--muted2);font-size:13.5px;}
+
+  /* content */
+  main{flex:1 1 auto;min-width:0;display:flex;justify-content:center;padding:48px 32px 120px;}
+  #article{max-width:760px;width:100%;}
+  #article h1{font-size:34px;line-height:1.15;letter-spacing:-.02em;margin:0 0 .5em;font-weight:700;}
+  #article h2{font-size:23px;letter-spacing:-.01em;margin:1.6em 0 .4em;font-weight:650;
+              padding-top:.2em;border-top:1px solid var(--rule);}
+  #article h3{font-size:18px;margin:1.4em 0 .3em;font-weight:600;}
+  #article p{margin:.7em 0;}
+  #article ul,#article ol{margin:.6em 0;padding-left:1.45em;}
+  #article li{margin:.25em 0;}
+  #article blockquote{margin:.8em 0;padding:.2em 1em;border-left:3px solid var(--link);
+                      color:var(--muted);background:rgba(47,111,237,.05);border-radius:0 6px 6px 0;}
+  #article pre{background:rgba(127,127,127,.1);padding:14px 16px;border-radius:10px;overflow:auto;
+               font-size:13.5px;line-height:1.5;margin:.9em 0;}
+  #article code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em;}
+  #article :not(pre)>code{background:rgba(127,127,127,.13);padding:.12em .4em;border-radius:5px;}
+  #article a{color:var(--link);}
+  #article table{border-collapse:collapse;width:100%;margin:1em 0;font-size:14.5px;line-height:1.45;
+                 display:block;overflow-x:auto;}
+  #article th,#article td{border:1px solid var(--rule);padding:7px 11px;text-align:left;vertical-align:top;}
+  #article th{background:rgba(127,127,127,.1);font-weight:600;}
+  #article tr:nth-child(even) td{background:rgba(127,127,127,.04);}
+  #article hr{border:none;border-top:1px solid var(--rule);margin:1.6em 0;}
+  #article img{max-width:100%;border-radius:8px;}
+  #article .mermaid{margin:1.1em 0;text-align:center;}
+  #article .mermaid svg{max-width:100%;height:auto;}
+  #article kbd{font-family:ui-monospace,monospace;font-size:.8em;background:var(--panel);
+               border:1px solid var(--rule);border-bottom-width:2px;border-radius:5px;padding:.1em .45em;}
+
+  /* mobile: sidebar becomes a top bar */
+  @media (max-width:760px){
+    .layout{flex-direction:column;}
+    .sidebar{position:static;height:auto;flex-basis:auto;width:100%;border-right:none;
+             border-bottom:1px solid var(--rule);padding:16px;}
+    .nav{flex-direction:row;flex-wrap:wrap;}
+    .nav .ext{margin-top:0;border-top:none;padding-top:0;border-left:1px solid var(--rule);
+              padding-left:8px;margin-left:4px;}
+    main{padding:28px 18px 90px;}
+  }
+  .noscript{max-width:680px;margin:60px auto;padding:0 24px;font-size:17px;line-height:1.6;}
+</style>
+</head>
+<body>
+<noscript>
+  <div class="noscript">
+    <h1>mdreview docs</h1>
+    <p>These docs render in the browser (the same way the mdreview viewer renders markdown), so they
+    need JavaScript. With JS disabled, read the full documentation in the project README:</p>
+    <p><a href="https://github.com/waqaskhan137/mdreview-service#readme">github.com/waqaskhan137/mdreview-service</a></p>
+  </div>
+</noscript>
+
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="#/home">
+      <span class="logo">md</span>
+      <span class="name">mdreview docs</span>
+    </a>
+    <nav class="nav" id="nav"></nav>
+  </aside>
+  <main><article id="article"></article></main>
+</div>
+
+<!-- vendored renderer (mermaid is loaded lazily, only when a page has a diagram) -->
+<script src="vendor/marked.min.js"></script>
+<script src="vendor/highlight.min.js"></script>
+<script src="vendor/marked-highlight.umd.js"></script>
+<script>
+// Pages: slug -> markdown file + sidebar label. Order = sidebar order.
+const PAGES=[
+  {slug:'home',            file:'home.md',            label:'Overview'},
+  {slug:'quickstart',      file:'quickstart.md',      label:'Quickstart'},
+  {slug:'guide',           file:'guide.md',           label:'Guide'},
+  {slug:'troubleshooting', file:'troubleshooting.md', label:'Troubleshooting'},
+];
+const article=document.getElementById('article');
+
+function escapeHtml(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+// Highlighting via the product's marked<->hljs bridge. Guarded on its global so a missing asset
+// degrades to plain code instead of throwing (same posture as the viewer's setupMarked). Math and
+// footnotes are intentionally not wired — those libs aren't vendored here (see vendor/VENDOR.txt).
+let _markedReady=false;
+function setupMarked(){
+  if(_markedReady||!window.marked)return;
+  _markedReady=true;
+  var mh=window.markedHighlight && window.markedHighlight.markedHighlight;
+  if(mh && window.hljs) marked.use(mh({
+    langPrefix:'hljs language-',
+    highlight(code, lang){
+      if(lang==='mermaid') return code;            // leave raw for renderMermaid()
+      if(lang && hljs.getLanguage(lang)) return hljs.highlight(code,{language:lang}).value;
+      return hljs.highlightAuto(code).value;
+    }
+  }));
+}
+
+// Lazy mermaid: only fetch the 3.2MB script when a rendered page actually has a ```mermaid block.
+let _mermaidLoaded=false;
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
+async function renderMermaid(){
+  const codes=[...article.querySelectorAll('code.language-mermaid')];
+  if(!codes.length)return;
+  if(!_mermaidLoaded){
+    try{await loadScript('vendor/mermaid.min.js');_mermaidLoaded=true;}
+    catch(e){console.warn('mermaid load failed',e);return;}
+    const dark=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches;
+    try{mermaid.initialize({startOnLoad:false,securityLevel:'loose',theme:dark?'dark':'default'});}catch(e){}
+  }
+  codes.forEach(c=>{const div=document.createElement('div');div.className='mermaid';div.textContent=c.textContent;(c.closest('pre')||c).replaceWith(div);});
+  try{await mermaid.run({querySelector:'#article .mermaid'});}catch(e){console.warn('mermaid render failed',e);}
+}
+
+function buildNav(){
+  const nav=document.getElementById('nav');
+  nav.innerHTML=PAGES.map(p=>`<a href="#/${p.slug}" data-slug="${p.slug}">${p.label}</a>`).join('')
+    +`<span class="ext"><a href="https://github.com/waqaskhan137/mdreview-service#readme">Full reference (README) ↗</a></span>`;
+}
+function setActive(slug){
+  document.querySelectorAll('.nav a[data-slug]').forEach(a=>a.classList.toggle('active',a.dataset.slug===slug));
+}
+
+// Router: empty/unknown hash -> home. Hash form is #/<slug>.
+function currentSlug(){
+  const h=location.hash.replace(/^#\/?/,'').split(/[?#]/)[0];
+  return PAGES.some(p=>p.slug===h)?h:'home';
+}
+async function render(){
+  const slug=currentSlug();
+  const page=PAGES.find(p=>p.slug===slug);
+  setActive(slug);
+  let md;
+  try{const r=await fetch(page.file);if(!r.ok)throw new Error(r.status);md=await r.text();}
+  catch(e){article.innerHTML='<h1>Page unavailable</h1><p>Could not load this page. Try the '
+    +'<a href="https://github.com/waqaskhan137/mdreview-service#readme">README</a>.</p>';return;}
+  article.innerHTML=window.marked?marked.parse(md):'<pre>'+escapeHtml(md)+'</pre>';
+  document.title='mdreview docs · '+page.label;
+  await renderMermaid();
+  window.scrollTo(0,0);
+}
+
+setupMarked();
+buildNav();
+window.addEventListener('hashchange',render);
+render();
+</script>
+</body>
+</html>
