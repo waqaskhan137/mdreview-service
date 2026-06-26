@@ -1,0 +1,17 @@
+Vendored renderer libs for the docs site — copied verbatim from web/app/static/
+(the same versions the viewer ships), so the docs render identically to the product
+and pull in no new dependency. Pinned by being committed; re-copy from web/app/static/
+to update.
+
+Source: web/app/static/ @ commit eb9ba69 (dev)
+
+  marked.min.js            markdown parser
+  marked-highlight.umd.js  marked <-> highlight.js bridge
+  highlight.min.js         syntax highlighting
+  hljs-github.css          highlight theme (dual light/dark)
+  mermaid.min.js           diagrams (~3.2MB; loaded LAZILY by index.html, only on
+                           pages that contain a ```mermaid block)
+
+Deliberately NOT vendored (no doc page needs them): KaTeX (js+css+~20 woff2 fonts)
+and marked-footnote. Their setupMarked() guards no-op when absent, so add them here
+only if a doc ever needs math or footnotes.

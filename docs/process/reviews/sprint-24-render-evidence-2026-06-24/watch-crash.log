@@ -1,0 +1,7 @@
+2026-06-24 20:30:46,705 INFO watch.py: logging to /Users/apple/Dev/personal/tools-utilities/mdreview-service/.scratch/s24/watch-crash.log
+2026-06-24 20:30:46,705 INFO watch.py: owner=watch-s24-crash base=http://localhost:8181 cursor=1782329446.706 (backlog=False)
+2026-06-24 20:30:47,779 INFO watch.py: spawned child for review 310fec7735 (owner=watch-s24-crash pid=16238, inflight=1)
+2026-06-24 20:30:49,788 WARNING watch.py: child for review 310fec7735 exited 1 (reaped; no relaunch — see crash model B1)
+2026-06-24 20:30:49,788 WARNING watch.py: child for review 310fec7735 stderr tail:
+BOOM-CRASH-MARKER stack trace line
+2026-06-24 20:30:49,792 WARNING watch.py: crash-signal: review 310fec7735 flipped to reviewer ('agent process exited 1 without finishing')

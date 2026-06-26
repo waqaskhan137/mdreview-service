@@ -1,0 +1,11 @@
+--- pickup-timeout >grace branch (synthetic stale turn_updated) ---
+  ok   grace>: "No agent has picked this up"   [No agent has picked this up — is a watcher running? Take back the turn.]
+  ok   grace>: uses .warn (non-spinning)   [turnbanner show warn]
+--- stale-lease (as.at far past STALE_S) ---
+  ok   stale-lease: "Agent may have stopped"   [Agent may have stopped — Take back the turn?]
+  ok   stale-lease: .warn, not steps   [turnbanner show warn]
+--- working state + reduced-motion=true ---
+  ok   reduced-motion: active ::before animationName === none   [none]
+  ok   scheme0: timer + step colors resolve (rendered)   [{"bg":"rgba(127, 127, 127, 0.07)","timer":"rgb(154, 154, 154)","step":"rgb(241, 239, 236)"}]
+
+SUMMARY [{"label":"grace>: \"No agent has picked this up\"","pass":true,"extra":"No agent has picked this up — is a watcher running? Take back the turn."},{"label":"grace>: uses .warn (non-spinning)","pass":true,"extra":"turnbanner show warn"},{"label":"stale-lease: \"Agent may have stopped\"","pass":true,"extra":"Agent may have stopped — Take back the turn?"},{"label":"stale-lease: .warn, not steps","pass":true,"extra":"turnbanner show warn"},{"label":"reduced-motion: active ::before animationName === none","pass":true,"extra":"none"},{"label":"scheme0: timer + step colors resolve (rendered)","pass":true,"extra":"{\"bg\":\"rgba(127, 127, 127, 0.07)\",\"timer\":\"rgb(154, 154, 154)\",\"step\":\"rgb(241, 239, 236)\"}"}]

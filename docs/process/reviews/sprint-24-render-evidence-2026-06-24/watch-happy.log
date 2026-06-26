@@ -1,0 +1,4 @@
+2026-06-24 20:31:03,732 INFO watch.py: logging to /Users/apple/Dev/personal/tools-utilities/mdreview-service/.scratch/s24/watch-happy.log
+2026-06-24 20:31:03,732 INFO watch.py: owner=watch-s24-happy base=http://localhost:8181 cursor=1782329463.732 (backlog=False)
+2026-06-24 20:31:04,815 INFO watch.py: spawned child for review 2592a2ae40 (owner=watch-s24-happy pid=16453, inflight=1)
+2026-06-24 20:31:06,823 INFO watch.py: child for review 2592a2ae40 exited 0 (reaped)

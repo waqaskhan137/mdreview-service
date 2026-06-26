@@ -29,7 +29,7 @@ fi
 slug="$(cat "$MARKER" 2>/dev/null)"
 reason="feature-cycle Phase 10 (cycle retrospective) has not run for this cycle (${slug:-unknown}). \
 Before stopping: spawn the cycle-retrospective agent to meta-review THIS run, write \
-reviews/<slug>-cycle-retro-<YYYY-MM-DD>.md, report its top suggestions to the user, then remove \
+docs/process/reviews/<slug>-cycle-retro-<YYYY-MM-DD>.md, report its top suggestions to the user, then remove \
 the marker:  rm \"$MARKER\"  . If the retrospective genuinely cannot run, delete the marker \
 manually and state why."
 

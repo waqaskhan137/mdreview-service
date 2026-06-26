@@ -12,11 +12,11 @@ For each ticket:
    `layer`; if you discover a missing prerequisite, **stop and apply the blocking rule** (new
    prerequisite ticket or deliberate scope widen), never bury it.
 4. **Validate (G4):**
-   - `svc`: `python3 -m py_compile app.py`; then run it and curl the affected endpoints
-     (`PORT=8137 MDREVIEW_DATA=/tmp/mr python3 app.py` on a free port, or rebuild the container).
-   - `infra`: `docker build -t mdreview-service .` must pass.
-   - `ui`: rebuild from the image (`docker compose up -d --build`) and run
-     **`scripts/render-smoke.sh <url> <selector>...`** against the published port to assert the
+   - `svc`: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/mcp_server.py src/watch.py`; then run it and curl the affected endpoints
+     (`PORT=8137 MDREVIEW_DATA=/tmp/mr PYTHONPATH=src python3 -m mdreview` on a free port, or rebuild the container).
+   - `infra`: `docker build -f infra/Dockerfile -t mdreview-service .` must pass.
+   - `ui`: rebuild from the image (`make up`) and run
+     **`tests/render-smoke.sh <url> <selector>...`** against the published port to assert the
      expected DOM nodes rendered (the viewer/dashboard are JS-rendered; a 200 is not a render and
      a screenshot proves first-paint only). This is the README G4 rule for `ui` tickets — run it,
      do not restate it.
@@ -24,7 +24,7 @@ For each ticket:
 5. **Commit** referencing the ticket: `feat(svc): add list endpoint (MR-002)` (conventional
    subject + the `Co-Authored-By: Claude` trailer this repo keeps).
 6. Fill the ticket's **Work log** (what changed, files touched) and **Validation** (what you
-   checked, the result). Update durable docs (`README.md`/`AGENTS.md`/`CLAUDE.md`) **in the same
+   checked, the result). Update durable docs (`README.md`/`CLAUDE.md`) **in the same
    change** when behavior changes.
 7. **G4 -> review:** set `status: review`. **G5 -> done:** once AC are met, validation passed,
    docs updated, Work log/Validation filled, and committed, set `status: done`. Move the row in

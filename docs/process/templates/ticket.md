@@ -20,7 +20,7 @@ Why this ticket exists, in one short paragraph. The problem or outcome, not the 
 
 - [ ] A specific, checkable outcome
 - [ ] Another one
-- [ ] Local validation passes: `python3 -m py_compile app.py` (and the relevant smoke for the layer)
+- [ ] Local validation passes: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/mcp_server.py src/watch.py` (and the relevant smoke for the layer)
 
 ## Notes / context
 

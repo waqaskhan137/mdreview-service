@@ -1,0 +1,28 @@
+
+--- A: claim ---
+  ok   A1 banner has class steps   [turnbanner show steps]
+  ok   A1 turntext "Agent is working"   [Agent is working on your feedback…]
+  ok   A1 timer M:SS format   [0:02]
+  ok   A1 step0 Connected active   [{"t":"Connected — reading your comments","cls":"active"}]
+  ok   A1 step1 Editing pending(no class)   [{"t":"Editing the document","cls":""}]
+  ok   A1 step2 Updating pending(no class)   [{"t":"Updating comments","cls":""}]
+  ok   A1 Editing label ABSENT-as-reached (baseline guard: no done/active on step1)
+
+--- A2: timer ticks fetch-free (no POST, wait) ---
+  ok   A2 timer advanced without a new /status   [0:02 -> 0:04]
+
+--- A3: edit (PUT /source) -> Editing reached ---
+  ok   A3 Editing reached (done|active)   [{"t":"Editing the document","cls":"active"}]
+  ok   A3 still in steps mode   [turnbanner show steps]
+
+--- A4: create+resolve a comment -> Updating comments reached ---
+  ok   A4 Updating comments reached   [{"t":"Updating comments","cls":"active"}]
+
+--- A5: hand back done ---
+  ok   A5 text "Agent updated the draft ... Your turn"   [Agent updated the draft: tightened intro. Your turn.]
+  ok   A5 final timer "Agent revised in M:SS"   [Agent revised in 0:09]
+  ok   A5 comment step relabelled "Resolved comments"   [{"t":"Resolved comments","cls":"done"}]
+  ok   A5 no active spinner on done (no li.active)   [["done","done","done"]]
+
+A_RESULT {"rid":"56cb62a5d6"}
+SUMMARY [{"label":"A1 banner has class steps","pass":true,"extra":"turnbanner show steps"},{"label":"A1 turntext \"Agent is working\"","pass":true,"extra":"Agent is working on your feedback…"},{"label":"A1 timer M:SS format","pass":true,"extra":"0:02"},{"label":"A1 step0 Connected active","pass":true,"extra":"{\"t\":\"Connected — reading your comments\",\"cls\":\"active\"}"},{"label":"A1 step1 Editing pending(no class)","pass":true,"extra":"{\"t\":\"Editing the document\",\"cls\":\"\"}"},{"label":"A1 step2 Updating pending(no class)","pass":true,"extra":"{\"t\":\"Updating comments\",\"cls\":\"\"}"},{"label":"A1 Editing label ABSENT-as-reached (baseline guard: no done/active on step1)","pass":true,"extra":""},{"label":"A2 timer advanced without a new /status","pass":true,"extra":"0:02 -> 0:04"},{"label":"A3 Editing reached (done|active)","pass":true,"extra":"{\"t\":\"Editing the document\",\"cls\":\"active\"}"},{"label":"A3 still in steps mode","pass":true,"extra":"turnbanner show steps"},{"label":"A4 Updating comments reached","pass":true,"extra":"{\"t\":\"Updating comments\",\"cls\":\"active\"}"},{"label":"A5 text \"Agent updated the draft ... Your turn\"","pass":true,"extra":"Agent updated the draft: tightened intro. Your turn."},{"label":"A5 final timer \"Agent revised in M:SS\"","pass":true,"extra":"Agent revised in 0:09"},{"label":"A5 comment step relabelled \"Resolved comments\"","pass":true,"extra":"{\"t\":\"Resolved comments\",\"cls\":\"done\"}"},{"label":"A5 no active spinner on done (no li.active)","pass":true,"extra":"[\"done\",\"done\",\"done\"]"}]

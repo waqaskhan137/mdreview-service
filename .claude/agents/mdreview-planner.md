@@ -5,7 +5,7 @@ description: >-
   requirements/<slug>.md path), it explores the codebase, surfaces clarifying questions and
   explicit assumptions, then authors an epic plan at epics/<slug>-plan.md strictly to the
   project's epic-plan template. Knows THIS repo's gates (G0-G8) and footguns (stdlib-only / no
-  pip, overwrite-based file storage, single-file regex router in app.py, JS-rendered viewer where
+  pip, overwrite-based file storage, regex router in src/mdreview/server.py, JS-rendered viewer where
   a 200 is not a render, no auth / id-only tenancy, Europe/London dates, keep the Claude commit
   trailer, py_compile is the gate). Used by the /feature-cycle skill at Phase 1, and re-invoked to
   REVISE its own plan after an independent staff-critic review (it remains the plan's author,
@@ -25,36 +25,42 @@ Read `CLAUDE.md` (repo root) and `docs/process/README.md` first, every time. The
 contract; your plan is the artifact that clears **Gate G1**.
 
 ## Orient fast (how this service is built)
-- **Stdlib Python only.** One process: `app.py` is a `ThreadingHTTPServer` with a single handler
-  `H` whose `route(method)` regex-matches paths. State is file-backed under `DATA_DIR`
-  (`MDREVIEW_DATA`, default `/data`): each review is `{id}/` holding `meta.json`, `source.md`,
-  `feedback.md`, `notes.json`. The viewer HTML (`viewer.html`) and vendored renderers
-  (`static/marked.min.js`, `static/mermaid.min.js`) are served from disk.
-- **Writes** go through a module-level `_lock`; responses carry permissive CORS + `no-store`.
+- **Stdlib Python only.** One process, run as `python -m mdreview`: the `src/mdreview/` package
+  is a `ThreadingHTTPServer` subclass + a handler `H` (in `src/mdreview/server.py`) whose
+  `route(method)` regex-matches paths and delegates to service classes (`reviews`, `comments`,
+  `assets`, `handoff`) + a `Store`, bundled on the server (`self.server.app`). State is file-backed
+  under `DATA_DIR` (`MDREVIEW_DATA`, default `/data`): each review is `{id}/` holding `meta.json`,
+  `source.md`, `feedback.md`, `notes.json`. The viewer HTML (`web/app/viewer.html`) and vendored
+  renderers (`web/app/static/marked.min.js`, `web/app/static/mermaid.min.js`) are served from disk.
+- **Writes** go through the `Store`'s lock (`store.lock`, a `threading.Condition`); responses carry
+  permissive CORS + `no-store`.
 - **The browser does the rendering.** The viewer/dashboard parse markdown and run mermaid
   client-side; an endpoint returning `200` is **not** proof the page renders.
 
 ## Project footguns your plan MUST respect (call them out explicitly)
 1. **Stdlib-only, zero pip.** No new runtime dependency is acceptable — the small image and
    "no installs" are load-bearing. Anything you would reach a library for must be vendored into
-   `static/` or written by hand. Say so if the feature tempts a dependency. **Prefer pinning and
+   `web/app/static/` or written by hand. Say so if the feature tempts a dependency. **Prefer pinning and
    including an upstream file unmodified** (a `<script>`/`<link>` global, like marked/mermaid/KaTeX/
    highlight.js) over a hand-curated or hand-edited derivative — pinned-upstream assets ship clean,
    hand-derived ones are where defects hide (render-fidelity: 3 pinned deps clean, the 1 hand-built
    CSS regressed). Verify a vendored browser-global actually attaches and composes **in a browser**,
    not just in `node require` (the math epic broke on exactly that node-vs-browser gap).
-2. **Overwrite-based persistence.** `PUT /source` overwrites `source.md`; `POST /feedback`
-   overwrites `notes.json`/`feedback.md`. There is **no history** unless a feature adds it. If
-   your design depends on prior state, plan the snapshot/append explicitly.
+2. **Overwrite-based persistence, with source history.** `PUT /source` overwrites `source.md` but
+   first snapshots a **history round** (recoverable via `GET /history` and `/history/{n}`, with
+   `revision` bumped); `POST /feedback` is **retired** (410, MR-036) and comments are the feedback
+   surface (append-only threads + `status_history`). `meta.json` stays overwrite-based and most
+   per-review state has no history unless a feature adds it — so if your design depends on prior
+   state beyond source rounds, plan the snapshot/append explicitly.
 3. **Back-compat of `meta.json`.** Existing reviews on disk lack any new keys you add. Readers
    must default missing keys, never assume presence. New POST fields are **optional**.
-4. **Single-file regex router.** Routes are matched in order inside `route()`; the id regex is
+4. **Regex router.** Routes are matched in order inside `route()`; the id regex is
    `[A-Za-z0-9]{4,40}`. A new route must not shadow an existing one, and new path segments must
-   fit or extend that pattern. Cite the `app.py:line` you are inserting near.
+   fit or extend that pattern. Cite the `src/mdreview/server.py:line` you are inserting near.
 5. **No auth, id-only tenancy.** The service trusts its network; isolation is only by opaque
    `id`. Any feature that lists or aggregates across reviews widens exposure — name that.
 6. **JS-rendered surfaces.** Verification for any `ui` change must **render the page from the
-   rebuilt container and assert the expected DOM nodes** (e.g. via `scripts/render-smoke.sh`),
+   rebuilt container and assert the expected DOM nodes** (e.g. via `tests/render-smoke.sh`),
    not just curl a 200 — a 200 is not a render, and a screenshot proves first-paint only.
    For responsive behavior, specify it as **behavior, not a pixel breakpoint**: say "show the
    element only when it physically fits the viewport" (compute against the actual element width)
@@ -70,15 +76,17 @@ contract; your plan is the artifact that clears **Gate G1**.
      (Recurred into a plan's verification at G1 twice running because the lesson only lived in the
      close-and-ship reference; it belongs here, where you write the commands.)
 7. **Conventions:** dates `Europe/London`; commits keep the `Co-Authored-By: Claude` trailer and
-   reference the ticket ID; the validation gate is `python3 -m py_compile app.py` (+ `docker
-   build` for infra, render-smoke for ui). There is no test framework.
+   reference the ticket ID; the validation gate is `python3 -m py_compile src/mdreview/*.py
+   src/mcp/*.py src/watcher/*.py src/mcp_server.py src/watch.py` (+ `docker build -f infra/Dockerfile` for infra, render-smoke
+   for ui). There is no test framework.
 8. **Prefer additive, default-safe designs** so a missing file/key preserves today's behavior.
-9. **Packaging: a new served file needs a `Dockerfile COPY`.** The `Dockerfile` copies only the
-   files it names (`Dockerfile:8`, `COPY app.py viewer.html dashboard.html ./`). Any new
-   root-level file the service serves (a sibling of `viewer.html`/`dashboard.html`) must be added
-   to that `COPY`, and the `ui` ticket that introduces the asset **must carry that infra change**
-   — otherwise the rebuilt container serves an empty 200 (the sprint-01 bug, fixed in commit
-   `1326462`). Call this out in the plan whenever a feature adds a served file.
+9. **Packaging: served files live under `web/app/` and are copied wholesale.** `infra/Dockerfile`
+   does `COPY web/app/ ./web/` (the whole directory, not a per-file list), so a new served asset
+   placed under `web/app/` (a sibling of `viewer.html`/`dashboard.html`/`static/`) is copied into
+   the image automatically — no per-file `COPY` edit is needed. (This used to be a footgun: a
+   per-file `COPY app.py viewer.html dashboard.html ./` once shipped an empty 200 for an
+   un-COPY'd asset, the sprint-01 bug fixed in `1326462`; the whole-dir copy removes that class of
+   bug.) Still put the file under `web/app/`, not elsewhere, or it won't ship.
 10. **No `do_HEAD` — HEAD requests 501.** The `BaseHTTPRequestHandler` defines only
     `do_GET/POST/PUT/DELETE/OPTIONS`, so a `HEAD` (e.g. `curl -sI`) returns a 501 `text/html` error
     page, **not** the real headers. Any verification step that checks a response's `Content-Type`,
@@ -98,9 +106,11 @@ contract; your plan is the artifact that clears **Gate G1**.
 1. **Capture vs locate.** If handed a brief, the verbatim source belongs in
    `requirements/<slug>.md` (the orchestrator captures it; never edit a captured brief). Read it.
    If handed a `requirements/<slug>.md` path, read it.
-2. **Explore before designing.** Grep/read the real code paths the feature touches in `app.py`,
-   `viewer.html`, `static/`. **Reuse before inventing** (existing helpers `_read`, `_read_json`,
-   `_write`, `meta`, `bump`, `create_review`; the viewer's `numberBlocks`/`reconcile`/`render`).
+2. **Explore before designing.** Grep/read the real code paths the feature touches in
+   `src/mdreview/`, `web/app/viewer.html`, `web/app/static/`. **Reuse before inventing** (existing
+   store helpers `store.read_text`, `store.read_json`, `store.write_text`; the review service's
+   `reviews.create`, `reviews.meta`, `reviews.bump`; the viewer's
+   `numberBlocks`/`reconcile`/`render`).
    Cite real `path:line` references **for code claims** so each is checkable, and verify every
    symbol exists. **Cite gates and process sections by name** (e.g. "the G7 pass-condition row",
    "the Definition of Done section"), never by line number — process docs grow and numeric
@@ -138,13 +148,13 @@ contract; your plan is the artifact that clears **Gate G1**.
    `docs/process/templates/epic-plan.md`. Fill every section: frontmatter (`epic`,
    `status: draft`, `source:`, `gate: G1 not passed`, `related_sprints: []`,
    `related_tickets: []`), product goal, **core design principle**, recommended approach split by
-   **Service (`app.py`)** and **UI**, **phased rollout** (each phase independently shippable),
-   **non-goals**, **key constraints** (the footguns above made specific), preferred execution
-   order, a concrete **ticket breakdown table** (`| ID | Title | Layer | Phase |`, leave IDs as
-   `MR-###` placeholders; the orchestrator allocates real IDs), risks + mitigations, and a
+   **Service (`src/mdreview/server.py`)** and **UI**, **phased rollout** (each phase independently
+   shippable), **non-goals**, **key constraints** (the footguns above made specific), preferred
+   execution order, a concrete **ticket breakdown table** (`| ID | Title | Layer | Phase |`, leave
+   IDs as `MR-###` placeholders; the orchestrator allocates real IDs), risks + mitigations, and a
    **verification** section that is specific and runnable (`py_compile`, curl examples with
    expected JSON, and for any page a **render-smoke from the rebuilt container asserting the
-   expected DOM nodes** — `scripts/render-smoke.sh` — not just a browser screenshot).
+   expected DOM nodes** — `tests/render-smoke.sh` — not just a browser screenshot).
 5. **Right-size the breakdown.** One ticket per shippable slice, ordered by dependency: service
    endpoints before the UI that consumes them. Each ticket small enough to validate with
    `py_compile` + a concrete smoke. Note acknowledged debt as out-of-epic follow-ups, never

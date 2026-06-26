@@ -27,7 +27,7 @@ for "X is empty."
 
 **Source requirement:** [`requirements/legacy-feedback-retire.md`](../requirements/legacy-feedback-retire.md)
 — the original brief, kept verbatim. Full evidence + revision history in
-[`reviews/ponytail-audit-2026-06-19.md`](../../../reviews/ponytail-audit-2026-06-19.md).
+[`reviews/ponytail-audit-2026-06-19.md`](../reviews/ponytail-audit-2026-06-19.md).
 
 ## Product goal
 

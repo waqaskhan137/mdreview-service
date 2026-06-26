@@ -1,0 +1,7 @@
+2026-06-24 20:30:55,237 INFO watch.py: logging to /Users/apple/Dev/personal/tools-utilities/mdreview-service/.scratch/s24/watch-falsepos.log
+2026-06-24 20:30:55,238 INFO watch.py: owner=watch-s24-falsepos base=http://localhost:8181 cursor=1782329455.238 (backlog=False)
+2026-06-24 20:30:56,310 INFO watch.py: spawned child for review 1572466d21 (owner=watch-s24-falsepos pid=16349, inflight=1)
+2026-06-24 20:30:58,319 WARNING watch.py: child for review 1572466d21 exited 1 (reaped; no relaunch — see crash model B1)
+2026-06-24 20:30:58,320 WARNING watch.py: child for review 1572466d21 stderr tail:
+cleanup-failed-after-done
+2026-06-24 20:30:58,326 INFO watch.py: crash-signal: review 1572466d21 already handed back (turn=reviewer state=done) — no false 'stopped'

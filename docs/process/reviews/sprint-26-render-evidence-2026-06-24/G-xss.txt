@@ -1,0 +1,3 @@
+  XSS executed: false  (expect false)
+  injected <img>/<b> elements in banner: 0  (expect 0)
+  banner text (literal): "Agent updated the draft: <img src=x onerror=window.__XSS=1><b>bold</b>. Your turn."

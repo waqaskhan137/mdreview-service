@@ -1,0 +1,153 @@
+"""Review lifecycle + summary/list + history + the document reads the router did inline (MR-084).
+
+ReviewService owns everything review-scoped: meta + the bump timestamps, the comment-aware summary
+and the cross-review list, the PUT-source snapshot/overwrite, the history rounds, the /feedback
+projection (delegating to CommentService), and review deletion. It takes the single Store plus the
+CommentService (summary folds comment counts; feedback projects comments). Mutating methods assume
+the caller holds store.lock, exactly as the original free functions did.
+"""
+import json
+import os
+import secrets
+import shutil
+import time
+
+
+class ReviewService:
+    def __init__(self, store, comments):
+        self.store = store
+        self.comments = comments
+
+    def _path(self, rid, name):
+        return os.path.join(self.store.dir(rid), name)
+
+    def exists(self, rid):
+        return self.store.exists(rid)
+
+    def meta(self, rid):
+        return self.store.read_json(self._path(rid, "meta.json"), {})
+
+    def bump(self, rid, field):
+        p = self._path(rid, "meta.json")
+        m = self.store.read_json(p, {})
+        m[field] = time.time()
+        self.store.write_text(p, json.dumps(m))
+
+    def summary(self, rid):
+        """meta augmented with note counts, revision, and a derived status.
+
+        Comment-aware: counts fold in comments (each counts toward total; a resolved comment counts
+        toward addressed) so the dashboard never shows "0 / awaiting" for a review with open comments.
+        A review with no comments derives exactly as before (the comment contribution is zero).
+        """
+        m = dict(self.meta(rid))
+        notes = self.store.read_json(self._path(rid, "notes.json"), [])
+        comments = self.comments.list(rid)
+        total = len(notes) + len(comments)
+        addressed = (sum(1 for n in notes if n.get("addressed"))
+                     + sum(1 for c in comments if c.get("status") == "resolved"))
+        m["notes_total"] = total
+        m["notes_addressed"] = addressed
+        m["revision"] = m.get("revision", 0)
+        # MR-054: legacy reviews with no turn key read as "reviewer" so the ?turn= filter is
+        # filterable, never None/absent (the additive-default-safe rule).
+        m["turn"] = m.get("turn", "reviewer")
+        if not m.get("feedback_updated") and total == 0:
+            m["status"] = "awaiting"
+        elif total and addressed == total:
+            m["status"] = "resolved"
+        else:
+            m["status"] = "feedback"
+        return m
+
+    def list_reviews(self):
+        out = [self.summary(name) for name in os.listdir(self.store.data_dir) if self.store.exists(name)]
+        out.sort(key=lambda r: r.get("created", 0), reverse=True)
+        return out
+
+    def snapshot_round(self, rid):
+        """Archive the current source + feedback as a closed history round; bump revision.
+
+        Called under store.lock before a PUT overwrites source.md, so each agent revision leaves the
+        outgoing draft and the feedback it accumulated recoverable.
+        """
+        d = self.store.dir(rid)
+        m = self.store.read_json(os.path.join(d, "meta.json"), {})
+        n = int(m.get("revision", 0) or 0)
+        rd = os.path.join(d, "history", "round-%d" % n)
+        os.makedirs(rd, exist_ok=True)
+        for fn in ("source.md", "feedback.md", "notes.json"):
+            src = os.path.join(d, fn)
+            if os.path.isfile(src):
+                shutil.copy(src, os.path.join(rd, fn))
+        # round.json records only the round index + timestamp (MR-064 / #18). The per-round note
+        # count was removed: it was computed from the retired notes.json (always 0 in the comments
+        # era, the viewer authors comments since MR-036, and comments.json is not per-round
+        # snapshotted, so a truthful count is unrecoverable). The comment-aware per-review
+        # notes_total in summary() is a different field and is unaffected.
+        self.store.write_text(os.path.join(rd, "round.json"), json.dumps({
+            "round": n, "ts": time.time(),
+        }))
+        m["revision"] = n + 1
+        self.store.write_text(os.path.join(d, "meta.json"), json.dumps(m))
+
+    def create(self, markdown, title, project="", source_path="", session=""):
+        rid = secrets.token_hex(5)
+        d = self.store.dir(rid)
+        os.makedirs(d, exist_ok=True)
+        now = time.time()
+        self.store.write_text(os.path.join(d, "source.md"), markdown or "")
+        self.store.write_text(os.path.join(d, "feedback.md"), "")
+        self.store.write_text(os.path.join(d, "notes.json"), "[]")
+        self.store.write_text(os.path.join(d, "meta.json"), json.dumps({
+            "id": rid, "title": title or "", "created": now,
+            "source_updated": now,
+            "project": project or "", "source_path": source_path or "",
+            "session": session or "",
+        }))
+        return rid
+
+    def read_source(self, rid):
+        return self.store.read_text(self._path(rid, "source.md"))
+
+    def put_source(self, rid, markdown):
+        """Snapshot the outgoing round, overwrite source.md, bump source_updated. Caller holds
+        store.lock."""
+        self.snapshot_round(rid)
+        self.store.write_text(self._path(rid, "source.md"), markdown)
+        self.bump(rid, "source_updated")
+
+    def feedback(self, rid):
+        """meta + feedback.md + a union of on-disk notes and a read-time projection of comments, so
+        an agent's get_feedback still returns the human's live input. notes.json is never rewritten.
+        """
+        out = dict(self.meta(rid))
+        out["markdown"] = self.store.read_text(self._path(rid, "feedback.md"))
+        out["notes"] = (self.store.read_json(self._path(rid, "notes.json"), [])
+                        + [self.comments.as_note(c) for c in self.comments.list(rid)])
+        return out
+
+    def delete(self, rid):
+        shutil.rmtree(self.store.dir(rid), ignore_errors=True)
+
+    def history(self, rid):
+        hd = os.path.join(self.store.dir(rid), "history")
+        rounds = []
+        if os.path.isdir(hd):
+            for name in os.listdir(hd):
+                rj = self.store.read_json(os.path.join(hd, name, "round.json"), None)
+                if rj:
+                    rounds.append(rj)
+        rounds.sort(key=lambda r: r.get("round", 0), reverse=True)
+        return rounds
+
+    def history_round(self, rid, n):
+        """One past round (source + feedback + notes), or None if the round is missing."""
+        rd = os.path.join(self.store.dir(rid), "history", "round-%s" % n)
+        if not os.path.isfile(os.path.join(rd, "round.json")):
+            return None
+        out = dict(self.store.read_json(os.path.join(rd, "round.json"), {}))
+        out["source"] = self.store.read_text(os.path.join(rd, "source.md"))
+        out["feedback"] = self.store.read_text(os.path.join(rd, "feedback.md"))
+        out["notes"] = self.store.read_json(os.path.join(rd, "notes.json"), [])
+        return out

@@ -3,9 +3,160 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-19. **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-06-25. **sprint-26 (viewer-transparency, GH #27) CLOSED at G7 — MR-073/075 done; epic complete; owner confirmed working; awaiting the standing dev→main PR.** **sprint-25 (watcher-container, GH #30) CLOSED at G7 — MR-069-072 done; epic complete; awaiting the standing dev→main PR.** **sprint-24 (watcher-observability, GH #26) CLOSED at G7 — MR-066/067/068 done; epic complete; awaiting the standing dev→main PR.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
+
+**EPIC `oop-refactor-src-layout` COMPLETE. sprint-27 CLOSED at G7 2026-06-25** (staff-critic close PASS 0 BLOCKER/0 SHOULD/2 NIT, `reviews/sprint-27-close-review-2026-06-25.md`; independent rebuild + full HTTP contract + per-page DOM + lease/wake + mcp/agent smokes, live `:8139` untouched). G1 PASS 2026-06-25 (2 rounds; r1 CHANGES-REQUESTED on 1 blocker [the router→service boundary missed the inline GET/DELETE comment arms + a gameable acceptance grep], fixed in r2). Tier B internal-quality refactor on branch `refactor/oop-src-layout`: all 11 tickets (MR-076-086) `done`; all code under `src/` (the `src/mdreview/` package: `config`/`store`/`comments`/`assets`/`reviews`/`handoff`/`server` + `__main__`, plus standalone `mcp_server.py`/`watch.py`), clean root, frontend→`web/`, smokes→`tests/`, infra at root. `app.py`'s monolith is wired by **constructor injection** (one `Store` into the service classes, bundled on `MdreviewServer` the handler reads via `self.server.app`); ships from `python -m mdreview`. **Byte-identical** API (golden curl transcript 41/41 at every commit); no-store-helper contract ZERO hits. **Merged current `dev` (incl. the sprint-28 viewer-dashboard reskin) into the branch, so the reskin is preserved at `web/viewer.html` + `web/dashboard.html`; PR #33 → dev (owner's G8 call).**
+
+**EPIC `viewer-dashboard-reskin` COMPLETE. sprint-28 CLOSED at G7 2026-06-25** (staff-critic
+PASS-with-conditions, `reviews/sprint-28-close-review-2026-06-25.md`; independent — rebuilt throwaway
+container + both-pane render-smoke + dark-pane computed-style + wide-mode `body.gutter-on` check; all
+5 findings resolved in `3f85c50`, 0 blockers). G1 PASS 2026-06-25
+(staff-critic PASS-with-conditions, `reviews/viewer-dashboard-reskin-plan-review-2026-06-25.md`; all
+4 conditions folded into the plan r1). **Awaiting the standing dev→main PR.** Re-skin `dashboard.html` + `viewer.html` **in place** to the
+new mockup (`.scratch/mockup-viewer-dashboard.html`) — the same visual language the landing page moved
+to (commit `0e83ec8`) — preserving all wiring and the buildless/stdlib architecture. Scope:
+"Re-skin + supported IA" (sidebar inbox driven by the existing turn baton; no new backend; the
+"agent watcher · connected" indicator dropped). **MR-087** `ready` (ui): dashboard sidebar inbox +
+projects filter + restyled cards with baton badges. **MR-088** `ready` (ui): viewer chrome + baton
+banner + numbered lines + article typography. **MR-089** `ready` (ui, depends MR-088): viewer COMMENTS
+rail + Resolved + bottom dock (C1 — verify wide mode actually engages, not just `.gcard` presence).
+**MR-090** `ready` (docs, depends 087-089): grep-gated docs sweep. No `svc` change (every datum the
+new IA needs is already on `GET /api/reviews`).
+
+---
+
+**EPIC `viewer-transparency` (GH #27) COMPLETE. sprint-26 CLOSED at G7 2026-06-25** (staff-critic PASS, `reviews/sprint-26-close-review-2026-06-24.md`; independent — rebuilt container + node-CDP lifecycle re-drive incl. signal-honesty + no-regression + both panes; W1 resolved, owner confirmed working). G1 PASS 2026-06-24 (GO-WITH-NITS)**.** (staff-critic
+GO-WITH-NITS, `reviews/viewer-transparency-plan-review-2026-06-24.md`; 2 nits folded; owner chose
+**step-level** over the literal tool-call stream). While an agent works a turn, the viewer shows a
+**live progress timeline** (Connected → Editing → Updating comments → Done/Stopped) **derived from the
+`/status` signals it already polls** — no service change, no agent instrumentation — plus a **live
+elapsed timer** + a **final revision duration**, so a long-but-working run reads as progress, not a
+freeze (the owner watched a ~2.5-min run that looked frozen). Builds on MR-062/066/067/068, doesn't
+redo them. **MR-073** `ready` (ui): the timeline + timer in `renderBanner` (cumulative steps,
+signal-honest labels — "Updating comments", "Resolved" only on terminal `done`; client-captured final
+duration). **MR-075** `ready` (docs, depends MR-073): docs sweep. **MR-074 cut** (the `ping_working`
+`message` already round-trips). Tier-2 stream-json events deferred to backlog. G7 owes a node-CDP
+lifecycle drive (render-smoke can't drive a time-dependent banner); evidence under
+`reviews/sprint-26-render-evidence-2026-06-24/`.
+
+**EPIC `watcher-container` (GH #30) COMPLETE. sprint-25 CLOSED at G7 2026-06-24** (staff-critic PASS, `reviews/sprint-25-close-review-2026-06-24.md`; independent — rebuilt the image, re-ran both auth gates + the compose e2e; W1/N1 resolved). G1 PASS 2026-06-24 (GO-WITH-NITS, 6 nits folded)**.** (staff-critic
+GO-WITH-NITS, `reviews/watcher-container-plan-review-2026-06-24.md`; 6 nits folded). Makes the watcher
+an OPT-IN docker service (`docker compose --profile watcher up`) authenticated by the user's Claude
+**subscription** (not an API key — too expensive for most), so a local deploy can auto-action reviewer
+comments. The public-instance fail-closed host watcher stays; this is the local-use path. Auth path
+verified viable (`claude setup-token` is subscription-billed; `CLAUDE_CODE_OAUTH_TOKEN` is the headless
+env var). **MR-069** `ready` (infra): promote the working agent-launch prototype into `watcher/` +
+`.env.example` + gitignore `.env`. **MR-070** `ready` (infra, depends MR-069): `Dockerfile.watcher`
+(Node + `claude` CLI) + the **gating in-container auth + MCP-round-trip proofs** (real flag shape,
+trust dialog settled, non-root writable home) — needs a real `setup-token`. **MR-071** `ready` (infra,
+depends MR-070): opt-in compose `profile: [watcher]` (off by default, `service_healthy`-gated) +
+end-to-end Send→action; **closes GH #30**. **MR-072** `ready` (docs, depends MR-071): setup-token /
+`.env` / rotation / startup-auth-probe runbook. Infra epic ⇒ docker build/compose are the G7 gates (no
+render-smoke); all on throwaway names/ports, never the live `mdreview`/`mdreview-data`/:8139/:8137.
+
+**EPIC `watcher-observability` (GH #26) COMPLETE. sprint-24 CLOSED at G7 2026-06-24** (staff-critic PASS,
+`reviews/sprint-24-close-review-2026-06-24.md`; independent — rebuilt a throwaway container on scratch
+port 8182 and re-drove all three tickets via node-CDP + real `watch.py` stub runs incl. the conflation
+guard; F1 resolved, F2/F3/F4 accepted non-blocking). G1 PASS 2026-06-24 (GO-WITH-NITS, five nits folded). Makes a stuck/crashed agent run visible — triggered by a live
+bug (Send-to-agent with no watcher running spun the banner ~20 min: the waiting-for-pickup state has
+no timeout and MR-062's spinner made it look like "working"). Three tickets, no `app.py` change, no
+auto-relaunch. **MR-066** `ready` (ui): client-side pickup-timeout in `renderBanner` — after
+`PICKUP_GRACE_S=60` at `turn=agent`/`agent_status=null`, flip the parked spinner to a distinct
+non-spinning `.warn` "no agent has picked this up — is a watcher running?" cue (defines the `.warn`
+class; fixes the live bug alone). **MR-067** `ready` (svc/`watch.py`): capture the crashed child's
+stderr + full `print()`→`logging` migration + `WATCH_LOG_FILE` (stderr-default) + a guarded crash
+`hand_back{state:blocked}` signal (MANDATORY `/status` re-check skips the signal if the child already
+handed back `done` — no false "stopped"). **MR-068** `ready` (ui, depends_on [MR-066, MR-067]):
+render the crash signal as the "agent run stopped — Take back the turn" `.warn` banner end-to-end.
+G7 owes node-CDP banner-drives (time-dependent + signal-driven; render-smoke can't drive either) +
+the watcher crash-stub / false-positive-guard / happy-path runs; evidence under
+`reviews/sprint-24-render-evidence-2026-06-24/`.
+
+**EPIC `history-version-fix` COMPLETE.** **sprint-23 CLOSED at G7 2026-06-24** (staff-critic PASS,
+`reviews/sprint-23-close-review-2026-06-24.md`; independent — the critic re-drove the History modal with a
+fresh node-CDP script, 11/11 incl. the v0 edge; GH #18 closed). A small two-ticket
+batch fixing the document History modal: it mislabels versions (tops out at `v(N-1)` while the
+dashboard badge shows `vN`, never lists the current live draft) and stamps every round "0 notes" (the
+retired `notes.json` count, untruthful and unrecoverable for existing rounds). Implements GH **#18**.
+**MR-064** `ready` (svc): `snapshot_round` stops writing `notes_total`/`notes_addressed` into
+`round.json` (the count lie has no backing data; the `summary()` per-review `notes_total` is a
+different, untouched field) + update `README.md:55` `/history` per-round shape to `{round, ts}`;
+svc + a README line → no render-smoke, gate is `py_compile app.py` + a curl smoke (POST → 2 PUTs →
+`/history` + `/history/{n}` show the new `round.json` shape with no `notes_total`) + a README grep.
+**MR-065** `ready` (ui, depends_on MR-064): the History modal lists the current draft as a top
+`current (v{rev})` entry from `GET /source` + `revision` (no new endpoint; relocate the
+`viewer.html:678` early-return so it always renders, plain `current` at revision 0), relabels archived
+rounds `v{round} · earlier draft` newest-first (display-only — `round-n`/`/history/{n}` NOT
+renumbered), and removes the "· N notes" label + empty per-round notes block. **MR-065 IS a
+product-page change** (`viewer.html`) → G7 owes a **node-CDP modal-DOM verification** (the proven
+`agent_smoke.py:112-148` pattern: `openHistory()` then read the modal back — `.histitem` >= 3, top
+`current (v2)` == dashboard `.badge`, archived `v1`/`v0` newest-first, NO "notes" text on the rendered
+DOM, current-entry click → `#histview .histdoc` with the draft text) **plus a screenshot**, NOT a bare
+render-smoke against the modal selectors (the sprint-07 wall: the modal is `display:none` until a
+click, so render-smoke's `--dump-dom` false-fails). Both rebuild a throwaway container on a scratch
+port (never 8139/8137/compose); evidence under `reviews/sprint-23-render-evidence-2026-06-24/`.
+
+**EPIC `watcher-ux-fixes` COMPLETE.** **sprint-22 (spinner + recipe arg-order) CLOSED at G7 2026-06-24**
+(staff-critic PASS, `reviews/sprint-22-close-review-2026-06-24.md`; independent — the critic rebuilt a
+throwaway image and re-ran the MR-062 render-smoke, State A waiting-for-pickup `.loading` present being
+the headline; GH #25 closed). Epic cleared **G1 2026-06-24** (PASS-WITH-NITS, the MR-062 smoke-recipe nits folded:
+viewer route `/review/{id}`, stale state non-force-stampable → code inspection, reviewer-flip body
+`{to:reviewer,by:reviewer}`, reduced-motion probe targets `::before`). A small two-ticket batch
+cleaning up watcher rough edges the product owner hit testing end-to-end — both fixes already designed
+and validated, so the sprint is restore + verification, not redesign. **MR-062** `ready` (ui): restore
+git `stash@{0}` ("spinner-wip (MR-062)") onto `viewer.html` — an 11px `--muted` rotating ring on
+`#turnbanner.loading #turntext::before` (`animation:turnspin .8s linear infinite`) added by
+`renderBanner` in **both** the waiting-for-pickup (`if(!as)`) and "Agent is working…" arms, **superseding
+MR-061**'s pulse + `turnworking` keyframes (deleted), with a `prefers-reduced-motion` static-ring
+fallback; no `loading` in the stale arm nor on a reviewer turn. **MR-062 IS a product-page change**
+(`viewer.html`), so G7 owes a render-smoke (rebuilt throwaway container, scratch port, never
+8139/8137/compose) asserting the bare class `.loading` present in States A/B (`{to:agent}` then
+`{state:working,owner:smoke}`), absent after a `{to:reviewer,by:reviewer}` reclaim (exit 1 on 0 nodes),
+the stale arm by code inspection (`viewer.html:241`), a CDP reduced-motion probe on `::before`
+(`none`/`turnspin`), and both-pane scheme-emulated screenshots; evidence under
+`reviews/sprint-22-render-evidence-2026-06-24/`. **MR-063** `ready` (docs): reorder the three scoped
+watcher launch-recipe literals at `README.md:193/198/208` prompt-last
+(`…,"--allowedTools","mcp__mdreview__*","-p","<prompt>"]`) so the variadic `--allowedTools` stops
+swallowing the prompt, add the variadic note, confirm the full-autonomy recipe (`README:217`) is
+already prompt-last; README-only (`CLAUDE.md` has no recipe literal), closes GH #25. Docs-only — no
+render-smoke owed; gate is `py_compile app.py` + grep.
+
+**EPIC `working-banner-animation` COMPLETE.** **sprint-21 (waiting ellipsis) CLOSED at G7 2026-06-24**
+(staff-critic PASS, `reviews/sprint-21-close-review-2026-06-24.md`; independent — the critic rebuilt a
+throwaway image and re-ran the render-smoke: `.working` present in the working state / absent after
+reclaim, both-pane screenshots, reduced-motion probe `none`/`turnworking`; evidence under
+`reviews/sprint-21-render-evidence-2026-06-24/`). Shipped MR-061 — a pure-CSS pulsing waiting ellipsis on
+the viewer's `working`-state turn banner, only that state animates, with a `prefers-reduced-motion`
+off-switch. `viewer.html` only. The cheap low-hanging slice of GH #27 (progress + streaming stay in #27). A standalone small `ui` enhancement — the cheap low-hanging slice of GH
+**#27** (the rest of #27, behind-the-scenes progress steps + streamed/diff-animated document updates,
+stays in #27). The viewer's turn banner is **static** ("Agent is working on your feedback…") while the
+agent holds the turn — indistinguishable from a hung agent (the GH #25/#26 confusion). **MR-061**
+`ready`: a CSS-only animated ellipsis on `#turntext::after`, gated to a `working` class that only
+`renderBanner`'s working arm sets (a single `remove` at the top + `add` in the working arm), with a
+REQUIRED `prefers-reduced-motion` off-switch; only the working state animates, every other banner
+state is byte-for-byte unchanged. `viewer.html` only — no `app.py`/Dockerfile/MCP/`meta.json` change.
+**This IS a product-page change**, so G7 owes a render-smoke (rebuilt throwaway container, scratch
+port, never 8139/8137) asserting `#turnbanner`/`#turntext` + the bare class `.working` (present in the
+working state, absent after a reclaim), both-pane screenshots, and the CDP reduced-motion probe
+(`getComputedStyle($("#turntext"),'::after').animationName === 'none'` under reduce); evidence under
+`reviews/sprint-21-render-evidence-2026-06-24/`.
+
+**EPIC `watcher-launch-fix` COMPLETE.** **sprint-20 (inert default + runbook) CLOSED at G7 2026-06-24**
+(staff-critic PASS, `reviews/sprint-20-close-review-2026-06-24.md`; independent — the critic re-ran the
+startup-exit + configured-runs + docs-sweep against a `.scratch/` throwaway). Epic cleared G1 2026-06-24 (PASS-WITH-NITS, scaffolding findings
+folded) — a small `svc`(+same-change `docs`) follow-up to the now-done `agent-watcher` epic. The shipped
+watcher's runnable `DEFAULT_LAUNCH_CMD` (`claude -p …`) **silently no-ops headless** (MCP tool use routes
+to a no-TTY approval prompt; the agent claims the lease and hands back without doing the work). Option B
+(decided across both critic rounds): replace it with an **inert must-configure stub** so the watcher
+**refuses to start at startup** (exit 2 with guidance, in `main()` after the trusted-base gate, before
+`run()`) when `WATCH_LAUNCH_CMD` is unset — never claiming a lease it cannot honour — move the permission
+posture into runbook recipes (scoped `dontAsk` + `allowedTools "mcp__mdreview__*"`, and the full-autonomy
+recipe), sweep the 8 "default Claude headless" doc spots, and ship the injection caveat. **MR-060**
+`ready`. No `app.py` / Dockerfile / UI change, no render-smoke (`watch.py` not containerized; docs are
+Markdown) — the G7 smoke is `py_compile watch.py` + the 2-arm stub-launch end-to-end on a localhost
+throwaway.
 
 **EPIC `agent-watcher` COMPLETE (C1+C2+C3).** **sprint-19 (C3: watcher safety + ops) CLOSED at G7
 2026-06-24** (staff-critic PASS-WITH-NITS, `reviews/sprint-19-close-review-2026-06-24.md`; independent —
@@ -90,7 +241,8 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 ## ready
 
-_none_
+| ID | Title | Layer | Pri | Sprint |
+|----|-------|-------|-----|--------|
 
 ## in-progress
 
@@ -104,6 +256,27 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-090 | Docs sweep — README / CLAUDE for the re-skinned dashboard & viewer affordances | docs | P2 | sprint-28 |
+| MR-089 | Viewer re-skin — COMMENTS right rail + Resolved panel + bottom open/resolved/history dock | ui | P1 | sprint-28 |
+| MR-088 | Viewer re-skin — chrome (top bar + breadcrumb + title meta) + baton banner + numbered lines + article typography | ui | P1 | sprint-28 |
+| MR-087 | Dashboard re-skin — sidebar inbox + projects filter + restyled cards with baton badges | ui | P1 | sprint-28 |
+| MR-086 | `src/app.py`->`src/mdreview/server.py` + `Services`/`MdreviewServer` composition root + `__main__`; no-store-helper ZERO; `python -m mdreview`; all smokes + container PASS | svc | P1 | sprint-27 |
+| MR-085 | Extract `handoff.py` + `HandoffService` (turn baton + lease table); byte-identical + lease matrix 5/5 (TTL=0 stale paths) | svc | P1 | sprint-27 |
+| MR-084 | Extract `reviews.py` + `ReviewService` (lifecycle/summary/list/history/source/feedback/delete); byte-identical incl. /feedback-with-comment | svc | P1 | sprint-27 |
+| MR-083 | Extract `assets.py` + `AssetService` (content-hash + manifest); byte-identical + agent_smoke render proof (nw=1); folded agent_smoke 18->20 | svc | P1 | sprint-27 |
+| MR-082 | Extract `comments.py` + `CommentService` (G1-blocker inline GET/DELETE arms -> named methods); byte-identical lifecycle | svc | P1 | sprint-27 |
+| MR-081 | Extract `store.py` + `Store` (the one Condition + typed IO); byte-identical + long-poll wake smoke (1.08s, not 20s timeout) | svc | P1 | sprint-27 |
+| MR-080 | Extract `config.py` (constants + `WEB_DIR` 3-deep anchor) + package skeleton (`src/mdreview/`); byte-identical | svc | P1 | sprint-27 |
+| MR-079 | Repoint live `py_compile` gate + `render-smoke.sh` path + layer-table/page paths to `src/`+`tests/`+`web/` (frozen history untouched) | docs | P2 | sprint-27 |
+| MR-078 | Move `mcp_server.py`/`watch.py`→`src/`, smokes→`tests/`; fix `SERVER` path + `Dockerfile.watcher` COPY (stable `/app` dests); mcp_smoke + watcher build green | infra | P1 | sprint-27 |
+| MR-077 | Service `Dockerfile` → `src/`+`web/` layout (`MDREVIEW_WEB_DIR`/`PYTHONPATH`, `CMD python src/app.py`); build + container render-smoke green | infra | P1 | sprint-27 |
+| MR-076 | Relocate `app.py`→`src/app.py` + frontend→`web/` + `HERE`→`WEB_DIR`; golden-transcript oracle (byte-identical) | svc | P1 | sprint-27 |
+| MR-065 | History modal: list current draft as `current (vN)`, relabel rounds, drop "0 notes" (GH #18) | ui | P2 | sprint-23 |
+| MR-064 | snapshot_round: stop writing the retired notes count into round.json (+ README /history shape) (GH #18) | svc | P2 | sprint-23 |
+| MR-063 | Fix the scoped watcher launch recipe arg order — `-p` prompt last (GH #25) | docs | P1 | sprint-22 |
+| MR-062 | Replace MR-061's pulse with a rotating CSS spinner on both agent-turn waiting states | ui | P2 | sprint-22 |
+| MR-061 | Animate the viewer's `working`-state turn banner (CSS-only ellipsis) | ui | P2 | sprint-21 |
+| MR-060 | Watcher must-configure launch stub — refuse-to-start at startup when `WATCH_LAUNCH_CMD` unset + runbook recipes + injection caveat | svc | P1 | sprint-20 |
 | MR-059 | `watch.py` per-review attempt cap + full operator runbook — bound the re-Send loop, document the public-instance arming story | svc | P1 | sprint-19 |
 | MR-058 | `watch.py` arming / allowlist — relax C2's fail-closed Step 0 (local `WATCH_ARMED_FILE`/`WATCH_ARMED`, run-but-gate) | svc | P1 | sprint-19 |
 | MR-057 | `watch.py` spawn + child env contract + caps (generic launch template, default Claude) + trusted-base runbook stub | svc | P1 | sprint-18 |
@@ -192,3 +365,8 @@ _none_
 | legacy-feedback-retire | done (merged to main 2026-06-23, PR #11; with MR-048 + MR-049) | G1 passed 2026-06-19 (2 rounds) | sprint-13 |
 | agent-handoff-baton | done on `dev` (3 chunks: MR-051+MR-052+MR-053; sprints 14/15/16 CLOSED G7 PASS; PR #17 pending) | G1 passed 2026-06-23 | sprint-14/15/16 |
 | agent-watcher | **done** (all 3 chunks shipped: C1 sprint-17 + C2 sprint-18 + C3 sprint-19, each G7 PASS) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-17 (C1), sprint-18 (C2), sprint-19 (C3) |
+| watcher-launch-fix | **done** (MR-060 shipped, sprint-20 G7 PASS 2026-06-24) — follow-up to the done agent-watcher epic (inert must-configure launch stub + runbook) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-20 |
+| working-banner-animation | **done** (MR-061 shipped, sprint-21 G7 PASS 2026-06-24) — standalone small `ui` enhancement, slice of #27 (CSS-only animated ellipsis on the working-state turn banner) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-21 |
+| watcher-ux-fixes | **done** (MR-062 + MR-063 shipped, sprint-22 G7 PASS 2026-06-24) — two-ticket watcher UX batch: a rotating spinner on both agent-turn waiting states (supersedes MR-061) + fixed the README scoped launch-recipe arg order (GH #25) | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-22 |
+| history-version-fix | **done** (MR-064 + MR-065 shipped, sprint-23 G7 PASS 2026-06-24, closes #18) — fixed the History modal's version labels (current-draft entry reconciles the off-by-one) + removed the untruthful per-round "0 notes" count | G1 passed 2026-06-24 (PASS-WITH-NITS) | sprint-23 |
+| oop-refactor-src-layout | **done on `refactor/oop-src-layout`** (sprint-27 G7 PASS 2026-06-25; PR to dev/main pending the owner's G8 call) — Tier B internal refactor: all code under `src/` (the `src/mdreview/` package), clean root, `app.py` decomposed into 7 SRP modules wired by constructor injection (a `Store` into service classes; `python -m mdreview`); byte-identical API/`/data`/viewer | G1 passed 2026-06-25 (2 rounds, PASS-WITH-NITS; r1 1 blocker) | sprint-27 |

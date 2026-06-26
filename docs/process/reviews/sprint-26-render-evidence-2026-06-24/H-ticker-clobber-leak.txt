@@ -1,0 +1,2 @@
+  ticker-clobber: before=[Agent revised in 0:02] after=[Agent revised in 0:02]  ok PRESERVED
+  second-turn timer advance: [0:01] -> [0:04]  delta=3  ok SINGLE-RATE
