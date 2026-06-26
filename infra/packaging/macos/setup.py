@@ -33,7 +33,7 @@ OPTIONS = {
         "CFBundleIdentifier": "space.waqasrana.mdreview",
         "CFBundleShortVersionString": "0.0.1",
         "CFBundleVersion": "0.0.1",
-        "LSUIElement": False,
+        # no native chrome yet (pyobjc needs P3 signing to load) — browser-tab launcher only
         "NSHighResolutionCapable": True,
     },
 }

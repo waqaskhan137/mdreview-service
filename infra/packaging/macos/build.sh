@@ -21,4 +21,14 @@ mkdir -p "$OUT"
 cd "$OUT"                                   # build/ dist/ .eggs/ land here (gitignored), not in the repo
 rm -rf dist build
 "$VENV/bin/python" "$HERE/setup.py" py2app --dist-dir "$OUT/dist" --bdist-base "$OUT/build"
-echo "Built: $OUT/dist/mdreview.app"
+
+# macOS 15+/26+ on Apple Silicon KILLS a bundle whose Mach-O signatures py2app invalidated when it
+# rewrote install-name paths ("CODESIGNING Invalid Page" on launch). Re-sign ad-hoc, inside-out, so it
+# runs locally. P3 swaps this for Developer ID + hardened runtime + notarization (secrets already set).
+APP="$OUT/dist/mdreview.app"
+find "$APP" -type f \( -name "*.so" -o -name "*.dylib" \) -print0 | xargs -0 -I {} codesign --force -s - --timestamp=none {}
+find "$APP/Contents/Frameworks" -type f -name "Python" -print0 2>/dev/null | xargs -0 -I {} codesign --force -s - --timestamp=none {}
+[ -f "$APP/Contents/MacOS/python" ] && codesign --force -s - --timestamp=none "$APP/Contents/MacOS/python"
+codesign --force --deep -s - --timestamp=none "$APP"
+codesign --verify --strict "$APP" && echo "  ad-hoc signed + verified"
+echo "Built: $APP"

@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
-"""mdreview.app launcher (macOS) — P0 freeze spike.
+"""mdreview.app launcher (macOS) — browser-tab launcher (P1).
 
-Runs the bundled stdlib mdreview service on a free localhost port with data in
-~/Library/Application Support/mdreview, then opens the dashboard. py2app exports
-RESOURCEPATH (the bundle's Contents/Resources), where the web/ tree is shipped.
+Starts the bundled stdlib service on a free localhost port (written to a discovery file
+for the MCP wrapper), then opens the dashboard in the default browser. The UI stays the
+web app — this is only a launcher.
 
-ponytail: P0 has no menu-bar/quit lifecycle — serve_forever runs on a daemon
-thread and the main thread parks. Quit via Activity Monitor for now; P1 wraps
-this in a rumps menu-bar app with a real Quit + graceful shutdown.
+ponytail: no menu-bar/Quit yet. A native control surface (rumps/pywebview) is pyobjc, and
+pyobjc dylibs require a VALID code signature to load on Apple Silicon (an ad-hoc bundle
+crashes with a CODESIGNING fault). So the Quit affordance lands in P3, once Developer ID
+signing + hardened runtime are in place. For now the server runs on a daemon thread and
+the main thread parks; quit via Activity Monitor.
 """
 import os
 import socket
 import threading
 import time
 import webbrowser
+
+APP_SUPPORT = os.path.expanduser("~/Library/Application Support/mdreview")
+PORT_FILE = os.path.join(APP_SUPPORT, "port")
 
 
 def _free_port():
@@ -33,15 +38,17 @@ def _web_dir():
 
 
 def main():
-    data = os.path.expanduser("~/Library/Application Support/mdreview")
-    os.makedirs(data, exist_ok=True)
-    os.environ.setdefault("MDREVIEW_DATA", data)
+    os.makedirs(APP_SUPPORT, exist_ok=True)
+    os.environ.setdefault("MDREVIEW_DATA", APP_SUPPORT)
     os.environ.setdefault("MDREVIEW_WEB_DIR", _web_dir())
     port = _free_port()
     os.environ["PORT"] = str(port)
+    # MCP discovery: the stdio wrapper reads this to set MDREVIEW_BASE (P-MCP). It must still
+    # verify the port is reachable — this file can be stale after a quit.
+    with open(PORT_FILE, "w") as f:
+        f.write(str(port))
 
-    # import AFTER env is set — mdreview.config reads PORT / MDREVIEW_DATA / MDREVIEW_WEB_DIR at import
-    from mdreview.server import main as serve
+    from mdreview.server import main as serve     # import AFTER env is set (config reads it at import)
     threading.Thread(target=serve, daemon=True).start()
 
     for _ in range(100):                           # wait up to ~10s for the socket to bind
