@@ -24,12 +24,21 @@ rm -rf dist build
 "$VENV/bin/python" "$HERE/setup.py" py2app --dist-dir "$OUT/dist" --bdist-base "$OUT/build"
 
 # macOS 15+/26+ on Apple Silicon KILLS a bundle whose Mach-O signatures py2app invalidated when it
-# rewrote install-name paths ("CODESIGNING Invalid Page" on launch). Re-sign ad-hoc, inside-out, so it
-# runs locally. P3 swaps this for Developer ID + hardened runtime + notarization (secrets already set).
+# rewrote install-name paths ("CODESIGNING Invalid Page" on launch). Sign inside-out so it runs.
+#   local dev:  CODESIGN_IDENTITY unset -> ad-hoc ("-"), no hardened runtime (runs locally only).
+#   CI/release: CODESIGN_IDENTITY="Developer ID Application: … (TEAMID)" -> hardened runtime +
+#               entitlements + secure timestamp, so the result is notarizable (P3).
 APP="$OUT/dist/mdreview.app"
-find "$APP" -type f \( -name "*.so" -o -name "*.dylib" \) -print0 | xargs -0 -I {} codesign --force -s - --timestamp=none {}
-find "$APP/Contents/Frameworks" -type f -name "Python" -print0 2>/dev/null | xargs -0 -I {} codesign --force -s - --timestamp=none {}
-[ -f "$APP/Contents/MacOS/python" ] && codesign --force -s - --timestamp=none "$APP/Contents/MacOS/python"
-codesign --force --deep -s - --timestamp=none "$APP"
-codesign --verify --strict "$APP" && echo "  ad-hoc signed + verified"
+ID="${CODESIGN_IDENTITY:--}"
+ENT="$HERE/entitlements.plist"
+if [ "$ID" = "-" ]; then
+  SIGN=(codesign --force -s - --timestamp=none)
+else
+  SIGN=(codesign --force -s "$ID" --options runtime --entitlements "$ENT" --timestamp)
+fi
+find "$APP" -type f \( -name "*.so" -o -name "*.dylib" \) -print0 | xargs -0 -I {} "${SIGN[@]}" {}
+find "$APP/Contents/Frameworks" -type f -name "Python" -print0 2>/dev/null | xargs -0 -I {} "${SIGN[@]}" {}
+[ -f "$APP/Contents/MacOS/python" ] && "${SIGN[@]}" "$APP/Contents/MacOS/python"
+"${SIGN[@]}" "$APP"                                  # seal the app last (no --deep: nested already signed)
+codesign --verify --strict "$APP" && echo "  signed [$([ "$ID" = "-" ] && echo ad-hoc || echo "$ID")] + verified"
 echo "Built: $APP"
