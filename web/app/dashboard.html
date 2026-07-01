@@ -48,8 +48,6 @@
   .nav-item .ct{flex:0 0 auto;font-size:11.5px;font-weight:600;color:var(--muted2);}
   .nav-item.active .ct{color:var(--text);}
   .proj-empty{padding:2px 10px;color:var(--muted2);font-size:12px;}
-  .quitapp{display:none;margin-top:auto;padding:8px 10px;font:inherit;font-size:13px;color:var(--muted);background:none;border:1px solid var(--rule);border-radius:8px;cursor:pointer;}
-  .quitapp:hover{color:#c0392b;border-color:#c0392b;}
 
   /* ---- main ---- */
   .main{flex:1 1 auto;min-width:0;padding:26px 32px 56px;}
@@ -135,7 +133,6 @@
       <div class="nav-label">Projects</div>
       <div id="projlist"></div>
     </nav>
-    <button class="quitapp" id="quitapp">Quit mdreview</button>
   </aside>
   <main class="main">
     <div class="head">
@@ -342,17 +339,6 @@ document.addEventListener('click', async e=>{
 $("#search").addEventListener('input', ()=>{ shownCap=0; applyFilter(); });   // new query → refit viewport
 let _rz; window.addEventListener('resize', ()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ shownCap=Math.max(shownCap, viewportCap()); applyFilter(); }, 120); });   // grow to fill on resize
 load();
-// app-mode (the packaged .app): reveal a Quit control that shuts the local app down
-fetch('/api/app').then(r=>r.json()).then(d=>{
-  if(!d||!d.app_mode) return;
-  const b=$("#quitapp"); if(!b) return;
-  b.style.display='block';
-  b.onclick=async()=>{
-    b.disabled=true; b.textContent='Quitting…';
-    try{ await fetch('/api/app/quit',{method:'POST'}); }catch(e){}
-    document.body.innerHTML='<p style="font-family:-apple-system,sans-serif;color:#5c6270;padding:48px;text-align:center;">mdreview has quit. You can close this tab.</p>';
-  };
-}).catch(()=>{});
 </script>
 </body>
 </html>

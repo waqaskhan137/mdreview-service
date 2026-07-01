@@ -13,9 +13,6 @@ WEB_DIR = os.environ.get("MDREVIEW_WEB_DIR") or os.path.join(
 DATA_DIR = os.environ.get("MDREVIEW_DATA", "/data")
 PORT = int(os.environ.get("PORT", "8080"))
 PUBLIC_BASE = os.environ.get("MDREVIEW_PUBLIC_BASE", "").rstrip("/")
-# App-mode = the packaged local .app (set by the macOS launcher). Enables the dashboard "Quit"
-# control + POST /api/app/quit. OFF for the shared/Docker service so a browser can't shut it down.
-APP_MODE = bool(os.environ.get("MDREVIEW_APP_MODE"))
 
 os.makedirs(DATA_DIR, exist_ok=True)
 
