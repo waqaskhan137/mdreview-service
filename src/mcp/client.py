@@ -16,6 +16,10 @@ BASE = os.environ.get("MDREVIEW_BASE", "http://localhost:8137").rstrip("/")
 # user's default browser, so an agent's create_review pops the page open instead of only printing a
 # link the human must copy. Off by default (CI/headless); affects create_review only.
 OPEN_IN_BROWSER = os.environ.get("MDREVIEW_OPEN_BROWSER", "").lower() in ("1", "true", "yes")
+# Per-user API token for a hosted, multi-user mdreview (Phase 1). Minted in the dashboard's /account
+# page; set once in the MCP server env. Sent as a Bearer header so agent-created reviews are scoped
+# to that user. Unset for a local/single-user instance (which needs no auth).
+TOKEN = os.environ.get("MDREVIEW_TOKEN", "").strip()
 
 # The backend is always the local mdreview service (loopback). urllib.urlopen otherwise honors the
 # macOS system HTTP proxy, so when a proxy is configured but down, every call fails with a bogus
@@ -34,6 +38,8 @@ def http(method, path, body=None):
     req = urllib.request.Request(url, data=data, method=method)
     if data is not None:
         req.add_header("Content-Type", "application/json")
+    if TOKEN:
+        req.add_header("Authorization", "Bearer " + TOKEN)
     try:
         with _opener.open(req, timeout=30) as r:
             return r.read().decode("utf-8")

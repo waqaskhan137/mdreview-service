@@ -275,7 +275,7 @@ function render(){
     $("#sub").textContent="No reviews yet.";
     $("#eyebrow").style.display="none";
     list.classList.remove('grid');
-    list.innerHTML=`<div class="empty">No reviews yet.<br><br>An agent creates one with <code>POST /api/reviews</code>.</div>`;
+    list.innerHTML=`<div class="empty">No reviews yet.<br><br>Docs are created by your AI agent. <a href="/account">Connect your agent</a> to get a token, then its <code>create_review</code> calls land here.</div>`;
     return;
   }
   list.classList.add('grid');

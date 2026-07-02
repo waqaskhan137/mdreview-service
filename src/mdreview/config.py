@@ -14,6 +14,32 @@ DATA_DIR = os.environ.get("MDREVIEW_DATA", "/data")
 PORT = int(os.environ.get("PORT", "8080"))
 PUBLIC_BASE = os.environ.get("MDREVIEW_PUBLIC_BASE", "").rstrip("/")
 
+# --- Phase 1 multi-user auth (hosted). OFF by default so local/dev stays open + single-user. ---
+# When ON, every request must resolve to a user: browser via a trusted proxy header, agent via a
+# per-user Bearer token. See server.H._principal.
+REQUIRE_AUTH = os.environ.get("MDREVIEW_REQUIRE_AUTH", "").lower() in ("1", "true", "yes")
+# Shared secret proving a request came THROUGH nginx (the cookie/browser plane). nginx sets the
+# X-Mdreview-Proxy header to this value; the app trusts the vouched identity header only on a match.
+PROXY_SECRET = os.environ.get("MDREVIEW_PROXY_SECRET", "")
+# HMAC pepper for API-token digests (env only, never in the data volume), so a users.json leak alone
+# cannot forge a token.
+TOKEN_PEPPER = os.environ.get("MDREVIEW_TOKEN_PEPPER", "")
+
+# Fail CLOSED: hmac.compare_digest("", "") returns True, so an empty PROXY_SECRET would trust any
+# client-supplied identity header (impersonation), and an empty pepper would make token digests
+# forgeable. If auth is required, refuse to boot rather than run wide open. A non-empty default flag
+# is not a non-empty secret.
+if REQUIRE_AUTH and not (PROXY_SECRET and TOKEN_PEPPER):
+    raise SystemExit(
+        "MDREVIEW_REQUIRE_AUTH is on but MDREVIEW_PROXY_SECRET and/or MDREVIEW_TOKEN_PEPPER is unset")
+
+# DoS backstops (the fine-grained caps live in nginx; these guard the app even on the loopback path).
+# MAX_BODY is a generous ceiling above the asset-upload cap; nginx enforces the tight per-route size.
+MAX_BODY = int(os.environ.get("MDREVIEW_MAX_BODY", str(32 * 1024 * 1024)))
+# Refuse creates/uploads when free space on the data volume drops below this (one rogue/leaked token
+# must not be able to fill the shared volume and take every tenant down).
+DISK_FLOOR = int(os.environ.get("MDREVIEW_DISK_FLOOR", str(200 * 1024 * 1024)))
+
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # Bounded server-side timeout for the /wait long-poll (seconds); a client ?timeout= is capped to it.

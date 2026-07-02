@@ -27,6 +27,17 @@ class ReviewService:
     def meta(self, rid):
         return self.store.read_json(self._path(rid, "meta.json"), {})
 
+    def owner(self, rid):
+        """The account (user_id) that owns this review, or "" for a legacy/un-owned review. Distinct
+        from agent_status.owner (the handoff lease holder, an opaque session id)."""
+        return self.meta(rid).get("owner", "")
+
+    def can_access(self, rid, uid):
+        """True iff uid owns rid. Fail CLOSED on a missing owner: an un-backfilled legacy review is
+        inaccessible once auth is on, until `python -m mdreview.migrate` stamps its owner."""
+        o = self.owner(rid)
+        return bool(o) and o == uid
+
     def bump(self, rid, field):
         p = self._path(rid, "meta.json")
         m = self.store.read_json(p, {})
@@ -60,8 +71,11 @@ class ReviewService:
             m["status"] = "feedback"
         return m
 
-    def list_reviews(self):
-        out = [self.summary(name) for name in os.listdir(self.store.data_dir) if self.store.exists(name)]
+    def list_reviews(self, uid=None):
+        """All review summaries, newest first. When uid is given (hosted multi-user), scope to the
+        reviews that user owns; uid=None (local/single-user) returns all, unchanged."""
+        out = [self.summary(name) for name in os.listdir(self.store.data_dir)
+               if self.store.exists(name) and (uid is None or self.can_access(name, uid))]
         out.sort(key=lambda r: r.get("created", 0), reverse=True)
         return out
 
@@ -91,7 +105,7 @@ class ReviewService:
         m["revision"] = n + 1
         self.store.write_text(os.path.join(d, "meta.json"), json.dumps(m))
 
-    def create(self, markdown, title, project="", source_path="", session=""):
+    def create(self, markdown, title, project="", source_path="", session="", owner=""):
         rid = secrets.token_hex(5)
         d = self.store.dir(rid)
         os.makedirs(d, exist_ok=True)
@@ -104,6 +118,7 @@ class ReviewService:
             "source_updated": now,
             "project": project or "", "source_path": source_path or "",
             "session": session or "",
+            "owner": owner or "",       # account that owns it (hosted multi-user); "" for local
         }))
         return rid
 
