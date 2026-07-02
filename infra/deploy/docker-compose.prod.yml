@@ -8,7 +8,9 @@
 #   docker compose -f infra/deploy/docker-compose.prod.yml --env-file infra/deploy/.env up -d
 services:
   mdreview:
-    image: ghcr.io/waqaskhan137/mdreview-service:latest   # auto-updates on re-pull (git pull is for source)
+    # :latest = auto-update on re-pull (the owner's stated preference). Trade-off: a re-pull can
+    # swap the running image, so an EXACT rollback needs a pinned digest (ghcr.io/...@sha256:...).
+    image: ghcr.io/waqaskhan137/mdreview-service:latest
     container_name: mdreview
     restart: unless-stopped
     # LOOPBACK-ONLY publish: nginx reaches this on 127.0.0.1; nothing binds a public interface.

@@ -19,6 +19,11 @@ because per-user token auth does not exist yet. Agents stay local (pointed at yo
    `https://app.mdreview.waqasrana.space/oauth2/callback`. Copy the client id + secret.
 3. **Kapture host** has Docker + the existing nginx + certbot, and a webroot for http-01 challenges
    at `/var/www/certbot` (create it: `sudo mkdir -p /var/www/certbot`).
+4. **Trust boundary (single-owner host).** The app listens on `127.0.0.1:8140` with no auth of its
+   own in Phase 0, so any process or container that shares the host's loopback can reach it directly,
+   bypassing the OAuth gate. Phase 0 assumes Kapture runs no untrusted co-tenant workloads. If it
+   does, do not run Phase 0 as-is: go to Phase 1 (which adds the app-side proxy-secret gate) or
+   isolate the app behind a private network / unix socket so no host-local port exists.
 
 ## Deploy
 
@@ -32,17 +37,31 @@ python3 -c "import secrets,base64; print(base64.urlsafe_b64encode(secrets.token_
 # Confirm the invite list is owner-only:
 cat infra/deploy/oauth2-proxy/invited-emails.txt      # waqaskhan137@gmail.com
 
-# TLS cert (webroot; does NOT touch the hand-authored vhost):
+# TLS cert FIRST, via a minimal HTTP-only bootstrap vhost. (The real vhost's :443 block references
+# cert files that do not exist yet, so it cannot pass `nginx -t` before the cert is issued.)
+sudo mkdir -p /var/www/certbot
+sudo tee /etc/nginx/sites-available/app.mdreview-bootstrap >/dev/null <<'EOF'
+server {
+    listen 80;
+    listen [::]:80;
+    server_name app.mdreview.waqasrana.space;
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 404; }
+}
+EOF
+sudo ln -sf /etc/nginx/sites-available/app.mdreview-bootstrap /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
 sudo certbot certonly --webroot -w /var/www/certbot -d app.mdreview.waqasrana.space
 
-# nginx vhost + the identity-blank snippet:
+# App + oauth2-proxy (loopback-only publish) so nginx has an upstream to reach:
+docker compose -f infra/deploy/docker-compose.prod.yml --env-file infra/deploy/.env up -d
+
+# Now the real vhost (its :443 cert paths exist) + the identity-blank snippet; drop the bootstrap:
+sudo rm /etc/nginx/sites-enabled/app.mdreview-bootstrap
 sudo cp infra/deploy/nginx/mdreview-blank-identity.conf /etc/nginx/snippets/
 sudo cp infra/deploy/nginx/app.mdreview.conf /etc/nginx/sites-available/app.mdreview.waqasrana.space
 sudo ln -sf /etc/nginx/sites-available/app.mdreview.waqasrana.space /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
-
-# App + oauth2-proxy (loopback-only publish):
-docker compose -f infra/deploy/docker-compose.prod.yml --env-file infra/deploy/.env up -d
 ```
 
 ## Verify (do all of these before calling it done)
@@ -73,8 +92,10 @@ sudo rm /etc/nginx/sites-enabled/app.mdreview.waqasrana.space && sudo systemctl 
 docker compose -f infra/deploy/docker-compose.prod.yml down     # keeps the mdreview-prod volume
 ```
 
-The app image and the `mdreview-prod` volume are untouched by enable/disable, so rollback is just
-removing the vhost and stopping the containers.
+The `mdreview-prod` volume is untouched by enable/disable, so rollback is just removing the vhost
+and stopping the containers. Because the image is `:latest`, an *exact* image rollback needs a
+pinned digest (`ghcr.io/waqaskhan137/mdreview-service@sha256:...`); `:latest` will re-pull the
+current build on the next `up`.
 
 ## What Phase 1 adds on top (not in this phase)
 
