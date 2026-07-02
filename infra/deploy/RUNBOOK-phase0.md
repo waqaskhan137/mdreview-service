@@ -1,6 +1,6 @@
 # Phase 0 runbook: private preview (TLS + OAuth gate, owner-only, zero app code)
 
-Goal: get the existing mdreview app online at `https://app.mdreview.waqasrana.space`, behind
+Goal: get the existing mdreview app online at `https://app.waqasrana.space`, behind
 Google OAuth, reachable only by the owner. This proves DNS, TLS, the OAuth registration, and the
 oauth2-proxy + nginx `auth_request` wiring, which are exactly the moving parts Phase 1 depends on.
 No application code changes in this phase.
@@ -10,13 +10,13 @@ because per-user token auth does not exist yet. Agents stay local (pointed at yo
 
 ## Prerequisites (owner actions, not scriptable here)
 
-1. **DNS.** Add an `A` record `app.mdreview.waqasrana.space` -> the Kapture public IP (and `AAAA`
+1. **DNS.** Add an `A` record `app.waqasrana.space` -> the Kapture public IP (and `AAAA`
    if Kapture has a routable IPv6). If DNS is on Cloudflare, set the record to **DNS-only (grey
    cloud)** so certbot http-01 and the app work without Cloudflare in the path. The apex
    `mdreview.waqasrana.space` is unchanged (it stays GitHub Pages).
 2. **Google OAuth client.** Google Cloud Console -> APIs & Services -> Credentials -> Create OAuth
    client ID -> **Web application**. Authorized redirect URI (exact):
-   `https://app.mdreview.waqasrana.space/oauth2/callback`. Copy the client id + secret.
+   `https://app.waqasrana.space/oauth2/callback`. Copy the client id + secret.
 3. **Kapture host** has Docker + the existing nginx + certbot, and a webroot for http-01 challenges
    at `/var/www/certbot` (create it: `sudo mkdir -p /var/www/certbot`).
 4. **Trust boundary (single-owner host).** The app listens on `127.0.0.1:8140` with no auth of its
@@ -44,14 +44,14 @@ sudo tee /etc/nginx/sites-available/app.mdreview-bootstrap >/dev/null <<'EOF'
 server {
     listen 80;
     listen [::]:80;
-    server_name app.mdreview.waqasrana.space;
+    server_name app.waqasrana.space;
     location /.well-known/acme-challenge/ { root /var/www/certbot; }
     location / { return 404; }
 }
 EOF
 sudo ln -sf /etc/nginx/sites-available/app.mdreview-bootstrap /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
-sudo certbot certonly --webroot -w /var/www/certbot -d app.mdreview.waqasrana.space
+sudo certbot certonly --webroot -w /var/www/certbot -d app.waqasrana.space
 
 # App + oauth2-proxy (loopback-only publish) so nginx has an upstream to reach:
 docker compose -f infra/deploy/docker-compose.prod.yml --env-file infra/deploy/.env up -d
@@ -59,8 +59,8 @@ docker compose -f infra/deploy/docker-compose.prod.yml --env-file infra/deploy/.
 # Now the real vhost (its :443 cert paths exist) + the identity-blank snippet; drop the bootstrap:
 sudo rm /etc/nginx/sites-enabled/app.mdreview-bootstrap
 sudo cp infra/deploy/nginx/mdreview-blank-identity.conf /etc/nginx/snippets/
-sudo cp infra/deploy/nginx/app.mdreview.conf /etc/nginx/sites-available/app.mdreview.waqasrana.space
-sudo ln -sf /etc/nginx/sites-available/app.mdreview.waqasrana.space /etc/nginx/sites-enabled/
+sudo cp infra/deploy/nginx/app.waqasrana.space.conf /etc/nginx/sites-available/app.waqasrana.space
+sudo ln -sf /etc/nginx/sites-available/app.waqasrana.space /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -68,11 +68,11 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ```bash
 # 1. Unauthenticated browser is redirected to Google (not the dashboard):
-curl -sS -o /dev/null -w "%{http_code} %{redirect_url}\n" https://app.mdreview.waqasrana.space/
+curl -sS -o /dev/null -w "%{http_code} %{redirect_url}\n" https://app.waqasrana.space/
 #    -> 302 to /oauth2/start (or accounts.google.com), NEVER 200 with the dashboard.
 
 # 2. The API is gated too (this is the whole point of "no bearer exception" in Phase 0):
-curl -sS -o /dev/null -w "%{http_code}\n" https://app.mdreview.waqasrana.space/api/reviews
+curl -sS -o /dev/null -w "%{http_code}\n" https://app.waqasrana.space/api/reviews
 #    -> 302/401, NEVER a JSON list.
 
 # 3. The app port is NOT publicly reachable (loopback-only publish + firewall):
@@ -88,7 +88,7 @@ Firewall: only 22, 80, 443 should be open to the world. `8140` and `4180` are lo
 ## Rollback (instant, zero data impact)
 
 ```bash
-sudo rm /etc/nginx/sites-enabled/app.mdreview.waqasrana.space && sudo systemctl reload nginx
+sudo rm /etc/nginx/sites-enabled/app.waqasrana.space && sudo systemctl reload nginx
 docker compose -f infra/deploy/docker-compose.prod.yml down     # keeps the mdreview-prod volume
 ```
 

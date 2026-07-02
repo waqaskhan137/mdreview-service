@@ -21,7 +21,7 @@ services:
       - mdreview-prod:/data
     environment:
       # Correct review_url regardless of the Host header.
-      MDREVIEW_PUBLIC_BASE: "https://app.mdreview.waqasrana.space"
+      MDREVIEW_PUBLIC_BASE: "https://app.waqasrana.space"
     networks:
       - mdrnet
 
