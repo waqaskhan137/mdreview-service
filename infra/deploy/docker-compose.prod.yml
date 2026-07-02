@@ -1,0 +1,52 @@
+# Phase 0 production deploy for the Kapture VPS: the mdreview app + an oauth2-proxy sidecar,
+# both published to LOOPBACK ONLY. The host's existing nginx is the sole public ingress and does
+# the OAuth gate via auth_request (see nginx/app.mdreview.conf + RUNBOOK-phase0.md).
+#
+# Phase 0 gates EVERY path (including /api) behind oauth2-proxy with NO bearer exception, because
+# per-user token auth does not exist until Phase 1. The invite allowlist is owner-only.
+#
+#   docker compose -f infra/deploy/docker-compose.prod.yml --env-file infra/deploy/.env up -d
+services:
+  mdreview:
+    image: ghcr.io/waqaskhan137/mdreview-service:latest   # auto-updates on re-pull (git pull is for source)
+    container_name: mdreview
+    restart: unless-stopped
+    # LOOPBACK-ONLY publish: nginx reaches this on 127.0.0.1; nothing binds a public interface.
+    # If this ever becomes 0.0.0.0 the OAuth gate is bypassed by hitting the host port directly.
+    ports:
+      - "127.0.0.1:8140:8080"
+    volumes:
+      - mdreview-prod:/data
+    environment:
+      # Correct review_url regardless of the Host header.
+      MDREVIEW_PUBLIC_BASE: "https://app.mdreview.waqasrana.space"
+    networks:
+      - mdrnet
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    container_name: mdreview-oauth2-proxy
+    restart: unless-stopped
+    command: ["--config=/etc/oauth2-proxy/oauth2-proxy.cfg"]
+    # LOOPBACK-ONLY: nginx calls the /oauth2/* endpoints and the /oauth2/auth oracle on 127.0.0.1.
+    ports:
+      - "127.0.0.1:4180:4180"
+    volumes:
+      - ./oauth2-proxy/oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
+      - ./oauth2-proxy/invited-emails.txt:/etc/oauth2-proxy/invited-emails.txt:ro
+    environment:
+      # Secrets come from infra/deploy/.env (gitignored), never from the committed config file.
+      OAUTH2_PROXY_CLIENT_ID: "${OAUTH2_PROXY_CLIENT_ID}"
+      OAUTH2_PROXY_CLIENT_SECRET: "${OAUTH2_PROXY_CLIENT_SECRET}"
+      OAUTH2_PROXY_COOKIE_SECRET: "${OAUTH2_PROXY_COOKIE_SECRET}"
+    networks:
+      - mdrnet
+
+# Dedicated network so these two are not on the default bridge with unrelated Kapture containers.
+# (oauth2-proxy is only an auth oracle here; it does not proxy to the app, nginx does.)
+networks:
+  mdrnet:
+    driver: bridge
+
+volumes:
+  mdreview-prod:
