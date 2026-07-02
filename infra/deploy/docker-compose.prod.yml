@@ -31,8 +31,10 @@ services:
     restart: unless-stopped
     command: ["--config=/etc/oauth2-proxy/oauth2-proxy.cfg"]
     # LOOPBACK-ONLY: nginx calls the /oauth2/* endpoints and the /oauth2/auth oracle on 127.0.0.1.
+    # Host port 4181 (not 4180): Kapture already runs another oauth2-proxy on 127.0.0.1:4180
+    # (kapture-oauth / auth.fikar.ai). Container still listens on 4180 internally.
     ports:
-      - "127.0.0.1:4180:4180"
+      - "127.0.0.1:4181:4180"
     volumes:
       - ./oauth2-proxy/oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
       - ./oauth2-proxy/invited-emails.txt:/etc/oauth2-proxy/invited-emails.txt:ro
