@@ -1,9 +1,10 @@
-# Phase 0 production deploy for the Kapture VPS: the mdreview app + an oauth2-proxy sidecar,
-# both published to LOOPBACK ONLY. The host's existing nginx is the sole public ingress and does
-# the OAuth gate via auth_request (see nginx/app.mdreview.conf + RUNBOOK-phase0.md).
+# Phase 1 production deploy for the Kapture VPS: the mdreview app + an oauth2-proxy sidecar,
+# both published to LOOPBACK ONLY. The host's existing nginx is the sole public ingress (see
+# nginx/app.waqasrana.space.conf + RUNBOOK-phase1.md).
 #
-# Phase 0 gates EVERY path (including /api) behind oauth2-proxy with NO bearer exception, because
-# per-user token auth does not exist until Phase 1. The invite allowlist is owner-only.
+# Two auth planes: the browser goes through oauth2-proxy (Google OAuth cookie); an agent sends a
+# per-user Bearer token that nginx passes straight to the app (cookie-or-bearer vhost). Auth is
+# MANDATORY here (MDREVIEW_REQUIRE_AUTH=1 + secrets below). The invite allowlist is multi-user.
 #
 #   docker compose -f infra/deploy/docker-compose.prod.yml --env-file infra/deploy/.env up -d
 services:

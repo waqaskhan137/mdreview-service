@@ -84,8 +84,8 @@ async function load(){
 
 function mcpBlock(token){
   return JSON.stringify({mcpServers:{mdreview:{
-    command:"/opt/homebrew/opt/python@3.12/bin/python3.12",
-    args:["/path/to/mdreview-service/src/mcp_server.py"],
+    command:"python3",
+    args:["/ABSOLUTE/PATH/TO/mdreview-service/src/mcp_server.py"],
     env:{MDREVIEW_BASE:BASE, MDREVIEW_TOKEN:token}
   }}}, null, 2);
 }
