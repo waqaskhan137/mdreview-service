@@ -17,6 +17,12 @@ BASE = os.environ.get("MDREVIEW_BASE", "http://localhost:8137").rstrip("/")
 # link the human must copy. Off by default (CI/headless); affects create_review only.
 OPEN_IN_BROWSER = os.environ.get("MDREVIEW_OPEN_BROWSER", "").lower() in ("1", "true", "yes")
 
+# The backend is always the local mdreview service (loopback). urllib.urlopen otherwise honors the
+# macOS system HTTP proxy, so when a proxy is configured but down, every call fails with a bogus
+# "Connection refused" against the proxy, not the service. An empty ProxyHandler forces a direct
+# connection. ponytail: proxy is never right for a loopback backend, so bypass it unconditionally.
+_opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
 
 class ToolError(Exception):
     """A tool ran and failed (bad id, service down, non-2xx) -> isError result, not a protocol error."""
@@ -29,7 +35,7 @@ def http(method, path, body=None):
     if data is not None:
         req.add_header("Content-Type", "application/json")
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with _opener.open(req, timeout=30) as r:
             return r.read().decode("utf-8")
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")
