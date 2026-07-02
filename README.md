@@ -395,3 +395,7 @@ stderr stays in the operator log (no-auth posture).
 - For agent integration details, see [CLAUDE.md](CLAUDE.md).
 - A non-Docker, per-file CLI version lives in `../mdreview` (writes feedback to a file next to
   the source). This service is the networked, multi-session form.
+
+## License
+
+[Apache License 2.0](LICENSE).
