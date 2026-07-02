@@ -4,12 +4,28 @@ A containerized markdown review microservice. An agent POSTs markdown, gets back
 for a human, and polls feedback over HTTP. One service handles many reviews, isolated by id.
 No per-process spawning, no shared filesystem with the agent.
 
-**Landing page:** [mdreview.waqasrana.space](https://mdreview.waqasrana.space/) (served from
+**Landing page:** [mdreview.space](https://mdreview.space/) (served from
 GitHub Pages via `.github/workflows/pages.yml`; source in `web/site/`).
 
-**Docs:** [mdreview.waqasrana.space/docs](https://mdreview.waqasrana.space/docs/) — onboarding,
+**Docs:** [mdreview.space/docs](https://mdreview.space/docs/) — onboarding,
 how-to, and troubleshooting, rendered through the service's own markdown renderer (source in
 `web/site/docs/`).
+
+## Getting started: hosted or self-hosted
+
+Two ways to use mdreview; pick one.
+
+**1. Hosted (online, nothing to install).** A managed instance runs at
+**[mdreview.space](https://mdreview.space)** (app at **[app.mdreview.space](https://app.mdreview.space)**).
+Sign in with Google, open **Connect your agent**, mint an API token, and paste the generated
+config into your agent's MCP settings (the token is embedded; you only fix the local `args` path).
+See [MCP server](#mcp-server-optional) for the config shape. Access is **invite-only** (an email
+allowlist), so this path works only if the instance owner has added your Google email; otherwise
+ask for an invite, or self-host below.
+
+**2. Self-hosted (local).** Clone and run it yourself (no account, no auth, on `localhost`). See
+[Run](#run), then point your agent's MCP `MDREVIEW_BASE` at `http://localhost:8137`. This is the
+path for anyone: no invite needed.
 
 Stdlib Python only (tiny image, no pip installs). Self-contained: the marked, Mermaid, KaTeX,
 highlight.js, and footnote renderers are vendored and served from `/static`, so the browser needs no
@@ -156,6 +172,10 @@ Example MCP client config (stdio):
   }
 }
 ```
+
+**For the hosted instance**, set `"MDREVIEW_BASE": "https://app.mdreview.space"` and add
+`"MDREVIEW_TOKEN": "mdr_…"` (minted on the account page) to `env`. The account page generates
+this exact block with the token already filled in, so you only correct the local `args` path.
 
 Use an **absolute interpreter path**, not a bare `python3`: `python3` resolves to whatever is first on the client's PATH (often an old system Python), and a stale or misconfigured system HTTP proxy that such an interpreter honors can make every backend call fail with a bogus "connection refused". Point `args` at the file **inside your checkout** so a `git pull` keeps the wrapper current with no rebuild or re-publish; a change to the wrapper's own code still needs one client reconnect to load (a stdio server reads its code once at startup).
 
