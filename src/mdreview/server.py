@@ -30,14 +30,15 @@ import hmac
 import json
 import os
 import re
+import shutil
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 from mdreview.config import (
-    APP_MODE, DATA_DIR, LEASE_TTL_S, PORT, PROXY_SECRET, PUBLIC_BASE, REQUIRE_AUTH,
-    RID, TOKEN_PEPPER, WAIT_TIMEOUT_S, WEB_DIR,
+    APP_MODE, DATA_DIR, DISK_FLOOR, LEASE_TTL_S, MAX_BODY, PORT, PROXY_SECRET, PUBLIC_BASE,
+    REQUIRE_AUTH, RID, TOKEN_PEPPER, WAIT_TIMEOUT_S, WEB_DIR,
 )
 from mdreview.store import Store
 from mdreview.comments import CommentService
@@ -79,7 +80,7 @@ class H(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", PUBLIC_BASE or "*")
         self.send_header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Cache-Control", "no-store")
@@ -121,11 +122,24 @@ class H(BaseHTTPRequestHandler):
                 return (uid, "cookie")
         return (None, None)
 
+    def _audit(self, event, **kv):
+        # Structured stdout line for an internet-facing multi-user service. NEVER logs a secret,
+        # token, or the proxy header, only ids and outcomes.
+        kv.update(event=event, ip=(self.headers.get("X-Real-IP") or self.client_address[0]))
+        print("AUDIT " + json.dumps(kv), flush=True)
+
+    def _disk_low(self):
+        try:
+            return shutil.disk_usage(DATA_DIR).free < DISK_FLOOR
+        except OSError:
+            return False
+
     def _require_user(self):
         uid, plane = self._principal()
         if plane == "local":
             return (None, "local")
         if uid is None or not self.server.app.users.is_active(uid):
+            self._audit("auth_fail", path=urlparse(self.path).path)
             self._json(401, {"error": "authentication required"})
             return (None, None)
         return (uid, plane)
@@ -136,7 +150,8 @@ class H(BaseHTTPRequestHandler):
             return (None, None)                       # 401 already sent
         app = self.server.app
         if not app.reviews.exists(rid) or (REQUIRE_AUTH and not app.reviews.can_access(rid, uid)):
-            self._json(404, {"error": "not found"})   # 404 (not 403): ownership must not be probeable
+            self._audit("denied_404", uid=uid, rid=rid)   # probing signal (missing or foreign owner)
+            self._json(404, {"error": "not found"})       # 404 (not 403): ownership must not be probeable
             return (None, None)
         return (uid, plane)
 
@@ -213,6 +228,9 @@ class H(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if len(path) > 1:
             path = path.rstrip("/")
+
+        if m in ("POST", "PUT") and int(self.headers.get("Content-Length", 0) or 0) > MAX_BODY:
+            return self._json(413, {"error": "request body too large"})
 
         if path == "/healthz" and m == "GET":
             return self._json(200, {"ok": True})
@@ -304,6 +322,8 @@ class H(BaseHTTPRequestHandler):
             uid, plane = self._require_user()
             if plane is None:
                 return
+            if self._disk_low():
+                return self._json(507, {"error": "insufficient storage"})
             b = self._body_json()
             rid = app.reviews.create(b.get("markdown", ""), b.get("title", ""),
                                   b.get("project", ""), b.get("source_path", ""),
@@ -430,6 +450,8 @@ class H(BaseHTTPRequestHandler):
                     out.append(d)
                 return self._json(200, {"assets": out})
             if m == "POST":
+                if self._disk_low():
+                    return self._json(507, {"error": "insufficient storage"})
                 b = self._body_json()
                 name = b.get("name", "")
                 c64 = b.get("content_b64")

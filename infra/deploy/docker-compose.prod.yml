@@ -22,6 +22,12 @@ services:
     environment:
       # Correct review_url regardless of the Host header.
       MDREVIEW_PUBLIC_BASE: "https://app.waqasrana.space"
+      # Phase 1: auth is MANDATORY on the hosted instance. The app boot-guard plus these ${VAR:?}
+      # refuse to start if a secret is missing, so this service can NEVER come up wide open (the
+      # security-review P0: the cookie-or-bearer nginx in front of an auth-off app = open read/delete).
+      MDREVIEW_REQUIRE_AUTH: "1"
+      MDREVIEW_PROXY_SECRET: "${MDREVIEW_PROXY_SECRET:?set MDREVIEW_PROXY_SECRET in infra/deploy/.env}"
+      MDREVIEW_TOKEN_PEPPER: "${MDREVIEW_TOKEN_PEPPER:?set MDREVIEW_TOKEN_PEPPER in infra/deploy/.env}"
     networks:
       - mdrnet
 

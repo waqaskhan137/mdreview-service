@@ -36,6 +36,13 @@ if REQUIRE_AUTH and not (PROXY_SECRET and TOKEN_PEPPER):
     raise SystemExit(
         "MDREVIEW_REQUIRE_AUTH is on but MDREVIEW_PROXY_SECRET and/or MDREVIEW_TOKEN_PEPPER is unset")
 
+# DoS backstops (the fine-grained caps live in nginx; these guard the app even on the loopback path).
+# MAX_BODY is a generous ceiling above the asset-upload cap; nginx enforces the tight per-route size.
+MAX_BODY = int(os.environ.get("MDREVIEW_MAX_BODY", str(32 * 1024 * 1024)))
+# Refuse creates/uploads when free space on the data volume drops below this (one rogue/leaked token
+# must not be able to fill the shared volume and take every tenant down).
+DISK_FLOOR = int(os.environ.get("MDREVIEW_DISK_FLOOR", str(200 * 1024 * 1024)))
+
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # Bounded server-side timeout for the /wait long-poll (seconds); a client ?timeout= is capped to it.
