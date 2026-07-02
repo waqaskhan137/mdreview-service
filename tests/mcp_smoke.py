@@ -287,7 +287,9 @@ def main():
                 data=json.dumps({"anchor": {"quoted_text": "smoke", "block_num": "1"},
                                  "text": "please clarify"}).encode("utf-8"),
                 headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=30) as r:
+            # Bypass any system/HTTP proxy: the backend is loopback, mirroring src/mcp/client.py.
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(req, timeout=30) as r:
                 cid = json.loads(r.read().decode("utf-8")).get("comment_id")
         except Exception:
             pass

@@ -1,0 +1,7 @@
+# mdreview invite allowlist. One VERIFIED provider email per line. This file IS the entire
+# membership: there is no self-signup. Phase 0 is owner-only (one line below).
+#
+# To invite someone later: append their verified email on the host. oauth2-proxy watches this file
+# and hot-reloads it (verified: "watching ... for updates" at startup), so no restart is needed.
+#
+waqaskhan137@gmail.com

@@ -149,13 +149,15 @@ Example MCP client config (stdio):
 {
   "mcpServers": {
     "mdreview": {
-      "command": "python3",
+      "command": "/opt/homebrew/opt/python@3.12/bin/python3.12",
       "args": ["/path/to/mdreview-service/src/mcp_server.py"],
       "env": { "MDREVIEW_BASE": "http://localhost:8137" }
     }
   }
 }
 ```
+
+Use an **absolute interpreter path**, not a bare `python3`: `python3` resolves to whatever is first on the client's PATH (often an old system Python), and a stale or misconfigured system HTTP proxy that such an interpreter honors can make every backend call fail with a bogus "connection refused". Point `args` at the file **inside your checkout** so a `git pull` keeps the wrapper current with no rebuild or re-publish; a change to the wrapper's own code still needs one client reconnect to load (a stdio server reads its code once at startup).
 
 **Tools (20):** `create_review` (markdown, title?, project?, session?,
 source_path?), `list_reviews`, `get_review` (id), `get_source` (id), `get_feedback` (id), `get_status` (id),
