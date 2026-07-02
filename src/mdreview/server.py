@@ -81,12 +81,11 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", PUBLIC_BASE or "*")
         self.send_header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
-        if self.command != "HEAD":
-            self.wfile.write(body)
+        self.wfile.write(body)
 
     def _json(self, code, obj):
         self._send(code, json.dumps(obj), "application/json")
@@ -329,9 +328,10 @@ class H(BaseHTTPRequestHandler):
             if plane is None:
                 return
             if m == "GET":
-                return self._json(200, app.reviews.meta(rid))
+                return self._json(200, app.reviews.summary(rid))
             if m == "DELETE":
-                app.reviews.delete(rid)
+                with app.store.lock:
+                    app.reviews.delete(rid)
                 return self._json(200, {"deleted": rid})
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/source", path)
@@ -508,7 +508,9 @@ class H(BaseHTTPRequestHandler):
                 return
             b = self._body_json()
             if action == "reply":
-                by, text = b.get("role", "reviewer"), b.get("text", "")
+                # Attribution from the authenticated plane, not the spoofable body role (mirrors POST /comments).
+                by = "reviewer" if plane == "cookie" else "agent" if plane == "token" else b.get("role", "reviewer")
+                text = b.get("text", "")
             elif action == "resolve":
                 by, text = "agent", b.get("justification")          # justification optional
             else:                                                    # reopen

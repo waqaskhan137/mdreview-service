@@ -79,6 +79,13 @@ try:
     code, out = req("GET", "/api/reviews", bearer)
     check("I. agent token sees A's reviews (same owner)", code == 200 and any(r["id"] == rid_ag for r in json.loads(out)["reviews"]))
 
+    # reply attribution: a token-plane reply cannot spoof role=reviewer (punch-list #1)
+    code, out = req("POST", "/api/reviews/%s/comments" % rid_ag, bearer, {"anchor": {"quoted_text": "agent"}, "text": "c"})
+    cid = json.loads(out).get("comment_id") if code == 201 else None
+    code, out = req("POST", "/api/reviews/%s/comments/%s/reply" % (rid_ag, cid), bearer, {"text": "spoofme", "role": "reviewer"})
+    roles = [e.get("role") for e in json.loads(out).get("thread", []) if e.get("text") == "spoofme"] if code == 200 else []
+    check("I2. token-plane reply recorded as agent, spoofed body role=reviewer ignored", roles == ["agent"])
+
     # isolation: user B
     cb = cookie("222", "b@example.com")
     code, out = req("GET", "/api/reviews", cb)
@@ -100,5 +107,5 @@ finally:
     try: srv.wait(timeout=5)
     except Exception: srv.kill()
 
-print("\n" + ("PASS: all %d checks" % 16 if not fails else "FAILED: " + "; ".join(fails)))
+print("\n" + ("PASS: all %d checks" % 17 if not fails else "FAILED: " + "; ".join(fails)))
 sys.exit(1 if fails else 0)

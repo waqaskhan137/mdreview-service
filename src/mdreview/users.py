@@ -71,7 +71,7 @@ class UserService:
         secret = secrets.token_urlsafe(32)
         data = self._load()
         data["tokens"][tok_id] = {"uid": uid, "hash": self._digest(secret),
-                                  "label": label or "", "created": time.time(), "last_used": 0}
+                                  "label": label or "", "created": time.time()}
         self._save(data)
         return "mdr_%s_%s" % (tok_id, secret)
 
@@ -91,8 +91,7 @@ class UserService:
     def list_tokens(self, uid):
         toks = self._load()["tokens"]
         return sorted(
-            [{"tok_id": tid, "label": r.get("label", ""), "created": r.get("created", 0),
-              "last_used": r.get("last_used", 0)}
+            [{"tok_id": tid, "label": r.get("label", ""), "created": r.get("created", 0)}
              for tid, r in toks.items() if r.get("uid") == uid],
             key=lambda t: t["created"], reverse=True)
 

@@ -84,8 +84,12 @@ class Store:
             return default
 
     def write_text(self, path, text):
-        with open(path, "w", encoding="utf-8") as f:
+        # ponytail: atomic write (temp + rename in the same dir) so a crash mid-write can't leave
+        # torn/partial JSON that then reads back as a silent {} default.
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             f.write(text)
+        os.replace(tmp, path)
 
     # ---- misc helpers ----
     def ctype_for(self, name):
