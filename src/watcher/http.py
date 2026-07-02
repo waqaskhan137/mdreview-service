@@ -5,10 +5,15 @@ a 409 from a lease claim is a normal skip signal the loop branches on, not an ex
 transport failure (URLError) propagates — the loop backs off on it.
 """
 import json
+import os
 import urllib.error
 import urllib.request
 
 from .config import BASE
+
+# Per-user API token for a hosted, multi-user mdreview (Phase 1). Set when the watcher runs against
+# the public instance so its polls/handoffs are scoped to that user. Unset for a local instance.
+TOKEN = os.environ.get("MDREVIEW_TOKEN", "").strip()
 
 
 def _http(method, path, body=None, timeout=None):
@@ -20,6 +25,8 @@ def _http(method, path, body=None, timeout=None):
     req = urllib.request.Request(url, data=data, method=method)
     if data is not None:
         req.add_header("Content-Type", "application/json")
+    if TOKEN:
+        req.add_header("Authorization", "Bearer " + TOKEN)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return r.code, _parse(r.read())
