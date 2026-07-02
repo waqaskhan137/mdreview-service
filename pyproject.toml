@@ -1,0 +1,11 @@
+[project]
+name = "mdreview-service"
+version = "0.0.4"
+description = "Human-in-the-loop markdown review for AI agents"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "Apache-2.0"
+
+[project.urls]
+Homepage = "https://mdreview.space"
+Source = "https://github.com/waqaskhan137/mdreview-service"
