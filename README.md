@@ -15,13 +15,20 @@ how-to, and troubleshooting, rendered through the service's own markdown rendere
 
 Two ways to use mdreview; pick one.
 
-**1. Hosted (online, nothing to install).** A managed instance runs at
+**1. Hosted (online, one command).** A managed instance runs at
 **[mdreview.space](https://mdreview.space)** (app at **[app.mdreview.space](https://app.mdreview.space)**).
-Sign in with Google, open **Connect your agent**, mint an API token, and paste the generated
-config into your agent's MCP settings (the token is embedded; you only fix the local `args` path).
-See [MCP server](#mcp-server-optional) for the config shape. Access is **invite-only** (an email
-allowlist), so this path works only if the instance owner has added your Google email; otherwise
-ask for an invite, or self-host below.
+Sign in with Google, open **Connect your agent**, and mint an API token. Then, on the machine
+running your agent (needs the `claude` CLI + `python3`):
+
+```sh
+curl -fsSL https://mdreview.space/install.sh | MDREVIEW_TOKEN=mdr_xxx sh
+```
+
+That fetches the stdlib-only MCP wrapper into `~/.mdreview` and registers it with Claude Code at
+user scope; quit and reopen Claude Code and you are connected. Omit `MDREVIEW_TOKEN=…` to be
+prompted for it instead. Access is **invite-only** (an email allowlist), so this works only if the
+instance owner has added your Google email; otherwise ask for an invite, or self-host below. (To
+wire it up by hand, or for a non-Claude-Code MCP client, see [MCP server](#mcp-server-optional).)
 
 **2. Self-hosted (local).** Clone and run it yourself (no account, no auth, on `localhost`). See
 [Run](#run), then point your agent's MCP `MDREVIEW_BASE` at `http://localhost:8137`. This is the
