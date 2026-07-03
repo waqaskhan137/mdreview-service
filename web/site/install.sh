@@ -1,55 +1,56 @@
 #!/bin/sh
-# mdreview hosted-instance installer.
+# mdreview installer.  One command:
 #
 #   curl -fsSL https://mdreview.space/install.sh | sh
 #
-# Fetches the stdlib-only MCP wrapper into ~/.mdreview and registers it with Claude Code
-# (user scope) so `create_review` etc. work against the hosted instance. You need an API
-# token first: sign in at https://app.mdreview.space, "Connect your agent", mint one. Pass it
-# as MDREVIEW_TOKEN, or the script prompts for it when run in a terminal:
+# It asks how you want to run mdreview:
+#   Local   - run it yourself, open to everyone, no account. Starts a server on localhost:8137
+#             and wires Claude Code to it. No Docker.
+#   Hosted  - connect Claude Code to the managed instance at app.mdreview.space (early access;
+#             needs an invite + a token minted at "Connect your agent").
 #
-#   curl -fsSL https://mdreview.space/install.sh | MDREVIEW_TOKEN=mdr_xxx sh
-#
+# Non-interactive: set MDREVIEW_MODE=local|hosted (and MDREVIEW_TOKEN=mdr_... for hosted).
 set -eu
 
-BASE="${MDREVIEW_BASE:-https://app.mdreview.space}"
+HOSTED="https://app.mdreview.space"
 TARBALL="https://github.com/waqaskhan137/mdreview-service/archive/refs/heads/main.tar.gz"
-DEST="$HOME/.mdreview/mdreview-service"
+HOME_DIR="$HOME/.mdreview"
+DEST="$HOME_DIR/mdreview-service"
+PORT="${MDREVIEW_PORT:-8137}"
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
-# 1. Prerequisites. python3 runs the wrapper; the claude CLI owns the config edit (no hand-rolled JSON).
+# --- prerequisites (both modes need python3 to run the wrapper + the claude CLI to wire it) ---
 command -v python3 >/dev/null 2>&1 || die "python3 not found. Install Python 3, then re-run."
+command -v claude  >/dev/null 2>&1 || die "the 'claude' CLI (Claude Code) is not on PATH. Install Claude Code first."
 command -v curl    >/dev/null 2>&1 || die "curl not found."
 command -v tar     >/dev/null 2>&1 || die "tar not found."
-command -v claude  >/dev/null 2>&1 || die "the 'claude' CLI (Claude Code) is not on PATH. Install Claude Code first."
 PY="$(python3 -c 'import sys; print(sys.executable)')"
 [ -n "$PY" ] || die "could not resolve the python3 interpreter path."
 
-# 2. Token. Env var wins; otherwise prompt from the terminal (stdin is the piped script, so read
-#    /dev/tty). Probe openability in a subshell first: `[ -r /dev/tty ]` can pass in CI/piped shells
-#    where the device still won't open, and a failed open must fall through to the hint, not a raw error.
-if [ -n "${MDREVIEW_TOKEN:-}" ]; then
-  TOKEN="$MDREVIEW_TOKEN"
-elif ( : < /dev/tty ) 2>/dev/null; then
-  printf 'Paste your mdreview API token (from %s, "Connect your agent"): ' "$BASE" > /dev/tty 2>/dev/null || true
-  stty -echo < /dev/tty 2>/dev/null || true
-  IFS= read -r TOKEN < /dev/tty 2>/dev/null || TOKEN=""
-  stty echo < /dev/tty 2>/dev/null || true
-  printf '\n' > /dev/tty 2>/dev/null || true
-  [ -n "$TOKEN" ] || die "no token entered. Re-run with MDREVIEW_TOKEN=mdr_xxx set."
-else
-  die "no token. Re-run as:  curl -fsSL https://mdreview.space/install.sh | MDREVIEW_TOKEN=mdr_xxx sh"
+# --- choose mode (env wins; else prompt on the terminal, since stdin is the piped script) ---
+MODE="${MDREVIEW_MODE:-}"
+if [ -z "$MODE" ]; then
+  if ( : < /dev/tty ) 2>/dev/null; then
+    say "How do you want to run mdreview?"
+    say "  1) Local   run it yourself, open to everyone, no account (a server on localhost:$PORT)"
+    say "  2) Hosted  connect to $HOSTED (early access, needs an invite + token)"
+    printf 'Choose [1/2]: ' > /dev/tty
+    IFS= read -r ans < /dev/tty 2>/dev/null || ans=""
+    case "$ans" in
+      1|local|Local|L|l) MODE=local ;;
+      2|hosted|Hosted|H|h) MODE=hosted ;;
+      *) die "unrecognized choice: '$ans' (expected 1 or 2)." ;;
+    esac
+  else
+    die "no terminal to prompt. Re-run with MDREVIEW_MODE=local (or =hosted MDREVIEW_TOKEN=mdr_...)."
+  fi
 fi
-case "$TOKEN" in
-  mdr_*_*) : ;;
-  *) die "that does not look like a token (expected mdr_<id>_<secret>). Mint one at $BASE." ;;
-esac
+case "$MODE" in local|hosted) ;; *) die "invalid MDREVIEW_MODE '$MODE' (use 'local' or 'hosted')." ;; esac
 
-# 3. Fetch the wrapper (stdlib only, no pip install) into ~/.mdreview. Download to a file first so a
-#    failed curl gives a precise error instead of feeding an empty stream to tar.
-say "Downloading the mdreview MCP wrapper..."
+# --- fetch the code (both modes need it on disk) ---
+say "Downloading mdreview..."
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 curl -fsSL "$TARBALL" -o "$TMP/repo.tgz" || die "download failed ($TARBALL)."
@@ -57,23 +58,53 @@ tar -xzf "$TMP/repo.tgz" -C "$TMP" || die "extract failed."
 set -- "$TMP"/mdreview-service-*
 SRC="$1"
 [ -f "$SRC/src/mcp_server.py" ] || die "unexpected archive layout (no src/mcp_server.py)."
-mkdir -p "$HOME/.mdreview"
+mkdir -p "$HOME_DIR"
 rm -rf "$DEST"
 mv "$SRC" "$DEST"
 WRAPPER="$DEST/src/mcp_server.py"
-
-# 4. Smoke: confirm the wrapper imports under this python before wiring it in.
 "$PY" "$WRAPPER" --print-version >/dev/null 2>&1 || die "the wrapper failed to run under $PY."
 
-# 5. Register with Claude Code at user scope. Idempotent: drop any prior entry, re-add.
-# ponytail: token is passed via -e, so it is briefly visible in `ps` on a shared box; fine for a
-# single-user machine. Upgrade path if that matters: a stdin-fed secret, which claude mcp add lacks today.
-claude mcp remove mdreview -s user >/dev/null 2>&1 || true
-claude mcp add mdreview -s user \
-  -e "MDREVIEW_BASE=$BASE" \
-  -e "MDREVIEW_TOKEN=$TOKEN" \
-  -- "$PY" "$WRAPPER"
+wire_agent() {   # $1 = MDREVIEW_BASE ; extra -e args in $2.. (already split)
+  base="$1"; shift
+  claude mcp remove mdreview -s user >/dev/null 2>&1 || true
+  claude mcp add mdreview -s user -e "MDREVIEW_BASE=$base" "$@" -- "$PY" "$WRAPPER"
+}
 
-say ""
-say "Done. mdreview is registered (user scope) against $BASE."
-say "Fully quit and reopen Claude Code, then verify with the mdreview tools: server_info, then list_reviews."
+if [ "$MODE" = "local" ]; then
+  DATA="$HOME_DIR/data"; mkdir -p "$DATA"
+  # ponytail: the local server is a plain background process (no supervisor, no restart-on-boot).
+  # Re-run this installer (or the printed command) to restart it. Docker would give restart:always;
+  # this trades that for "no Docker".
+  if [ -f "$HOME_DIR/server.pid" ] && kill -0 "$(cat "$HOME_DIR/server.pid" 2>/dev/null)" 2>/dev/null; then
+    kill "$(cat "$HOME_DIR/server.pid")" 2>/dev/null || true; sleep 0.5
+  fi
+  PYTHONPATH="$DEST/src" MDREVIEW_DATA="$DATA" PORT="$PORT" nohup "$PY" -m mdreview \
+    > "$HOME_DIR/server.log" 2>&1 &
+  echo $! > "$HOME_DIR/server.pid"
+  # wait for it to answer
+  i=0; until curl -fsS -o /dev/null "http://localhost:$PORT/healthz" 2>/dev/null; do
+    i=$((i+1)); [ "$i" -gt 20 ] && die "server did not start; see $HOME_DIR/server.log"; sleep 0.25
+  done
+  wire_agent "http://localhost:$PORT"   # local is no-auth: no token
+  say ""
+  say "Local mdreview is running at http://localhost:$PORT  (PID $(cat "$HOME_DIR/server.pid"))."
+  say "Restart Claude Code, then create_review(...) opens the review in your browser there."
+  say "Stop:    kill \$(cat $HOME_DIR/server.pid)"
+  say "Restart: curl -fsSL https://mdreview.space/install.sh | MDREVIEW_MODE=local sh"
+else
+  TOKEN="${MDREVIEW_TOKEN:-}"
+  if [ -z "$TOKEN" ] && ( : < /dev/tty ) 2>/dev/null; then
+    printf 'Paste your token from %s ("Connect your agent"): ' "$HOSTED" > /dev/tty
+    stty -echo < /dev/tty 2>/dev/null || true
+    IFS= read -r TOKEN < /dev/tty 2>/dev/null || TOKEN=""
+    stty echo < /dev/tty 2>/dev/null || true
+    printf '\n' > /dev/tty 2>/dev/null || true
+  fi
+  case "$TOKEN" in
+    mdr_*_*) : ;;
+    *) die "that doesn't look like a token (expected mdr_<id>_<secret>). Mint one at $HOSTED." ;;
+  esac
+  wire_agent "$HOSTED" -e "MDREVIEW_TOKEN=$TOKEN"
+  say ""
+  say "Connected to hosted mdreview ($HOSTED). Quit and reopen Claude Code."
+fi
