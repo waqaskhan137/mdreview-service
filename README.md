@@ -219,6 +219,12 @@ no auth — fine for the trusted-network posture, but keep auth in front if expo
 
 ## Watcher (optional) — operator runbook
 
+> **Shelved (2026-07-03).** The watcher is **disabled**: the `make watcher` target and the compose
+> `watcher` service were removed, so there is no wired way to run it. The code below stays under
+> `src/watcher/` (+ `src/watch.py`, `infra/Dockerfile.watcher`, `infra/watcher/`), and this runbook
+> still describes it. To revive: restore the compose `watcher` service and the `make watcher` target
+> (see git history), then follow the steps below.
+
 The **`watcher` package** (`src/watcher/`, thin entry point `src/watch.py`, canonical `python -m watcher`) is a stdlib-only sibling of the `mcp` package that closes the handoff loop without a human
 in the relay: it long-polls the service for reviews the reviewer flipped to `turn==agent` ("Send to
 agent"), claims each review's cooperative lease, and spawns the operator's **required**
