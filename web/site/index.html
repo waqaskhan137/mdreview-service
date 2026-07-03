@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>mdreview: human-in-the-loop markdown review for AI agents</title>
 <meta name="description" content="Your AI agent writes a markdown draft; a human reviews it in the browser with threaded comments; the agent reads them back over HTTP or MCP and revises.">
 <link rel="canonical" href="https://mdreview.space/">
@@ -15,6 +16,14 @@
   :root{
     --bg:#fafafc; --panel:#ffffff; --text:#17181d; --muted:#6b7280;
     --rule:#e7e8ee; --accent:#7c6cff; --accent-weak:#f1efff; --code:#f4f4f8;
+    --cmd-bg:#14151a; --cmd-border:#23242b; --cmd-text:#e7e9ee; --badge-preview:#f3f4f6;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e0f13; --panel:#1a1c23; --text:#e6e8ee; --muted:#9aa0ac;
+      --rule:#272b34; --accent:#9184ff; --accent-weak:#221f38; --code:#1b1d24;
+      --cmd-bg:#1e2029; --cmd-border:#2c313d; --cmd-text:#e6e8ee; --badge-preview:#23262e;
+    }
   }
   *{margin:0;padding:0;box-sizing:border-box}
   body{background:var(--bg);color:var(--text);line-height:1.6;
@@ -43,9 +52,9 @@
   .hero h1{font-size:38px;line-height:1.15;letter-spacing:-.02em;font-weight:720;max-width:16ch;margin:0 auto}
   .hero .sub{color:var(--muted);font-size:17px;max-width:60ch;margin:18px auto 0}
   .install{margin:26px auto 0;max-width:520px}
-  .cmd{background:#14151a;border:1px solid #23242b;border-radius:11px;padding:15px 18px;
+  .cmd{background:var(--cmd-bg);border:1px solid var(--cmd-border);border-radius:11px;padding:15px 18px;
        text-align:left;overflow-x:auto;
-       font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#e7e9ee}
+       font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--cmd-text)}
   .cmd code{background:none;padding:0;color:inherit;font:inherit;white-space:nowrap}
   .ask{color:var(--muted);font-size:14px;margin-top:12px}
 
@@ -55,7 +64,7 @@
   .badge{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.02em;
          padding:3px 9px;border-radius:20px;margin-bottom:14px}
   .badge.open{background:var(--accent-weak);color:var(--accent)}
-  .badge.preview{background:#f3f4f6;color:var(--muted)}
+  .badge.preview{background:var(--badge-preview);color:var(--muted)}
   .card p{color:var(--muted);font-size:14.5px;margin-top:10px}
 
   footer{border-top:1px solid var(--rule);color:var(--muted);font-size:13.5px}
