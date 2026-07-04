@@ -58,6 +58,10 @@
   .cmd code{background:none;padding:0;color:inherit;font:inherit;white-space:nowrap}
   .ask{color:var(--muted);font-size:14px;margin-top:12px}
 
+  .pitch{margin:24px auto 0;max-width:340px}
+  .pitch video{width:100%;height:auto;display:block;border-radius:14px;
+               border:1px solid var(--rule);background:#000}
+
   .ways{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:34px 0 0}
   .card{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:22px;min-width:0}
   .card h2{font-size:18px;font-weight:660;margin-bottom:6px}
@@ -98,6 +102,11 @@
     <div class="install">
       <div class="cmd"><code>curl -fsSL https://mdreview.space/install.sh | sh</code></div>
       <p class="ask">One command. It asks how you want to run it:</p>
+    </div>
+    <div class="pitch">
+      <video controls playsinline preload="none" poster="pitch-poster.jpg" width="720" height="720">
+        <source src="pitch.mp4" type="video/mp4">
+      </video>
     </div>
   </section>
 
