@@ -61,7 +61,7 @@ safety only.
 
 ## Validation
 
-- `2026-07-21` — py_compile green. Flag-off oracle still 24/24 (build signature change). Local
+- `2026-07-21` — py_compile green. Flag-off oracle 23/23 (API + markdown viewer byte-identical; dashboard excluded per MR-098). Local
   real compile (tectonic 0.15.0, unhardened-as-self, scratch port 18271, warmed cache via
   TECTONIC_CACHE_DIR): `latex_smoke.py` PASS - baseline paper -> 6331-byte application/pdf; cross-
   review /data probe reported blocked BUT locally that is a FALSE positive: MDREVIEW_DATA was a

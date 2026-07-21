@@ -73,10 +73,7 @@ if absent).
 
 ## Follow-ups
 
-- Surfaced a compile-coverage finding (Tectonic `--only-cached` fails on any resource the warm
-  cache lacks: 11pt option, title fonts, cmsy10 all missed a thin warm set). Tracked against
-  MR-096 / the epic security posture as an OPEN owner decision (keep zero-network + broad warm set,
-  vs allow the tectonic-bundle fetch). See the mdreview review comment.
-
-## Follow-ups
+- The compile-coverage finding surfaced here (Tectonic `--only-cached` failing on unwarmed
+  resources) was escalated to the owner and RESOLVED: `--only-cached` dropped, bundle fetch
+  allowed (see MR-095/096 amendments and the resolved mdreview review comment).
 
