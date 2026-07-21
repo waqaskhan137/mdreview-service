@@ -53,7 +53,7 @@ def http(method, path, body=None):
 def route(name, args):
     """Map a tool name + args onto (http_method, path, body). KeyError -> missing required arg."""
     if name == "create_review":
-        body = {k: args[k] for k in ("markdown", "title", "project", "session", "source_path", "kind") if k in args}
+        body = {k: args[k] for k in ("markdown", "title", "project", "session", "source_path", "kind", "template") if k in args}
         body.setdefault("markdown", args["markdown"])  # KeyError if absent -> -32602
         return "POST", "/api/reviews", body
     if name == "list_reviews":
