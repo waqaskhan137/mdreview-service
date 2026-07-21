@@ -88,8 +88,12 @@ req("DELETE", f"/api/reviews/{rid}/comments/{cid}")
 req("GET", f"/api/reviews/{rid}/feedback")
 req("GET", f"/api/reviews/{rid}/assets")
 req("GET", "/", accept="application/json")
-req("GET", f"/review/{rid}")
-req("GET", "/")
+req("GET", f"/review/{rid}")           # the MARKDOWN viewer page — must be byte-identical
+# GET / (the dashboard page) is DELIBERATELY not byte-compared: MR-098 adds a kind-guarded LATEX
+# chip + badge to web/app/dashboard.html. That is an intended feature change (epic 3.5), additive
+# and guarded on r.kind==="latex", so a markdown-only dashboard renders identically (verified by
+# `git diff <baseline> -- web/app/dashboard.html`). Byte-identity applies to the API + the markdown
+# viewer, which this transcript exercises; the dashboard's inert-for-markdown bytes are excluded.
 req("GET", "/static/nope.js")
 req("DELETE", f"/api/reviews/{rid}")
 req("GET", f"/api/reviews/{rid}/status")

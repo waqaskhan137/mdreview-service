@@ -42,8 +42,10 @@ card() and statusOf() in web/app/dashboard.html (statusOf at dashboard.html:169-
 
 - `2026-07-21` — py_compile green. render-smoke on `/` with one latex + one markdown review:
   `.card` (2), `.kindchip` (1), `.badge.latex` (1), `.badge.your-turn` (1) -> exit 0 (markdown
-  baton badge intact, latex card chipped + count badge). Screenshot dashboard-latex-chip.png under
-  sprint-29-render-evidence-2026-07-21.
+  baton badge intact, latex card chipped + count badge). Screenshot dashboard-latex-chip.png
+  under sprint-29-render-evidence-2026-07-21. The dashboard.html byte change vs baseline is purely
+  the additive kind-guarded chip/badge (`git diff` verified); a markdown-only dashboard renders
+  identically, so the flag-off contract holds (the golden oracle excludes the dashboard page).
 
 ## Follow-ups
 

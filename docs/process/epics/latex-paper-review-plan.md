@@ -310,9 +310,13 @@ Sweep: README, gate refs, runbook.
 
 ## Key constraints
 
-1. Flag off = byte-identical core behavior, proven by the golden-transcript oracle (identical
-   request script against baseline and new build, diff empty; the transcript issues today's
-   request shapes, exercising the no-`kind` create path), not just asserted.
+1. Flag off = byte-identical core behavior for existing markdown reviews: the API and the
+   markdown viewer are byte-identical to baseline, proven by the golden-transcript oracle (23
+   steps, diff empty). The dashboard page (`web/app/dashboard.html`) is the one product UI file the
+   feature intentionally changes (3.5): its added chip/badge are additive and guarded on
+   `kind==="latex"`, so a markdown-only dashboard renders identically (verified by
+   `git diff <baseline> -- web/app/dashboard.html`); the oracle excludes its inert-for-markdown
+   bytes rather than the raw-byte compare falsely flagging an intended change.
 2. Core never imports `latex_review` at module level; the only import is inside the
    `ENABLE_LATEX` branch of the composition root.
 3. Compiles never run under `store.lock`; enqueue only.

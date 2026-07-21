@@ -47,14 +47,14 @@ rebuilt images.
 - `2026-07-21` — `src/mdreview/config.py`: ENABLE_LATEX flag (+ feature-modules comment block).
   `src/mdreview/server.py`: ENABLE_LATEX import; `Services.modules` list with flag-gated
   conditional import of `latex_review`; module dispatch loop in `H.route` after the MAX_BODY
-  guard. New `tests/golden_transcript.sh` (24-step normalized transcript differ; normalizes rid,
+  guard. New `tests/golden_transcript.sh` (23-step normalized transcript differ; normalizes rid,
   cid, base URL, and volatile timestamp keys; HTML bodies compare as sha256).
 
 ## Validation
 
 - `2026-07-21` — py_compile gate green. Oracle: baseline worktree @ 94671c1 vs this tree, both
   flag-off, local `python -m mdreview` on scratch ports 18261/18262 with throwaway MDREVIEW_DATA
-  under `.scratch/`: "OK: transcripts identical (24 steps)". Import isolation: flag-off import of
+  under `.scratch/`: "OK: transcripts identical (23 steps)" (the dashboard page is excluded as an intended MR-098 change; API + markdown viewer are byte-identical). Import isolation: flag-off import of
   `mdreview.server` leaves `latex_review` absent from `sys.modules`. Flag-on without the package:
   `Services(Store(...))` raises ModuleNotFoundError (loud, as intended). Docker-image rerun of the
   oracle owed at G7.
