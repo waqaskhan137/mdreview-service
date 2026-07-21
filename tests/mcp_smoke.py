@@ -158,6 +158,30 @@ def main():
             pass
         check("update_source round-trip -> revision >= 1", isinstance(rev, int) and rev >= 1)
 
+    # MR-099: create_review(kind="latex") must reach the API (the client whitelist passes it) and
+    # the created review must carry kind=latex in its metadata.
+    out = drive(base + [{"jsonrpc": "2.0", "id": 45, "method": "tools/call",
+                         "params": {"name": "create_review",
+                                    "arguments": {"markdown": "\\documentclass{article}\\begin{document}x\\end{document}",
+                                                  "title": "mcp_smoke_latex", "kind": "latex"}}}])
+    lres = out[-1].get("result", {})
+    lrid = None
+    try:
+        lrid = json.loads(lres["content"][0]["text"]).get("id")
+    except Exception:
+        pass
+    check("create_review kind=latex -> id returned", bool(lrid))
+    if lrid:
+        out = drive(base + [{"jsonrpc": "2.0", "id": 46, "method": "tools/call",
+                             "params": {"name": "get_review", "arguments": {"id": lrid}}}])
+        kind = None
+        try:
+            kind = json.loads(out[-1]["result"]["content"][0]["text"]).get("kind")
+        except Exception:
+            pass
+        check("get_review on the latex review reports kind=latex", kind == "latex")
+
+    if rid:
         # MR-053: turn-baton tools — ping_working (claim the lease) then hand_back (return the turn)
         out = drive(base + [{"jsonrpc": "2.0", "id": 40, "method": "tools/call",
                              "params": {"name": "ping_working",
