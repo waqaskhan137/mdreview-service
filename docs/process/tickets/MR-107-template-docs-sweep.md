@@ -1,7 +1,7 @@
 ---
 id: MR-107
 title: Docs sweep: README templates + registry + egress/config + year-churn cadence
-status: ready
+status: done
 layer: docs
 priority: P1
 sprint: sprint-30
@@ -19,14 +19,16 @@ sprint-30.
 
 ## Acceptance criteria
 
-- [ ] README latex section gains a Templates subsection: `template=<id>` on create, the bundled
-      catalog, the pinned registry (download-on-miss, conference-source origin), operator config
-      (registry enable/allowlist/egress hosts), and the year-churn manifest-update cadence.
-- [ ] README notes the top-styles bundling exception + the per-style redistribution-license check.
-- [ ] Gate refs unchanged (the py_compile glob already covers src/latex_review + src/mcp); confirm.
-- [ ] Runbook: how to add/pin a registry entry, how to disable the puller (air-gapped), egress hosts.
-- [ ] Grep-gated: no live doc claims templates are web-selected or that downloaded files ship in the image.
-- [ ] Local validation passes: `python3 -m py_compile ...`
+- [x] README "LaTeX paper review" section gains: a **Start from a template** create bullet
+      (`template=<id>`, bundled + download-on-miss ids, the listing endpoint, no web picker) and a
+      **Templates — operator notes** subsection (registry location + how to add/bump an entry,
+      air-gapped `MDREVIEW_LATEX_TEMPLATE_DOWNLOAD=0`, egress hosts, custom registry, licensing).
+- [x] Security bullet extended with the download containment; year-churn "fails closed" documented.
+- [x] Bundling exception + per-style license note stated (bundling avoided w/o a confirmed license).
+- [x] Gate refs unchanged — the py_compile glob already covers `src/latex_review/*.py` + `src/mcp/*.py`;
+      puller.py/templates.py/errors.py auto-covered (confirmed).
+- [x] Grep-gated: no live doc claims web template selection or downloaded-files-in-image.
+- [x] Local validation passes: `python3 -m py_compile ...`
 
 ## Notes / context
 
@@ -34,10 +36,12 @@ Deferring tickets name this sweep in their Work log. MR-100 is the precedent gre
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-07-21` — README latex section: template create bullet + "Templates — operator notes"
+  subsection + download-containment security note.
 
 ## Validation
 
-_How this was verified._
+- `2026-07-21` — py_compile green; grep gate: no live doc claims web template selection; README
+  states "no web template picker" + downloaded files never in the image.
 
 ## Follow-ups
