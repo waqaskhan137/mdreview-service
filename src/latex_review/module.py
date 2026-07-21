@@ -31,6 +31,14 @@ class LatexModule:
         if m != "GET":
             return False
 
+        if path == "/api/latex/templates":
+            # The catalog: which template ids an agent can pass to create_review. Not review-scoped
+            # data (no rid, no owner), so no _authz; `cached` is the shared/global download set, not
+            # tenant data, so it leaks nothing across users.
+            avail = self.templates.available() if self.templates else {"bundled": [], "registry": [], "cached": []}
+            h._json(200, avail)
+            return True
+
         mo = re.fullmatch(r"/review/" + RID, path)
         if mo:
             rid = mo.group(1)
