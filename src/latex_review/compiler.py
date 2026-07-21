@@ -141,6 +141,20 @@ class CompileWorker:
         source = self.reviews.read_source(rid)
         with open(os.path.join(job, "paper.tex"), "w", encoding="utf-8") as f:
             f.write(source or "")
+        # Template companion files (the document class/style, e.g. neurips.sty) come from the
+        # TemplateService: bundled bytes now, /data cache or download-on-miss in MR-104. They are
+        # copied by basename into the job dir the same traversal-safe way as figures, so
+        # \usepackage{<style>} resolves in cwd. CTAN classes return no companion files (Tectonic
+        # fetches the class at compile). A missing/unknown template surfaces as a compile failure,
+        # not a crash (the worker's try/except in _compile catches it).
+        template = self.reviews.meta(rid).get("template", "")
+        if template and self.templates is not None:
+            for filename, data in self.templates.companion_files(template):
+                dest = os.path.basename((filename or "").replace("\\", "/").rstrip("/"))
+                if not dest or dest in (".", ".."):
+                    continue
+                with open(os.path.join(job, dest), "wb") as f:
+                    f.write(data)
         for entry in self.assets.list(rid):
             name, stored = entry.get("name") or "", entry.get("stored") or ""
             if not stored:

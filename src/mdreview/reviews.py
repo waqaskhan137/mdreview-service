@@ -106,7 +106,7 @@ class ReviewService:
         self.store.write_text(os.path.join(d, "meta.json"), json.dumps(m))
 
     def create(self, markdown, title, project="", source_path="", session="", owner="",
-               kind="markdown"):
+               kind="markdown", template=""):
         rid = secrets.token_hex(5)
         d = self.store.dir(rid)
         os.makedirs(d, exist_ok=True)
@@ -126,6 +126,10 @@ class ReviewService:
         # byte-identical contract (MR-093; readers use meta.get("kind", "markdown")).
         if kind and kind != "markdown":
             meta["kind"] = kind
+        # template persisted ONLY when set (same additive-default-safe rule as kind), so a markdown
+        # review's meta stays byte-identical. The worker reads meta.template to apply companion files.
+        if template:
+            meta["template"] = template
         self.store.write_text(os.path.join(d, "meta.json"), json.dumps(meta))
         return rid
 

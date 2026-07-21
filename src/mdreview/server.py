@@ -39,6 +39,7 @@ from mdreview.config import (
     DATA_DIR, DISK_FLOOR, ENABLE_LATEX, LEASE_TTL_S, MAX_BODY, PORT, PROXY_SECRET, PUBLIC_BASE,
     REQUIRE_AUTH, RID, TOKEN_PEPPER, WAIT_TIMEOUT_S, WEB_DIR,
 )
+from mdreview.errors import ReviewCreateRejected
 from mdreview.store import Store
 from mdreview.comments import CommentService
 from mdreview.assets import AssetService
@@ -328,9 +329,16 @@ class H(BaseHTTPRequestHandler):
             kind = b.get("kind", "markdown") or "markdown"
             if kind not in ("markdown", "latex"):
                 return self._json(400, {"error": "kind must be 'markdown' or 'latex'"})
-            rid = app.reviews.create(b.get("markdown", ""), b.get("title", ""),
-                                  b.get("project", ""), b.get("source_path", ""),
-                                  b.get("session", ""), owner=(uid or ""), kind=kind)
+            # A template id is validated inside the (flag-on) latex decorator, which raises a
+            # ReviewCreateRejected subclass; core catches only that core-defined base type and never
+            # imports the feature module, so the flag-off import graph and behavior are unchanged.
+            try:
+                rid = app.reviews.create(b.get("markdown", ""), b.get("title", ""),
+                                      b.get("project", ""), b.get("source_path", ""),
+                                      b.get("session", ""), owner=(uid or ""), kind=kind,
+                                      template=b.get("template", ""))
+            except ReviewCreateRejected as e:
+                return self._json(e.status, e.payload or {"error": str(e)})
             base = self._base()
             return self._json(201, {
                 "id": rid,

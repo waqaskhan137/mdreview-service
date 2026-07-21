@@ -23,6 +23,22 @@ class LatexAwareReviews:
         return getattr(self._inner, name)
 
     def create(self, *args, **kwargs):
+        # For a latex review created from a template: validate the id BEFORE any review exists (an
+        # unknown id raises UnknownTemplate, a core ReviewCreateRejected, which the POST arm renders
+        # as a 400 with the available list), and seed the source from the template's starter .tex
+        # ONLY when the caller supplied no source (an explicit markdown wins; the template still
+        # contributes its companion files at compile time via the worker).
+        kind = kwargs.get("kind", "markdown")
+        template = kwargs.get("template", "")
+        if kind == "latex" and template and self._templates is not None:
+            self._templates.require(template)
+            markdown = args[0] if args else kwargs.get("markdown", "")
+            if not (markdown or "").strip():
+                starter = self._templates.starter(template) or ""
+                if args:
+                    args = (starter,) + tuple(args[1:])
+                else:
+                    kwargs = {**kwargs, "markdown": starter}
         rid = self._inner.create(*args, **kwargs)
         if self._inner.meta(rid).get("kind") == "latex":
             self._worker.enqueue(rid)
