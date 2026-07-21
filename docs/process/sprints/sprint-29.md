@@ -23,7 +23,7 @@ merges to `dev` only on the owner's explicit approval.
 | MR-091 | Capture brief + epic plan + G1 record | docs | P1 | done |
 | MR-092 | Core IoC seam + golden-transcript oracle | svc | P1 | done |
 | MR-093 | kind plumbing (persisted only when latex) | svc | P1 | done |
-| MR-094 | latex_review package: routes, auth, self-heal | svc | P1 | ready |
+| MR-094 | latex_review package: routes, auth, self-heal | svc | P1 | done |
 | MR-095 | Hardened Tectonic compile worker + latex smoke | svc | P1 | ready |
 | MR-096 | Dockerfile.latex + release step (amd64-only) | infra | P1 | ready |
 | MR-097 | latex-viewer.html per approved mockup | ui | P1 | ready |

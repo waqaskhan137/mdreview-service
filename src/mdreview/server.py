@@ -63,8 +63,9 @@ class Services:
         # package installed fails loud at boot: a misconfiguration must never boot half-enabled.
         self.modules = []
         if ENABLE_LATEX:
-            from latex_review import build as build_latex_review
-            self.modules.append(build_latex_review(store, self.reviews, self.comments))
+            import latex_review
+            module, self.reviews = latex_review.build(store, self.reviews, self.comments)
+            self.modules.append(module)
 
 
 class MdreviewServer(ThreadingHTTPServer):
