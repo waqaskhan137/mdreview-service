@@ -368,8 +368,10 @@ python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/latex_
 #    baseline and new build; diff must be empty
 bash tests/golden_transcript.sh http://localhost:<scratch-old> http://localhost:<scratch-new>
 
-# 3. Import isolation: core must not import latex_review outside the flag branch
-grep -rn "latex_review" src/mdreview/ | grep -v "ENABLE_LATEX" && exit 1 || true
+# 3. Import isolation: a flag-off import of the server must not load latex_review
+#    (a sys.modules assertion, not a greppable-and-gameable source scan)
+python3 -c "import sys; sys.path.insert(0,'src'); import mdreview.server; \
+  assert 'latex_review' not in sys.modules"
 
 # 4. Compile smoke (from the latex image, scratch port, throwaway data dir)
 python3 tests/latex_smoke.py http://localhost:<scratch>

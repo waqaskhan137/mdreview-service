@@ -36,7 +36,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 from mdreview.config import (
-    DATA_DIR, DISK_FLOOR, LEASE_TTL_S, MAX_BODY, PORT, PROXY_SECRET, PUBLIC_BASE,
+    DATA_DIR, DISK_FLOOR, ENABLE_LATEX, LEASE_TTL_S, MAX_BODY, PORT, PROXY_SECRET, PUBLIC_BASE,
     REQUIRE_AUTH, RID, TOKEN_PEPPER, WAIT_TIMEOUT_S, WEB_DIR,
 )
 from mdreview.store import Store
@@ -58,6 +58,13 @@ class Services:
         self.reviews = ReviewService(store, self.comments)
         self.handoff = HandoffService(store, LEASE_TTL_S)
         self.users = UserService(store, TOKEN_PEPPER)
+        # Opt-in feature modules (MR-092). Each entry handles requests via H.route's dispatch
+        # loop. Flag off: empty list, no import, byte-identical behavior. Flag on without the
+        # package installed fails loud at boot: a misconfiguration must never boot half-enabled.
+        self.modules = []
+        if ENABLE_LATEX:
+            from latex_review import build as build_latex_review
+            self.modules.append(build_latex_review(store, self.reviews, self.comments))
 
 
 class MdreviewServer(ThreadingHTTPServer):
@@ -229,6 +236,13 @@ class H(BaseHTTPRequestHandler):
 
         if m in ("POST", "PUT") and int(self.headers.get("Content-Length", 0) or 0) > MAX_BODY:
             return self._json(413, {"error": "request body too large"})
+
+        # Feature-module dispatch (MR-092): the first registered module to claim the request
+        # handles it fully. Modules run before the core arms so a module may serve a core URL for
+        # reviews it owns (e.g. GET /review/{id} when kind=latex); every flag off = empty list.
+        for mod in app.modules:
+            if mod.handle(self, m, path):
+                return
 
         if path == "/healthz" and m == "GET":
             return self._json(200, {"ok": True})
