@@ -81,9 +81,9 @@ safety only.
 
 ## Follow-ups
 
-- **The security hardening is UNVERIFIED until the image builds.** The uid drop, the 0700 /data
-  read-barrier, and the env scrub run only inside `infra/Dockerfile.latex`, which has not been
-  built (Docker down). The compile WORKS; it is not proven SAFE. G7 (or the owner locally) must
-  run `latex_smoke.py --require-hardened --secret <pepper>` against the built image to bind them;
-  until then treat the isolation as designed-but-untested.
+- **Security hardening VERIFIED (2026-07-21, MR-096 image built).** `latex_smoke.py
+  --require-hardened --secret <pepper>` PASSED against the container; direct proof: 0
+  `latex_compile_unhardened` lines and `docker exec -u tectonic cat /data/*/source.md` ->
+  Permission denied. The uid drop, 0700 /data barrier, and env scrub all bind. (Supersedes the
+  earlier "unverified"/false-positive-probe note above.)
 

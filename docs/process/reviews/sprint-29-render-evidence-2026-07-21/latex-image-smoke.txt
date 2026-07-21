@@ -1,0 +1,23 @@
+LaTeX image smoke — mdreview-service-latex (MR-096) — 2026-07-21
+Image: mdreview-service-latex:smoke, built from infra/Dockerfile.latex (amd64), 70.6MB
+Container: throwaway on host :18999, throwaway volume mdr-latex-scratch, MDREVIEW_TOKEN_PEPPER planted.
+
+Environment checks:
+  server user = root; tectonic 0.16.9 present; /data = 700 root; tectonic uid=10002 present.
+
+tests/latex_smoke.py --require-hardened --secret <pepper>  -> PASS (exit 0):
+  1/3 baseline paper compiled, /pdf = 6331 bytes application/pdf
+  2/3 cross-review /data \input BLOCKED (compile user cannot read /data)
+  3/3 env scrubbed (planted secret absent from /proc/self/environ read)
+
+Direct hardening assertions:
+  A. docker logs: latex_compile_unhardened count = 0  (compile dropped to the tectonic uid)
+  B. docker exec -u tectonic: `ls /data` and `cat /data/*/source.md` -> Permission denied
+     (the 0700 barrier genuinely blocks cross-review reads, not a path-absence false positive)
+
+Rebuilt-image render-smoke on /review/<latex-rid>:
+  .srcpane .pdfpane .ln #pdfframe .gcard mark.cmt -> all present, exit 0; compile ok v0
+
+G7 container health: curl /healthz -> 200, /api/reviews -> 200.
+
+Note: on-demand bundle fetch (no --only-cached) confirmed working during build warm-up and at runtime.

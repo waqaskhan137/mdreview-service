@@ -3,7 +3,7 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-07-21. **sprint-29 (latex-paper-review) ACTIVE on standing branch `feat/latex-review` (cut from consolidated dev @ 94671c1; merges to dev only on explicit owner approval). G1 passed 2026-07-21 (staff-critic, 2 rounds, on hosted mdreview review 9215476104; `reviews/latex-paper-review-plan-review-2026-07-21.md`). MR-091..095 done; MR-096/097 in review (docker build owed; --only-cached decision open); MR-091..095, 097..100 DONE (9/10); MR-096 in review (docker build owed at G7). --only-cached decision resolved (bundle fetch allowed).** **sprint-26 (viewer-transparency, GH #27) CLOSED at G7 — MR-073/075 done; epic complete; owner confirmed working; awaiting the standing dev→main PR.** **sprint-25 (watcher-container, GH #30) CLOSED at G7 — MR-069-072 done; epic complete; awaiting the standing dev→main PR.** **sprint-24 (watcher-observability, GH #26) CLOSED at G7 — MR-066/067/068 done; epic complete; awaiting the standing dev→main PR.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-07-21. **sprint-29 (latex-paper-review) ACTIVE on standing branch `feat/latex-review` (cut from consolidated dev @ 94671c1; merges to dev only on explicit owner approval). G1 passed 2026-07-21 (staff-critic, 2 rounds, on hosted mdreview review 9215476104; `reviews/latex-paper-review-plan-review-2026-07-21.md`). MR-091..095 done; MR-096/097 in review (docker build owed; --only-cached decision open); MR-091..100 ALL DONE (10/10); latex image BUILT + hardened smoke PASSED. --only-cached dropped (bundle fetch). Sprint-29 still needs its G7 close review.** **sprint-26 (viewer-transparency, GH #27) CLOSED at G7 — MR-073/075 done; epic complete; owner confirmed working; awaiting the standing dev→main PR.** **sprint-25 (watcher-container, GH #30) CLOSED at G7 — MR-069-072 done; epic complete; awaiting the standing dev→main PR.** **sprint-24 (watcher-observability, GH #26) CLOSED at G7 — MR-066/067/068 done; epic complete; awaiting the standing dev→main PR.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
@@ -270,16 +270,14 @@ _none_
 
 ## review
 
-| ID | Title | Layer | Pri | Sprint |
-|----|-------|-------|-----|--------|
-| MR-096 | Dockerfile.latex + release step (build owed, Docker down) | infra | P1 | sprint-29 |
-| MR-097 | latex-viewer.html (render-smoke green; PDF-cache decision open) | ui | P1 | sprint-29 |
+_none_
 | MR-098 | Dashboard LATEX chip + kind-aware statusOf | ui | P2 | sprint-29 |
 
 ## done
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-096 | Dockerfile.latex + release step (BUILT + hardened smoke passed) | infra | P1 | sprint-29 |
 | MR-095 | Hardened Tectonic compile worker + latex smoke | svc | P1 | sprint-29 |
 | MR-094 | latex_review package: routes, auth, self-heal | svc | P1 | sprint-29 |
 | MR-093 | kind plumbing (persisted only when latex) | svc | P1 | sprint-29 |

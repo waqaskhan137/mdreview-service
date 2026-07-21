@@ -1,7 +1,7 @@
 ---
 id: MR-096
 title: Dockerfile.latex: pinned Tectonic, warmed cache, compile user, release step
-status: review
+status: done
 layer: infra
 priority: P1
 sprint: sprint-29
@@ -28,12 +28,12 @@ following the Dockerfile.watcher second-Dockerfile precedent.
 - [x] Build is amd64-only (watcher precedent); no QEMU-emulated warm-up.
 - [x] `release.yml`: mirrored build-push step publishing
       `ghcr.io/<owner>/mdreview-service-latex:{VERSION,latest}`; slim + watcher steps untouched.
-- [ ] **OWED (Docker daemon down locally):** `docker build -f infra/Dockerfile.latex .` succeeds
-      and a container compiles the sample paper offline. Runs at G7 (container rebuild) with
-      `latex_smoke.py --require-hardened --secret <pepper>`.
+- [x] `docker build -f infra/Dockerfile.latex .` succeeds (amd64, 70.6MB); a throwaway container
+      compiles the sample paper; `latex_smoke.py --require-hardened --secret <pepper>` PASSES
+      (compile + /data isolation + env scrub all bind). See sprint-29-render-evidence/latex-image-smoke.txt.
 - [x] Slim path untouched: infra/Dockerfile, compose, Makefile unchanged (git-verified).
-- [x] Local validation passes: `python3 -m py_compile ...` (green); `docker build` OWED (daemon
-      down; see above).
+- [x] Local validation passes: `python3 -m py_compile ...` (green); `docker build` + hardened smoke
+      DONE (2026-07-21, Docker came up).
 
 ## Notes / context
 
@@ -50,11 +50,18 @@ tarball and hashing it (60b13a0826ae7ad9ce34b4a2df06bff2cfcfa6dda8a915477c0cbb84
 
 ## Validation
 
-- `2026-07-21` — py_compile green. Slim `infra/Dockerfile`, compose, and Makefile git-verified
-  UNCHANGED. `release.yml` parses as valid YAML (pyyaml) with exactly 3 build-push steps and the
-  latex tag present. Tectonic tarball sha256 verified by download+hash. **Not yet built:** the
-  Docker daemon is down in this environment, so the image build + offline compile + hardened smoke
-  are owed at G7.
+- `2026-07-21` — py_compile green. Slim `infra/Dockerfile`, compose, Makefile git-verified UNCHANGED.
+  `release.yml` valid YAML, 3 build-push steps, latex tag present. Tectonic sha256 verified.
+- `2026-07-21` (Docker up) — **BUILT + HARDENED SMOKE PASSED.** `docker build -f
+  infra/Dockerfile.latex` -> amd64 image (70.6MB), warm-up compiled at build time. Throwaway
+  container on :18999 with a throwaway volume: server=root, tectonic 0.16.9, /data=700 root,
+  tectonic uid=10002. `latex_smoke.py --require-hardened --secret <pepper>` -> PASS (compile ->
+  6331B application/pdf; cross-review /data \input BLOCKED; env scrubbed). Direct proof: 0
+  `latex_compile_unhardened` audit lines (uid drop taken); `docker exec -u tectonic` -> /data
+  Permission denied (the 0700 barrier is real, not the earlier path-absence false positive).
+  Rebuilt-image render-smoke on /review/<rid>: all 6 selectors present. /healthz + /api/reviews
+  200. Evidence: docs/process/reviews/sprint-29-render-evidence-2026-07-21/latex-image-smoke.txt
+  + latex-viewer-image-smoke.png.
 
 ## Amendment (2026-07-21)
 
