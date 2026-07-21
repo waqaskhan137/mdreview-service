@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Releases — mdreview</title>
+<meta name="description" content="What's shipped in mdreview, newest first — release notes for the human-in-the-loop markdown review service.">
+<link rel="canonical" href="https://mdreview.space/releases/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mdreview.space/releases/">
+<meta property="og:title" content="mdreview releases">
+<meta property="og:description" content="Release notes for mdreview, newest first.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237c6cff'/%3E%3Ctext x='16' y='23' font-size='17' font-family='sans-serif' font-weight='700' fill='%23fff' text-anchor='middle'%3Emd%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#fafafc; --panel:#ffffff; --panel2:#f6f6fb; --text:#17181d; --muted:#6b7280; --muted2:#8a90a0;
+    --rule:#e7e8ee; --accent:#7c6cff; --accent2:#9d7bff; --accent-weak:#f1efff; --code:#f4f4f8;
+    --glow:rgba(124,108,255,.14);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e0f13; --panel:#171922; --panel2:#14161d; --text:#e6e8ee; --muted:#9aa0ac; --muted2:#7b8290;
+      --rule:#262a33; --accent:#9184ff; --accent2:#b39bff; --accent-weak:#221f38; --code:#1b1d24;
+      --glow:rgba(145,132,255,.16);
+    }
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--text);line-height:1.6;
+       font:16px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+       -webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column}
+  a{text-decoration:none;color:var(--accent)}
+  code{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--code);padding:2px 6px;border-radius:5px}
+  .eyebrow{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+  .card{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:28px 28px 26px}
+  .pill{font-size:12px;font-weight:600;letter-spacing:.02em;padding:4px 11px;border-radius:20px;
+        background:var(--accent-weak);color:var(--accent);white-space:nowrap}
+  .pill.ghost{background:var(--panel2);color:var(--muted);border:1px solid var(--rule)}
+  .ver{font:600 15px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent)}
+  .flink{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:500;color:var(--muted);
+         padding:7px 12px;border:1px solid var(--rule);border-radius:9px}
+  .flink:hover{border-color:var(--accent);color:var(--accent)}
+  .feat{background:var(--panel2);border:1px solid var(--rule);border-radius:12px;padding:18px 20px}
+  .feat h4{font-size:16px;font-weight:660;letter-spacing:-.01em}
+  .feat p{color:var(--muted);font-size:14.5px;margin-top:6px}
+  /* timeline: releases are a real sequence, so the rail encodes chronology */
+  .timeline{position:relative;padding-left:30px}
+  .timeline::before{content:"";position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--rule)}
+  .entry{position:relative;margin-bottom:26px}
+  .entry::before{content:"";position:absolute;left:-30px;top:8px;width:14px;height:14px;border-radius:50%;
+                 background:var(--panel);border:2px solid var(--rule)}
+  .entry.latest::before{border-color:var(--accent);box-shadow:0 0 0 4px var(--glow)}
+  @media(max-width:640px){
+    [data-grid2]{grid-template-columns:1fr!important}
+    [data-h1]{font-size:32px!important}
+    .card{padding:22px 20px}
+  }
+</style>
+</head>
+<body>
+
+  <header style="border-bottom:1px solid var(--rule);background:var(--bg);position:sticky;top:0;z-index:20;backdrop-filter:saturate(120%)">
+    <div style="max-width:900px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:64px">
+      <a href="/" style="display:flex;align-items:center;gap:10px;color:var(--text);font-weight:650;font-size:16px">
+        <span style="display:inline-grid;place-items:center;width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12.5px;font-weight:700;box-shadow:0 3px 10px var(--glow)">md</span>
+        mdreview
+      </a>
+      <nav style="display:flex;gap:8px;font-size:14.5px;align-items:center">
+        <a href="/docs/" style="color:var(--muted);padding:8px 12px;border-radius:8px">Docs</a>
+        <a href="/releases/" style="color:var(--text);padding:8px 12px;border-radius:8px;font-weight:600">Releases</a>
+        <a href="https://github.com/waqaskhan137/mdreview-service" style="color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));padding:8px 15px;border-radius:9px;font-weight:600;box-shadow:0 4px 14px var(--glow)">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main style="flex:1 0 auto;max-width:900px;width:100%;margin:0 auto;padding:56px 24px 12px">
+
+    <div style="max-width:640px;margin-bottom:40px">
+      <p class="eyebrow">Changelog</p>
+      <h1 data-h1 style="font-size:40px;line-height:1.12;letter-spacing:-.025em;font-weight:730;margin-top:8px">Releases</h1>
+      <p style="color:var(--muted);font-size:17px;margin-top:14px">What's shipped in mdreview, newest first. Docker images publish to
+        <a href="https://github.com/waqaskhan137/mdreview-service/pkgs/container/mdreview-service">GHCR</a> on every tagged release.</p>
+    </div>
+
+    <div class="timeline">
+
+      <!-- v0.1.0 -->
+      <section class="entry latest">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+            <span class="ver">v0.1.0</span>
+            <span class="pill">Latest</span>
+            <span style="flex:1"></span>
+            <span style="color:var(--muted2);font-size:13.5px">Jul 22, 2026</span>
+          </div>
+          <h2 style="font-size:24px;line-height:1.2;letter-spacing:-.02em;font-weight:700">LaTeX paper review mode + template catalog</h2>
+          <p style="color:var(--muted);font-size:15.5px;margin-top:12px">The review loop now handles LaTeX papers. Your agent creates a
+            <code>kind=latex</code> review; you get an Overleaf-style split view — source on the left, a live-compiled PDF on the right —
+            and comment on it exactly like a markdown draft.</p>
+
+          <div data-grid2 style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px">
+            <div class="feat">
+              <h4>Overleaf-style LaTeX review</h4>
+              <p>Opt-in behind <code>MDREVIEW_ENABLE_LATEX</code>. A self-contained <code>latex_review</code> module compiles with
+                Tectonic in a hardened, unprivileged container. Comments anchor to source lines; the PDF is always live, never stale.
+                MCP gains a <code>kind</code> parameter.</p>
+            </div>
+            <div class="feat">
+              <h4>Template catalog</h4>
+              <p><code>create_review(kind=latex, template=&lt;id&gt;)</code> seeds a paper from a bundled starter — IEEE, ACM, arXiv,
+                Elsevier, LNCS. Non-CTAN conference styles (ACL, ICLR) download on first use from a pinned, sha256-verified registry
+                and cache locally — never baked into the image.</p>
+            </div>
+          </div>
+
+          <p style="color:var(--muted2);font-size:13.5px;margin-top:18px;padding-top:16px;border-top:1px solid var(--rule)">
+            Ships as a separate <code>mdreview-service-latex</code> image. The default slim image and flag-off behavior are
+            byte-for-byte unchanged.</p>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
+            <a class="flink" href="https://github.com/waqaskhan137/mdreview-service/releases/tag/v0.1.0">Release notes on GitHub →</a>
+            <a class="flink" href="/docs/">Docs</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- v0.0.2 -->
+      <section class="entry">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+            <span class="ver">v0.0.2</span>
+            <span style="flex:1"></span>
+            <span style="color:var(--muted2);font-size:13.5px">Jun 26, 2026</span>
+          </div>
+          <h2 style="font-size:20px;line-height:1.25;letter-spacing:-.02em;font-weight:680">Release images + macOS packaging</h2>
+          <p style="color:var(--muted);font-size:15px;margin-top:10px">Docker images publish to GHCR automatically on every tagged
+            release, and mdreview ships as a signed macOS <code>.app</code>.</p>
+          <div style="margin-top:16px">
+            <a class="flink" href="https://github.com/waqaskhan137/mdreview-service/releases/tag/v0.0.2">Release notes on GitHub →</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- v0.0.1 -->
+      <section class="entry">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+            <span class="ver">v0.0.1</span>
+            <span class="pill ghost">First release</span>
+            <span style="flex:1"></span>
+            <span style="color:var(--muted2);font-size:13.5px">Jun 26, 2026</span>
+          </div>
+          <h2 style="font-size:20px;line-height:1.25;letter-spacing:-.02em;font-weight:680">The core review loop</h2>
+          <p style="color:var(--muted);font-size:15px;margin-top:10px">A searchable review dashboard, threaded Google-Docs-style
+            comments, provenance and history, an stdlib MCP server, rich rendering (LaTeX math, Mermaid, footnotes, syntax
+            highlighting), and a public docs site — all rendered by the product's own renderer.</p>
+          <div style="margin-top:16px">
+            <a class="flink" href="https://github.com/waqaskhan137/mdreview-service/releases/tag/v0.0.1">Release notes on GitHub →</a>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <footer style="border-top:1px solid var(--rule);color:var(--muted);font-size:13.5px;margin-top:40px">
+    <div style="max-width:900px;margin:0 auto;display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;padding:20px 24px">
+      <a href="https://github.com/waqaskhan137/mdreview-service" style="color:var(--muted)">github.com/waqaskhan137/mdreview-service</a>
+      <span style="flex:1"></span>
+      <span>mdreview.space</span>
+      <a href="https://github.com/waqaskhan137" style="color:var(--muted)">built by waqas</a>
+      <a href="https://github.com/waqaskhan137/mdreview-service/blob/main/LICENSE" style="color:var(--muted)">Apache 2.0</a>
+    </div>
+  </footer>
+
+</body>
+</html>
