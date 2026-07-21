@@ -90,6 +90,9 @@
   .badge.agent-working{background:var(--blue-bg);color:var(--blue);}
   .badge.waiting{background:var(--blue-bg);color:var(--blue);}
   .badge.resolved{background:none;color:var(--muted);padding-left:0;}
+  .badge.latex{background:var(--blue-bg);color:var(--blue);}
+  .kindchip{flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--blue);
+    background:var(--blue-bg);border-radius:4px;padding:1px 5px;}
   .date{font-size:11.5px;color:var(--muted2);flex:0 0 auto;}
   .countline{font-size:11.5px;color:var(--muted2);display:flex;align-items:center;gap:7px;}
   .countline .cdot{width:6px;height:6px;border-radius:50%;background:var(--muted2);flex:0 0 auto;}
@@ -168,6 +171,9 @@ function activity(r){return Math.max(r.created||0, r.source_updated||0, r.feedba
 // on the dashboard (epic D2/R1): the viewer is the authoritative staleness surface.
 function statusOf(r){
   if(r.status==="resolved") return "resolved";
+  // Latex reviews have no turn baton (pull-based feedback), so the baton badge would read
+  // "Your turn" forever. Use a comment-count badge instead (label filled dynamically in card()).
+  if(r.kind==="latex") return "latex";
   const turn=r.turn||"reviewer";
   if(turn==="agent"){
     const as=r.agent_status;
@@ -180,6 +186,7 @@ const BADGE={
   "agent-working":{cls:"agent-working",label:"Agent working",   dot:"<span class='bdot'></span>"},
   "waiting":     {cls:"waiting",     label:"Waiting for agent", dot:"<span class='bdot ring'></span>"},
   "resolved":    {cls:"resolved",    label:"Resolved",          dot:"<span class='bdot' style='background:var(--green)'></span>"},
+  "latex":       {cls:"latex",       label:"",                  dot:"<span class='bdot'></span>"},
 };
 function countLabel(r){
   const t=r.notes_total||0, a=r.notes_addressed||0;
@@ -192,18 +199,20 @@ function countLabel(r){
 function card(r){
   const st=statusOf(r);
   const b=BADGE[st];
+  // Latex badge label is the open-comment count (no baton state to show).
+  const label=(st==="latex")?countLabel(r):b.label;
   const t=esc(r.title||r.id), pr=esc(r.project||""), se=esc(r.session||""), pa=esc(r.source_path||"");
   const rev=(r.revision||0)>0?`<span class="rev">v${r.revision}</span>`:"";
-  // crumb = project (or session fallback) on the left, revision on the right — matches the mockup
-  // (the full source_path stays searchable via data-path, but the card stays clean).
+  const chip=(r.kind==="latex")?`<span class="kindchip">LATEX</span>`:"";
+  // crumb = optional LATEX chip + project (or session fallback) on the left, revision on the right.
   const lead=pr||se;
-  const crumb=(lead||rev)?`<div class="crumb">${lead?`<span class="seg">${lead}</span>`:""}${rev}</div>`:"";
+  const crumb=(chip||lead||rev)?`<div class="crumb">${chip}${lead?`<span class="seg">${lead}</span>`:""}${rev}</div>`:"";
   return `<div class="card s-${st}" data-id="${esc(r.id)}" data-title="${t}" data-project="${pr}" data-path="${pa}" data-status="${st}">
     <a class="cardlink" href="/review/${encodeURIComponent(r.id)}">
       ${crumb}
       <div class="title">${t}</div>
       <div class="row">
-        <span class="badge ${b.cls}">${b.dot}${b.label}</span>
+        <span class="badge ${b.cls}">${b.dot}${esc(label)}</span>
         <span class="date">${rel(activity(r))}</span>
       </div>
       <div class="divider"></div>

@@ -33,6 +33,12 @@ if REQUIRE_AUTH and not (PROXY_SECRET and TOKEN_PEPPER):
     raise SystemExit(
         "MDREVIEW_REQUIRE_AUTH is on but MDREVIEW_PROXY_SECRET and/or MDREVIEW_TOKEN_PEPPER is unset")
 
+# --- Opt-in feature modules. OFF by default: the composition root registers nothing and the
+# request path is byte-identical to a build without the module packages. ---
+# ENABLE_LATEX wires src/latex_review (Overleaf-style paper review, MR-092+); the latex Docker
+# image sets it, the slim image never does.
+ENABLE_LATEX = os.environ.get("MDREVIEW_ENABLE_LATEX", "").lower() in ("1", "true", "yes")
+
 # DoS backstops (the fine-grained caps live in nginx; these guard the app even on the loopback path).
 # MAX_BODY is a generous ceiling above the asset-upload cap; nginx enforces the tight per-route size.
 MAX_BODY = int(os.environ.get("MDREVIEW_MAX_BODY", str(32 * 1024 * 1024)))

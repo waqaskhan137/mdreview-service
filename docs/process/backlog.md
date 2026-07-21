@@ -69,3 +69,11 @@ Still open from that thread:
   small scripted interaction (add a note, assert the gutter card appears without reload; resize,
   assert relayout) would make the dynamic-path evidence fully automated. Needs a CDP/puppeteer
   driver, so it is its own small `infra` ticket.
+
+- **Remove/hide the turn baton in the markdown viewer** (from the latex-paper-review planning
+  session, 2026-07-21, `[feature]`). The owner's working flow is pull-based (comment in the
+  browser, then ask the agent in the CLI to collect feedback); the latex mode ships with no baton
+  at all, and the owner had the "Your turn / Send to agent" banner dropped from the comparison
+  mockup. Removing it from the real markdown viewer touches the MR-051/052 handoff feature (and
+  the shelved watcher depends on handoff state), so it is its own ticket with its own scoping, not
+  a rider on `feat/latex-review`. Needs an explicit owner go-ahead before grooming.

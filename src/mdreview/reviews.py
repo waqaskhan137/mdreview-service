@@ -105,7 +105,8 @@ class ReviewService:
         m["revision"] = n + 1
         self.store.write_text(os.path.join(d, "meta.json"), json.dumps(m))
 
-    def create(self, markdown, title, project="", source_path="", session="", owner=""):
+    def create(self, markdown, title, project="", source_path="", session="", owner="",
+               kind="markdown"):
         rid = secrets.token_hex(5)
         d = self.store.dir(rid)
         os.makedirs(d, exist_ok=True)
@@ -113,13 +114,19 @@ class ReviewService:
         self.store.write_text(os.path.join(d, "source.md"), markdown or "")
         self.store.write_text(os.path.join(d, "feedback.md"), "")
         self.store.write_text(os.path.join(d, "notes.json"), "[]")
-        self.store.write_text(os.path.join(d, "meta.json"), json.dumps({
+        meta = {
             "id": rid, "title": title or "", "created": now,
             "source_updated": now,
             "project": project or "", "source_path": source_path or "",
             "session": session or "",
             "owner": owner or "",       # account that owns it (hosted multi-user); "" for local
-        }))
+        }
+        # kind is persisted ONLY when non-default: summary() echoes meta unwhitelisted, so a
+        # default "markdown" key would leak into every read response and break the flag-off
+        # byte-identical contract (MR-093; readers use meta.get("kind", "markdown")).
+        if kind and kind != "markdown":
+            meta["kind"] = kind
+        self.store.write_text(os.path.join(d, "meta.json"), json.dumps(meta))
         return rid
 
     def read_source(self, rid):

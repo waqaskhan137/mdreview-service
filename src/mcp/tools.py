@@ -28,7 +28,13 @@ INSTRUCTIONS = (
     "token scopes them to you; a local instance is open and single-user). If a tool you expect is missing or misbehaves, the running server may be stale: "
     "server_info reports its tools_hash, but you CANNOT conclude 'stale' from inside MCP — a human/CI "
     "compares that hash to the repo's `python3 mcp_server.py --print-version` and reconnects the client "
-    "on a mismatch (the server signals staleness; it cannot reload itself)."
+    "on a mismatch (the server signals staleness; it cannot reload itself). "
+    "LATEX PAPER REVIEWS: create_review(kind=\"latex\") makes a research-paper review shown in an "
+    "Overleaf-style split viewer (LaTeX source + a live server-compiled PDF). For a latex review the "
+    "source is RAW LaTeX end to end — push .tex via update_source, read it via get_source — and the "
+    "markdown authoring rule above (mermaid blocks, $…$ math, labelled fences) does NOT apply. "
+    "Comments still anchor to the source (block_num is the source line). There is no turn baton in "
+    "latex mode, so hand_back / ping_working do not apply."
 )
 
 _ID = {"type": "string", "description": "the opaque review id"}
@@ -47,15 +53,21 @@ TOOLS = [
                        "language), and **images** (attach via attach_asset). So a flow / decision-tree / "
                        "state machine / architecture should be a ```mermaid diagram — NOT ASCII art or a "
                        "plain ``` code block (a plain fence renders as monospace text, not a picture). "
-                       "Optional project/session/source_path tag its provenance for the dashboard.",
+                       "Optional project/session/source_path tag its provenance for the dashboard. "
+                       "kind=\"latex\" (opt-in, default \"markdown\") instead makes a research-paper "
+                       "review: `markdown` then carries RAW LaTeX (a single .tex document), shown in an "
+                       "Overleaf-style split viewer with a live server-compiled PDF; the markdown/mermaid "
+                       "authoring rule does not apply to a latex review.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "markdown": {"type": "string", "description": "the document to review"},
+                "markdown": {"type": "string", "description": "the document to review (raw LaTeX when kind=latex)"},
                 "title": {"type": "string"},
                 "project": {"type": "string"},
                 "session": {"type": "string"},
                 "source_path": {"type": "string"},
+                "kind": {"type": "string", "enum": ["markdown", "latex"],
+                         "description": "review kind; default markdown. latex = an Overleaf-style paper review"},
             },
             "required": ["markdown"],
         },
@@ -72,8 +84,9 @@ TOOLS = [
     },
     {
         "name": "get_source",
-        "description": "Get a review's current source markdown — the draft you edit. Read it before "
-                       "applying feedback when you didn't keep the draft in memory (e.g. a resumed session).",
+        "description": "Get a review's current source — the draft you edit (markdown, or raw LaTeX for a "
+                       "kind=latex review). Read it before applying feedback when you didn't keep the "
+                       "draft in memory (e.g. a resumed session).",
         "inputSchema": {"type": "object", "properties": {"id": _ID}, "required": ["id"]},
     },
     {
@@ -91,10 +104,12 @@ TOOLS = [
     {
         "name": "update_source",
         "description": "Push a revised draft (applied edits). Snapshots a history round and live-reloads "
-                       "the human's page. Same authoring rule as create_review: use the viewer's "
-                       "renderer — a flow/decision-tree/architecture belongs in a ```mermaid block, "
-                       "math in $…$/$$…$$, code in a language-labelled fence — not ASCII art or a plain "
-                       "```  fence.",
+                       "the human's page. For a markdown review, same authoring rule as create_review: use "
+                       "the viewer's renderer — a flow/decision-tree/architecture belongs in a ```mermaid "
+                       "block, math in $…$/$$…$$, code in a language-labelled fence — not ASCII art or a "
+                       "plain ```  fence. For a kind=latex review the draft is RAW LaTeX (a single .tex "
+                       "document); the server recompiles it to PDF on each push, and the mermaid/markdown "
+                       "rule does not apply.",
         "inputSchema": {
             "type": "object",
             "properties": {"id": _ID, "markdown": {"type": "string", "description": "the new draft"}},
