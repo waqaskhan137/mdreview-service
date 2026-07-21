@@ -198,7 +198,7 @@
 const $=s=>document.querySelector(s);
 const ID=location.pathname.split('/').pop();
 const API='/api/reviews/'+ID, LATEX='/api/latex/'+ID;
-let comments=[], cur=null, confirming=null, lastSrc=null, lastCmt=null, pdfRev=null;
+let comments=[], cur=null, confirming=null, lastSrc=0, lastCmt=0, pdfRev=null;
 
 function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 const esc=escapeHtml;
@@ -227,7 +227,6 @@ function highlightLatex(line){
 
 async function loadSource(){
   const t=await (await fetch(API+'/source',{cache:'no-store'})).text();
-  lastSrc=lastSrc; // set by poll
   const col=$('#codecol');col.innerHTML='';
   const lines=t.split('\n');
   lines.forEach((line,idx)=>{
@@ -465,7 +464,13 @@ async function boot(){
     $('#filename').textContent=(meta.source_path||meta.title||'paper')+'';
     const p=(meta.project?meta.project+' · ':'');$('#topstate').textContent=p+'v'+(meta.revision||0);
     $('#srcname').textContent='paper.tex';}catch(e){}
-  await fetchComments();await loadSource();await refreshPdf();poll();
+  await fetchComments();await loadSource();await refreshPdf();
+  // Seed the live-reload cursors from the current status BEFORE polling, or the first tick sees
+  // lastSrc/lastCmt at their initial 0 and falsely fires a "Draft updated by AI" reload on a
+  // review nothing changed (mirrors viewer.html's load()).
+  try{const s=await (await fetch(API+'/status',{cache:'no-store'})).json();
+    lastSrc=s.source_updated||0;lastCmt=s.comments_updated||0;}catch(e){}
+  poll();
 }
 boot();
 </script>

@@ -64,6 +64,13 @@ if absent).
   latex-viewer-light.png (the dark PDF pane there is a headless-screenshot artifact; the iframe
   src is set and /pdf serves the PDF in a real browser).
 
+## Amendment (2026-07-21, post-review)
+
+- Fixed a boot bug an advisor caught: `lastSrc`/`lastCmt` were never seeded, so the first 2s poll
+  tick falsely fired a "Draft updated by AI" reload on an unchanged review. boot() now reads
+  `/status` once and seeds both cursors before poll() (mirrors viewer.html). Verified via CDP:
+  `window.__loads` == 1 after ~6s (three ticks) on a static review, i.e. no spurious reload.
+
 ## Follow-ups
 
 - Surfaced a compile-coverage finding (Tectonic `--only-cached` fails on any resource the warm

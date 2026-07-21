@@ -64,7 +64,10 @@ safety only.
 - `2026-07-21` — py_compile green. Flag-off oracle still 24/24 (build signature change). Local
   real compile (tectonic 0.15.0, unhardened-as-self, scratch port 18271, warmed cache via
   TECTONIC_CACHE_DIR): `latex_smoke.py` PASS - baseline paper -> 6331-byte application/pdf; cross-
-  review /data probe blocked; env probe skipped (no --secret). Asset copy-in unit test: names
+  review /data probe reported blocked BUT locally that is a FALSE positive: MDREVIEW_DATA was a
+  .scratch path, so `\input{/data/<rid>/...}` failed by absence, not by the uid/0700 barrier. The
+  isolation (uid drop + 0700 /data + env scrub) is NOT verified here; it only binds on the built
+  image via `latex_smoke.py --require-hardened`. env probe skipped (no --secret). Asset copy-in unit test: names
   `../../evil.png`, `/etc/passwd`, `sub/dir/plot.pdf` all flatten to basenames in the job dir,
   nothing escapes. Audit line `latex_compile_unhardened` emitted once per compile as expected off
   the image.
@@ -78,6 +81,9 @@ safety only.
 
 ## Follow-ups
 
-- G7 runs `latex_smoke.py --require-hardened --secret <pepper>` against the rebuilt latex image so
-  the uid-drop + 0700 + env-scrub assertions bind (they only WARN in unhardened dev).
+- **The security hardening is UNVERIFIED until the image builds.** The uid drop, the 0700 /data
+  read-barrier, and the env scrub run only inside `infra/Dockerfile.latex`, which has not been
+  built (Docker down). The compile WORKS; it is not proven SAFE. G7 (or the owner locally) must
+  run `latex_smoke.py --require-hardened --secret <pepper>` against the built image to bind them;
+  until then treat the isolation as designed-but-untested.
 
