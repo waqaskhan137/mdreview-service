@@ -1,7 +1,7 @@
 ---
 id: MR-095
 title: Compiler: hardened Tectonic worker, decorator trigger, latex smoke
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-29
@@ -20,38 +20,59 @@ create/put_source via a ReviewService decorator, hardened per the owner-accepted
 
 ## Acceptance criteria
 
-- [ ] `CompileWorker`: queue.Queue + per-rid coalescing; compiles never run under `store.lock`.
-- [ ] Job dir per compile: fresh, empty, chowned to the dedicated compile uid; `paper.tex` from
-      source; assets copied as `basename(manifest name)` with separator/`..`/leading-`/`
-      flattening (write-side traversal closed); basename collisions documented.
-- [ ] Tectonic subprocess: `-X compile --untrusted --only-cached --keep-logs`, `timeout=60`,
-      `user="tectonic"` (unprivileged), scrubbed env (TECTONIC_* + PATH + HOME=jobdir only);
-      never root, never the server's environment. Skips user-drop gracefully outside the latex
-      image (local dev without the uid runs unhardened with a loud log line).
-- [ ] Success: atomic move of pdf+log+status into `<rid>/latex/`, skipped if the review dir
-      vanished (delete race). Failure/timeout: previous PDF kept, status(failed) + log written.
-- [ ] Output size cap (~50 MB) enforced; `_disk_low()` respected at enqueue.
-- [ ] `decorator.py` (`LatexAwareReviews`) wired in the composition root when flag on; enqueues
-      iff kind=="latex" after delegating.
-- [ ] `tests/latex_smoke.py` (stdlib, MDREVIEW_BASE convention): POST .tex -> poll /compile ->
-      GET /pdf -> assert 200 + body startswith %PDF + application/pdf; plus the hardening probe
-      (\input{/proc/self/environ} -> no MDREVIEW_* in PDF; \input{/data/...} -> permission denied
-      in log) and the traversal probe (asset named "../evil.png" writes nothing outside job dir).
-- [ ] Local validation passes: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/latex_review/*.py src/mcp_server.py src/watch.py`
+- [x] `CompileWorker`: queue.Queue + per-rid coalescing (redo-on-running); compiles never run
+      under `store.lock` (enqueue is O(1)).
+- [x] Job dir per compile: fresh, empty, OUTSIDE /data (WORKDIR) so the compile uid can use it,
+      chowned to the compile uid on the drop path; `paper.tex` from source; assets copied as
+      `basename(manifest name)` with `\`/separator/leading-`/`/`..`-segment flattening (write-side
+      traversal closed, unit-proven); basename collisions documented as v1 scope.
+- [x] Tectonic subprocess: `-X compile --untrusted --only-cached --keep-logs --outdir .`,
+      `timeout=60`, `user=/group=` drop to the `tectonic` uid, scrubbed env (PATH + HOME=jobdir +
+      TECTONIC_UNTRUSTED_MODE + passed-through TECTONIC_CACHE_DIR only); never the server's env.
+      Off the image (not root / uid absent) runs unhardened-as-self with a `latex_compile_unhardened`
+      audit line; `tectonic` binary absent -> failed status "not the latex image".
+- [x] Success: cross-fs copy of the PDF into `<rid>/latex/paper.pdf.tmp` then rename within /data
+      (no half-file to a concurrent reader); skipped if the review dir vanished (delete race).
+      Failure/timeout: previous PDF kept, status(failed) + log_tail written.
+- [x] Output size cap (50 MB, env-tunable) enforced; `_disk_low()` respected before the self-heal
+      enqueue (module) and creates.
+- [x] `decorator.py` (`LatexAwareReviews`) wired in the composition root when flag on; enqueues
+      iff kind=="latex" after delegating (create + put_source).
+- [x] `tests/latex_smoke.py` (stdlib, BASE-url convention): POST .tex -> poll /compile -> GET /pdf
+      -> assert 200 + %PDF + application/pdf; cross-review `/data` \input isolation probe and an
+      optional `--secret` environ-scrub probe (both hard-fail only under `--require-hardened`, the
+      G7 container flag; WARN in unhardened dev). Exit 3 when tectonic is absent.
+- [x] Local validation passes: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/latex_review/*.py src/mcp_server.py src/watch.py`
 
 ## Notes / context
 
-Epic plan "compiler.py" + "Security posture". Tectonic 0.16.9 facts in the epic. Full end-to-end
-smoke needs the MR-096 image; the smoke must fail loud (render-smoke exit-3 style) when tectonic
-is absent.
+Epic plan "compiler.py" + "Security posture". The full hardening (uid drop + 0700 /data blocking
+cross-reads + env scrub asserted) is exercised on the MR-096 image at G7 with
+`latex_smoke.py --require-hardened --secret <pepper>`; local dev proves the compile + traversal
+safety only.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-07-21` — `src/latex_review/compiler.py`: real `_produce_pdf` (hardened Tectonic
+  subprocess, uid drop via subprocess `user=`, scrubbed env, timeout + 50 MB cap), `_prepare_job`
+  asset copy-in (basename flattening), job dir moved to WORKDIR (outside /data) with cross-fs
+  copy+rename into /data, `_compile_identity`/`_chown_tree`/`_audit_unhardened`. `__init__.build`
+  + the server seam now pass `AssetService` to the worker. New `tests/latex_smoke.py`.
 
 ## Validation
 
-_How this was verified._
+- `2026-07-21` — py_compile green. Flag-off oracle still 24/24 (build signature change). Local
+  real compile (tectonic 0.15.0, unhardened-as-self, scratch port 18271, warmed cache via
+  TECTONIC_CACHE_DIR): `latex_smoke.py` PASS - baseline paper -> 6331-byte application/pdf; cross-
+  review /data probe blocked; env probe skipped (no --secret). Asset copy-in unit test: names
+  `../../evil.png`, `/etc/passwd`, `sub/dir/plot.pdf` all flatten to basenames in the job dir,
+  nothing escapes. Audit line `latex_compile_unhardened` emitted once per compile as expected off
+  the image.
+
+## Follow-ups
+
+- G7 runs `latex_smoke.py --require-hardened --secret <pepper>` against the rebuilt latex image so
+  the uid-drop + 0700 + env-scrub assertions bind (they only WARN in unhardened dev).
 
 ## Follow-ups
 

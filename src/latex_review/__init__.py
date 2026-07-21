@@ -13,8 +13,8 @@ from latex_review.decorator import LatexAwareReviews
 from latex_review.module import LatexModule
 
 
-def build(store, reviews, comments):
-    worker = CompileWorker(store, reviews)
+def build(store, reviews, comments, assets):
+    worker = CompileWorker(store, reviews, assets)
     worker.start()
     wrapped = LatexAwareReviews(reviews, worker)
     module = LatexModule(store, wrapped, comments, worker)

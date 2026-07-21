@@ -5,23 +5,36 @@ pushes collapse to at most one in-flight compile plus one queued re-run. Each jo
 empty directory; results land in <data>/<rid>/latex/{paper.pdf, compile.log, status.json},
 siblings of source.md that snapshot_round never touches, so history and the PDF stay independent.
 
-MR-094 builds the queue/coalescing/status machinery and the on-disk contract; `_produce_pdf` is a
-stub here. MR-095 replaces `_produce_pdf` with the hardened Tectonic subprocess (unprivileged uid,
-scrubbed env, --untrusted --only-cached) and adds the asset copy-in and size cap.
+The compile runs as an unprivileged user (MR-095): the job dir lives OUTSIDE /data (which is mode
+0700 root, so the compile user cannot `\input` another review's source), the subprocess drops to
+the `tectonic` uid with a scrubbed environment (no MDREVIEW_* secrets reach /proc/self/environ),
+and results are copied back into /data by the root worker. Outside the latex image (local dev with
+no `tectonic` user or binary) the compile runs unhardened-as-self with a loud audit line, or simply
+reports "not found".
 """
 import json
 import os
 import queue
 import shutil
+import subprocess
 import tempfile
 import threading
 import time
 
+# The compile subprocess identity + limits. COMPILE_USER matches the useradd in Dockerfile.latex;
+# WORKDIR is set to an image path the compile user can traverse (never under /data). Both are env
+# overridable so the image can point them without code change.
+COMPILE_USER = os.environ.get("MDREVIEW_LATEX_USER", "tectonic")
+WORKDIR = os.environ.get("MDREVIEW_LATEX_WORKDIR") or tempfile.gettempdir()
+COMPILE_TIMEOUT_S = float(os.environ.get("MDREVIEW_LATEX_TIMEOUT_S", "60"))
+MAX_PDF_BYTES = int(os.environ.get("MDREVIEW_LATEX_MAX_PDF", str(50 * 1024 * 1024)))
+
 
 class CompileWorker:
-    def __init__(self, store, reviews):
+    def __init__(self, store, reviews, assets):
         self.store = store
         self.reviews = reviews          # base ReviewService (meta/read_source are not overridden)
+        self.assets = assets            # AssetService: figure copy-in for \includegraphics
         self._q = queue.Queue()
         # Coalescing state, guarded by _lock: a rid waiting in the queue is in _queued; the rid
         # being compiled right now is _running; a source push that arrives while a rid is running
@@ -94,16 +107,23 @@ class CompileWorker:
             return                                # review deleted before we got to it; drop
         rev = self._revision(rid)
         self._write_status(rid, "running", rev)
-        job = tempfile.mkdtemp(prefix="latexjob-")
+        # Job dir lives OUTSIDE /data so the unprivileged compile user can use it (the compile user
+        # cannot traverse the 0700 /data). Results are copied back into /data by the root worker.
+        os.makedirs(WORKDIR, exist_ok=True)
+        job = tempfile.mkdtemp(prefix="latexjob-", dir=WORKDIR)
         try:
             self._prepare_job(rid, job)
             ok, log = self._produce_pdf(job, rid)
             produced = os.path.join(job, "paper.pdf")
             if not os.path.isdir(review_dir):     # deleted mid-compile: skip the move (no orphan)
                 return
-            os.makedirs(self._latex_dir(rid), exist_ok=True)
             if ok and os.path.isfile(produced):
-                os.replace(produced, self.pdf_path(rid))   # overwrite the single latest PDF
+                os.makedirs(self._latex_dir(rid), exist_ok=True)
+                # Copy across filesystems (job dir -> /data volume), then rename WITHIN /data so a
+                # concurrent GET /pdf never sees a half-written file.
+                tmp = self.pdf_path(rid) + ".tmp"
+                shutil.copyfile(produced, tmp)
+                os.replace(tmp, self.pdf_path(rid))
                 self._write_status(rid, "ok", rev, log=log)
             else:
                 # keep any previous PDF; record the failure + log so the viewer can show it
@@ -112,19 +132,96 @@ class CompileWorker:
             shutil.rmtree(job, ignore_errors=True)
 
     def _prepare_job(self, rid, job):
-        """Write the review source into the job dir as paper.tex. Asset copy-in (basename-mapped,
-        traversal-safe) is added in MR-095 alongside the real compiler."""
+        """Write the review source as paper.tex and copy each attached figure into the job dir under
+        the BASENAME of its manifest name. The manifest name is free-form user input, so any path
+        separator, leading '/', or '..' segment is flattened to its basename: the copy can never
+        escape the job dir (write-side traversal closed). Consequence: \\includegraphics must use a
+        bare filename; subdirectory refs do not resolve (v1 non-goal)."""
         source = self.reviews.read_source(rid)
         with open(os.path.join(job, "paper.tex"), "w", encoding="utf-8") as f:
             f.write(source or "")
+        for entry in self.assets.list(rid):
+            name, stored = entry.get("name") or "", entry.get("stored") or ""
+            if not stored:
+                continue
+            dest_name = os.path.basename(name.replace("\\", "/").rstrip("/")) or stored
+            if dest_name in (".", ".."):
+                dest_name = stored
+            src = self.assets.path(rid, stored)
+            if os.path.isfile(src):
+                shutil.copyfile(src, os.path.join(job, dest_name))
+
+    def _compile_identity(self):
+        """(uid, gid) to drop the subprocess to, or None. None means run unhardened-as-self: only
+        happens off the latex image (not root, or the compile user does not exist), where dev
+        convenience beats isolation and a loud audit line records it."""
+        if os.name != "posix" or not hasattr(os, "geteuid") or os.geteuid() != 0:
+            return None
+        try:
+            import pwd
+            p = pwd.getpwnam(COMPILE_USER)
+            return (p.pw_uid, p.pw_gid)
+        except KeyError:
+            return None
 
     def _produce_pdf(self, job, rid):
-        """Run the LaTeX engine over job/paper.tex, producing job/paper.pdf. Returns (ok, log).
+        """Run Tectonic over job/paper.tex, producing job/paper.pdf. Returns (ok, log_tail).
 
-        MR-094 stub: no engine yet, so every compile reports failed. MR-095 replaces this with the
-        hardened Tectonic subprocess.
+        Hardened: --untrusted (+ TECTONIC_UNTRUSTED_MODE=1 in the image) disables shell-escape and
+        known-insecure features; --only-cached forbids network; a scrubbed env keeps MDREVIEW_*
+        secrets out of the child; the process drops to the unprivileged compile uid so it cannot
+        read /data. A 60s timeout and a PDF size cap bound resource use.
         """
-        return False, "compiler not wired yet (MR-095)"
+        env = {
+            "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
+            "HOME": job,
+            "TECTONIC_UNTRUSTED_MODE": "1",
+        }
+        cache = os.environ.get("TECTONIC_CACHE_DIR")
+        if cache:
+            env["TECTONIC_CACHE_DIR"] = cache      # so --only-cached finds the image-warmed bundle
+
+        kwargs = dict(cwd=job, env=env, timeout=COMPILE_TIMEOUT_S,
+                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        ident = self._compile_identity()
+        if ident:
+            self._chown_tree(job, ident[0], ident[1])
+            kwargs["user"], kwargs["group"] = ident[0], ident[1]
+        else:
+            self._audit_unhardened(rid)
+
+        try:
+            r = subprocess.run(
+                ["tectonic", "-X", "compile", "--untrusted", "--only-cached", "--keep-logs",
+                 "--outdir", ".", "paper.tex"], **kwargs)
+        except FileNotFoundError:
+            return False, "tectonic binary not found (this build is not the latex image)"
+        except subprocess.TimeoutExpired as e:
+            out = (e.output or b"").decode("utf-8", "replace")
+            return False, "compile timed out after %ss\n%s" % (COMPILE_TIMEOUT_S, out)
+
+        log = (r.stdout or b"").decode("utf-8", "replace")
+        pdf = os.path.join(job, "paper.pdf")
+        if r.returncode != 0 or not os.path.isfile(pdf):
+            return False, log or ("tectonic exited %d with no PDF" % r.returncode)
+        if os.path.getsize(pdf) > MAX_PDF_BYTES:
+            os.remove(pdf)
+            return False, "compiled PDF exceeds the %d-byte cap" % MAX_PDF_BYTES
+        return True, log
+
+    @staticmethod
+    def _chown_tree(root, uid, gid):
+        os.chown(root, uid, gid)
+        for dirpath, dirnames, filenames in os.walk(root):
+            for n in dirnames + filenames:
+                try:
+                    os.chown(os.path.join(dirpath, n), uid, gid)
+                except OSError:
+                    pass
+
+    @staticmethod
+    def _audit_unhardened(rid):
+        print("AUDIT " + json.dumps({"event": "latex_compile_unhardened", "rid": rid}), flush=True)
 
     # ---- status persistence ----
     def _write_status(self, rid, state, revision, log=""):

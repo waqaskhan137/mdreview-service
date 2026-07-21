@@ -64,7 +64,8 @@ class Services:
         self.modules = []
         if ENABLE_LATEX:
             import latex_review
-            module, self.reviews = latex_review.build(store, self.reviews, self.comments)
+            module, self.reviews = latex_review.build(
+                store, self.reviews, self.comments, self.assets)
             self.modules.append(module)
 
 
