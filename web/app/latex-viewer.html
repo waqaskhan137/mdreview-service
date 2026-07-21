@@ -1,62 +1,473 @@
 <!DOCTYPE html>
-<!-- MR-094 placeholder. MR-097 replaces this with the full Overleaf-style split viewer per the
-     approved mockup (artifact b1132f25-daf3-43d8-ba92-d41655fb68d4). The pane ids (#srcpane,
-     #pdfpane) and the API calls below are the contract MR-097 builds on. -->
+<!-- LaTeX paper review viewer (MR-097). Overleaf-style split: LaTeX source (line-numbered,
+     highlighted) left, live server-compiled PDF right. Reuses the shared comment store verbatim
+     (block_num = source line number); no turn baton. Self-contained per the repo convention.
+     UI contract: mockup artifact b1132f25-daf3-43d8-ba92-d41655fb68d4. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · latex</title>
 <style>
-  :root{--bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--rule:#e6e7ee;--accent:#5b30d6;--canvas:#eceef3;}
-  @media (prefers-color-scheme: dark){:root{--bg:#0f1014;--panel:#17181d;--text:#e9eaf0;--muted:#9a9fb0;--rule:#26282f;--accent:#b9a3f5;--canvas:#0b0c10;}}
+  /* Tokens shared with viewer.html (violet accent, blue, theme swap). */
+  :root{--bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--muted2:#6e727e;--rule:#e6e7ee;
+    --accent:#5b30d6;--accent-bg:#eee9fd;--blue:#1d4fbf;--blue-bg:#e9f0fd;--noteline:#5b30d6;--link:#2f6fed;
+    --canvas:#eceef3;--sheet:#fff;--warn:#b8860b;--warn-bg:rgba(212,160,23,.12);}
+  @media (prefers-color-scheme: dark){:root{--bg:#0f1014;--panel:#17181d;--text:#e9eaf0;--muted:#9a9fb0;
+    --muted2:#878c9c;--rule:#26282f;--accent:#b9a3f5;--accent-bg:#2a2147;--blue:#9cc0f5;--blue-bg:#16243f;
+    --noteline:#b9a3f5;--link:#7ba6f5;--canvas:#0b0c10;--warn:#d4a017;--warn-bg:rgba(212,160,23,.14);}}
+  :root[data-theme="dark"]{--bg:#0f1014;--panel:#17181d;--text:#e9eaf0;--muted:#9a9fb0;--muted2:#878c9c;
+    --rule:#26282f;--accent:#b9a3f5;--accent-bg:#2a2147;--blue:#9cc0f5;--blue-bg:#16243f;--noteline:#b9a3f5;
+    --link:#7ba6f5;--canvas:#0b0c10;--warn:#d4a017;--warn-bg:rgba(212,160,23,.14);}
+  :root[data-theme="light"]{--bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--muted2:#6e727e;
+    --rule:#e6e7ee;--accent:#5b30d6;--accent-bg:#eee9fd;--blue:#1d4fbf;--blue-bg:#e9f0fd;--noteline:#5b30d6;
+    --link:#2f6fed;--canvas:#eceef3;--sheet:#fff;--warn:#b8860b;--warn-bg:rgba(212,160,23,.12);}
+
   *{box-sizing:border-box;}
-  body{margin:0;height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;}
-  header{flex:0 0 auto;display:flex;gap:10px;align-items:center;padding:9px 16px;border-bottom:1px solid var(--rule);}
-  .fn{font-family:ui-monospace,Menlo,monospace;color:var(--accent);}
+  html,body{height:100%;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:13px;display:flex;flex-direction:column;overflow:hidden;}
+
+  .topbar{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:11px 20px;border-bottom:1px solid var(--rule);background:var(--bg);}
+  .tb-left{display:flex;align-items:center;gap:10px;min-width:0;}
+  .home{color:var(--muted);text-decoration:none;font-weight:500;white-space:nowrap;}
+  .home:hover{color:var(--text);}
+  .tb-sep{color:var(--rule);}
+  .filename{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--accent);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .typechip{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--blue);background:var(--blue-bg);border-radius:4px;padding:2px 6px;}
+  .tb-right{font-size:12px;color:var(--muted);letter-spacing:.03em;white-space:nowrap;font-variant:small-caps;}
+
+  .tabbar{display:none;}
   .split{flex:1;display:flex;min-height:0;}
-  #srcpane{flex:0 0 46%;overflow:auto;border-right:1px solid var(--rule);padding:12px 0;background:var(--bg);}
-  #pdfpane{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--canvas);}
-  #pdfpane .bar{flex:0 0 auto;padding:7px 14px;border-bottom:1px solid var(--rule);background:var(--bg);color:var(--muted);}
-  #pdfframe{flex:1;border:0;width:100%;}
-  .ln{display:flex;gap:12px;padding:1px 14px;font-family:ui-monospace,Menlo,monospace;line-height:1.6;white-space:pre-wrap;word-break:break-word;}
-  .ln .n{color:var(--muted);opacity:.5;min-width:36px;text-align:right;user-select:none;}
-  .msg{padding:18px;color:var(--muted);}
+  .srcpane{flex:0 0 46%;min-width:280px;display:flex;flex-direction:column;min-height:0;background:var(--bg);}
+  .vdiv{flex:0 0 5px;cursor:col-resize;background:var(--rule);position:relative;}
+  .vdiv::after{content:"";position:absolute;inset:0 -3px;}
+  .vdiv:hover,.vdiv.drag{background:var(--accent);}
+  .pdfpane{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--canvas);}
+
+  .panehead{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--rule);
+    background:var(--bg);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+  .panehead .mono{font-family:ui-monospace,Menlo,monospace;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text);}
+
+  .srcscroll{flex:1;overflow:auto;position:relative;display:flex;align-items:flex-start;}
+  .codecol{flex:1;min-width:0;padding:12px 0 60vh;}
+  .ln{display:flex;padding:1px 14px 1px 0;line-height:1.62;position:relative;}
+  .ln:hover{background:rgba(127,127,127,.07);}
+  .ln .n{flex:0 0 46px;text-align:right;padding-right:12px;color:var(--muted2);opacity:.55;
+    font-family:ui-monospace,Menlo,monospace;font-size:11.5px;user-select:none;cursor:pointer;
+    font-variant-numeric:tabular-nums;padding-top:1px;}
+  .ln .n:hover{opacity:1;color:var(--accent);}
+  .ln .src{flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;white-space:pre-wrap;word-break:break-word;}
+  .ln.has-c{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
+  .ln.has-c .n{opacity:1;}
+  .ln.flash{background:var(--accent-bg);}
+  .addb{position:absolute;left:3px;top:50%;transform:translateY(-50%);width:18px;height:18px;border:none;
+    border-radius:4px;background:var(--accent);color:#fff;font-size:14px;line-height:1;cursor:pointer;
+    display:none;padding:0;box-shadow:0 1px 4px rgba(0,0,0,.25);}
+  .ln:hover .addb,.addb:focus-visible{display:block;}
+  .tx-c{color:var(--blue);}          /* \command */
+  .tx-m{color:var(--accent);}        /* $math$ */
+  .tx-x{color:var(--muted2);font-style:italic;}   /* % comment */
+  mark.cmt{background:rgba(91,48,214,.18);color:inherit;border-radius:2px;cursor:pointer;}
+  mark.cmt.active{background:rgba(91,48,214,.40);}
+
+  /* comment rail inside the source scroll (mockup .railcol) */
+  .railcol{flex:0 0 296px;position:relative;padding:12px 12px 60vh 0;min-height:100%;}
+  body.norail .railcol{display:none;}
+  .gcard{position:absolute;width:284px;background:var(--bg);border:1px solid var(--rule);border-left:3px solid var(--noteline);
+    border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.4;box-shadow:0 1px 6px rgba(0,0,0,.06);
+    transition:top .16s ease,box-shadow .15s,border-color .15s;}
+  .gcard:hover,.gcard.active{box-shadow:0 5px 18px rgba(0,0,0,.18);border-left-color:var(--accent);}
+  .ghead{display:flex;gap:6px;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;}
+  .gref{color:var(--accent);font-weight:700;}
+  .gq{color:var(--muted);font-style:italic;font-size:12px;max-height:48px;overflow:hidden;}
+  .gdel{margin-left:auto;background:none;border:none;cursor:pointer;font:inherit;font-size:11px;color:var(--muted);padding:1px 5px;border-radius:4px;}
+  .gdel:hover{color:#c0392b;background:rgba(192,57,43,.10);}
+  .gdel.armed{color:#fff;background:#c0392b;font-weight:600;}
+  .gthread{display:flex;flex-direction:column;gap:5px;}
+  .gentry{border-left:3px solid var(--rule);background:rgba(127,127,127,.05);border-radius:4px;padding:4px 8px;}
+  .gentry.reviewer{border-left-color:var(--noteline);background:rgba(91,48,214,.07);}
+  .gentry.agent{border-left-color:var(--blue);background:rgba(29,79,191,.08);}
+  .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted);margin-right:5px;}
+  .gentry.reviewer .grole{color:var(--noteline);}
+  .gentry.agent .grole{color:var(--blue);}
+  .gtext{color:var(--text);}
+  .gtext>:first-child{margin-top:0;}.gtext>:last-child{margin-bottom:0;}
+  .gtext p{margin:.4em 0;}.gtext code{font-family:ui-monospace,Menlo,monospace;font-size:.9em;background:rgba(127,127,127,.16);padding:.5px 4px;border-radius:4px;}
+  .gtext pre{background:rgba(127,127,127,.12);padding:7px 9px;border-radius:6px;overflow:auto;margin:.4em 0;}
+  .gtext a{color:var(--accent);}
+  .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
+  .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font:inherit;font-size:12.5px;border:1px solid var(--rule);
+    border-radius:5px;padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
+  .btn{font:inherit;font-size:12.5px;border-radius:8px;padding:6px 13px;cursor:pointer;border:1px solid var(--rule);background:var(--panel);color:var(--text);}
+  .btn:hover{border-color:var(--muted2);}
+  .btn.primary{background:var(--link);color:#fff;border-color:var(--link);}
+  .btn.primary:hover{filter:brightness(1.06);}
+  .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
+
+  /* PDF pane */
+  .pdfbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--rule);
+    background:var(--bg);font-size:12px;color:var(--muted);}
+  .pdfbar .st{font-variant-numeric:tabular-nums;}
+  .pdfbar .dl{margin-left:auto;}
+  .dl{text-decoration:none;}
+  .errbar{display:none;flex:0 0 auto;padding:8px 14px;background:var(--warn-bg);border-bottom:1px solid var(--warn);color:var(--warn);font-size:12px;}
+  body.compile-failed .errbar{display:block;}
+  .errbar summary{cursor:pointer;font-weight:600;}
+  .errbar pre{margin:6px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--text);}
+  .pdfwrap{flex:1;min-height:0;position:relative;}
+  #pdfframe{border:0;width:100%;height:100%;background:var(--canvas);}
+  .pdfmsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;padding:20px;text-align:center;}
+
+  #toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:90;background:var(--accent);color:#fff;
+    font-size:13px;padding:8px 16px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
+  #addbtn{position:fixed;z-index:50;display:none;background:var(--accent);color:#fff;border:none;border-radius:6px;
+    padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+  #pop{position:fixed;z-index:60;display:none;width:320px;background:var(--bg);border:1px solid var(--rule);border-radius:10px;
+    box-shadow:0 8px 30px rgba(0,0,0,.3);padding:13px;}
+  #pop .q{font-size:12px;color:var(--muted);font-style:italic;margin:0 0 8px;font-family:ui-monospace,Menlo,monospace;
+    white-space:pre-wrap;max-height:56px;overflow:auto;}
+  #pop textarea{width:100%;min-height:70px;font:inherit;font-size:13.5px;border:1px solid var(--rule);border-radius:6px;
+    padding:8px;background:var(--bg);color:var(--text);resize:vertical;}
+  #pop .row{display:flex;gap:8px;justify-content:flex-end;margin-top:9px;}
+
+  #dock{position:fixed;right:18px;bottom:18px;z-index:55;}
+  #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--rule);border-radius:30px;
+    padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
+  #count{font-size:13px;color:var(--muted);}
+  #cmtdock{display:none;position:fixed;right:18px;bottom:70px;z-index:55;width:340px;max-height:64vh;overflow:auto;
+    background:var(--bg);border:1px solid var(--rule);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:12px;}
+  #cmtdock.show{display:block;}
+  #cmtdock .gcard{position:static;width:auto;margin-bottom:8px;box-shadow:none;}
+
+  @media (max-width:880px){
+    .split{flex-direction:column;}
+    .vdiv{display:none;}
+    .srcpane{flex:1;min-width:0;}
+    .pdfpane{flex:1;}
+    .tabbar{display:flex;gap:6px;padding:7px 14px;border-bottom:1px solid var(--rule);background:var(--bg);}
+    .tabbar button{font:inherit;font-size:12px;border:1px solid var(--rule);background:var(--bg);color:var(--text);border-radius:14px;padding:4px 14px;cursor:pointer;}
+    .tabbar button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;}
+    body.show-pdf .srcpane{display:none;}
+    body:not(.show-pdf) .pdfpane{display:none;}
+  }
+  button:focus-visible,a:focus-visible,.ln .n:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 </style>
 </head>
-<body>
-<header><a href="/">&larr; Reviews</a><span class="fn" id="fn">latex</span></header>
+<body class="norail">
+<header class="topbar">
+  <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span>
+    <span class="filename" id="filename">loading…</span><span class="typechip">LATEX</span></div>
+  <div class="tb-right" id="topstate"></div>
+</header>
+<div class="tabbar" role="tablist">
+  <button id="tab-src" aria-pressed="true">Source</button>
+  <button id="tab-pdf" aria-pressed="false">PDF</button>
+</div>
 <div class="split">
-  <section id="srcpane"><div class="msg">Loading source…</div></section>
-  <section id="pdfpane">
-    <div class="bar" id="pdfbar">PDF</div>
-    <iframe id="pdfframe" title="compiled PDF"></iframe>
+  <section class="srcpane" aria-label="LaTeX source">
+    <div class="panehead">Source <span class="mono" id="srcname">paper.tex</span><span id="srcmeta"></span></div>
+    <div class="srcscroll" id="srcscroll">
+      <div class="codecol" id="codecol"><div class="pdfmsg">Loading source…</div></div>
+      <div class="railcol" id="railcol"></div>
+    </div>
+  </section>
+  <div class="vdiv" id="vdiv" role="separator" aria-label="Resize panes" aria-orientation="vertical"></div>
+  <section class="pdfpane" aria-label="PDF preview">
+    <div class="pdfbar"><span class="st" id="pdfstate">PDF</span>
+      <a class="btn primary dl" id="dlbtn" href="#" download="paper.pdf">Download PDF</a></div>
+    <details class="errbar" id="errbar"><summary id="errsum">Compile failed</summary><pre id="errlog"></pre></details>
+    <div class="pdfwrap"><iframe id="pdfframe" title="compiled PDF"></iframe>
+      <div class="pdfmsg" id="pdfmsg">No PDF yet.</div></div>
   </section>
 </div>
+
+<button id="addbtn">+ Comment</button>
+<div id="pop"><div class="q" id="popq"></div>
+  <textarea id="popnote" placeholder="Your comment on this line…"></textarea>
+  <div class="row"><button class="btn" id="popcancel">Cancel</button><button class="btn primary" id="popsave">Comment</button></div>
+</div>
+<div id="dock"><div id="dockbar"><span id="count">0 open</span><button class="btn" id="cmtbtn">Comments</button></div></div>
+<div id="cmtdock"></div>
+<div id="toast" role="status"></div>
+
+<script src="/static/marked.min.js"></script>
 <script>
+const $=s=>document.querySelector(s);
 const ID=location.pathname.split('/').pop();
 const API='/api/reviews/'+ID, LATEX='/api/latex/'+ID;
+let comments=[], cur=null, confirming=null, lastSrc=null, lastCmt=null, pdfRev=null;
+
+function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+const esc=escapeHtml;
+
+// ---- LaTeX line highlighting: split a line into command / comment / math / text spans. The
+// concatenated textContent of .src equals the raw line, so comment offsets map cleanly. ----
+function highlightLatex(line){
+  let out='', i=0;
+  const push=(cls,txt)=>{out+=cls?'<span class="'+cls+'">'+esc(txt)+'</span>':esc(txt);};
+  while(i<line.length){
+    const ch=line[i];
+    if(ch==='%'){push('tx-x',line.slice(i));break;}
+    if(ch==='\\'){
+      const m=/^\\([A-Za-z]+\*?|.)/.exec(line.slice(i));
+      const tok=m?m[0]:ch;push('tx-c',tok);i+=tok.length;continue;
+    }
+    if(ch==='$'){
+      const rest=line.slice(i+1);const end=rest.indexOf('$');
+      if(end>=0){push('tx-m',line.slice(i,i+2+end));i+=2+end;continue;}
+    }
+    let j=i+1;while(j<line.length&&!'%\\$'.includes(line[j]))j++;
+    push('',line.slice(i,j));i=j;
+  }
+  return out;
+}
+
 async function loadSource(){
   const t=await (await fetch(API+'/source',{cache:'no-store'})).text();
-  const pane=document.getElementById('srcpane');pane.innerHTML='';
-  t.split('\n').forEach((line,i)=>{
-    const d=document.createElement('div');d.className='ln';d.id='L'+(i+1);
-    d.innerHTML='<span class="n">'+(i+1)+'</span>';
-    d.appendChild(document.createTextNode(line));pane.appendChild(d);
+  lastSrc=lastSrc; // set by poll
+  const col=$('#codecol');col.innerHTML='';
+  const lines=t.split('\n');
+  lines.forEach((line,idx)=>{
+    const n=idx+1;
+    const d=document.createElement('div');d.className='ln';d.dataset.num=String(n);d.id='L'+n;
+    d.innerHTML='<span class="n" tabindex="0" title="Comment on line '+n+'">'+n+'</span>'+
+      '<span class="src">'+highlightLatex(line)+'</span>';
+    col.appendChild(d);
+  });
+  $('#srcmeta').textContent=' · '+lines.length+' lines';
+  wireLineAffordances();
+  renderComments();
+}
+
+// ---- comments: same store + CRUD as viewer.html, block_num = line number ----
+async function fetchComments(){
+  try{const d=await (await fetch(API+'/comments',{cache:'no-store'})).json();comments=(d&&d.comments)||[];}catch(e){}
+}
+async function createComment(anchor,text){
+  try{await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({anchor:anchor,text:text})});
+    await fetchComments();renderComments();toast('Comment added');}
+  catch(e){toast('Could not save comment');}
+}
+async function replyTo(cid,text){if(!text)return;
+  try{await fetch(API+'/comments/'+cid+'/reply',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text:text,role:'reviewer'})});await fetchComments();renderComments();}
+  catch(e){toast('Reply failed');}}
+async function reopenComment(cid,text){
+  try{await fetch(API+'/comments/'+cid+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(text?{text:text}:{})});await fetchComments();renderComments();toast('Reopened');}
+  catch(e){toast('Reopen failed');}}
+async function deleteComment(cid){
+  try{const r=await fetch(API+'/comments/'+cid,{method:'DELETE'});
+    if(!r.ok&&r.status!==404){toast('Could not delete');return;}
+    await fetchComments();renderComments();toast('Comment deleted');}
+  catch(e){toast('Could not delete');}}
+
+// Comment body is UNTRUSTED: escape first, then marked, then strip javascript:/data: urls.
+function mdComment(raw){
+  raw=raw||'';
+  const html=window.marked?marked.parse(esc(raw),{breaks:true}):esc(raw).replace(/\n/g,'<br>');
+  const tpl=document.createElement('template');tpl.innerHTML=html;
+  tpl.content.querySelectorAll('a[href]').forEach(a=>{
+    if(/^(https?:|mailto:)/i.test(a.getAttribute('href')||'')){a.target='_blank';a.rel='noopener noreferrer';}
+    else a.removeAttribute('href');});
+  tpl.content.querySelectorAll('img[src]').forEach(im=>{if(!/^(https?:|data:image\/)/i.test(im.getAttribute('src')||''))im.removeAttribute('src');});
+  return tpl.innerHTML;
+}
+function qsnippet(c){const q=(c.anchor&&c.anchor.quoted_text)||'';return q?'"'+q+'"':'(whole line)';}
+function threadHtml(c){return '<div class="gthread">'+((c.thread||[]).map(e=>{
+  const role=e.role==='agent'?'agent':'reviewer';
+  return '<div class="gentry '+role+'"><span class="grole">'+esc(role)+'</span><div class="gtext">'+mdComment(e.text||'')+'</div></div>';
+}).join(''))+'</div>';}
+
+// Offset-mapped highlight: find the quote in the line's .src textContent, then wrap each
+// intersecting text-node slice in its own <mark> (a Range spanning element boundaries cannot be
+// surroundContents'd, so we wrap per segment). Exact-line lookup first, then a whole-file scan.
+function markInSrc(srcEl,qt,cid){
+  const txt=srcEl.textContent;const start=txt.indexOf(qt);if(start<0)return false;
+  const end=start+qt.length;
+  const walker=document.createTreeWalker(srcEl,NodeFilter.SHOW_TEXT);
+  const nodes=[];let node;while(node=walker.nextNode())nodes.push(node);
+  let pos=0;const slices=[];
+  nodes.forEach(n=>{const ns=pos,ne=pos+n.nodeValue.length;pos=ne;
+    const s=Math.max(start,ns),e=Math.min(end,ne);if(s<e)slices.push([n,s-ns,e-ns]);});
+  let wrapped=false;
+  slices.forEach(([n,a,b])=>{const r=document.createRange();r.setStart(n,a);r.setEnd(n,b);
+    const mk=document.createElement('mark');mk.className='cmt';mk.dataset.id=cid;
+    try{r.surroundContents(mk);wrapped=true;}catch(e){}});
+  return wrapped;
+}
+function highlightComment(c){
+  const qt=c.anchor&&c.anchor.quoted_text;if(!qt)return null;
+  const named=document.querySelector('.ln[data-num="'+(c.anchor.block_num||'')+'"]');
+  const lines=named&&named.querySelector('.src').textContent.includes(qt)?[named]:[...document.querySelectorAll('.ln')];
+  for(const ln of lines){if(markInSrc(ln.querySelector('.src'),qt,c.comment_id))return ln;}
+  return null;
+}
+
+function renderComments(){
+  confirming=null;
+  // unwrap old marks
+  document.querySelectorAll('mark.cmt').forEach(m=>{const p=m.parentNode;while(m.firstChild)p.insertBefore(m.firstChild,m);p.removeChild(m);p.normalize();});
+  document.querySelectorAll('.ln').forEach(l=>l.classList.remove('has-c'));
+  const active=(comments||[]).filter(c=>c.status!=='resolved');
+  const rail=$('#railcol'),dock=$('#cmtdock');rail.innerHTML='';
+  const cards=[];
+  active.forEach(c=>{
+    const ln=highlightComment(c)||document.querySelector('.ln[data-num="'+(c.anchor.block_num||'')+'"]');
+    if(ln)ln.classList.add('has-c');
+    const ref=(ln&&ln.dataset.num)||c.anchor.block_num||'';
+    const card=document.createElement('div');card.className='gcard';card.dataset.id=c.comment_id;
+    const deletable=!(c.thread||[]).some(e=>e.role==='agent');
+    card.innerHTML='<div class="ghead"><span class="gref">'+(ref?'L'+esc(ref):'')+'</span> <span class="gq">'+esc(qsnippet(c))+'</span>'+
+      (deletable?'<button class="gdel" data-act="delete" title="Delete this comment — permanent">Delete</button>':'')+'</div>'+
+      threadHtml(c)+'<div class="greply"><textarea placeholder="Reply…"></textarea><button class="btn" data-act="reply">Reply</button></div>';
+    card._anchor=ln;rail.appendChild(card);cards.push(card);
+  });
+  wireCards(rail);
+  // mirror into the narrow dock (static list)
+  dock.innerHTML='<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:8px">Comments ('+active.length+')</div>';
+  cards.forEach(c=>dock.appendChild(c.cloneNode(true)));wireCards(dock);
+  $('#count').textContent=active.length+' open';
+  document.querySelectorAll('mark.cmt').forEach(m=>m.onclick=()=>focusPair(m.dataset.id));
+  layoutCards();
+}
+function wireCards(root){
+  root.querySelectorAll('.gcard').forEach(card=>{
+    const rb=card.querySelector('[data-act=reply]');
+    if(rb)rb.onclick=e=>{e.stopPropagation();const ta=card.querySelector('textarea');const v=ta.value.trim();if(v)replyTo(card.dataset.id,v);};
+    const ta=card.querySelector('textarea');if(ta)ta.onclick=e=>e.stopPropagation();
+    const del=card.querySelector('[data-act=delete]');
+    if(del)del.onclick=e=>{e.stopPropagation();const cid=card.dataset.id;
+      if(del.dataset.armed){deleteComment(cid);return;}
+      del.dataset.armed='1';del.textContent='Confirm delete?';del.classList.add('armed');confirming=cid;
+      clearTimeout(del._t);del._t=setTimeout(()=>{del.dataset.armed='';del.textContent='Delete';del.classList.remove('armed');if(confirming===cid)confirming=null;},3000);};
+    card.onclick=()=>focusPair(card.dataset.id);
   });
 }
-async function loadPdf(){
-  const bar=document.getElementById('pdfbar'),frame=document.getElementById('pdfframe');
-  const r=await fetch(LATEX+'/compile',{cache:'no-store'});
-  const st=r.ok?await r.json():null;
-  if(st){bar.textContent='PDF · '+st.state+' (v'+st.revision+')';}
-  const pr=await fetch(LATEX+'/pdf',{cache:'no-store'});
-  if(pr.ok){frame.src=LATEX+'/pdf?t='+Date.now();}
-  else{frame.removeAttribute('src');bar.textContent='PDF · no build yet'+(st&&st.log_tail?' — '+st.log_tail.slice(-200):'');}
+function focusPair(id){
+  document.querySelectorAll('.gcard.active,mark.cmt.active').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.gcard[data-id="'+id+'"]').forEach(c=>c.classList.add('active'));
+  const m=document.querySelector('mark.cmt[data-id="'+id+'"]');
+  if(m){m.classList.add('active');m.scrollIntoView({block:'center',behavior:'smooth'});}
 }
-loadSource();loadPdf();
-setInterval(loadPdf,2000);
+function layoutCards(){
+  const pane=$('#srcpane'),wide=pane&&pane.clientWidth>=640;
+  document.body.classList.toggle('norail',!wide);
+  if(!wide)return;
+  const col=$('#codecol');let prev=0;
+  [...$('#railcol').querySelectorAll('.gcard')]
+    .map(c=>({c,top:c._anchor?c._anchor.offsetTop:0})).sort((a,b)=>a.top-b.top)
+    .forEach(o=>{const t=Math.max(o.top,prev);o.c.style.top=t+'px';prev=t+o.c.offsetHeight+10;});
+}
+
+// ---- add-comment affordances: line +, line-number click, text selection ----
+function wireLineAffordances(){
+  document.querySelectorAll('.ln').forEach(ln=>{
+    const n=ln.dataset.num, srcText=()=>ln.querySelector('.src').textContent;
+    const whole=()=>{const t=srcText().trim();return {block_num:n,quoted_text:t.length>180?t.slice(0,180)+'...':t};};
+    const b=document.createElement('button');b.className='addb';b.textContent='+';b.title='Comment on line '+n;
+    b.onclick=e=>{e.stopPropagation();openPop(whole(),e.clientX,e.clientY);};
+    ln.appendChild(b);
+    const num=ln.querySelector('.n');
+    num.onclick=e=>openPop(whole(),e.clientX,e.clientY);
+    num.onkeydown=e=>{if(e.key==='Enter'){const r=num.getBoundingClientRect();openPop(whole(),r.right,r.bottom);}};
+  });
+}
+const addbtn=$('#addbtn');
+$('#codecol').addEventListener('mouseup',e=>{
+  setTimeout(()=>{
+    const sel=window.getSelection();const t=(sel?sel.toString():'').trim();
+    if(!t||!sel.rangeCount){addbtn.style.display='none';return;}
+    const srcOf=nd=>{while(nd&&nd.nodeType!==1)nd=nd.parentNode;return nd&&nd.closest?nd.closest('.ln'):null;};
+    const r=sel.getRangeAt(0);
+    const ln=srcOf(sel.anchorNode)||srcOf(sel.focusNode)||srcOf(r.startContainer);
+    if(!ln){addbtn.style.display='none';return;}
+    cur={block_num:ln.dataset.num,quoted_text:t.length>180?t.slice(0,180)+'...':t};
+    addbtn.style.left=Math.min(e.clientX-10,window.innerWidth-130)+'px';addbtn.style.top=(e.clientY+12)+'px';
+    addbtn.style.display='block';
+  },1);
+});
+addbtn.onclick=()=>{addbtn.style.display='none';openPop(cur);};
+function openPop(c,x,y){
+  cur=c;
+  $('#popq').textContent=(c.quoted_text?'L'+c.block_num+': "'+c.quoted_text+'"':'Line '+c.block_num);
+  $('#popnote').value='';
+  const pop=$('#pop');pop.style.display='block';
+  const px=(x!=null?Math.min(x,window.innerWidth-340):window.innerWidth/2-160);
+  const py=(y!=null?Math.min(y+8,window.innerHeight-200):window.innerHeight/2-120);
+  pop.style.left=Math.max(12,px)+'px';pop.style.top=Math.max(12,py)+'px';$('#popnote').focus();
+}
+$('#popcancel').onclick=()=>$('#pop').style.display='none';
+$('#popsave').onclick=()=>{const v=$('#popnote').value.trim();if(!v)return;
+  createComment({quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null},v);
+  $('#pop').style.display='none';window.getSelection().removeAllRanges();};
+
+// ---- PDF pane: compile status + iframe reload + download + error banner ----
+async function refreshPdf(){
+  let st=null;
+  try{const r=await fetch(LATEX+'/compile',{cache:'no-store'});if(r.ok)st=await r.json();}catch(e){}
+  const bar=$('#pdfstate'),msg=$('#pdfmsg'),frame=$('#pdfframe'),dl=$('#dlbtn'),errbar=$('#errbar');
+  if(!st){bar.textContent='PDF';return;}
+  const rev=st.revision;
+  if(st.state==='ok'){
+    bar.textContent='PDF · v'+rev+' · compiled';
+    document.body.classList.remove('compile-failed');
+    dl.href=LATEX+'/pdf';msg.style.display='none';
+    if(pdfRev!==rev){pdfRev=rev;frame.src=LATEX+'/pdf?v='+rev;}   // reload only on a new build
+  }else if(st.state==='failed'){
+    bar.textContent='PDF · v'+rev+' · compile failed';
+    document.body.classList.add('compile-failed');
+    $('#errsum').textContent='Compile failed at v'+rev+(pdfRev!=null?' — showing v'+pdfRev:'');
+    $('#errlog').textContent=st.log_tail||'(no log)';
+    if(pdfRev==null)msg.textContent='No PDF yet — the compile failed. See the log above.';
+    msg.style.display=(pdfRev==null)?'flex':'none';
+  }else{
+    bar.textContent='PDF · '+st.state+'…';
+    if(pdfRev==null){msg.textContent='Compiling…';msg.style.display='flex';}
+  }
+}
+
+// ---- live poll: source / comments / compile status off the same interval ----
+function poll(){
+  setInterval(async()=>{
+    if(addbtn.style.display==='block'||$('#pop').style.display==='block'||confirming)return;
+    try{
+      const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
+      if(s.source_updated&&s.source_updated!==lastSrc){lastSrc=s.source_updated;await fetchComments();await loadSource();toast('Draft updated by AI');}
+      else if(s.comments_updated&&s.comments_updated!==lastCmt){lastCmt=s.comments_updated;await fetchComments();renderComments();}
+    }catch(e){}
+    refreshPdf();
+  },2000);
+}
+
+// ---- divider drag, tabs, dock, boot ----
+(function(){
+  const div=$('#vdiv'),src=$('.srcpane');let drag=false;
+  div.addEventListener('pointerdown',e=>{drag=true;div.classList.add('drag');div.setPointerCapture(e.pointerId);e.preventDefault();});
+  div.addEventListener('pointermove',e=>{if(!drag)return;const r=$('.split').getBoundingClientRect();
+    const pct=Math.min(72,Math.max(24,(e.clientX-r.left)/r.width*100));src.style.flexBasis=pct+'%';layoutCards();});
+  div.addEventListener('pointerup',()=>{drag=false;div.classList.remove('drag');});
+  const ts=$('#tab-src'),tp=$('#tab-pdf');
+  function tab(pdf){document.body.classList.toggle('show-pdf',pdf);ts.setAttribute('aria-pressed',String(!pdf));tp.setAttribute('aria-pressed',String(pdf));}
+  ts.onclick=()=>tab(false);tp.onclick=()=>tab(true);
+  $('#cmtbtn').onclick=()=>$('#cmtdock').classList.toggle('show');
+  window.addEventListener('resize',()=>{try{layoutCards();}catch(e){}});
+})();
+let tTimer=null;
+function toast(m){const t=$('#toast');t.textContent=m;t.style.opacity=1;clearTimeout(tTimer);tTimer=setTimeout(()=>t.style.opacity=0,1800);}
+
+async function boot(){
+  try{const meta=await (await fetch(API,{cache:'no-store'})).json();
+    $('#filename').textContent=(meta.source_path||meta.title||'paper')+'';
+    const p=(meta.project?meta.project+' · ':'');$('#topstate').textContent=p+'v'+(meta.revision||0);
+    $('#srcname').textContent='paper.tex';}catch(e){}
+  await fetchComments();await loadSource();await refreshPdf();poll();
+}
+boot();
 </script>
 </body>
 </html>

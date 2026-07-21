@@ -26,7 +26,7 @@ merges to `dev` only on the owner's explicit approval.
 | MR-094 | latex_review package: routes, auth, self-heal | svc | P1 | done |
 | MR-095 | Hardened Tectonic compile worker + latex smoke | svc | P1 | done |
 | MR-096 | Dockerfile.latex + release step (amd64-only) | infra | P1 | review |
-| MR-097 | latex-viewer.html per approved mockup | ui | P1 | ready |
+| MR-097 | latex-viewer.html per approved mockup | ui | P1 | done |
 | MR-098 | Dashboard LATEX chip + kind-aware statusOf | ui | P2 | ready |
 | MR-099 | MCP create_review kind + latex-aware wording | svc | P2 | ready |
 | MR-100 | Docs sweep: README, gate refs, runbook | docs | P1 | ready |
