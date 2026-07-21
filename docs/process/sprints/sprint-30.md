@@ -1,11 +1,11 @@
 ---
 id: sprint-30
 name: latex-template-catalog
-status: active
+status: closed
 start: 2026-07-21
 end: 2026-07-28
 goal: Ship the LaTeX template catalog (bundled famous-few + download-on-miss to /data) following the latex_review IoC pattern.
-close_review:
+close_review: docs/process/reviews/sprint-30-close-review-2026-07-22.md
 ---
 
 ## Goal
@@ -40,6 +40,12 @@ the image. On branch `feat/latex-templates` (cut from dev after PR #62), single 
 - Epic: latex-template-catalog (G1 passed 2026-07-21, 2 critic rounds on hosted review a4b479b1ac).
 - Owner decisions: registry shipped-populated; base merged to dev first (PR #62); bundle top styles;
   conference-source origin. "merge it and go".
+- **CLOSED 2026-07-22, G7 CLOSE-WITH-NOTES** (independent staff-critic, `reviews/sprint-30-close-review-2026-07-22.md`):
+  all 7 tickets done + AC met; container smoke + hermetic puller smoke + flag-off oracle 23/23 all
+  pass. Notes: (1) bundle-a-style deferred (no permissive license upstream) — download-on-miss covers
+  it, owner standing decision; (2) registry mutable-`master` refs re-pinned to immutable commit SHAs
+  post-review. No carry-overs. Awaiting the feat/latex-templates -> dev PR (owner) and the eventual
+  dev -> main G8.
 
 ## Close gate (G7)
 
