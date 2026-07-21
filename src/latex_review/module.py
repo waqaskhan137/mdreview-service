@@ -16,11 +16,12 @@ from mdreview.config import RID, WEB_DIR
 
 
 class LatexModule:
-    def __init__(self, store, reviews, comments, worker):
+    def __init__(self, store, reviews, comments, worker, templates=None):
         self.store = store
         self.reviews = reviews
         self.comments = comments
         self.worker = worker
+        self.templates = templates      # TemplateService: catalog listing (used in MR-105)
         self._page_path = os.path.join(WEB_DIR, "latex-viewer.html")
 
     def _is_latex(self, rid):
@@ -29,6 +30,14 @@ class LatexModule:
     def handle(self, h, m, path):
         if m != "GET":
             return False
+
+        if path == "/api/latex/templates":
+            # The catalog: which template ids an agent can pass to create_review. Not review-scoped
+            # data (no rid, no owner), so no _authz; `cached` is the shared/global download set, not
+            # tenant data, so it leaks nothing across users.
+            avail = self.templates.available() if self.templates else {"bundled": [], "registry": [], "cached": []}
+            h._json(200, avail)
+            return True
 
         mo = re.fullmatch(r"/review/" + RID, path)
         if mo:

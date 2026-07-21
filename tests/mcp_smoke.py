@@ -181,6 +181,28 @@ def main():
             pass
         check("get_review on the latex review reports kind=latex", kind == "latex")
 
+    # MR-106: create_review(kind="latex", template="ieee") must reach the API (whitelist passes
+    # `template`) and the created review must carry template=ieee in its metadata.
+    out = drive(base + [{"jsonrpc": "2.0", "id": 47, "method": "tools/call",
+                         "params": {"name": "create_review",
+                                    "arguments": {"markdown": "", "title": "mcp_smoke_template",
+                                                  "kind": "latex", "template": "ieee"}}}])
+    trid = None
+    try:
+        trid = json.loads(out[-1]["result"]["content"][0]["text"]).get("id")
+    except Exception:
+        pass
+    check("create_review kind=latex template=ieee -> id returned", bool(trid))
+    if trid:
+        out = drive(base + [{"jsonrpc": "2.0", "id": 48, "method": "tools/call",
+                             "params": {"name": "get_review", "arguments": {"id": trid}}}])
+        tmpl = None
+        try:
+            tmpl = json.loads(out[-1]["result"]["content"][0]["text"]).get("template")
+        except Exception:
+            pass
+        check("get_review on the templated review reports template=ieee", tmpl == "ieee")
+
     if rid:
         # MR-053: turn-baton tools — ping_working (claim the lease) then hand_back (return the turn)
         out = drive(base + [{"jsonrpc": "2.0", "id": 40, "method": "tools/call",

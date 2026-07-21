@@ -34,7 +34,10 @@ INSTRUCTIONS = (
     "source is RAW LaTeX end to end — push .tex via update_source, read it via get_source — and the "
     "markdown authoring rule above (mermaid blocks, $…$ math, labelled fences) does NOT apply. "
     "Comments still anchor to the source (block_num is the source line). There is no turn baton in "
-    "latex mode, so hand_back / ping_working do not apply."
+    "latex mode, so hand_back / ping_working do not apply. To start a paper from a named class, pass "
+    "create_review(kind=\"latex\", template=\"<id>\"): it seeds the source and supplies the document "
+    "class/style. Bundled ids: ieee, acm, arxiv, lncs, elsevier; download-on-miss ids (fetched on "
+    "first use): acl, iclr2026. GET /api/latex/templates lists them; an unknown id 400s with the list."
 )
 
 _ID = {"type": "string", "description": "the opaque review id"}
@@ -68,6 +71,14 @@ TOOLS = [
                 "source_path": {"type": "string"},
                 "kind": {"type": "string", "enum": ["markdown", "latex"],
                          "description": "review kind; default markdown. latex = an Overleaf-style paper review"},
+                "template": {"type": "string",
+                             "description": "for a latex review, start from a named template instead "
+                                            "of a blank .tex: it seeds the source (unless you also pass "
+                                            "markdown) and supplies the document class/style. Bundled: "
+                                            "ieee, acm, arxiv, lncs, elsevier (CTAN classes). "
+                                            "Download-on-miss (fetched + cached on first use): acl, "
+                                            "iclr2026, and more. GET /api/latex/templates lists the "
+                                            "current ids; an unknown id returns 400 with the list."},
             },
             "required": ["markdown"],
         },

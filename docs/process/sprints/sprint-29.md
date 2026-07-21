@@ -1,11 +1,11 @@
 ---
 id: sprint-29
 name: latex-paper-review
-status: active
+status: closed
 start: 2026-07-21
 end: 2026-07-28
 goal: Ship the opt-in LaTeX paper review mode (Overleaf-style split viewer, live Tectonic compile) with the core byte-identical flag-off.
-close_review:
+close_review: docs/process/reviews/sprint-29-close-review-2026-07-22.md
 ---
 
 ## Goal
