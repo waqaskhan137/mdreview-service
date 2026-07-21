@@ -354,7 +354,7 @@ function focusPair(id){
   if(m){m.classList.add('active');m.scrollIntoView({block:'center',behavior:'smooth'});}
 }
 function layoutCards(){
-  const pane=$('#srcpane'),wide=pane&&pane.clientWidth>=640;
+  const pane=$('.srcpane'),wide=pane&&pane.clientWidth>=640;
   document.body.classList.toggle('norail',!wide);
   if(!wide)return;
   const col=$('#codecol');let prev=0;

@@ -1,4 +1,4 @@
-"""Compile worker: turns a latex review's source into a PDF beside it.
+r"""Compile worker: turns a latex review's source into a PDF beside it.
 
 A single background thread drains a queue of review ids with per-rid coalescing, so rapid source
 pushes collapse to at most one in-flight compile plus one queued re-run. Each job runs in a fresh

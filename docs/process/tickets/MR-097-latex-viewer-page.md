@@ -66,6 +66,9 @@ if absent).
 
 ## Amendment (2026-07-21, post-review)
 
+- Fixed a rail-visibility bug (found while eyeballing): `layoutCards()` queried `$("#srcpane")`
+  but the pane has class `.srcpane` (no id), so `norail` was never cleared and the comment rail
+  never showed (cards fell to the dock). CDP-verified fixed: rail engages, cards positioned.
 - Fixed a boot bug an advisor caught: `lastSrc`/`lastCmt` were never seeded, so the first 2s poll
   tick falsely fired a "Draft updated by AI" reload on an unchanged review. boot() now reads
   `/status` once and seeds both cursors before poll() (mirrors viewer.html). Verified via CDP:
