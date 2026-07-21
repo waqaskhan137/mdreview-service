@@ -1,7 +1,7 @@
 ---
 id: MR-098
 title: Dashboard: LATEX chip + kind-aware statusOf
-status: ready
+status: done
 layer: ui
 priority: P2
 sprint: sprint-29
@@ -19,13 +19,13 @@ permanent misleading "Your turn" on no-baton reviews.
 
 ## Acceptance criteria
 
-- [ ] `LATEX` chip in the card crumb row when `r.kind == "latex"` (guard = field presence; the
-      field only exists on latex reviews).
-- [ ] `statusOf(r)`: kind=="latex" branch shows open-comment count instead of the baton badge.
-- [ ] Markdown review cards render byte-identically to today (kind-guarded changes only).
-- [ ] Card link stays `/review/{id}` for both kinds.
-- [ ] Dashboard render-smoke passes from a rebuilt image.
-- [ ] Local validation passes: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/latex_review/*.py src/mcp_server.py src/watch.py`
+- [x] `LATEX` chip in the card crumb row when `r.kind == "latex"` (guard = field presence).
+- [x] `statusOf(r)`: kind=="latex" branch -> "latex" badge showing the open-comment count
+      (countLabel) instead of the baton badge.
+- [x] Markdown review cards render unchanged (all new paths kind-guarded).
+- [x] Card link stays `/review/{id}` for both kinds.
+- [x] Dashboard render-smoke passes (local; G7 re-runs from the image).
+- [x] Local validation passes: `python3 -m py_compile ...`
 
 ## Notes / context
 
@@ -34,11 +34,16 @@ card() and statusOf() in web/app/dashboard.html (statusOf at dashboard.html:169-
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-07-21` — `web/app/dashboard.html`: `.badge.latex` + `.kindchip` CSS; `statusOf` latex
+  branch; `card()` renders the LATEX chip in the crumb and a countLabel badge for latex; markdown
+  path untouched.
 
 ## Validation
 
-_How this was verified._
+- `2026-07-21` — py_compile green. render-smoke on `/` with one latex + one markdown review:
+  `.card` (2), `.kindchip` (1), `.badge.latex` (1), `.badge.your-turn` (1) -> exit 0 (markdown
+  baton badge intact, latex card chipped + count badge). Screenshot dashboard-latex-chip.png under
+  sprint-29-render-evidence-2026-07-21.
 
 ## Follow-ups
 
