@@ -140,15 +140,14 @@ class TemplateService:
         return self._bundled.starter(template_id)
 
     def companion_files(self, template_id):
-        """Ordered lookup: bundled bytes -> /data cache -> download (MR-104). Returns a list of
-        (filename, bytes); a CTAN class returns []. Raises UnknownTemplate for an unoffered id."""
+        """Ordered lookup: bundled bytes -> registry (cache-aware download, MR-104) -> plain /data
+        cache. Returns a list of (filename, bytes); a CTAN class returns []. Raises UnknownTemplate
+        for an unoffered id, or TemplatePullError if a registry download/verify fails."""
         self.require(template_id)
         bundled = self._bundled.companion_files(template_id)
         if bundled:
             return bundled
-        cached = self._cache.companion_files(template_id)
-        if cached is not None:
-            return cached
         if self._puller and template_id in self._registry_ids():
-            return self._puller.fetch(template_id, self._cache)  # MR-104
-        return []
+            return self._puller.materialize(template_id)   # cache-hit re-verify + download-on-miss
+        cached = self._cache.companion_files(template_id)   # cached-but-not-in-registry edge
+        return cached or []
