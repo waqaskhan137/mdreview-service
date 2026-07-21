@@ -1,26 +1,34 @@
 {
   "acl": {
     "files": [
-      {"url": "https://raw.githubusercontent.com/acl-org/acl-style-files/master/acl.sty",
-       "filename": "acl.sty",
-       "sha256": "19dfeddc2c0e448f3926a0bef048a9db3f3611b46265b760caabd7ada4f361de",
-       "bytes": 11615},
-      {"url": "https://raw.githubusercontent.com/acl-org/acl-style-files/master/acl_natbib.bst",
-       "filename": "acl_natbib.bst",
-       "sha256": "6fbb306202290f4b68e74ac1460a8b27398500cb6dfeb4492e74c457eae7cd1e",
-       "bytes": 45442}
+      {
+        "url": "https://raw.githubusercontent.com/acl-org/acl-style-files/d5adc823ff0f80f98c80405ca0ab66c68e684409/acl.sty",
+        "filename": "acl.sty",
+        "sha256": "19dfeddc2c0e448f3926a0bef048a9db3f3611b46265b760caabd7ada4f361de",
+        "bytes": 11615
+      },
+      {
+        "url": "https://raw.githubusercontent.com/acl-org/acl-style-files/d5adc823ff0f80f98c80405ca0ab66c68e684409/acl_natbib.bst",
+        "filename": "acl_natbib.bst",
+        "sha256": "6fbb306202290f4b68e74ac1460a8b27398500cb6dfeb4492e74c457eae7cd1e",
+        "bytes": 45442
+      }
     ]
   },
   "iclr2026": {
     "files": [
-      {"url": "https://raw.githubusercontent.com/ICLR/Master-Template/master/iclr2026/iclr2026_conference.sty",
-       "filename": "iclr2026_conference.sty",
-       "sha256": "a4852f68e080d6c5245057ca2039100b409e31727898aa93c03d78ddb84374a3",
-       "bytes": 9025},
-      {"url": "https://raw.githubusercontent.com/ICLR/Master-Template/master/iclr2026/iclr2026_conference.bst",
-       "filename": "iclr2026_conference.bst",
-       "sha256": "2d67552db7ed38ccfccb5957b52f95656e25c249724761d3cf5f7922ad1844c5",
-       "bytes": 26973}
+      {
+        "url": "https://raw.githubusercontent.com/ICLR/Master-Template/a28d335b0d46a3c39b205704a65faf41c9748433/iclr2026/iclr2026_conference.sty",
+        "filename": "iclr2026_conference.sty",
+        "sha256": "a4852f68e080d6c5245057ca2039100b409e31727898aa93c03d78ddb84374a3",
+        "bytes": 9025
+      },
+      {
+        "url": "https://raw.githubusercontent.com/ICLR/Master-Template/a28d335b0d46a3c39b205704a65faf41c9748433/iclr2026/iclr2026_conference.bst",
+        "filename": "iclr2026_conference.bst",
+        "sha256": "2d67552db7ed38ccfccb5957b52f95656e25c249724761d3cf5f7922ad1844c5",
+        "bytes": 26973
+      }
     ]
   }
 }
