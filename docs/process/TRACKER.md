@@ -3,7 +3,7 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-07-21. **sprint-29 (latex-paper-review) ACTIVE on standing branch `feat/latex-review` (cut from consolidated dev @ 94671c1; merges to dev only on explicit owner approval). G1 passed 2026-07-21 (staff-critic, 2 rounds, on hosted mdreview review 9215476104; `reviews/latex-paper-review-plan-review-2026-07-21.md`). MR-091..095 done; MR-096/097 in review (docker build owed; --only-cached decision open); MR-091..100 ALL DONE (10/10); latex image BUILT + hardened smoke PASSED. --only-cached dropped (bundle fetch). Sprint-29 still needs its G7 close review.** **sprint-26 (viewer-transparency, GH #27) CLOSED at G7 — MR-073/075 done; epic complete; owner confirmed working; awaiting the standing dev→main PR.** **sprint-25 (watcher-container, GH #30) CLOSED at G7 — MR-069-072 done; epic complete; awaiting the standing dev→main PR.** **sprint-24 (watcher-observability, GH #26) CLOSED at G7 — MR-066/067/068 done; epic complete; awaiting the standing dev→main PR.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-07-21. **sprint-30 (latex-template-catalog) ACTIVE on feat/latex-templates (cut from dev after PR #62 merged the latex feature to dev). G1 passed 2026-07-21 (staff-critic, 2 rounds, hosted review a4b479b1ac). MR-101 done; MR-102..107 ready.** **sprint-29 (latex-paper-review) ACTIVE on standing branch `feat/latex-review` (cut from consolidated dev @ 94671c1; merges to dev only on explicit owner approval). G1 passed 2026-07-21 (staff-critic, 2 rounds, on hosted mdreview review 9215476104; `reviews/latex-paper-review-plan-review-2026-07-21.md`). MR-091..095 done; MR-096/097 in review (docker build owed; --only-cached decision open); MR-091..100 ALL DONE (10/10); latex image BUILT + hardened smoke PASSED. --only-cached dropped (bundle fetch). Sprint-29 still needs its G7 close review.** **sprint-26 (viewer-transparency, GH #27) CLOSED at G7 — MR-073/075 done; epic complete; owner confirmed working; awaiting the standing dev→main PR.** **sprint-25 (watcher-container, GH #30) CLOSED at G7 — MR-069-072 done; epic complete; awaiting the standing dev→main PR.** **sprint-24 (watcher-observability, GH #26) CLOSED at G7 — MR-066/067/068 done; epic complete; awaiting the standing dev→main PR.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
 
@@ -256,6 +256,12 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-102 | TemplateService + BundledCatalog + DataCache + build() injection | svc | P1 | sprint-30 |
+| MR-103 | template create plumbing | svc | P1 | sprint-30 |
+| MR-104 | RegistryPuller + template smoke | svc | P1 | sprint-30 |
+| MR-105 | GET /api/latex/templates listing | svc | P2 | sprint-30 |
+| MR-106 | MCP create_review template param | mcp | P2 | sprint-30 |
+| MR-107 | Docs sweep (templates) | docs | P1 | sprint-30 |
 | MR-096 | Dockerfile.latex + release step (amd64-only) | infra | P1 | sprint-29 |
 | MR-097 | latex-viewer.html per approved mockup | ui | P1 | sprint-29 |
 | MR-098 | Dashboard LATEX chip + kind-aware statusOf | ui | P2 | sprint-29 |
@@ -277,6 +283,7 @@ _none_
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-101 | Capture latex-template-catalog brief + epic plan + G1 record | docs | P1 | sprint-30 |
 | MR-096 | Dockerfile.latex + release step (BUILT + hardened smoke passed) | infra | P1 | sprint-29 |
 | MR-095 | Hardened Tectonic compile worker + latex smoke | svc | P1 | sprint-29 |
 | MR-094 | latex_review package: routes, auth, self-heal | svc | P1 | sprint-29 |
@@ -377,7 +384,8 @@ _none_
 
 | Epic | Status | Gate | Sprint |
 |------|--------|------|--------|
-| latex-paper-review | active (branch feat/latex-review; merges to dev on owner approval) | G1 passed 2026-07-21 (2 rounds) | sprint-29 |
+| latex-template-catalog | active (branch feat/latex-templates; single PR to dev) | G1 passed 2026-07-21 (2 rounds) | sprint-30 |
+| latex-paper-review | done on dev (merged via PR #62 2026-07-21; awaiting dev->main G8) | G1 passed 2026-07-21 (2 rounds) | sprint-29 |
 | review-dashboard | done (merged to main 2026-06-08, PR #1) | G1 passed 2026-06-08 | sprint-01 |
 | process-hardening | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
 | process-hardening-2 | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
