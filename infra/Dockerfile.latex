@@ -7,6 +7,9 @@
 # amd64-only (see release.yml): the cache warm-up RUNs Tectonic at build time, and emulating the
 # aarch64 binary under QEMU is the multi-minute tax the watcher image already avoids. arm64 waits for
 # a real arm64 deploy target.
+#
+# NETWORK: the compile is NOT --only-cached (owner decision), so at runtime Tectonic may reach its
+# bundle CDN to fetch resources this image didn't warm. That is the compile's only egress.
 FROM python:3.12-slim
 
 # Pinned Tectonic (static musl binary; version + sha256 pinned for reproducibility). Bump both
@@ -24,6 +27,12 @@ ENV MDREVIEW_DATA=/data \
     TECTONIC_CACHE_DIR=/opt/tectonic-cache \
     MDREVIEW_LATEX_USER=tectonic \
     MDREVIEW_LATEX_WORKDIR=/opt/latex-jobs
+
+# The compile does NOT run --only-cached (owner decision 2026-07-21): Tectonic may fetch a missing
+# package/font from its own bundle CDN at compile time so arbitrary papers render. The warm cache
+# below still pre-loads the common set (fast, offline for typical papers); only unwarmed resources
+# hit the network. Egress from the compile process reaches Tectonic's bundle host only — lock it
+# down at the container/network level if zero-trust egress is required.
 
 # Fetch + install the Tectonic binary (curl only at build time; runtime is network-free via
 # --only-cached). Verify the checksum before trusting the tarball.
@@ -49,20 +58,28 @@ WORKDIR /app
 COPY src/ ./src/
 COPY web/app/ ./web/
 
-# Warm the Tectonic bundle cache at build time by compiling a representative preamble, so runtime
-# compiles need ZERO network (--only-cached). The cache is world-readable so the tectonic user reads
-# it. Keep this package set in sync with the papers we expect (amsmath..xcolor).
+# Warm the Tectonic bundle cache at build time by compiling a REALISTIC paper (title + \maketitle,
+# 11pt, sections, display math with cmsy/cmex symbols, a table) so the common resource set is
+# pre-loaded and typical compiles are fast and offline. Runtime compiles are NOT --only-cached, so a
+# paper using something unwarmed still renders by fetching it. The cache is chowned to the compile
+# user so those runtime fetches persist in the cache dir.
 RUN set -eux; \
     mkdir -p "$TECTONIC_CACHE_DIR"; \
     warm=/tmp/warm; mkdir -p "$warm"; \
     printf '%s\n' \
-      '\documentclass{article}' \
+      '\documentclass[11pt]{article}' \
       '\usepackage{amsmath,amssymb,natbib,graphicx,hyperref,booktabs,xcolor}' \
-      '\begin{document}\section{Warm}$E=mc^2$ \textbf{b} \textcolor{red}{r}\end{document}' \
+      '\title{Warm}\author{A. Author \and B. Author}' \
+      '\begin{document}\maketitle' \
+      '\begin{abstract}Warm-up $E=mc^2$.\end{abstract}' \
+      '\section{Body}Text \textbf{b} \textit{i} \textcolor{red}{r}.' \
+      '\begin{equation}\mathrm{softmax}(QK^\top/\sqrt{d_k}+\log M)V\end{equation}' \
+      '\begin{table}[t]\centering\begin{tabular}{ll}\toprule a & b\\\midrule 1 & 2\\\bottomrule\end{tabular}\end{table}' \
+      '\end{document}' \
       > "$warm/warm.tex"; \
     ( cd "$warm" && tectonic -X compile --keep-logs --outdir . warm.tex ); \
     test -f "$warm/warm.pdf"; \
-    chmod -R a+rX "$TECTONIC_CACHE_DIR"; \
+    chown -R tectonic:tectonic "$TECTONIC_CACHE_DIR"; \
     rm -rf "$warm"
 
 # /data is root-only: the compile user must not be able to read any review's source (defence against

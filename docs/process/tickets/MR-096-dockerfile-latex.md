@@ -56,6 +56,13 @@ tarball and hashing it (60b13a0826ae7ad9ce34b4a2df06bff2cfcfa6dda8a915477c0cbb84
   Docker daemon is down in this environment, so the image build + offline compile + hardened smoke
   are owed at G7.
 
+## Amendment (2026-07-21)
+
+- Owner dropped `--only-cached`: the warm cache is now an optimization (common resources
+  pre-loaded), not a correctness gate. Cache chowned to the `tectonic` user so runtime fetches
+  persist; warm-up broadened to a realistic paper (11pt, maketitle+title fonts, cmsy/cmex math,
+  table). Runbook (MR-100) documents the egress + optional bundle-host allowlist.
+
 ## Follow-ups
 
 - G7 / owner local test: `docker build -f infra/Dockerfile.latex -t mdreview-service-latex .`,

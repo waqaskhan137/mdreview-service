@@ -168,9 +168,17 @@ class CompileWorker:
         """Run Tectonic over job/paper.tex, producing job/paper.pdf. Returns (ok, log_tail).
 
         Hardened: --untrusted (+ TECTONIC_UNTRUSTED_MODE=1 in the image) disables shell-escape and
-        known-insecure features; --only-cached forbids network; a scrubbed env keeps MDREVIEW_*
-        secrets out of the child; the process drops to the unprivileged compile uid so it cannot
-        read /data. A 60s timeout and a PDF size cap bound resource use.
+        known-insecure features; a scrubbed env keeps MDREVIEW_* secrets out of the child; the
+        process drops to the unprivileged compile uid so it cannot read /data. A 60s timeout and a
+        PDF size cap bound resource use.
+
+        NOT --only-cached (owner decision 2026-07-21): Tectonic may fetch missing packages/fonts
+        from its own bundle CDN at compile time so arbitrary papers render, not just ones whose
+        resources were pre-warmed. This is the only network the child does: the bundle URL is
+        Tectonic's, not attacker-controllable from the document (no document-directed SSRF), and the
+        exec / /data / secret protections above are unaffected. The image pre-warms the common
+        resource set (Dockerfile.latex) so most compiles are fast and offline anyway; lock egress to
+        the bundle host at the container level if zero-trust egress is required.
         """
         env = {
             "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
@@ -192,7 +200,7 @@ class CompileWorker:
 
         try:
             r = subprocess.run(
-                ["tectonic", "-X", "compile", "--untrusted", "--only-cached", "--keep-logs",
+                ["tectonic", "-X", "compile", "--untrusted", "--keep-logs",
                  "--outdir", ".", "paper.tex"], **kwargs)
         except FileNotFoundError:
             return False, "tectonic binary not found (this build is not the latex image)"

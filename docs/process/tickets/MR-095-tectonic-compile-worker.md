@@ -26,7 +26,7 @@ create/put_source via a ReviewService decorator, hardened per the owner-accepted
       chowned to the compile uid on the drop path; `paper.tex` from source; assets copied as
       `basename(manifest name)` with `\`/separator/leading-`/`/`..`-segment flattening (write-side
       traversal closed, unit-proven); basename collisions documented as v1 scope.
-- [x] Tectonic subprocess: `-X compile --untrusted --only-cached --keep-logs --outdir .`,
+- [x] Tectonic subprocess: `-X compile --untrusted --keep-logs --outdir .` (NOT --only-cached, owner decision),
       `timeout=60`, `user=/group=` drop to the `tectonic` uid, scrubbed env (PATH + HOME=jobdir +
       TECTONIC_UNTRUSTED_MODE + passed-through TECTONIC_CACHE_DIR only); never the server's env.
       Off the image (not root / uid absent) runs unhardened-as-self with a `latex_compile_unhardened`
@@ -68,6 +68,13 @@ safety only.
   `../../evil.png`, `/etc/passwd`, `sub/dir/plot.pdf` all flatten to basenames in the job dir,
   nothing escapes. Audit line `latex_compile_unhardened` emitted once per compile as expected off
   the image.
+
+## Amendment (2026-07-21)
+
+- Owner decision: dropped `--only-cached`. Tectonic may fetch missing packages from its bundle CDN
+  at compile (its only egress; no document-directed SSRF). Verified a paper with unwarmed packages
+  (12pt + geometry + enumitem) compiles to a 200 application/pdf. The uid-drop / scrubbed-env /
+  /data-0700 protections are unaffected.
 
 ## Follow-ups
 

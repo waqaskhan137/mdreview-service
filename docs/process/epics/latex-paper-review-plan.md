@@ -142,7 +142,7 @@ sequenceDiagram
     S->>W: enqueue(rid) via decorator, after lock
     S-->>A: 200
     W->>W: job dir: paper.tex plus assets (basename-mapped, chown compile uid)
-    W->>W: tectonic -X compile --untrusted --only-cached --keep-logs (user=tectonic, scrubbed env, timeout 60s)
+    W->>W: tectonic -X compile --untrusted --keep-logs (user=tectonic, scrubbed env, timeout 60s)
     alt exit 0
         W->>W: move paper.pdf, compile.log, status(ok) into rid/latex/ (skip if review deleted)
     else nonzero or timeout
@@ -161,7 +161,9 @@ released 2026-04-17):
   `ENV TECTONIC_UNTRUSTED_MODE=1` in the image so a later CLI arg cannot re-enable.
 - Packages download on first use into the cache (`TECTONIC_CACHE_DIR`); **pre-warm at image
   build** by compiling a representative preamble (amsmath, amssymb, natbib, graphicx, hyperref,
-  booktabs, xcolor), then run with `--only-cached` so runtime needs zero network. Warmed cache is
+  booktabs, xcolor), so typical compiles are fast/offline. **Amendment (owner, 2026-07-21): the
+  compile does NOT use `--only-cached`** (it failed on any unwarmed resource); Tectonic may fetch
+  missing packages from its bundle CDN at compile time, its only egress. Warmed cache is
   tens of MB. The baked cache is world-readable so the unprivileged compile user can read it.
 - bibtex/natbib runs automatically (capped at 6 reruns). **biblatex/biber is NOT integrated**:
   named non-goal. Engine is XeTeX-based: pdflatex-only primitives differ; named limitation.
@@ -247,7 +249,11 @@ Download button (HTML5 `download` attribute), Source/PDF tabs under 880px.
 
 - `--untrusted` + `TECTONIC_UNTRUSTED_MODE=1`: shell-escape and known-insecure features off,
   cannot be re-enabled per-invocation. No code execution.
-- `--only-cached`: zero network at compile time.
+- Network (owner amendment 2026-07-21): NOT `--only-cached`. The compile may fetch missing
+  resources from Tectonic's bundle CDN (its only egress; the document cannot direct it elsewhere,
+  so no document-controlled SSRF). `--only-cached` was dropped because it hard-failed on any
+  unwarmed font/package; the build-time warm cache keeps the common case fast/offline. Lock egress
+  to the bundle host at the container level for zero-trust.
 - Fresh empty job dir per compile; 60s subprocess timeout; `_disk_low()` check before enqueueing;
   compile output size cap (~50 MB).
 - **Write-side traversal, closed by construction:** asset copy-in maps every manifest `name` to
