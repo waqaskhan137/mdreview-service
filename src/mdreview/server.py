@@ -323,9 +323,12 @@ class H(BaseHTTPRequestHandler):
             if self._disk_low():
                 return self._json(507, {"error": "insufficient storage"})
             b = self._body_json()
+            kind = b.get("kind", "markdown") or "markdown"
+            if kind not in ("markdown", "latex"):
+                return self._json(400, {"error": "kind must be 'markdown' or 'latex'"})
             rid = app.reviews.create(b.get("markdown", ""), b.get("title", ""),
                                   b.get("project", ""), b.get("source_path", ""),
-                                  b.get("session", ""), owner=(uid or ""))
+                                  b.get("session", ""), owner=(uid or ""), kind=kind)
             base = self._base()
             return self._json(201, {
                 "id": rid,

@@ -1,7 +1,7 @@
 ---
 id: MR-093
 title: kind plumbing: POST /api/reviews + ReviewService.create, persisted only when latex
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-29
@@ -19,14 +19,15 @@ output byte-identical (the critic's round-1 must-fix).
 
 ## Acceptance criteria
 
-- [ ] `POST /api/reviews` reads optional `kind`, validated to {"markdown","latex"}, 400 otherwise.
-- [ ] `ReviewService.create(kind=...)` persists `kind` in meta.json ONLY when != "markdown"; no
+- [x] `POST /api/reviews` reads optional `kind`, validated to {"markdown","latex"}, 400 otherwise.
+- [x] `ReviewService.create(kind=...)` persists `kind` in meta.json ONLY when != "markdown"; no
       default key is ever written (summary() is unwhitelisted, reviews.py:54).
-- [ ] Readers use `meta.get("kind", "markdown")`.
-- [ ] Golden transcript (MR-092 oracle) still diffs empty flag-off.
-- [ ] A flag-off `kind=latex` create succeeds, meta carries the field, viewer serves markdown page
+- [x] Readers use `meta.get("kind", "markdown")` (no core reader exists yet; the latex module and
+      dashboard read it in MR-094/MR-098, this ticket establishes the storage contract).
+- [x] Golden transcript (MR-092 oracle) still diffs empty flag-off.
+- [x] A flag-off `kind=latex` create succeeds, meta carries the field, viewer serves markdown page
       (documented harmless state).
-- [ ] Local validation passes: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/mcp_server.py src/watch.py`
+- [x] Local validation passes: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/mcp_server.py src/watch.py`
 
 ## Notes / context
 
@@ -35,11 +36,17 @@ reviews.py:108-123.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-07-21` — `src/mdreview/server.py` POST /api/reviews arm: optional `kind` read + validated
+  (400 on anything but markdown/latex). `src/mdreview/reviews.py` create(): optional `kind`
+  param, persisted only when != "markdown", with the why-comment naming the unwhitelisted
+  summary() surface.
 
 ## Validation
 
-_How this was verified._
+- `2026-07-21` — py_compile green. Oracle vs 94671c1 baseline: 24 steps identical (flag off,
+  no-kind create path byte-identical). Functional (new build, flag off, scratch port 18262,
+  throwaway data): kind=latex create -> meta.kind == "latex"; explicit kind=markdown -> meta has
+  NO kind key; kind=pdf -> 400; GET /review/{latex-rid} -> 200 markdown viewer page.
 
 ## Follow-ups
 
