@@ -1,0 +1,16 @@
+sprint-30 G7 container smoke — mdreview-service-latex:templates (feat/latex-templates @ 4a592c3) — 2026-07-21
+Fresh throwaway container on :18901, throwaway volume, MDREVIEW_TOKEN_PEPPER planted.
+
+Unconditional G7 smoke:  /healthz -> 200,  /api/reviews -> 200.
+Catalog:  GET /api/latex/templates -> {bundled:[acl,acm,arxiv,elsevier,iclr2026,ieee,lncs], registry:[acl,iclr2026], cached:[]}.
+
+tests/template_smoke.py (hermetic puller): PASS (download+sha256+atomic cache+cache-hit re-verify + 5 guards).
+tests/latex_smoke.py --require-hardened --secret <pepper>: PASS (compile -> application/pdf; cross-review /data \input BLOCKED; env scrubbed).
+
+Template behaviours on the container:
+  bundled ieee   -> starter seeded -> compile ok, /pdf 200.
+  download acl   -> fetched from acl-org repo, sha256-verified, cached at /data/.templates/acl/{acl.sty,acl_natbib.bst}, compile ok, /pdf 200.
+  acl.sty in /app (image source): 0 files  (downloaded style bytes live ONLY in /data, never baked into the image — the hard rule holds).
+  unknown template 'zzz' -> 400 {error: unknown template}.
+
+No product page (viewer/dashboard/latex-viewer/static) touched in sprint-30, so no per-page render-evidence is owed (backend + MCP only).

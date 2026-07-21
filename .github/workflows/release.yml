@@ -67,3 +67,15 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/mdreview-watcher:${{ env.VERSION }}
             ghcr.io/${{ github.repository_owner }}/mdreview-watcher:latest
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Build + push the latex service image (amd64; separate package keeps the slim image + prod :latest untouched)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile.latex
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/mdreview-service-latex:${{ env.VERSION }}
+            ghcr.io/${{ github.repository_owner }}/mdreview-service-latex:latest
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

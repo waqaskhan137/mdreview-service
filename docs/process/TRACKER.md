@@ -3,9 +3,22 @@
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of
 truth; move a row here whenever a ticket's `status` changes.
 
-Last updated: 2026-06-25. **sprint-26 (viewer-transparency, GH #27) CLOSED at G7 — MR-073/075 done; epic complete; owner confirmed working; awaiting the standing dev→main PR.** **sprint-25 (watcher-container, GH #30) CLOSED at G7 — MR-069-072 done; epic complete; awaiting the standing dev→main PR.** **sprint-24 (watcher-observability, GH #26) CLOSED at G7 — MR-066/067/068 done; epic complete; awaiting the standing dev→main PR.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
+Last updated: 2026-07-21. **sprint-30 (latex-template-catalog) ACTIVE on feat/latex-templates (cut from dev after PR #62 merged the latex feature to dev). G1 passed 2026-07-21 (staff-critic, 2 rounds, hosted review a4b479b1ac). MR-101..107 ALL DONE (7/7). Sprint-30 CLOSED at G7 2026-07-22 (CLOSE-WITH-NOTES). Awaiting feat/latex-templates -> dev PR.** **sprint-29 (latex-paper-review) ACTIVE on standing branch `feat/latex-review` (cut from consolidated dev @ 94671c1; merges to dev only on explicit owner approval). G1 passed 2026-07-21 (staff-critic, 2 rounds, on hosted mdreview review 9215476104; `reviews/latex-paper-review-plan-review-2026-07-21.md`). MR-091..095 done; MR-096/097 in review (docker build owed; --only-cached decision open); MR-091..100 ALL DONE (10/10); latex image BUILT + hardened smoke PASSED. --only-cached dropped (bundle fetch). Sprint-29 still needs its G7 close review.** **sprint-26 (viewer-transparency, GH #27) CLOSED at G7 — MR-073/075 done; epic complete; owner confirmed working; awaiting the standing dev→main PR.** **sprint-25 (watcher-container, GH #30) CLOSED at G7 — MR-069-072 done; epic complete; awaiting the standing dev→main PR.** **sprint-24 (watcher-observability, GH #26) CLOSED at G7 — MR-066/067/068 done; epic complete; awaiting the standing dev→main PR.** **sprint-12 (mcp-agent-effectiveness) CLOSED at G7 (staff-critic PASS, 0 BLOCKER/0 SHOULD/1 NIT)** — the MCP is now provably self-serve: `agent_smoke.py` drives the wrapper as an agent and proves create → `attach_asset(path=…)` → `<img>` renders (`naturalWidth>0`) with zero human curl, and a stale server is detectable (`server_info` `tools_hash` + `--print-version` + reconnect). G1 passed 2 rounds. **Awaiting the standing dev→main PR.** **sprint-11 (comment-resolution) + sprint-10 (dashboard) merged to main via PR #9.** sprint-09 (dashboard-redesign) merged to main (PR #8). sprint-08 (render-fidelity) merged to main (PR #7). sprint-07 (theme-awareness) merged to main (PR #6). sprint-06 (rich-rendering) merged to main (PR #5). sprint-05 (landing-page) merged to main (PR #4); page LIVE at https://mdreview.waqasrana.space/ (HTTPS enforced).
 
 ## Active sprint
+
+**EPIC `latex-paper-review` ACTIVE. sprint-29 opened 2026-07-21** on standing branch
+`feat/latex-review` (dev consolidated first per owner: ff to main @ `94671c1`; branch merges to
+dev only on explicit owner approval; dev -> main stays G8). G1 PASS 2026-07-21 (staff-critic,
+2 rounds on hosted review 9215476104: r1 needs-revision with 1 must-fix [default `kind` would leak
+through unwhitelisted `summary()` and break the flag-off golden-transcript oracle] + 6
+worth-considering, all applied; r2 proceed-with-named-risks; owner approved with the compile
+hardenings in scope). Opt-in Overleaf-style LaTeX paper review: `src/latex_review/` module behind
+`MDREVIEW_ENABLE_LATEX=1` via a 3-line core IoC seam + additive `kind` (persisted only when
+latex); live Tectonic compile (scrubbed env + unprivileged uid + `/data` 0700); split viewer
+`latex-viewer.html` reusing the comment system with `block_num` = source line; separate amd64-only
+`mdreview-service-latex` image; no turn baton (pull-based feedback). **MR-091 done** (brief + epic
++ G1 record). **MR-092..MR-100 ready** per `sprints/sprint-29.md`.
 
 **EPIC `oop-refactor-src-layout` COMPLETE. sprint-27 CLOSED at G7 2026-06-25** (staff-critic close PASS 0 BLOCKER/0 SHOULD/2 NIT, `reviews/sprint-27-close-review-2026-06-25.md`; independent rebuild + full HTTP contract + per-page DOM + lease/wake + mcp/agent smokes, live `:8139` untouched). G1 PASS 2026-06-25 (2 rounds; r1 CHANGES-REQUESTED on 1 blocker [the router→service boundary missed the inline GET/DELETE comment arms + a gameable acceptance grep], fixed in r2). Tier B internal-quality refactor on branch `refactor/oop-src-layout`: all 11 tickets (MR-076-086) `done`; all code under `src/` (the `src/mdreview/` package: `config`/`store`/`comments`/`assets`/`reviews`/`handoff`/`server` + `__main__`, plus standalone `mcp_server.py`/`watch.py`), clean root, frontend→`web/`, smokes→`tests/`, infra at root. `app.py`'s monolith is wired by **constructor injection** (one `Store` into the service classes, bundled on `MdreviewServer` the handler reads via `self.server.app`); ships from `python -m mdreview`. **Byte-identical** API (golden curl transcript 41/41 at every commit); no-store-helper contract ZERO hits. **Merged current `dev` (incl. the sprint-28 viewer-dashboard reskin) into the branch, so the reskin is preserved at `web/viewer.html` + `web/dashboard.html`; PR #33 → dev (owner's G8 call).**
 
@@ -243,6 +256,13 @@ sprint-01/02/03/04/05/06/07/08/09 shipped to main (PR #1, #2, #3, #4, #5, #6, #7
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-096 | Dockerfile.latex + release step (amd64-only) | infra | P1 | sprint-29 |
+| MR-097 | latex-viewer.html per approved mockup | ui | P1 | sprint-29 |
+| MR-098 | Dashboard LATEX chip + kind-aware statusOf | ui | P2 | sprint-29 |
+| MR-099 | MCP create_review kind + latex-aware wording | svc | P2 | sprint-29 |
+| MR-100 | Docs sweep: README, gate refs, runbook | docs | P1 | sprint-29 |
+| MR-099 | MCP create_review kind + latex-aware wording | svc | P2 | sprint-29 |
+| MR-100 | Docs sweep: README, gate refs, runbook | docs | P1 | sprint-29 |
 
 ## in-progress
 
@@ -251,11 +271,25 @@ _none_
 ## review
 
 _none_
+| MR-098 | Dashboard LATEX chip + kind-aware statusOf | ui | P2 | sprint-29 |
 
 ## done
 
 | ID | Title | Layer | Pri | Sprint |
 |----|-------|-------|-----|--------|
+| MR-107 | Docs sweep (templates) | docs | P1 | sprint-30 |
+| MR-106 | MCP create_review template param | mcp | P2 | sprint-30 |
+| MR-105 | GET /api/latex/templates listing | svc | P2 | sprint-30 |
+| MR-104 | RegistryPuller + template smoke | svc | P1 | sprint-30 |
+| MR-103 | template create plumbing | svc | P1 | sprint-30 |
+| MR-102 | TemplateService + BundledCatalog + DataCache + build() injection | svc | P1 | sprint-30 |
+| MR-101 | Capture latex-template-catalog brief + epic plan + G1 record | docs | P1 | sprint-30 |
+| MR-096 | Dockerfile.latex + release step (BUILT + hardened smoke passed) | infra | P1 | sprint-29 |
+| MR-095 | Hardened Tectonic compile worker + latex smoke | svc | P1 | sprint-29 |
+| MR-094 | latex_review package: routes, auth, self-heal | svc | P1 | sprint-29 |
+| MR-093 | kind plumbing (persisted only when latex) | svc | P1 | sprint-29 |
+| MR-092 | Core IoC seam + golden-transcript oracle | svc | P1 | sprint-29 |
+| MR-091 | Capture latex-paper-review brief + epic plan + G1 record | docs | P1 | sprint-29 |
 | MR-090 | Docs sweep — README / CLAUDE for the re-skinned dashboard & viewer affordances | docs | P2 | sprint-28 |
 | MR-089 | Viewer re-skin — COMMENTS right rail + Resolved panel + bottom open/resolved/history dock | ui | P1 | sprint-28 |
 | MR-088 | Viewer re-skin — chrome (top bar + breadcrumb + title meta) + baton banner + numbered lines + article typography | ui | P1 | sprint-28 |
@@ -350,6 +384,8 @@ _none_
 
 | Epic | Status | Gate | Sprint |
 |------|--------|------|--------|
+| latex-template-catalog | done on feat/latex-templates (G7 CLOSE 2026-07-22; awaiting dev PR) | G1 passed 2026-07-21 (2 rounds) | sprint-30 |
+| latex-paper-review | done on dev (merged PR #62; G7 CLOSE retroactive 2026-07-22; awaiting dev->main G8) | G1 passed 2026-07-21 (2 rounds) | sprint-29 |
 | review-dashboard | done (merged to main 2026-06-08, PR #1) | G1 passed 2026-06-08 | sprint-01 |
 | process-hardening | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-08 (2 rounds) | sprint-02 |
 | process-hardening-2 | done (merged to main 2026-06-08, PR #2) | G1 passed 2026-06-09 (2 rounds) | sprint-03 |
