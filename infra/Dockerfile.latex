@@ -1,0 +1,77 @@
+# LaTeX-enabled service image (MR-096 / latex-paper-review epic). Same stdlib-only Python service as
+# infra/Dockerfile, PLUS a pinned Tectonic binary and a warmed bundle cache, so a kind=latex review
+# compiles server-side. Kept SEPARATE from the slim image and published under a DIFFERENT package
+# (mdreview-service-latex): the slim image and the hosted prod compose pinning mdreview-service:latest
+# are byte-untouched, and only a deployment that opts in pulls the fatter latex image.
+#
+# amd64-only (see release.yml): the cache warm-up RUNs Tectonic at build time, and emulating the
+# aarch64 binary under QEMU is the multi-minute tax the watcher image already avoids. arm64 waits for
+# a real arm64 deploy target.
+FROM python:3.12-slim
+
+# Pinned Tectonic (static musl binary; version + sha256 pinned for reproducibility). Bump both
+# together from https://github.com/tectonic-typesetting/tectonic/releases.
+ARG TECTONIC_VERSION=0.16.9
+ARG TECTONIC_SHA256=60b13a0826ae7ad9ce34b4a2df06bff2cfcfa6dda8a915477c0cbb84e1a4a902
+
+ENV MDREVIEW_DATA=/data \
+    PORT=8080 \
+    PYTHONUNBUFFERED=1 \
+    MDREVIEW_WEB_DIR=/app/web \
+    PYTHONPATH=/app/src \
+    MDREVIEW_ENABLE_LATEX=1 \
+    TECTONIC_UNTRUSTED_MODE=1 \
+    TECTONIC_CACHE_DIR=/opt/tectonic-cache \
+    MDREVIEW_LATEX_USER=tectonic \
+    MDREVIEW_LATEX_WORKDIR=/opt/latex-jobs
+
+# Fetch + install the Tectonic binary (curl only at build time; runtime is network-free via
+# --only-cached). Verify the checksum before trusting the tarball.
+RUN set -eux; \
+    apt-get update; apt-get install -y --no-install-recommends curl ca-certificates; \
+    rm -rf /var/lib/apt/lists/*; \
+    url="https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%40${TECTONIC_VERSION}/tectonic-${TECTONIC_VERSION}-x86_64-unknown-linux-musl.tar.gz"; \
+    curl -fsSL -o /tmp/tectonic.tar.gz "$url"; \
+    echo "${TECTONIC_SHA256}  /tmp/tectonic.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/tectonic.tar.gz -C /usr/local/bin tectonic; \
+    rm /tmp/tectonic.tar.gz; \
+    tectonic --version
+
+# The unprivileged user the compile subprocess drops to (matches MDREVIEW_LATEX_USER). The server
+# still runs as root; only the tectonic child runs as this uid, and /data is 0700 root so the child
+# cannot read another review's source via \input.
+RUN useradd -r -u 10002 tectonic \
+ && mkdir -p /opt/latex-jobs \
+ && chown tectonic:tectonic /opt/latex-jobs \
+ && chmod 700 /opt/latex-jobs
+
+WORKDIR /app
+COPY src/ ./src/
+COPY web/app/ ./web/
+
+# Warm the Tectonic bundle cache at build time by compiling a representative preamble, so runtime
+# compiles need ZERO network (--only-cached). The cache is world-readable so the tectonic user reads
+# it. Keep this package set in sync with the papers we expect (amsmath..xcolor).
+RUN set -eux; \
+    mkdir -p "$TECTONIC_CACHE_DIR"; \
+    warm=/tmp/warm; mkdir -p "$warm"; \
+    printf '%s\n' \
+      '\documentclass{article}' \
+      '\usepackage{amsmath,amssymb,natbib,graphicx,hyperref,booktabs,xcolor}' \
+      '\begin{document}\section{Warm}$E=mc^2$ \textbf{b} \textcolor{red}{r}\end{document}' \
+      > "$warm/warm.tex"; \
+    ( cd "$warm" && tectonic -X compile --keep-logs --outdir . warm.tex ); \
+    test -f "$warm/warm.pdf"; \
+    chmod -R a+rX "$TECTONIC_CACHE_DIR"; \
+    rm -rf "$warm"
+
+# /data is root-only: the compile user must not be able to read any review's source (defence against
+# \input{/data/<other>/source.md}). The server (root) still reads/writes it normally.
+RUN mkdir -p /data && chmod 700 /data
+VOLUME /data
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/healthz').status==200 else 1)"
+
+CMD ["python", "-m", "mdreview"]
