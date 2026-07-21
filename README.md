@@ -150,6 +150,67 @@ no-auth service. Poll `comments_updated` (on `GET /status`) to live-reload threa
 | `PORT` | `8080` | in-container listen port |
 | `MDREVIEW_DATA` | `/data` | storage dir (mount a volume) |
 | `MDREVIEW_PUBLIC_BASE` | empty | if set (e.g. `https://review.example.com`), `review_url`/`feedback_url` use it; otherwise the request Host header is used |
+| `MDREVIEW_ENABLE_LATEX` | off | opt-in: enable the LaTeX paper review mode (see below). Requires the `mdreview-service-latex` image (Tectonic); the default slim image has no LaTeX toolchain |
+
+## LaTeX paper review (optional)
+
+An opt-in mode for reviewing research papers Overleaf-style: LaTeX source (line-numbered,
+highlighted) on the left, a **live server-compiled PDF** on the right, with the same comment system
+as markdown reviews (comments anchor to source lines) and a Download-PDF button. There is no turn
+baton in this mode — comment freely in the browser, then ask the coding agent in your CLI to collect
+feedback.
+
+- **Enable it:** run the separate LaTeX image with the flag set. The default slim image is
+  unchanged and never carries the toolchain.
+  ```sh
+  docker run -d -p 8137:8080 -v mdreview-data:/data \
+    ghcr.io/<owner>/mdreview-service-latex:latest      # ENABLE_LATEX + Tectonic baked in
+  ```
+- **Create one** (agent, over MCP): `create_review(markdown=<raw .tex>, kind="latex")`; push
+  revisions with `update_source` (the server recompiles on each push). Or over HTTP:
+  `POST /api/reviews {"markdown": "<raw .tex>", "kind": "latex"}`.
+- **What compiles:** a single `.tex` document. Figures attach as assets referenced by **bare
+  filename** (`\includegraphics{fig.png}`); subdirectory paths and multi-file `\input` are not
+  supported in v1. Bibliographies use bibtex/natbib (biblatex/biber is not supported — Tectonic).
+  The engine is XeTeX-based, so it differs from pdflatex in minor ways.
+- **Compile failures** show a banner + the TeX log in the PDF pane; the last good PDF stays visible.
+- **Networking:** the compile is not `--only-cached`. The image pre-warms a common resource cache
+  (fast, offline for typical papers), but a paper using something unwarmed will fetch it from
+  Tectonic's bundle CDN at compile time — the compile's only network egress (the document cannot
+  redirect it). Lock egress to the Tectonic bundle host at the container/network level if you want
+  zero-trust egress.
+- **Security:** the compile runs `--untrusted` (no shell-escape) as an unprivileged user with a
+  scrubbed environment, and `/data` is `0700` so a malicious `\input` cannot read other reviews'
+  sources. Full posture: `docs/process/epics/latex-paper-review-plan.md`.
+
+> The default `mdreview-service` image and the Python runtime stay stdlib-only (zero pip). The
+> opt-in latex image adds one system binary (Tectonic), invoked via `subprocess`; it changes
+> nothing about the default image.
+
+### LaTeX image — operator runbook
+
+```sh
+# Build (amd64; the warm-up runs Tectonic, so build on amd64, not under arm64 emulation):
+docker build -f infra/Dockerfile.latex -t mdreview-service-latex .
+
+# Smoke it on a THROWAWAY container + scratch port + throwaway volume (never :8137/:8139 or the
+# live mdreview-data volume):
+docker run -d --name mdr-latex-smoke -p 18999:8080 -v mdr-latex-scratch:/data mdreview-service-latex
+python3 tests/latex_smoke.py http://localhost:18999 --require-hardened   # binds the uid/0700/env checks
+#   add --secret <your MDREVIEW_TOKEN_PEPPER> to also assert env scrubbing
+docker rm -f mdr-latex-smoke && docker volume rm mdr-latex-scratch
+
+# Pre-existing /data volume (created before this image): tighten it ONCE so the compile user cannot
+# read other reviews' sources (fresh volumes are 0700 by the image already):
+docker exec <container> chmod 700 /data
+```
+
+- **MCP reconnect:** enabling latex changed the MCP tool schema (`create_review` gained `kind`), so
+  `tools_hash` bumped. Any connected stdio MCP client must reconnect to see it (`python3
+  src/mcp_server.py --print-version` reports the current hash).
+- **Egress:** if the deployment must not reach the internet, either accept that unwarmed papers
+  fail (broaden the warm-up preamble in `infra/Dockerfile.latex`) or allowlist only the Tectonic
+  bundle host at the network layer.
 
 ## MCP server (optional)
 

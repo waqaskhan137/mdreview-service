@@ -1,7 +1,7 @@
 ---
 id: MR-100
 title: Docs sweep: README, gate refs, latex-image runbook
-status: ready
+status: done
 layer: docs
 priority: P1
 sprint: sprint-29
@@ -19,18 +19,17 @@ eligible for carry-over (G7): this closes inside sprint-29.
 
 ## Acceptance criteria
 
-- [ ] README: latex review mode section (enable flag, latex image, what works, non-goals incl.
-      biblatex/XeTeX/bare-filename figures), stdlib-only claim gains the one-sentence
-      qualification (opt-in image adds a system binary).
-- [ ] Live gate refs gain `src/latex_review/*.py`: docs/process/README.md validation-gate
-      statement, development-flow step 5, the G4 row, and templates/ticket.md AC line. Historical
-      records stay frozen.
-- [ ] G7 product-page enumeration gains `web/app/latex-viewer.html`.
-- [ ] Runbook for the latex image: build/run commands, scratch-port throwaway validation pattern,
-      one-time `chmod 700 /data` for pre-existing volumes, MCP reconnect note.
-- [ ] Grep-gated: no live doc still claims the py_compile gate without the latex glob; no doc
-      claims zero system binaries unqualified.
-- [ ] Local validation passes: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/latex_review/*.py src/mcp_server.py src/watch.py`
+- [x] README: "LaTeX paper review (optional)" section (enable flag + latex image, create via MCP/
+      HTTP, what compiles, bare-filename figures, biblatex/XeTeX non-goals, compile-failure UX,
+      networking, security); stdlib-only claim qualified (opt-in image adds one system binary).
+- [x] Live gate refs gain `src/latex_review/*.py`: docs/process/README.md validation-gate
+      statement, dev-flow step 5, the G4 row, and templates/ticket.md AC line. Historical records
+      untouched.
+- [x] G7 product-page enumeration + the `ui` layer table gain `web/app/latex-viewer.html`.
+- [x] Runbook for the latex image: build/smoke (throwaway container + scratch port + throwaway
+      volume), one-time `chmod 700 /data` for pre-existing volumes, MCP reconnect note, egress note.
+- [x] Grep-gated: no live gate ref lacks the latex glob; stdlib claim qualified.
+- [x] Local validation passes: `python3 -m py_compile ...`
 
 ## Notes / context
 
@@ -39,11 +38,16 @@ precedent grep-gated sweep.
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-07-21` — README latex section + `MDREVIEW_ENABLE_LATEX` config row + operator runbook +
+  stdlib-qualification. `docs/process/README.md`: 3 live py_compile gate refs, the `ui` layer-table
+  row, and the G7 product-page enumeration all gain the latex paths. `templates/ticket.md` gate
+  line updated. Epic plan security section amended for the --only-cached decision.
 
 ## Validation
 
-_How this was verified._
+- `2026-07-21` — grep gate: `grep -rn "py_compile src/mdreview" README.md docs/process/README.md
+  templates/ticket.md | grep -v latex_review` is EMPTY (all live refs carry the glob); README
+  carries the qualified stdlib claim. Historical TRACKER/sprint/ticket mentions left frozen.
 
 ## Follow-ups
 

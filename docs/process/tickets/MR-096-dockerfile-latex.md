@@ -70,5 +70,3 @@ tarball and hashing it (60b13a0826ae7ad9ce34b4a2df06bff2cfcfa6dda8a915477c0cbb84
   `python3 tests/latex_smoke.py http://localhost:<scratch> --require-hardened --secret <pepper>`
   to bind the uid-drop + 0700 + env-scrub assertions.
 
-## Follow-ups
-

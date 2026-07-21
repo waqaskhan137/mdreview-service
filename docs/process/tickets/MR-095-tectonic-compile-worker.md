@@ -81,5 +81,3 @@ safety only.
 - G7 runs `latex_smoke.py --require-hardened --secret <pepper>` against the rebuilt latex image so
   the uid-drop + 0700 + env-scrub assertions bind (they only WARN in unhardened dev).
 
-## Follow-ups
-
