@@ -12,9 +12,10 @@ holds the lock across a compile: the compile itself runs on the worker thread.
 
 
 class LatexAwareReviews:
-    def __init__(self, inner, worker):
+    def __init__(self, inner, worker, templates=None):
         self._inner = inner
         self._worker = worker
+        self._templates = templates     # TemplateService: seed source + validate id (used in MR-103)
 
     def __getattr__(self, name):
         # Every method not overridden below (exists, meta, summary, list_reviews, bump,

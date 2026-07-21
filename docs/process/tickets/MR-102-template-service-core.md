@@ -1,7 +1,7 @@
 ---
 id: MR-102
 title: TemplateService + BundledCatalog + DataCache + ReviewCreateRejected + build() injection
-status: ready
+status: done
 layer: svc
 priority: P1
 sprint: sprint-30
@@ -20,17 +20,16 @@ for the CTAN classes. No network yet.
 
 ## Acceptance criteria
 
-- [ ] `src/mdreview/` gains a core-defined `ReviewCreateRejected` base exception (carries `status` +
-      `available`); core never imports `latex_review`.
-- [ ] `src/latex_review/templates.py`: `TemplateService`, `BundledCatalog`, `DataCache`,
-      `UnknownTemplate(ReviewCreateRejected)`; `resolve/starter/companion_files/available`.
-- [ ] `src/latex_review/templates/<id>/` starter `.tex` skeletons for IEEE/ACM/arXiv/LNCS/Elsevier
-      (CTAN classes; no companion files needed).
-- [ ] `build()` (`__init__.py:16-21`) assembles the resolver chain and injects `templates` into
-      `CompileWorker`, `LatexAwareReviews`, `LatexModule` (constructors gain the arg); puller NOT
-      added yet (MR-104). Flag-off unaffected.
-- [ ] IoC test: with the registry disabled, the resolver chain has no puller (test double).
-- [ ] Local validation passes: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/latex_review/*.py src/mcp_server.py src/watch.py`
+- [x] `src/mdreview/errors.py`: core-defined `ReviewCreateRejected` (status + payload); core does
+      not import `latex_review` (flag-off import graph unchanged, grep-verified).
+- [x] `src/latex_review/templates.py`: `TemplateService`, `BundledCatalog`, `DataCache`,
+      `UnknownTemplate(ReviewCreateRejected)`; `known_ids/available/require/starter/companion_files`.
+- [x] Starter `.tex` skeletons for IEEE/ACM/arXiv/LNCS/Elsevier (CTAN classes; empty companion set).
+- [x] `build()` assembles `TemplateService(BundledCatalog(), DataCache(store))` and injects it into
+      `CompileWorker`, `LatexAwareReviews`, `LatexModule` (constructors gained the arg, stored, not
+      yet used in create/compile — that is MR-103/104). Puller NOT added (MR-104).
+- [x] IoC: registry disabled ⇒ `svc._puller is None` (unit-verified).
+- [x] Local validation passes: `python3 -m py_compile ...`
 
 ## Notes / context
 
@@ -40,10 +39,17 @@ non-CTAN style (deferred to MR-103 where the top styles are bundled).
 
 ## Work log
 
-_Filled in during implementation._
+- `2026-07-21` — `src/mdreview/errors.py` (ReviewCreateRejected). `src/latex_review/templates.py`
+  (TemplateService + BundledCatalog + DataCache + UnknownTemplate). 5 CTAN starter dirs under
+  `src/latex_review/templates/`. `build()` assembles + injects the service; CompileWorker /
+  LatexAwareReviews / LatexModule constructors gained a `templates` arg.
 
 ## Validation
 
-_How this was verified._
+- `2026-07-21` — py_compile green. Unit: 5 starters resolve with the right class names; CTAN classes
+  return `[]` companions; unknown id → `UnknownTemplate(ReviewCreateRejected)` status 400 + available
+  list; `_puller is None` when registry disabled. Flag-on boots; a base latex review still compiles
+  (no regression from the constructor changes). Flag-off golden oracle: 23/23 byte-identical
+  (errors.py unimported by core; build() flag-gated).
 
 ## Follow-ups

@@ -16,11 +16,12 @@ from mdreview.config import RID, WEB_DIR
 
 
 class LatexModule:
-    def __init__(self, store, reviews, comments, worker):
+    def __init__(self, store, reviews, comments, worker, templates=None):
         self.store = store
         self.reviews = reviews
         self.comments = comments
         self.worker = worker
+        self.templates = templates      # TemplateService: catalog listing (used in MR-105)
         self._page_path = os.path.join(WEB_DIR, "latex-viewer.html")
 
     def _is_latex(self, rid):

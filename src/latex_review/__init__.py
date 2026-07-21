@@ -11,11 +11,16 @@ latex review recompiles on create/put_source, and returns (module, wrapped_revie
 from latex_review.compiler import CompileWorker
 from latex_review.decorator import LatexAwareReviews
 from latex_review.module import LatexModule
+from latex_review.templates import BundledCatalog, DataCache, TemplateService
 
 
 def build(store, reviews, comments, assets):
-    worker = CompileWorker(store, reviews, assets)
+    # Composition root: assemble the template resolver chain by config and inject it. The
+    # RegistryPuller (download-on-miss) is added only when the registry is enabled (MR-104), so a
+    # flag-on-but-registry-off deployment carries no network path. Core imports nothing of this.
+    templates = TemplateService(BundledCatalog(), DataCache(store))
+    worker = CompileWorker(store, reviews, assets, templates)
     worker.start()
-    wrapped = LatexAwareReviews(reviews, worker)
-    module = LatexModule(store, wrapped, comments, worker)
+    wrapped = LatexAwareReviews(reviews, worker, templates)
+    module = LatexModule(store, wrapped, comments, worker, templates)
     return module, wrapped

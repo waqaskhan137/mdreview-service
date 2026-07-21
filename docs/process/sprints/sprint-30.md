@@ -20,7 +20,7 @@ the image. On branch `feat/latex-templates` (cut from dev after PR #62), single 
 | ID | Title | Layer | Pri | Status |
 |----|-------|-------|-----|--------|
 | MR-101 | Capture brief + epic plan + G1 record | docs | P1 | done |
-| MR-102 | TemplateService + BundledCatalog + DataCache + ReviewCreateRejected + build() injection | svc | P1 | ready |
+| MR-102 | TemplateService + BundledCatalog + DataCache + ReviewCreateRejected + build() injection | svc | P1 | done |
 | MR-103 | template create plumbing | svc | P1 | ready |
 | MR-104 | RegistryPuller + template smoke | svc | P1 | ready |
 | MR-105 | GET /api/latex/templates listing | svc | P2 | ready |

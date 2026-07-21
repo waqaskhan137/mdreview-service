@@ -31,10 +31,11 @@ MAX_PDF_BYTES = int(os.environ.get("MDREVIEW_LATEX_MAX_PDF", str(50 * 1024 * 102
 
 
 class CompileWorker:
-    def __init__(self, store, reviews, assets):
+    def __init__(self, store, reviews, assets, templates=None):
         self.store = store
         self.reviews = reviews          # base ReviewService (meta/read_source are not overridden)
         self.assets = assets            # AssetService: figure copy-in for \includegraphics
+        self.templates = templates      # TemplateService: companion file-set copy-in (used in MR-103)
         self._q = queue.Queue()
         # Coalescing state, guarded by _lock: a rid waiting in the queue is in _queued; the rid
         # being compiled right now is _running; a source push that arrives while a rid is running
