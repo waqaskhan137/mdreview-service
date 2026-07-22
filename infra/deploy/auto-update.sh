@@ -16,7 +16,7 @@ SERVICE="${MDR_SERVICE:-mdreview}"
 # hardcoding a tag risks watching a different image than `compose up` recreates, so the updater would
 # forever "see a new digest" it can never apply. Fall back to the -latex prod default if not running.
 IMAGE="${MDR_IMAGE:-$(docker inspect --format '{{.Config.Image}}' "$SERVICE" 2>/dev/null)}"
-IMAGE="${IMAGE:-ghcr.io/waqaskhan137/mdreview-service-latex:latest}"
+IMAGE="${IMAGE:-ghcr.io/ranawaqas-ai/mdreview-service-latex:latest}"
 HEALTH="${MDR_HEALTH:-http://127.0.0.1:8140/healthz}"
 AUTHPROBE="${MDR_AUTHPROBE:-http://127.0.0.1:8140/api/reviews}"   # MUST be 401 when auth is enforced
 LOG="${MDR_LOG:-$DEPLOY_DIR/auto-update.log}"
