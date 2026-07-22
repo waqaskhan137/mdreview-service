@@ -1,3 +1,9 @@
+> **ARCHIVED 2026-07-22.** This parking lot is frozen history. Every live bullet was migrated
+> to [GitHub issues #70-#80](https://github.com/ranawaqas-ai/mdreview-service/issues); new ideas
+> become `status:backlog` issues directly. Working agreement:
+> [`docs/process/README.md`](README.md). This archive may be deleted once the GitHub-only
+> process has proven stable.
+
 # Backlog — deferred / not-yet-groomed ideas
 
 Parking lot. Promote an item to a ticket (and into a sprint) when it is ready to groom. Keep each
