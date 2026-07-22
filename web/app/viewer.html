@@ -77,7 +77,14 @@
   .blk.has-note .num::after{content:" \25CF";color:var(--noteline);}
   @media (max-width:820px){.blk .num{left:-30px;width:22px;font-size:11px;}.wrap{padding-left:40px;}}
   #addbtn{position:absolute;z-index:50;display:none;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-family:-apple-system,sans-serif;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);}
-  #pop{position:fixed;z-index:60;display:none;width:330px;background:var(--bg);border:1px solid var(--rule);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.3);padding:14px;}
+  /* Issue #44: composer floats beside the article (positionPop), where the gutter cards live. width
+     284px (was 330) = the .gcard width, so it fits inside the wide gate's envelope — left is rect.right+24
+     and the gate needs innerWidth >= rect.right+320, so 24+284=308 < 320 — instead of overflowing the edge. */
+  #pop{position:fixed;z-index:60;display:none;width:284px;background:var(--bg);border:1px solid var(--rule);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.3);padding:14px;}
+  /* narrow fallback: dock (mirrors #gutter.docked); auto!important beats the wide branch's inline left/top.
+     .top docks upper-right instead, chosen opposite the anchor so the composer never covers it (issue #44 AC3). */
+  #pop.docked{right:18px;bottom:70px;top:auto!important;left:auto!important;width:360px;}
+  #pop.docked.top{top:18px!important;bottom:auto;}
   #pop .q{font-size:13px;color:var(--muted);font-style:italic;margin:0 0 8px;max-height:64px;overflow:auto;font-family:-apple-system,sans-serif;}
   #pop textarea{width:100%;min-height:74px;font-family:-apple-system,sans-serif;font-size:14px;border:1px solid var(--rule);border-radius:6px;padding:8px;background:var(--bg);color:var(--text);resize:vertical;}
   #pop .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;}
@@ -748,7 +755,29 @@ function layoutComments(){
     if(!G.classList.contains('docked'))G.style.display='none';   // narrow: hidden unless toggled docked
   }
 }
-window.addEventListener('resize',()=>{try{layoutComments();}catch(e){}});
+// Issue #44: place the composer BESIDE the anchored block (where comment cards live), never over it.
+// Mirrors layoutComments' wide/narrow gate + right-margin x. #pop is position:fixed so it uses VIEWPORT
+// coords — NO window.scroll* (unlike layoutComments' absolute #gutter, which adds scrollX at line 740).
+function positionPop(){
+  const pop=$("#pop");if(pop.style.display!=='block')return;   // closed: no-op (safe from the resize handler)
+  const A=$("#article");if(!A)return;
+  const rect=A.getBoundingClientRect();
+  const blk=cur&&document.querySelector('.blk[data-num="'+cur.block_num+'"]');   // graft: null-safe if the block's gone
+  if(window.innerWidth>=rect.right+320){                       // wide: float beside the gutter-card column
+    pop.classList.remove('docked');
+    const popH=pop.offsetHeight;                               // measured after display:block, before positioning
+    pop.style.left=(rect.right+24)+'px';                       // layoutComments' x (line 740) minus scrollX (fixed)
+    const anchorTop=blk?blk.getBoundingClientRect().top:(window.innerHeight-popH)/2;
+    pop.style.top=Math.max(12,Math.min(window.innerHeight-popH-12,anchorTop))+'px';   // AC2: clamp top/bottom on-screen
+  }else{                                                       // narrow: dock on the viewport half OPPOSITE the anchor
+    pop.classList.add('docked');                              // CSS top/left:auto!important beats the wide inline styles
+    // AC3: anchor in the lower half -> dock top-right; upper half (or no anchor) -> bottom-right. The composer
+    // and the block sit on opposite halves, so it never covers the anchored block (no scroll hack, no residual).
+    const low=blk&&blk.getBoundingClientRect().top>window.innerHeight/2;
+    pop.classList.toggle('top',!!low);
+  }
+}
+window.addEventListener('resize',()=>{try{layoutComments();positionPop();}catch(e){}});
 
 // selection -> "+ comment" button (the single author surface: a highlight starts a comment)
 const addbtn=$("#addbtn");
@@ -776,8 +805,7 @@ function openPop(c){
   $("#popq").textContent=(c.quoted_text===''?'Block #'+c.block_num+' (whole paragraph)':'#'+c.block_num+': "'+c.quoted_text+'"');
   $("#popnote").value="";
   const pop=$("#pop");pop.style.display='block';
-  pop.style.left=Math.max(12,Math.min(window.innerWidth-342,window.innerWidth/2-165))+'px';
-  pop.style.top=(window.innerHeight/2-120)+'px';
+  positionPop();                                               // issue #44: beside the anchor, not viewport-center
   $("#popnote").focus();
 }
 $("#popcancel").onclick=()=>$("#pop").style.display='none';
