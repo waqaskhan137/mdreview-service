@@ -13,9 +13,14 @@ review `79fb2c6f6e`; staff-critic gate passed in 2 rounds).
 ```
 README.md        this working agreement
 product.md       the product goal + principles: the value yardstick for prioritization
-roadmap.md       now/next/later roadmap (created by the product-owner agent on first run)
 evidence/        committed gate evidence: render/binary artifacts per sprint (evidence/sprint-NN/)
 ```
+
+The **roadmap** is NOT a file: it is the GitHub Project
+[**"mdreview Roadmap"**](https://github.com/users/ranawaqas-ai/projects/3) (linked in the
+repo's Projects tab), a single-select **Horizon** field with Now / Next / Later. Entries are
+epic issues; the board holds membership + sequencing, the epic issue body holds the why and
+the size. Owner decision 2026-07-22, superseding the plan's roadmap.md default.
 
 **Frozen** (read-only history of the retired file process; each dir carries `_ARCHIVED.md`):
 `tickets/ sprints/ epics/ reviews/ requirements/ templates/ TRACKER.md backlog.md`. Never
@@ -37,7 +42,7 @@ process has proven stable** (owner's call; phase-out intent recorded 2026-07-22)
 | Requirement brief | A marked **verbatim** section in the epic issue body under `## Requirement (verbatim, do not edit)`; never edited afterward (GitHub keeps edit history); amendments as dated comments |
 | Gate evidence, prose | Comments on the sprint's epic issue |
 | Gate evidence, render/binary | Committed under `evidence/sprint-NN/`, linked from the G7 comment (`gh` comments are text-only, and evidence is shipped history that must stay in git) |
-| Strategy | `product.md` and `roadmap.md`, in git; entries link issues |
+| Strategy | `product.md` in git; the roadmap = GitHub Project "mdreview Roadmap" (Horizon: Now/Next/Later), entries = epic issues |
 
 Status lifecycle (unchanged in meaning; closed replaces done):
 
@@ -58,6 +63,7 @@ gh issue list --state open                              # everything
 gh issue list --label status:ready                      # the pickup queue
 gh issue list --label epic --state open                 # live epics
 gh issue list --milestone sprint-NN                     # a sprint's scope
+gh project item-list 3 --owner ranawaqas-ai             # the roadmap (Horizon = Now/Next/Later)
 # DRIFT QUERY — any open issue with zero or 2+ status labels is out of contract:
 gh issue list --state open --json number,title,labels \
   --jq '.[] | select(([.labels[].name | select(startswith("status:"))] | length) != 1) | "\(.number) \(.title)"'
