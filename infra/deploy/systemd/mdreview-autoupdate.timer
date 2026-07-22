@@ -1,0 +1,12 @@
+# issue #88 — fire the auto-update check every 30 minutes.
+[Unit]
+Description=Run mdreview auto-update every 30 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+# Catch up one missed run if the host was asleep/off at the scheduled tick.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
