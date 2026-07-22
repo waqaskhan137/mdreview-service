@@ -1,0 +1,18 @@
+# issue #88 — health-gated auto-update of the hosted mdreview service.
+# Install: see infra/deploy/RUNBOOK-phase1.md "Auto-update". Runs as the deploy user (docker group),
+# oneshot, triggered by mdreview-autoupdate.timer.
+[Unit]
+Description=mdreview hosted service auto-update (pull + health-gated recreate)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=rana
+WorkingDirectory=/home/rana/mdreview-deploy
+ExecStart=/home/rana/mdreview-deploy/auto-update.sh
+# Generous budget: worst case is pull + recreate + a 90s wall-clock health wait + rollback (~170s).
+# Must comfortably exceed that so systemd never SIGTERMs the run mid-gate, before rollback + HELD write
+# (a killed run would latch a hanging bad image via next-tick no-churn). The script self-limits (flock).
+TimeoutStartSec=600

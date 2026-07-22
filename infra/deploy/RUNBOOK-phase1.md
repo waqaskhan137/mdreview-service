@@ -65,3 +65,34 @@ auth-off, stop and fix `MDREVIEW_REQUIRE_AUTH` before leaving it exposed.
 Revert nginx to the Phase 0 vhost (gates everything through oauth2-proxy, no bearer) and reload;
 optionally `docker compose ... up -d` the previous image. The `owner` field and users.json are
 additive and inert to older code. Keep a pre-cutover volume tar for a hard rollback.
+
+## Auto-update (issue #88)
+
+The hosted service updates itself every 30 min: a systemd timer runs `auto-update.sh`, which pulls
+`mdreview-service-latex:latest`, and only if the digest changed recreates the container from this
+single deploy dir and **health-gates** it (`/healthz` 200 AND loopback `/api/reviews` 401 — proving
+it booted with auth enforced). A failed gate rolls back to the previous image and records the bad
+digest in `.autoupdate-bad-digest` so it is not re-tried until a newer image ships. Requires #86 (one
+deploy dir) — auto-updating a drifted config would automate the regression class.
+
+**Prerequisite — ghcr read access.** The host must be able to `docker pull` the service image, or
+auto-update (and manual redeploys) get `denied`. Either the ghcr packages are public, or run
+`docker login ghcr.io` on the host with a `read:packages` PAT (stored in `~/.docker/config.json`).
+Without it the script fails safe — logs `docker pull failed`, skips, old container keeps serving — but
+never applies updates. (Verified 2026-07-22: the host had NO ghcr creds and every pull was denied.)
+
+Install on the host (from a checkout of this repo's `infra/deploy/`, as the deploy user):
+
+```bash
+install -m 755 infra/deploy/auto-update.sh ~/mdreview-deploy/auto-update.sh
+sudo cp infra/deploy/systemd/mdreview-autoupdate.service infra/deploy/systemd/mdreview-autoupdate.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now mdreview-autoupdate.timer
+systemctl list-timers mdreview-autoupdate.timer          # next run shown
+~/mdreview-deploy/auto-update.sh; tail -3 ~/mdreview-deploy/auto-update.log   # dry-run: unchanged digest -> no output/no churn
+```
+
+Verify: a fresh `:latest` is live within 30 min of a release (`docker inspect --format '{{.Image}}'
+mdreview` matches the new image ID); an unchanged digest causes no restart; a review survives an
+update. The `check-drift.sh` tripwire should gain a `mdreview-autoupdate.timer is active` assertion
+when this and #89 land together.
