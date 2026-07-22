@@ -4,6 +4,7 @@ Reads newline-delimited JSON-RPC from stdin, dispatches initialize / tools/list 
 and writes responses to stdout. The agent-visible schema surface lives in tools.py; the HTTP routing
 in client.py. `--print-version` prints the on-disk identity (the staleness comparand) and exits.
 """
+import os
 import sys
 import json
 
@@ -104,6 +105,12 @@ def main():
         # on-disk comparand for staleness checks: print what THIS code would serve, then exit.
         print(json.dumps({"version": SERVER_INFO["version"], "tools_hash": SERVER_INFO["tools_hash"]}))
         return
+    if os.environ.get("MDREVIEW_NO_AUTO_UPDATE", "").lower() not in ("1", "true", "yes"):
+        try:
+            from . import update
+            update.maybe_self_update()  # managed installs track their server; dev trees untouched (#90)
+        except Exception:
+            pass  # self-update is best-effort — never block MCP startup on it
     for msg in read_messages():
         try:
             dispatch(msg)

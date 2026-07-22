@@ -26,9 +26,10 @@ INSTRUCTIONS = (
     "architecture belongs in a ```mermaid diagram, NOT ASCII art or a plain ``` fence (which renders as "
     "monospace text, not a picture). Operate only on reviews you created (on a hosted instance your per-user "
     "token scopes them to you; a local instance is open and single-user). If a tool you expect is missing or misbehaves, the running server may be stale: "
-    "server_info reports its tools_hash, but you CANNOT conclude 'stale' from inside MCP — a human/CI "
-    "compares that hash to the repo's `python3 mcp_server.py --print-version` and reconnects the client "
-    "on a mismatch (the server signals staleness; it cannot reload itself). "
+    "server_info reports its tools_hash, but you CANNOT conclude 'stale' from inside MCP. An installer-managed "
+    "wrapper (~/.mdreview) self-updates from its own server (MDREVIEW_BASE) on startup, so a stale hash usually "
+    "just means that update lands next session — RECONNECT the client. (Auto-update is skipped for repo/dev "
+    "checkouts and when MDREVIEW_NO_AUTO_UPDATE=1; the server can signal staleness but never reloads itself.) "
     "LATEX PAPER REVIEWS: create_review(kind=\"latex\") makes a research-paper review shown in an "
     "Overleaf-style split viewer (LaTeX source + a live server-compiled PDF). For a latex review the "
     "source is RAW LaTeX end to end — push .tex via update_source, read it via get_source — and the "
@@ -303,11 +304,12 @@ TOOLS = [
         "description": "Report THIS running MCP server's identity: name, version, protocol_version, "
                        "tools_hash, tool_count, tool_names — so you can see what the *running* process "
                        "exposes. This SURFACES the running server's identity; it does NOT by itself tell "
-                       "you the server is stale. To check staleness a human/CI compares this tools_hash "
-                       "to the repo's `python3 mcp_server.py --print-version`; on a mismatch, RECONNECT "
-                       "the MCP client (the server can signal, it cannot reload itself). An MCP-only "
-                       "agent cannot self-detect staleness — it has the running hash but no on-disk "
-                       "comparand over MCP.",
+                       "you the server is stale. A human/CI compares this tools_hash to the repo's "
+                       "`python3 mcp_server.py --print-version`; a managed wrapper (~/.mdreview) also "
+                       "auto-updates from its server on startup, so on a suspected-stale hash just "
+                       "RECONNECT the MCP client and the update takes effect (the server can signal "
+                       "staleness but never reloads a live process). An MCP-only agent cannot "
+                       "self-detect staleness — it has the running hash but no on-disk comparand over MCP.",
         "inputSchema": {"type": "object", "properties": {}},
     },
 ]
