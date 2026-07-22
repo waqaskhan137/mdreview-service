@@ -14,7 +14,7 @@ services:
     # The hosted instance runs the LaTeX-enabled image (ENABLE_LATEX baked in) — this must match live
     # so a redeploy reproduces it (issue #86). The slim ghcr.io/.../mdreview-service:latest is the
     # non-LaTeX variant; do not use it here.
-    image: ghcr.io/waqaskhan137/mdreview-service-latex:latest
+    image: ghcr.io/ranawaqas-ai/mdreview-service-latex:latest
     container_name: mdreview
     restart: unless-stopped
     # LOOPBACK-ONLY publish: nginx reaches this on 127.0.0.1; nothing binds a public interface.
