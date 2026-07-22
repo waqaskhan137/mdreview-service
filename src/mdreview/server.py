@@ -95,7 +95,9 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
-        self.wfile.write(body)
+        # HEAD (#75): identical status + headers (incl. Content-Length above) as GET, but no body.
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
     def _json(self, code, obj):
         self._send(code, json.dumps(obj), "application/json")
@@ -219,6 +221,11 @@ class H(BaseHTTPRequestHandler):
         self._send(204)
 
     def do_GET(self):
+        self.route("GET")
+
+    def do_HEAD(self):
+        # #75: run the GET route (so status/headers/Content-Length match GET exactly); _send drops the
+        # body for HEAD. Fixes `curl -sI` probes that got 501 from the stdlib handler's missing do_HEAD.
         self.route("GET")
 
     def do_POST(self):
