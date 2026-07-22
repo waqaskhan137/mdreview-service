@@ -98,7 +98,9 @@ grab-bag sprint mints a lightweight epic issue for the same purpose.
    swap its label to `status:in-progress`.
 2. Restate the goal and acceptance criteria (in the issue, as a comment, if they need
    clarification) before touching code.
-3. Implement on a branch cut from `dev` (small changes may commit to `dev` directly).
+3. Implement on a branch cut from current `dev`, named `<kind>/<issue>-slug` (e.g.
+   `fix/15-comment-anchor`). `dev` accepts changes only via PR, so even a small change rides
+   a branch + PR (self-merge is fine, see Branching).
 4. Validate locally: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/latex_review/*.py src/mcp_server.py src/watch.py`;
    for `layer:infra`, `docker build -f infra/Dockerfile`; for `layer:ui`, rebuild from the
    image and assert rendered DOM nodes with `tests/render-smoke.sh <url> <selector>...` (a 200
@@ -109,10 +111,18 @@ grab-bag sprint mints a lightweight epic issue for the same purpose.
 7. Blocked? Swap to `status:blocked`, name the blocker in a comment (and file the prerequisite
    as its own issue; never bury a prerequisite fix inside an unrelated one).
 
-### Branching
+### Branching (enforced by branch protection, not just convention)
 
-All work integrates into `dev`, never directly into `main`. `main` advances only on explicit
-owner go-ahead (G8) via the single standing `dev -> main` PR.
+- Cut every branch from current `dev`; open its PR **against `dev`**. `dev` is protected:
+  PR required, 0 approving reviews (authors cannot approve their own PRs, so a review
+  requirement would deadlock a solo repo; self-merge is the intended flow), force-pushes and
+  deletions blocked. Direct pushes to `dev` are rejected.
+- **Never open a PR against `main`** except the single standing `dev -> main` PR (G8), which
+  accumulates each cycle and is updated, never duplicated. `main` requires 1 approving review
+  plus **signed commits**: merge the standing PR by **squash** in the GitHub UI (GitHub signs
+  the squash commit); a merge-commit or rebase-merge fails on unsigned agent commits.
+- `main` advances only on the owner's explicit G8 go-ahead. Nothing merges around the flow;
+  if `dev` ever trails `main`, something did, reconcile before cutting new branches.
 
 ## Automation
 
