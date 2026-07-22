@@ -1,9 +1,8 @@
 # Product goal
 
-> **Status: DRAFT**, distilled from the landing page + README positioning on 2026-07-22, revised
-> per owner review feedback (mdreview review `3d177a514f`, rev 2). Not yet explicitly approved:
-> treat as provisional, use it but say so. Update it deliberately; it is strategy, not a
-> scratchpad.
+> **Status: APPROVED** by the owner 2026-07-22 (mdreview review `3d177a514f`, rev 2, after two
+> feedback rounds). This is the value yardstick for prioritization and scoring. Update it
+> deliberately and re-approve through review; it is strategy, not a scratchpad.
 
 **North star.** An agent's work never ships past a review the human has not signed off on, and
 earning that sign-off is a tight loop: the agent drafts (markdown or LaTeX), the human reviews
