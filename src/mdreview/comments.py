@@ -9,8 +9,14 @@ store.lock (the route arm wraps the call), exactly as the original free function
 """
 import json
 import os
+import re
 import secrets
 import time
+
+# issue #15: a block id is a content hash (hex) with an optional "-N" duplicate suffix. Persisted from
+# the client anchor, so validate the charset before storing: the viewer looks it up via
+# `.blk[data-bid="…"]`, and an injected quote would break that selector (self-DoS on the author's view).
+_BID_RE = re.compile(r"[0-9a-f]{1,16}(-[0-9]+)?")
 
 
 class CommentService:
@@ -61,15 +67,23 @@ class CommentService:
         role = role if role in ("reviewer", "agent") else "reviewer"
         author = author or role
         anchor = anchor or {}
+        anc = {
+            "quoted_text": anchor.get("quoted_text", ""),
+            "block_num": anchor.get("block_num", ""),
+            "start": anchor.get("start"),
+            "end": anchor.get("end"),
+        }
+        # issue #15: content-derived stable block id. Persisted ONLY when present AND selector-safe
+        # (same additive-default-safe rule as reviews-meta kind/template), so every other comment's
+        # anchor stays byte-identical. A whole-block (empty quoted_text) comment re-anchors by this
+        # across a live-reload renumber; absent -> positional block_num fallback, exactly as before.
+        bid = anchor.get("bid", "") or ""
+        if _BID_RE.fullmatch(bid):
+            anc["bid"] = bid
         c = {
             "comment_id": "c" + secrets.token_hex(5),
             "status": "open",
-            "anchor": {
-                "quoted_text": anchor.get("quoted_text", ""),
-                "block_num": anchor.get("block_num", ""),
-                "start": anchor.get("start"),
-                "end": anchor.get("end"),
-            },
+            "anchor": anc,
             "thread": [{"author": author, "role": role, "text": text or "", "ts": now}],
             "created_by": author,
             "created_at": now,
