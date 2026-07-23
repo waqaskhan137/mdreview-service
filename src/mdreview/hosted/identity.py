@@ -40,21 +40,28 @@ class HostedIdentity:
         self._proxy_secret = proxy_secret
         self._allow_proxy_plane = allow_proxy_plane
 
+    def _caps(self, uid):
+        """The platform-admin capabilities carried on the Principal (#102), resolved from the user
+        record. super_read is off unless explicitly granted and is NEVER implied by is_admin."""
+        return {"is_admin": self._users.is_admin(uid), "super_read": self._users.can_super_read(uid)}
+
     def principal(self, request):
         # 1. Agent plane: mdr_ Bearer HMAC token (unchanged, primary programmatic door).
         auth = request.headers.get("Authorization", "")
         if auth.startswith("Bearer "):
             uid = self._users.resolve(auth)
             if uid and self._users.is_active(uid):
-                return Principal(uid=uid, plane="token")
+                return Principal(uid=uid, plane="token", **self._caps(uid))
             return Principal(is_anonymous=True, plane="token")
 
-        # 2. Browser plane: the app-owned signed session cookie.
+        # 2. Browser plane: the app-owned signed session cookie. session_ok adds the admin
+        # session-revoke cutoff on top of is_active, so a force-logout rejects a pre-cutoff cookie.
         cookie = SessionService.read_cookie(request)
         if cookie:
             sess = self._sessions.verify(cookie)
-            if sess and self._users.is_active(sess.uid):
-                return Principal(uid=sess.uid, email=sess.email, plane="cookie")
+            if sess and self._users.session_ok(sess.uid, sess.iat):
+                return Principal(uid=sess.uid, email=sess.email, plane="cookie",
+                                 **self._caps(sess.uid))
             # A present-but-invalid/expired cookie falls through to the proxy plane / anonymous,
             # exactly as no cookie would; a stale cookie must never harden into a 401 that a valid
             # proxy header could have satisfied during the transition.
@@ -69,7 +76,7 @@ class HostedIdentity:
                 with self._store.lock:
                     self._users.ensure_user(uid, email)
                 if self._users.is_active(uid):
-                    return Principal(uid=uid, email=email, plane="cookie")
+                    return Principal(uid=uid, email=email, plane="cookie", **self._caps(uid))
 
         return Principal(is_anonymous=True, plane="cookie")
 

@@ -83,6 +83,16 @@ class IdentityStore:
                     ip     TEXT,
                     detail TEXT
                 );
+
+                -- Admin-managed abuse blocklist (#67 D3 / #102): a blocked email or IP is refused at
+                -- the magic-link send path outright, the moderation lever open membership lacked. PK
+                -- on the value makes add idempotent; kind narrows the match ('email' | 'ip').
+                CREATE TABLE IF NOT EXISTS blocklist (
+                    value TEXT PRIMARY KEY,
+                    kind  TEXT NOT NULL,
+                    note  TEXT,
+                    added REAL NOT NULL
+                );
                 """
             )
 
@@ -172,4 +182,38 @@ class IdentityStore:
         with self._connect() as conn:
             rows = conn.execute("SELECT * FROM auth_audit ORDER BY id DESC LIMIT ?",
                                 (limit,)).fetchall()
+            return [dict(r) for r in rows]
+
+    # ---- admin-managed abuse blocklist (#67 D3 / #102) ----
+    def is_blocked(self, email=None, ip=None):
+        """True iff the address OR the IP is blocklisted - the check MagicLinkService.issue consults
+        before it sends. Normalizes the email to the same canonical form add uses."""
+        e = normalize_email(email) if email else ""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM blocklist WHERE (kind='email' AND value=?) "
+                "OR (kind='ip' AND value=?) LIMIT 1", (e, ip or "")).fetchone()
+            return row is not None
+
+    def block_add(self, value, kind, note=""):
+        """Add (or update the note on) a blocklist entry. kind is 'email' or 'ip'; an email value is
+        normalized so it matches is_blocked. Idempotent via the PK upsert. Returns the stored value."""
+        v = normalize_email(value) if kind == "email" else (value or "").strip()
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO blocklist (value, kind, note, added) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(value) DO UPDATE SET kind=excluded.kind, note=excluded.note",
+                (v, kind, note or "", time.time()))
+        return v
+
+    def block_remove(self, value):
+        """Remove a blocklist entry (by its stored value). Returns True iff a row was deleted."""
+        with self._connect() as conn:
+            cur = conn.execute("DELETE FROM blocklist WHERE value=?", ((value or "").strip(),))
+            return cur.rowcount > 0
+
+    def block_list(self):
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT value, kind, note, added FROM blocklist ORDER BY added DESC").fetchall()
             return [dict(r) for r in rows]

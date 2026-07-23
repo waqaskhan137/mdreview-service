@@ -50,31 +50,36 @@ class UserService:
     def ensure_user(self, uid, email):
         """Auto-provision a user on first sign-in (the proxy plane vetted them; the native plane proved
         inbox control). Idempotent; refreshes the stored email. is_owner is pinned to the configured
-        MDREVIEW_OWNER_EMAIL — NEVER the first registrant (#67 H1) — and is_admin follows is_owner
-        (explicit non-owner admin grants are #102, and OR in here then; none exist yet, so a
-        de-crowned account keeps NO admin). Both flags are RECONCILED to the current verified email on
-        every call, so a legacy first-registrant crown is dropped and an owner-email match is honoured.
-        Caller holds store.lock."""
+        MDREVIEW_OWNER_EMAIL — NEVER the first registrant (#67 H1) — and is RECONCILED on every call, so
+        a legacy first-registrant crown is dropped and an owner-email match is honoured.
+
+        is_admin is the EXPLICIT #102 grant (set_admin), owned by the admin surface, and is DELIBERATELY
+        NOT reconciled here: the owner's admin-ness is DERIVED (is_admin() returns is_admin OR is_owner),
+        so a de-crowned owner keeps no admin (they never held a stored is_admin, only is_owner), while a
+        set_admin grant to a non-owner SURVIVES this re-sign-in instead of being clobbered back to the
+        owner value. Reconciling is_admin to `owner` here — as the pre-#102 base did — would silently
+        drop every non-owner admin grant on their next login, dropping the #102 control. super_read is
+        never touched here (off by default; only set_super_read turns it on). Caller holds store.lock."""
         if not uid:
             return None
         data = self._load()
         u = data["users"].get(uid)
         owner = self._is_owner_email(email if u is None else (email or u.get("email")))
         if u is None:
+            # is_admin starts False (no explicit #102 grant yet); the owner is admin via is_admin()'s
+            # is_owner OR, so a later de-crown leaves no residual admin.
             data["users"][uid] = {"email": email or "", "status": "active",
-                                  "is_owner": owner, "is_admin": owner, "created": time.time()}
+                                  "is_owner": owner, "is_admin": False, "created": time.time()}
             self._save(data)
             return uid
         dirty = False
         if email and u.get("email") != email:
             u["email"] = email
             dirty = True
-        if bool(u.get("is_owner")) != owner:
+        if bool(u.get("is_owner")) != owner:            # H1: owner pinned to MDREVIEW_OWNER_EMAIL
             u["is_owner"] = owner
             dirty = True
-        if bool(u.get("is_admin")) != owner:            # is_admin follows is_owner (no grants yet, #102)
-            u["is_admin"] = owner
-            dirty = True
+        # NB: is_admin is NOT reconciled — it is the explicit #102 grant and must survive re-sign-in.
         if dirty:
             self._save(data)
         return uid
@@ -82,6 +87,98 @@ class UserService:
     def is_active(self, uid):
         u = self._load()["users"].get(uid)
         return bool(u) and u.get("status", "active") == "active"
+
+    # ---- platform-admin role + capabilities (#102) ----
+    # is_admin / super_read live on the SAME user record is_active gates every plane on, so a ban and
+    # a capability check read one source of truth. is_admin is grantable (set_admin); the instance
+    # owner (is_owner, the first user provisioned) is admin by construction so there is always at
+    # least one admin without hand-editing the data volume. super_read is NEVER implied by admin and
+    # NEVER seeded - it is off by default and only an explicit set_super_read turns it on (#102).
+    def is_admin(self, uid):
+        u = self._load()["users"].get(uid)
+        return bool(u) and (bool(u.get("is_admin")) or bool(u.get("is_owner")))
+
+    def can_super_read(self, uid):
+        u = self._load()["users"].get(uid)
+        return bool(u) and bool(u.get("super_read"))
+
+    def session_ok(self, uid, iat):
+        """Cookie-plane gate: active AND the session was minted at/after any admin session-revoke
+        cutoff. `sessions_invalid_before` (0 by default) is bumped by revoke_sessions so a force-logout
+        rejects every session issued before it WITHOUT banning the account (a distinct lever). A stale
+        agent token is revoked by deleting it, not by this cutoff, so tokens are unaffected."""
+        u = self._load()["users"].get(uid)
+        if not u or u.get("status", "active") != "active":
+            return False
+        cutoff = u.get("sessions_invalid_before", 0) or 0
+        return not cutoff or (iat or 0) >= cutoff
+
+    def list_users(self):
+        """Every account, for the admin surface. is_admin folds in the owner (matching is_admin())."""
+        return sorted(
+            [{"uid": uid, "email": r.get("email", ""), "status": r.get("status", "active"),
+              "is_owner": bool(r.get("is_owner")),
+              "is_admin": bool(r.get("is_admin")) or bool(r.get("is_owner")),
+              "super_read": bool(r.get("super_read")), "created": r.get("created", 0)}
+             for uid, r in self._load()["users"].items()],
+            key=lambda u: u["created"], reverse=True)
+
+    def set_status(self, uid, status):
+        """Ban (status='banned') or reinstate (status='active') an account. A banned account fails
+        is_active, so its sessions AND tokens are rejected at the next request. Caller holds store.lock;
+        returns True iff the user exists."""
+        data = self._load()
+        u = data["users"].get(uid)
+        if not u:
+            return False
+        u["status"] = status
+        self._save(data)
+        return True
+
+    def set_admin(self, uid, value):
+        """Grant/revoke the admin role. The owner's implicit admin (is_owner) is not stored here and
+        cannot be revoked this way, which keeps at least one admin. Caller holds store.lock."""
+        data = self._load()
+        u = data["users"].get(uid)
+        if not u:
+            return False
+        u["is_admin"] = bool(value)
+        self._save(data)
+        return True
+
+    def set_super_read(self, uid, value):
+        """Grant/revoke the audited document super-READ capability (#102). Off by default; this is the
+        ONLY way it is turned on. Caller holds store.lock; returns True iff the user exists."""
+        data = self._load()
+        u = data["users"].get(uid)
+        if not u:
+            return False
+        u["super_read"] = bool(value)
+        self._save(data)
+        return True
+
+    def revoke_all_tokens(self, uid):
+        """Delete every API token belonging to uid (moderation / lost-device). Caller holds store.lock;
+        returns the count removed."""
+        data = self._load()
+        victims = [tid for tid, r in data["tokens"].items() if r.get("uid") == uid]
+        for tid in victims:
+            del data["tokens"][tid]
+        if victims:
+            self._save(data)
+        return len(victims)
+
+    def revoke_sessions(self, uid):
+        """Force-logout: invalidate every session minted before now (see session_ok). Distinct from a
+        ban (the account stays active) and from token revoke (tokens are unaffected). Caller holds
+        store.lock; returns True iff the user exists."""
+        data = self._load()
+        u = data["users"].get(uid)
+        if not u:
+            return False
+        u["sessions_invalid_before"] = time.time()
+        self._save(data)
+        return True
 
     def find_by_email(self, email):
         """The existing account id whose stored email matches (case-insensitive), or None. Read-only.
