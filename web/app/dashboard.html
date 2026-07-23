@@ -4,23 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · reviews</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
+  /* Colour tokens live in /static/theme.css (#153) — never redefine them per page. */
   /* Light palette = the mockup; dark derived via the existing token swap (no STALE_S here — the
      viewer is the authoritative staleness surface; a dashboard card never tests lease freshness). */
-  :root{
-    --bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--muted2:#6e727e;
-    --rule:#e6e7ee;--nav-active:#f0f1f6;--nav-hover:#f5f6f9;
-    --violet:#5b30d6;--violet-bg:#eee9fd;--blue:#1d4fbf;--blue-bg:#e9f0fd;
-    --green:#2f8f5b;--link:#2f6fed;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{
-      --bg:#0f1014;--panel:#17181d;--text:#e9eaf0;--muted:#9a9fb0;--muted2:#878c9c;
-      --rule:#26282f;--nav-active:#22242b;--nav-hover:#1d1f25;
-      --violet:#b9a3f5;--violet-bg:#2a2147;--blue:#9cc0f5;--blue-bg:#16243f;
-      --green:#6dd39b;--link:#7ba6f5;
-    }
-  }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;

@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · account</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
-  :root{--bg:#0e0f13;--panel:#15171c;--text:#e7e9ee;--muted:#9aa0ac;--muted2:#6b7280;
-        --rule:#262a33;--accent:#7c6cff;--danger:#c0392b;}
+  /* Colour tokens live in /static/theme.css (#153) — never redefine them per page. */
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);
        font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
@@ -16,19 +16,19 @@
   .sub{color:var(--muted);margin:0 0 24px}
   .card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:18px 20px;margin:12px 0}
   button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--rule);
-         background:#20232b;color:var(--text);cursor:pointer}
+         background:var(--btn);color:var(--text);cursor:pointer}
   button:hover{border-color:var(--accent)}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
   input[type=text]{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--rule);
-                   background:#0f1116;color:var(--text);width:220px}
-  pre{background:#0f1116;border:1px solid var(--rule);border-radius:8px;padding:14px;overflow:auto;
-      font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#cdd3df}
-  code{font:12.5px ui-monospace,Menlo,monospace;background:#0f1116;padding:1px 5px;border-radius:5px}
+                   background:var(--inset);color:var(--text);width:220px}
+  pre{background:var(--inset);border:1px solid var(--rule);border-radius:8px;padding:14px;overflow:auto;
+      font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text)}
+  code{font:12.5px ui-monospace,Menlo,monospace;background:var(--inset);padding:1px 5px;border-radius:5px}
   table{width:100%;border-collapse:collapse;margin-top:8px}
   th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--rule);font-size:13px}
   th{color:var(--muted2);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
-  .muted{color:var(--muted)} .warn{color:#e0b341}
-  .tok{background:#0f1116;border:1px dashed var(--accent);border-radius:8px;padding:12px;
+  .muted{color:var(--muted)} .warn{color:var(--warn)}
+  .tok{background:var(--inset);border:1px dashed var(--accent);border-radius:8px;padding:12px;
        font:12.5px ui-monospace,Menlo,monospace;word-break:break-all;margin:8px 0}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 </style>

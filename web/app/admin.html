@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · admin</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
-  :root{--bg:#0e0f13;--panel:#15171c;--text:#e7e9ee;--muted:#9aa0ac;--muted2:#6b7280;
-        --rule:#262a33;--accent:#7c6cff;--danger:#c0392b;--good:#6dd39b;--warn:#e0b341;}
+  /* Colour tokens live in /static/theme.css (#153) — never redefine them per page. */
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);
        font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
@@ -16,7 +16,7 @@
   .tophead{display:flex;align-items:center;justify-content:space-between;gap:12px}
   .card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:6px 20px 14px;margin:12px 0}
   button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--rule);
-         background:#20232b;color:var(--text);cursor:pointer}
+         background:var(--btn);color:var(--text);cursor:pointer}
   button:hover{border-color:var(--accent)}
   table{width:100%;border-collapse:collapse}
   th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--rule);font-size:13px;vertical-align:middle}
@@ -26,27 +26,27 @@
   .email{font-weight:500}
   .you{font-size:10px;color:var(--muted2);border:1px solid var(--rule);border-radius:20px;padding:1px 7px;margin-left:7px}
   .badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.03em;padding:2px 8px;border-radius:20px;text-transform:uppercase;margin-right:4px}
-  .b-owner{background:#2f2650;color:#c9b8ff} .b-admin{background:#123027;color:var(--good)} .b-super{background:#332815;color:var(--warn)}
+  .b-owner{background:var(--accent-bg);color:var(--accent)} .b-admin{background:var(--good-bg);color:var(--good)} .b-super{background:var(--warn-bg);color:var(--warn)}
   .chip{font-size:11.5px;font-weight:600}
-  .chip.active{color:var(--good)} .chip.banned{color:#f0a0a0}
+  .chip.active{color:var(--good)} .chip.banned{color:var(--danger)}
   .rowbanned td{opacity:.55}
   .acts{text-align:right;white-space:normal}
   button.mini{font-size:11.5px;padding:4px 10px;border-radius:7px;margin:2px 0 2px 5px}
-  button.mini.danger{color:#f0a0a0;border-color:#4a2a2a}
-  button.mini.danger:hover{background:#3a1f1f;border-color:var(--danger)}
-  #confirmbar{display:none;align-items:center;gap:10px;background:#332815;border:1px solid #5a4a1f;
+  button.mini.danger{color:var(--danger);border-color:var(--danger-rule)}
+  button.mini.danger:hover{background:var(--danger-bg);border-color:var(--danger)}
+  #confirmbar{display:none;align-items:center;gap:10px;background:var(--warn-bg);border:1px solid var(--warn-rule);
     border-radius:9px;padding:11px 14px;margin:0 0 14px}
   #confirmbar .msg{flex:1}
   #flash{display:none;padding:11px 14px;border-radius:9px;margin:0 0 14px;font-size:13px}
-  #flash.err{display:block;background:#3a1f1f;border:1px solid #4a2a2a;color:#f0b4b4}
-  #flash.ok{display:block;background:#123027;border:1px solid #1f4a38;color:var(--good)}
+  #flash.err{display:block;background:var(--danger-bg);border:1px solid var(--danger-rule);color:var(--danger)}
+  #flash.ok{display:block;background:var(--good-bg);border:1px solid var(--good-rule);color:var(--good)}
   .notice{text-align:center;color:var(--muted);padding:52px 0}
   .notice b{color:var(--text);display:block;margin-bottom:6px;font-size:16px}
   h2{font-size:15px;margin:8px 0 2px}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
   .blockadd{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
   .blockadd input[type=text],.blockadd select{font:inherit;padding:8px 10px;border-radius:8px;
-    border:1px solid var(--rule);background:#0f1116;color:var(--text)}
+    border:1px solid var(--rule);background:var(--inset);color:var(--text)}
   .blockadd input#blockval{width:200px} .blockadd input#blocknote{flex:1;min-width:140px}
   .blockrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--rule);font-size:13px}
   .blockrow:last-child{border-bottom:none}
