@@ -30,9 +30,11 @@ Routes:
   DELETE /admin/blocklist/{value}                  unblock.
 """
 import json
+import os
 import re
 from urllib.parse import unquote
 
+from mdreview.config import WEB_DIR
 from mdreview.hosted.sessions import SessionService
 
 _USER_ACTION = re.compile(
@@ -62,6 +64,14 @@ class AdminModule:
     def handle(self, h, m, path):
         if path != "/admin" and not path.startswith("/admin/"):
             return False
+
+        # Serve the console SHELL to any caller (module dispatch runs before server.py's page block, so
+        # /admin can't be a page there). The /admin/* DATA below stays gated; the page's JS calls
+        # /admin/users and renders the console (200), a "not authorized" notice (403), or sign-in (401).
+        if path == "/admin" and m == "GET":
+            h._send(200, self.store.read_text(os.path.join(WEB_DIR, "admin.html")),
+                    "text/html; charset=utf-8")
+            return True
 
         # ---- gate: authenticated admin on the cookie (browser) plane only ----
         p = h._principal()
