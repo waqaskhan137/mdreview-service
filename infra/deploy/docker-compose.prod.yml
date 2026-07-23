@@ -29,6 +29,11 @@ services:
       MDREVIEW_REQUIRE_AUTH: "1"
       MDREVIEW_PROXY_SECRET: "${MDREVIEW_PROXY_SECRET:?set MDREVIEW_PROXY_SECRET in infra/deploy/.env}"
       MDREVIEW_TOKEN_PEPPER: "${MDREVIEW_TOKEN_PEPPER:?set MDREVIEW_TOKEN_PEPPER in infra/deploy/.env}"
+      # #67: signs the app-owned session cookie + magic-link tokens. Now part of the REQUIRE_AUTH
+      # boot guard, so it is MANDATORY here (a REQUIRE_AUTH=1 instance refuses to boot without it) and
+      # is also required by the future hosted build (python -m mdreview.hosted). Generate once:
+      # `openssl rand -hex 32`, then keep it stable (rotating it invalidates every live session).
+      MDREVIEW_SESSION_SECRET: "${MDREVIEW_SESSION_SECRET:?set MDREVIEW_SESSION_SECRET in infra/deploy/.env}"
     networks:
       - mdrnet
 
