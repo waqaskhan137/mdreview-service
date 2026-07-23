@@ -6,12 +6,17 @@
 # back to the previous image (and refusing to re-deploy that same bad digest) if the gate fails.
 # No-churn: an unchanged digest exits without touching the container. Depends on #86 (one deploy dir).
 #
-# Env overrides (defaults are the Kapture prod values):
+# Env overrides (defaults are the Kapture prod values — so the staging stack reuses this same script):
 #   MDR_DEPLOY_DIR  MDR_IMAGE  MDR_SERVICE  MDR_HEALTH  MDR_AUTHPROBE  MDR_LOG
+#   MDR_COMPOSE_FILE  MDR_ENV_FILE   (added for the isolated staging stack; default to prod's files)
 set -uo pipefail
 
 DEPLOY_DIR="${MDR_DEPLOY_DIR:-$HOME/mdreview-deploy}"
 SERVICE="${MDR_SERVICE:-mdreview}"
+# Which compose file + env file the recreate uses. Default = prod, so prod behaviour is byte-identical;
+# staging points these at docker-compose.staging.yml + .env.staging in its OWN deploy dir.
+COMPOSE_FILE="${MDR_COMPOSE_FILE:-docker-compose.prod.yml}"
+ENV_FILE="${MDR_ENV_FILE:-.env}"
 # Watch exactly the image the running container uses (self-aligning with the compose, slim OR -latex) —
 # hardcoding a tag risks watching a different image than `compose up` recreates, so the updater would
 # forever "see a new digest" it can never apply. Fall back to the -latex prod default if not running.
@@ -24,7 +29,7 @@ HELD="$DEPLOY_DIR/.autoupdate-bad-digest"       # a digest we rolled back FROM; 
 LOCK="$DEPLOY_DIR/.autoupdate.lock"
 
 log(){ printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >>"$LOG"; }
-compose(){ (cd "$DEPLOY_DIR" && docker compose --env-file .env -f docker-compose.prod.yml "$@"); }
+compose(){ (cd "$DEPLOY_DIR" && docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"); }
 img_id(){ docker inspect --format '{{.Id}}' "$1" 2>/dev/null; }               # image ID by ref (tag)
 running_img(){ docker inspect --format '{{.Image}}' "$SERVICE" 2>/dev/null; } # the container's image ID
 probe(){ curl -s -o /dev/null -w '%{http_code}' -m 3 "$1" 2>/dev/null; }
