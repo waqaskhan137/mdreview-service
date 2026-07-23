@@ -23,9 +23,9 @@ import sys
 from urllib.parse import urlparse
 
 from mdreview import config
-from mdreview.access import OwnerPolicy
 from mdreview.server import Services
 from mdreview.hosted.authroutes import AuthModule
+from mdreview.hosted.custody import CustodyPolicy
 from mdreview.hosted.identity import AccountService, HostedIdentity
 from mdreview.hosted.identity_store import IdentityStore
 from mdreview.hosted.magiclink import MagicLinkService, SmtpEmailSender, StubEmailSender
@@ -135,13 +135,12 @@ def build_hosted(store):
         global_daily_budget=_env_int("MDREVIEW_MAGICLINK_DAILY_BUDGET", 500))
     accounts = AccountService(app.users, id_store)
 
-    # The authoritative, UNCONDITIONAL selection: the hosted resolver + the real owner-only policy.
-    # OwnerPolicy IS the custody Confinement contract for owner-only scope (fail-closed on a missing
-    # owner); named-share (#101/#68) and audited-admin (#102) access are its future extensions and are
-    # deliberately NOT built tonight, so there is no empty subclass. Bound to the FINAL app.reviews
-    # (the latex wrapper when enabled).
+    # The authoritative, UNCONDITIONAL selection: the hosted resolver + CustodyPolicy. CustodyPolicy
+    # IS the owner-only Confinement contract (fail-closed on a missing owner) PLUS the audited,
+    # off-by-default admin super-READ exception (#102); named-share (#101/#68) is still a future
+    # extension. Bound to the FINAL app.reviews (the latex wrapper when enabled).
     app.identity = HostedIdentity(app.users, store, sessions, config.PROXY_SECRET, allow_proxy_plane)
-    app.policy = OwnerPolicy(app.reviews)
+    app.policy = CustodyPolicy(app.reviews)
 
     app.modules.append(AuthModule(store, app.users, sessions, magic, accounts, id_store))
     return app
