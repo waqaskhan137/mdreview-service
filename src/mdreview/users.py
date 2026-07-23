@@ -50,31 +50,36 @@ class UserService:
     def ensure_user(self, uid, email):
         """Auto-provision a user on first sign-in (the proxy plane vetted them; the native plane proved
         inbox control). Idempotent; refreshes the stored email. is_owner is pinned to the configured
-        MDREVIEW_OWNER_EMAIL — NEVER the first registrant (#67 H1) — and is_admin follows is_owner
-        (explicit non-owner admin grants are #102, and OR in here then; none exist yet, so a
-        de-crowned account keeps NO admin). Both flags are RECONCILED to the current verified email on
-        every call, so a legacy first-registrant crown is dropped and an owner-email match is honoured.
-        Caller holds store.lock."""
+        MDREVIEW_OWNER_EMAIL — NEVER the first registrant (#67 H1) — and is RECONCILED on every call, so
+        a legacy first-registrant crown is dropped and an owner-email match is honoured.
+
+        is_admin is the EXPLICIT #102 grant (set_admin), owned by the admin surface, and is DELIBERATELY
+        NOT reconciled here: the owner's admin-ness is DERIVED (is_admin() returns is_admin OR is_owner),
+        so a de-crowned owner keeps no admin (they never held a stored is_admin, only is_owner), while a
+        set_admin grant to a non-owner SURVIVES this re-sign-in instead of being clobbered back to the
+        owner value. Reconciling is_admin to `owner` here — as the pre-#102 base did — would silently
+        drop every non-owner admin grant on their next login, dropping the #102 control. super_read is
+        never touched here (off by default; only set_super_read turns it on). Caller holds store.lock."""
         if not uid:
             return None
         data = self._load()
         u = data["users"].get(uid)
         owner = self._is_owner_email(email if u is None else (email or u.get("email")))
         if u is None:
+            # is_admin starts False (no explicit #102 grant yet); the owner is admin via is_admin()'s
+            # is_owner OR, so a later de-crown leaves no residual admin.
             data["users"][uid] = {"email": email or "", "status": "active",
-                                  "is_owner": owner, "is_admin": owner, "created": time.time()}
+                                  "is_owner": owner, "is_admin": False, "created": time.time()}
             self._save(data)
             return uid
         dirty = False
         if email and u.get("email") != email:
             u["email"] = email
             dirty = True
-        if bool(u.get("is_owner")) != owner:
+        if bool(u.get("is_owner")) != owner:            # H1: owner pinned to MDREVIEW_OWNER_EMAIL
             u["is_owner"] = owner
             dirty = True
-        if bool(u.get("is_admin")) != owner:            # is_admin follows is_owner (no grants yet, #102)
-            u["is_admin"] = owner
-            dirty = True
+        # NB: is_admin is NOT reconciled — it is the explicit #102 grant and must survive re-sign-in.
         if dirty:
             self._save(data)
         return uid
