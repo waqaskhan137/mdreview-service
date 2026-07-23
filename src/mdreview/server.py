@@ -126,8 +126,15 @@ class H(BaseHTTPRequestHandler):
     # the (uid, plane) contract its 15 call sites already destructure. A None plane / None Principal
     # means a 401/404 was already sent, so the caller returns.
     def _principal(self):
-        """Resolve the caller to a Principal via the tier's IdentityProvider (no access decision)."""
-        return self.server.app.identity.principal(self)
+        """Resolve the caller to a Principal via the tier's IdentityProvider (no access decision).
+
+        Memoized per request (reset at route() entry) so the central custody guard (#110) and the
+        per-arm _authz resolve identity ONCE - avoiding a double ensure_user under store.lock on the
+        cookie plane. Handler instances are REUSED across keep-alive connections, so the reset in
+        route() is what stops a principal leaking from one request into the next."""
+        if getattr(self, "_pcache", None) is None:
+            self._pcache = self.server.app.identity.principal(self)
+        return self._pcache
 
     def _audit(self, event, **kv):
         # Structured stdout line for an internet-facing multi-user service. NEVER logs a secret,
@@ -247,6 +254,7 @@ class H(BaseHTTPRequestHandler):
 
     # ---- router ----
     def route(self, m):
+        self._pcache = None            # reset the per-request principal memo (#110); handler is reused across keep-alive
         app = self.server.app
         path = urlparse(self.path).path
         if len(path) > 1:
@@ -347,13 +355,18 @@ class H(BaseHTTPRequestHandler):
             # A template id is validated inside the (flag-on) latex decorator, which raises a
             # ReviewCreateRejected subclass; core catches only that core-defined base type and never
             # imports the feature module, so the flag-off import graph and behavior are unchanged.
+            owner = app.policy.stamp_owner(p)
             try:
                 rid = app.reviews.create(b.get("markdown", ""), b.get("title", ""),
                                       b.get("project", ""), b.get("source_path", ""),
-                                      b.get("session", ""), owner=app.policy.stamp_owner(p), kind=kind,
+                                      b.get("session", ""), owner=owner, kind=kind,
                                       template=b.get("template", ""))
             except ReviewCreateRejected as e:
                 return self._json(e.status, e.payload or {"error": str(e)})
+            # Custody audit (#110, identity-architecture.md §6): the ownership stamp is a core-side
+            # custody event, logged through the SAME _audit() sink as denied_404 - who a review was
+            # stamped to (empty owner = the local/open tier). Ids + outcomes only, never source/secret.
+            self._audit("review_created", rid=rid, owner=owner or "")
             base = self._base()
             return self._json(201, {
                 "id": rid,
@@ -362,6 +375,28 @@ class H(BaseHTTPRequestHandler):
                 "source_url": f"{base}/api/reviews/{rid}/source",
                 "status_url": f"{base}/api/reviews/{rid}/status",
             })
+
+        # ---- central custody choke point (#110) ----
+        # Every review-scoped path funnels through the injected AccessPolicy HERE, before its arm
+        # runs, so a child resource added below (comment, asset, history, feedback, source, status,
+        # handoff, viewer, ...) is gated by the SAME can_read/can_write as its PARENT review even if
+        # its author forgets the per-arm _authz. This makes "a route forgot to check" structurally
+        # impossible for the review-scoped surface, and is the #97 confinement rule: the document AND
+        # its children route through one AccessPolicy, never re-deriving access. The per-arm _authz
+        # calls below stay as defense-in-depth (memoized principal => one identity resolve).
+        #
+        # Scope: /api/reviews/{rid}... and /review/{rid}. The collection routes (/api/reviews,
+        # /api/reviews/wait) and /account/* already returned above; non-review paths (/static, the
+        # descriptor, unknown) do not match and fall through untouched. Latex /api/latex/{rid}/... is
+        # gated inside the module (which runs BEFORE this router in the dispatch loop), so it never
+        # reaches here. On allow we fall through to the matching arm; on deny _authz already wrote the
+        # 401/404 and we return (an ungated child arm added below is still refused).
+        scoped = (re.match(r"/api/reviews/" + RID + r"(?:/|$)", path)
+                  or re.match(r"/review/" + RID + r"$", path))
+        if scoped:
+            _uid, _plane = self._authz(scoped.group(1))
+            if _plane is None:
+                return
 
         mo = re.fullmatch(r"/api/reviews/" + RID, path)
         if mo:
