@@ -4,7 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · reviews</title>
+<!-- #152 Basecoat: vendored (self-hosted, no runtime CDN). Basecoat skins the generic chrome (sign-in
+     form, search, buttons); the signature inbox grid + sidebar stay bespoke. -->
+<link rel="stylesheet" href="/static/basecoat.cdn.min.css">
 <link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/basecoat-theme.css">
+<script src="/static/basecoat.all.min.js" defer></script>
 <style>
   /* Colour tokens live in /static/theme.css (#153) — never redefine them per page. */
   /* Light palette = the mockup; dark derived via the existing token swap (no STALE_S here — the
@@ -42,9 +47,7 @@
   .head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 0 18px;}
   h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.4px;}
   .sub{margin:6px 0 0;color:var(--muted);font-size:13px;}
-  #search{flex:0 0 280px;max-width:40vw;font:inherit;font-size:13.5px;padding:9px 13px;border-radius:10px;
-    border:1px solid var(--rule);background:var(--panel);color:var(--text);}
-  #search:focus{outline:none;border-color:var(--link);}
+  #search{flex:0 0 280px;max-width:40vw;}   /* look comes from Basecoat .input */
 
   .eyebrow{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
     color:var(--muted2);margin:0 0 12px;}
@@ -54,8 +57,7 @@
     border-left:3px solid var(--rule);transition:border-color .12s,box-shadow .12s,transform .06s;}
   .card:hover{box-shadow:0 4px 16px rgba(20,22,40,.08);transform:translateY(-1px);}
   .card.is-hidden{display:none;}
-  .showmore{display:none;margin:18px auto 4px;padding:8px 18px;font:inherit;font-size:13px;color:var(--text);background:var(--panel);border:1px solid var(--rule);border-radius:8px;cursor:pointer;}
-  .showmore:hover{border-color:var(--muted2);}
+  .showmore{display:none;margin:18px auto 4px;}   /* look comes from Basecoat .btn */
   .proj-more{padding:6px 10px 2px;color:var(--muted2);font-size:11.5px;}
   .card.s-your-turn{border-left-color:var(--violet);}
   .card.s-agent-working,.card.s-waiting{border-left-color:var(--blue);}
@@ -108,31 +110,20 @@
     h1{font-size:24px;}
   }
 
-  /* ---- sign-in screen (shown to anonymous visitors; #131) ---- */
+  /* ---- sign-in screen (anonymous; #131) — Basecoat card/input/btn + layout only ---- */
   .signin-wrap{min-height:100vh;display:none;align-items:center;justify-content:center;padding:24px;}
-  .signin-card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--rule);
-    border-radius:16px;padding:34px 32px;box-shadow:0 10px 44px rgba(20,22,40,.07);}
+  #signin-card{width:100%;max-width:400px;}
   .signin-brand{display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px;
-    font-weight:600;letter-spacing:-.15px;margin:0 0 22px;}
+    font-weight:600;letter-spacing:-.15px;margin:0 0 12px;}
   .signin-brand .logo{width:30px;height:30px;border-radius:8px;
     background:linear-gradient(135deg,#2f6fed,#7c4dff);color:#fff;display:flex;align-items:center;
     justify-content:center;font-size:12px;font-weight:700;}
-  .signin-card h1{font-size:21px;font-weight:700;letter-spacing:-.3px;margin:0 0 7px;text-align:center;}
-  .signin-card .lede{color:var(--muted);font-size:13.5px;line-height:1.5;text-align:center;margin:0 0 22px;}
-  .signin-field{margin:0 0 14px;}
-  .signin-field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:0 0 6px;}
-  .signin-input{width:100%;font:inherit;font-size:14px;padding:11px 13px;border-radius:10px;
-    border:1px solid var(--rule);background:var(--bg);color:var(--text);}
-  .signin-input:focus{outline:none;border-color:var(--link);
-    box-shadow:0 0 0 3px color-mix(in srgb,var(--link) 20%,transparent);}
-  .signin-btn{width:100%;font:inherit;font-size:14px;font-weight:600;padding:11px 16px;border-radius:10px;
-    border:none;background:linear-gradient(135deg,#5b46e6,#7c4dff);color:#fff;cursor:pointer;
-    transition:opacity .12s;}
-  .signin-btn:hover{opacity:.92;}
-  .signin-btn:disabled{opacity:.6;cursor:default;}
+  #signin-card h1{font-size:21px;font-weight:700;letter-spacing:-.3px;margin:0 0 7px;text-align:center;}
+  #signin-card .lede{color:var(--muted);font-size:13.5px;line-height:1.5;text-align:center;margin:0 0 20px;}
+  .signin-field label{display:block;margin:0 0 6px;}
   .signin-note{color:var(--muted2);font-size:12px;text-align:center;margin:16px 0 0;}
   .signin-ok{text-align:center;}
-  .signin-ok .check{width:46px;height:46px;border-radius:50%;background:var(--violet-bg);color:var(--violet);
+  .signin-ok .check{width:46px;height:46px;border-radius:50%;background:var(--accent-bg);color:var(--accent);
     display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
   .signin-ok .addr{color:var(--text);font-weight:600;}
   .linklike{background:none;border:none;color:var(--link);font:inherit;font-size:12.5px;cursor:pointer;
@@ -141,20 +132,20 @@
 </head>
 <body>
 <div class="signin-wrap" id="signin">
-  <div class="signin-card" id="signin-card">
+  <div class="card" id="signin-card"><section>
     <div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>
     <h1>Sign in to mdreview</h1>
     <p class="lede">Enter your email and we'll send you a one-time sign-in link. No password needed.</p>
     <form id="signin-form" novalidate>
       <div class="signin-field">
-        <label for="signin-email">Email</label>
-        <input class="signin-input" id="signin-email" type="email" autocomplete="email"
-               placeholder="you@example.com" required>
+        <label class="label" for="signin-email">Email</label>
+        <input class="input" id="signin-email" type="email" autocomplete="email"
+               placeholder="you@example.com" required style="width:100%">
       </div>
-      <button class="signin-btn" id="signin-btn" type="submit">Send sign-in link</button>
+      <button class="btn" id="signin-btn" type="submit" style="width:100%;margin-top:14px">Send sign-in link</button>
     </form>
     <p class="signin-note">New here? The same link signs you up.</p>
-  </div>
+  </section></div>
 </div>
 <div class="app" id="app" style="display:none">
   <aside class="side">
@@ -178,11 +169,11 @@
         <h1 id="h1">All reviews</h1>
         <p class="sub" id="sub">Loading…</p>
       </div>
-      <input id="search" type="search" placeholder="Search reviews, projects…" autocomplete="off">
+      <input id="search" class="input" type="search" placeholder="Search reviews, projects…" autocomplete="off">
     </div>
     <div class="eyebrow" id="eyebrow">Recent activity</div>
     <div id="list" class="grid"></div>
-    <button class="showmore" id="showmore">Show more</button>
+    <button class="showmore btn" data-variant="outline" data-size="sm" id="showmore">Show more</button>
     <div class="noresults" id="noresults">No reviews match your search.</div>
   </main>
 </div>
@@ -397,12 +388,12 @@ function initSignin(){
     try{ await fetch('/auth/magic-link',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({email:addr})}); }catch(_){}
     $("#signin-card").innerHTML=
-      `<div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
+      `<section><div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
       `<div class="signin-ok"><div class="check">${MAIL}</div>`+
       `<h1>Check your email</h1>`+
       `<p class="lede">If <span class="addr">${esc(addr)}</span> can sign in, a link is on its way.<br>`+
       `It's valid once and expires shortly.</p>`+
-      `<button class="linklike" onclick="location.reload()">Use a different email</button></div>`;
+      `<button class="linklike" onclick="location.reload()">Use a different email</button></div></section>`;
   });
 }
 async function boot(){
