@@ -4,50 +4,41 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · admin</title>
+<!-- #152 Basecoat: vendored (self-hosted, no runtime CDN) — Basecoat CSS, mdreview tokens, then the map. -->
+<link rel="stylesheet" href="/static/basecoat.cdn.min.css">
 <link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/basecoat-theme.css">
+<script src="/static/basecoat.all.min.js" defer></script>
 <style>
-  /* Colour tokens live in /static/theme.css (#153) — never redefine them per page. */
+  /* Layout + admin-specific bits only. Buttons/cards/inputs/table come from Basecoat now. */
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);
        font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
   .wrap{max-width:940px;margin:0 auto;padding:40px 24px 80px;}
-  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
-  h1{font-size:22px;margin:0 0 4px} .sub{color:var(--muted);margin:0 0 24px}
   .tophead{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:6px 20px 14px;margin:12px 0}
-  button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--rule);
-         background:var(--btn);color:var(--text);cursor:pointer}
-  button:hover{border-color:var(--accent)}
-  table{width:100%;border-collapse:collapse}
-  th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--rule);font-size:13px;vertical-align:middle}
-  th{color:var(--muted2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
-  tr:last-child td{border-bottom:none}
-  .muted{color:var(--muted)}
-  .email{font-weight:500}
+  h1{font-size:22px;margin:0 0 4px} .sub{color:var(--muted);margin:0 0 24px} h2{font-size:15px;margin:8px 0 2px}
+  .muted{color:var(--muted)} .email{font-weight:500}
   .you{font-size:10px;color:var(--muted2);border:1px solid var(--rule);border-radius:20px;padding:1px 7px;margin-left:7px}
-  .badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.03em;padding:2px 8px;border-radius:20px;text-transform:uppercase;margin-right:4px}
-  .b-owner{background:var(--accent-bg);color:var(--accent)} .b-admin{background:var(--good-bg);color:var(--good)} .b-super{background:var(--warn-bg);color:var(--warn)}
+  /* semantic role/status colours layered on Basecoat's .badge base */
+  .badge.b-owner{background:var(--accent-bg);color:var(--accent);border-color:transparent}
+  .badge.b-admin{background:var(--good-bg);color:var(--good);border-color:transparent}
+  .badge.b-super{background:var(--warn-bg);color:var(--warn);border-color:transparent}
   .chip{font-size:11.5px;font-weight:600}
   .chip.active{color:var(--good)} .chip.banned{color:var(--danger)}
   .rowbanned td{opacity:.55}
-  .acts{text-align:right;white-space:normal}
-  button.mini{font-size:11.5px;padding:4px 10px;border-radius:7px;margin:2px 0 2px 5px}
-  button.mini.danger{color:var(--danger);border-color:var(--danger-rule)}
-  button.mini.danger:hover{background:var(--danger-bg);border-color:var(--danger)}
-  #confirmbar{display:none;align-items:center;gap:10px;background:var(--warn-bg);border:1px solid var(--warn-rule);
-    border-radius:9px;padding:11px 14px;margin:0 0 14px}
-  #confirmbar .msg{flex:1}
-  #flash{display:none;padding:11px 14px;border-radius:9px;margin:0 0 14px;font-size:13px}
-  #flash.err{display:block;background:var(--danger-bg);border:1px solid var(--danger-rule);color:var(--danger)}
-  #flash.ok{display:block;background:var(--good-bg);border:1px solid var(--good-rule);color:var(--good)}
+  .acts{text-align:right;white-space:normal} .acts .btn{margin:2px 0 2px 5px}
   .notice{text-align:center;color:var(--muted);padding:52px 0}
   .notice b{color:var(--text);display:block;margin-bottom:6px;font-size:16px}
-  h2{font-size:15px;margin:8px 0 2px}
-  button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+  /* interaction bars (confirm + flash) — token-styled, radius from Basecoat */
+  #confirmbar{display:none;align-items:center;gap:10px;background:var(--warn-bg);border:1px solid var(--warn-rule);
+    border-radius:var(--radius);padding:11px 14px;margin:0 0 14px}
+  #confirmbar .msg{flex:1}
+  #flash{display:none;padding:11px 14px;border-radius:var(--radius);margin:0 0 14px;font-size:13px}
+  #flash.err{display:block;background:var(--danger-bg);border:1px solid var(--danger-rule);color:var(--danger)}
+  #flash.ok{display:block;background:var(--good-bg);border:1px solid var(--good-rule);color:var(--good)}
+  /* blocklist */
   .blockadd{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
-  .blockadd input[type=text],.blockadd select{font:inherit;padding:8px 10px;border-radius:8px;
-    border:1px solid var(--rule);background:var(--inset);color:var(--text)}
-  .blockadd input#blockval{width:200px} .blockadd input#blocknote{flex:1;min-width:140px}
+  .blockadd input#blockval{max-width:200px} .blockadd input#blocknote{flex:1;min-width:140px}
   .blockrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--rule);font-size:13px}
   .blockrow:last-child{border-bottom:none}
   .blockrow .bv{font-weight:500}
@@ -60,25 +51,29 @@
 <body>
 <div class="wrap">
   <div class="tophead">
-    <p class="muted" style="margin:0"><a href="/">&larr; reviews</a></p>
+    <a class="btn" data-variant="ghost" data-size="sm" href="/">&larr; reviews</a>
     <div id="acct"></div>
   </div>
   <h1>Admin</h1>
   <p class="sub">Manage the people on this mdreview instance.</p>
-  <div id="confirmbar"><span class="msg"></span><button class="mini danger" id="cfy">Confirm</button><button class="mini" id="cfn">Cancel</button></div>
+  <div id="confirmbar"><span class="msg"></span><button class="btn mini danger" data-variant="destructive" data-size="sm" id="cfy">Confirm</button><button class="btn mini" data-variant="outline" data-size="sm" id="cfn">Cancel</button></div>
   <div id="flash"></div>
-  <div class="card"><div id="panel" class="notice">Loading…</div></div>
+  <div class="card"><section><div id="panel" class="notice">Loading…</div></section></div>
 
   <div class="card" id="blockcard" style="display:none">
-    <h2 style="margin-top:2px">Blocklist</h2>
-    <p class="sub" style="margin:0 0 4px">A blocked email or IP is refused at the sign-in link step.</p>
-    <div id="blockpanel" class="blockempty">Loading…</div>
-    <div class="blockadd">
-      <input type="text" id="blockval" placeholder="email or IP" autocomplete="off">
-      <select id="blockkind"><option value="email">Email</option><option value="ip">IP</option></select>
-      <input type="text" id="blocknote" placeholder="note (optional)" autocomplete="off">
-      <button class="primary" id="blockbtn" type="button">Block</button>
-    </div>
+    <header>
+      <h2>Blocklist</h2>
+      <p>A blocked email or IP is refused at the sign-in link step.</p>
+    </header>
+    <section>
+      <div id="blockpanel" class="blockempty">Loading…</div>
+      <div class="blockadd">
+        <input class="input" type="text" id="blockval" placeholder="email or IP" autocomplete="off">
+        <select class="input" id="blockkind"><option value="email">Email</option><option value="ip">IP</option></select>
+        <input class="input" type="text" id="blocknote" placeholder="note (optional)" autocomplete="off">
+        <button class="btn" id="blockbtn" type="button">Block</button>
+      </div>
+    </section>
   </div>
 </div>
 
@@ -136,7 +131,7 @@ function actionsFor(u){
 function renderUsers(users){
   const rows = users.map(u=>{
     const acts = actionsFor(u).map(x=>
-      '<button class="mini'+(x.danger?" danger":"")+'" data-action="'+x.action+'" data-value="'+x.value
+      '<button class="btn mini'+(x.danger?" danger":"")+'" data-variant="'+(x.danger?"destructive":"outline")+'" data-size="sm" data-action="'+x.action+'" data-value="'+x.value
       +'" data-uid="'+esc(u.uid)+'" data-email="'+esc(u.email)+'" data-label="'+esc(x.label)+'">'+esc(x.label)+'</button>').join("");
     return '<tr'+(u.status==="banned"?' class="rowbanned"':'')+'>'
       +'<td class="email">'+esc(u.email)+(u.uid===ME?' <span class="you">you</span>':'')+'</td>'
@@ -146,7 +141,7 @@ function renderUsers(users){
       +'<td class="acts">'+(acts||'<span class="muted">&mdash;</span>')+'</td></tr>';
   }).join("");
   $("#panel").className=""; $("#panel").removeAttribute("style");
-  $("#panel").innerHTML='<table><thead><tr><th>User</th><th>Status</th><th>Roles</th><th>Joined</th><th class="acts">Actions</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  $("#panel").innerHTML='<div class="table-container"><table class="table"><thead><tr><th>User</th><th>Status</th><th>Roles</th><th>Joined</th><th class="acts">Actions</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   document.querySelectorAll("#panel .mini").forEach(b=>b.addEventListener("click",()=>{
     const {action, uid, email, label} = b.dataset, value = b.dataset.value==="true";
     if(b.classList.contains("danger")) askConfirm(label+" — "+email+"?", ()=>doAction(action, uid, email, value, label));
@@ -170,7 +165,7 @@ async function loadBlock(){
   $("#blockpanel").innerHTML = items.length ? items.map(x=>
     '<div class="blockrow"><span class="bv">'+esc(x.value)+'</span><span class="bk">'+esc(x.kind)+'</span>'
     +'<span class="bn">'+esc(x.note||"")+'</span>'
-    +'<button class="mini danger brm" data-value="'+esc(x.value)+'">Remove</button></div>').join("")
+    +'<button class="btn mini danger brm" data-variant="destructive" data-size="sm" data-value="'+esc(x.value)+'">Remove</button></div>').join("")
     : "Nothing blocked.";
   document.querySelectorAll("#blockpanel .brm").forEach(b=>b.addEventListener("click",()=>
     askConfirm("Unblock "+b.dataset.value+"?", ()=>removeBlock(b.dataset.value))));
