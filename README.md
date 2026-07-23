@@ -50,9 +50,27 @@ docker build -f infra/Dockerfile -t mdreview-service .
 docker run -d -p 8137:8080 -v mdreview-data:/data mdreview-service
 ```
 
+`make up` (compose) is the canonical local-docker path; it serves on 8137 and reuses the
+named `mdreview-data` volume, so a rebuild/recreate preserves your reviews.
+
 Health check: `curl localhost:8137/healthz` -> `{"ok":true}`.
 
 Feedback and source persist in the `/data` volume across restarts.
+
+### Migrating a legacy hand-run container
+
+If you have an older instance started by hand (`docker run` on a nonstandard port such as
+:8139), move it onto the canonical compose flow without losing data — the `mdreview-data`
+volume is reused as-is:
+
+```bash
+docker rm -f mdreview     # stop the hand-run container (the mdreview-data volume survives)
+make up                   # compose recreates it on 8137, mounting the same mdreview-data volume
+```
+
+Because the compose volume is now declared with an explicit `name: mdreview-data` (not a
+project-prefixed `infra_mdreview-data`), `make up` mounts the very volume your old container
+owned. Confirm with `curl localhost:8137/healthz` and check your reviews are still listed.
 
 ## The flow
 
