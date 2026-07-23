@@ -552,20 +552,32 @@ async function load(){
   renderAll();
 }
 
+// content-derived stable block id (issue #15): FNV-1a over whitespace-normalized text -> hex, so a
+// whole-block comment re-anchors by CONTENT after a live-reload renumber (positional #N is unstable
+// when a block is inserted/removed above it). Hex-only charset keeps `.blk[data-bid="…"]` selector-safe.
+function blockHash(s){s=(s||'').replace(/\s+/g,' ').trim();let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193);}return(h>>>0).toString(16);}
 function numberBlocks(){
   const art=$("#article");
   const kids=[...art.children];
   art.innerHTML="";
-  let n=0,heading="";
+  let n=0,heading="";const seen={};
   kids.forEach(el=>{
     if(/^H[1-3]$/.test(el.tagName))heading=el.textContent.trim();
     n++;
+    // hash el (the child), NOT blk: blk holds the .num span (text = n), which would fold the block
+    // NUMBER into the hash and break it on every renumber. Computed here in numberBlocks (called
+    // BEFORE renderMermaid) so a diagram/code block hashes its stable SOURCE, and the .blk keeps its
+    // data-bid after mermaid swaps its innards to SVG (do NOT move this to renderAll). A per-render
+    // occurrence suffix disambiguates verbatim-identical blocks (else querySelector grabs the first).
+    let bid=blockHash(el.textContent);const k=seen[bid]=(seen[bid]||0)+1;if(k>1)bid+='-'+k;
     const blk=document.createElement('div');
-    blk.className="blk";blk.dataset.num=n;blk.dataset.heading=heading;
+    blk.className="blk";blk.dataset.num=n;blk.dataset.heading=heading;blk.dataset.bid=bid;
     const num=document.createElement('span');num.className="num";num.title="comment on this block";num.textContent=n;
     blk.appendChild(num);blk.appendChild(el);
     art.appendChild(blk);
-    num.onclick=()=>openPop({block_num:String(n),quoted_text:''});
+    // block_num:blk.dataset.num (per-iteration const), NOT String(n): n is function-scoped, so the old
+    // closure read the FINAL n (=total block count) for every gutter click. bid carries the stable id.
+    num.onclick=()=>openPop({block_num:blk.dataset.num,quoted_text:'',bid:blk.dataset.bid});
   });
 }
 
@@ -676,7 +688,9 @@ function renderAll(){
     const mk=highlightComment(c);
     // anchor the card + margin bar to the block the highlight actually landed in (an agent-authored
     // comment may have no block_num — derive it from the highlight).
-    const blk=mk?mk.closest('.blk'):document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]');
+    // whole-block (quoted_text='') re-resolve: bid FIRST (content-stable across renumbers, issue #15),
+    // positional #N only as fallback. bid absent (legacy/agent/text comments) -> straight to positional.
+    const blk=mk?mk.closest('.blk'):((c.anchor.bid&&document.querySelector('.blk[data-bid="'+c.anchor.bid+'"]'))||document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]'));
     if(blk)blk.classList.add('has-comment');
     const ref=(blk&&blk.dataset.num)||c.anchor.block_num||'';
     const card=document.createElement('div');card.className='gcard';card.dataset.id=c.comment_id;
@@ -783,7 +797,7 @@ function openPop(c){
 $("#popcancel").onclick=()=>$("#pop").style.display='none';
 $("#popsave").onclick=()=>{
   const v=$("#popnote").value.trim();if(!v)return;
-  createComment({quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null},v);
+  createComment({quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null,bid:cur.bid},v);
   $("#pop").style.display='none';window.getSelection().removeAllRanges();
 };
 
