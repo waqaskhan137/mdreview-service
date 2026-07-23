@@ -135,9 +135,13 @@ class IdentityStore:
 
     # ---- abuse counters (#67 D3): per-address, per-IP, global daily ----
     def record_send(self, email, ip):
+        now = time.time()
         with self._connect() as conn:
+            # Opportunistic prune: no counter looks back more than the daily window, so rows older
+            # than two days can never affect a limit; dropping them keeps send_log self-bounded.
+            conn.execute("DELETE FROM send_log WHERE ts < ?", (now - 2 * 86400,))
             conn.execute("INSERT INTO send_log (email, ip, ts) VALUES (?, ?, ?)",
-                         (normalize_email(email), ip or "", time.time()))
+                         (normalize_email(email), ip or "", now))
 
     def count_sends(self, since_ts, email=None, ip=None):
         """Sends at or after since_ts, optionally filtered to one address or one IP. With neither
@@ -152,10 +156,6 @@ class IdentityStore:
             args.append(ip or "")
         with self._connect() as conn:
             return conn.execute(q, args).fetchone()["n"]
-
-    def prune_sends(self, older_than_ts):
-        with self._connect() as conn:
-            conn.execute("DELETE FROM send_log WHERE ts < ?", (older_than_ts,))
 
     # ---- append-only auth-event audit (#67 priority 8; identity side of the #110 split) ----
     def audit(self, event, uid=None, email=None, ip=None, detail=None):
