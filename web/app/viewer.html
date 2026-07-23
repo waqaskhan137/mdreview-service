@@ -93,8 +93,13 @@
   #pop .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;}
   .btn{font-family:-apple-system,sans-serif;font-size:13px;border-radius:8px;padding:7px 14px;cursor:pointer;border:1px solid var(--rule);background:var(--panel);color:var(--text);}
   .btn:hover{border-color:var(--muted2);}
-  .btn.primary{background:var(--link);color:#fff;border-color:var(--link);}
-  .btn.primary:hover{filter:brightness(1.06);border-color:var(--link);}
+  /* #152 slice B: primary buttons use the app-wide brand violet (--brand) with --bg text, matching
+     Basecoat's --primary/--primary-foreground on the other pages (and the viewer's own #addbtn/#toast,
+     already violet). --bg text (not #fff) keeps contrast correct in dark mode, where --brand is a light
+     violet. The viewer stays off Basecoat's CSS on purpose: its Tailwind preflight strips list markers
+     from the bespoke serif prose (verified), and every viewer control already reads the shared tokens. */
+  .btn.primary{background:var(--brand);color:var(--bg);border-color:var(--brand);}
+  .btn.primary:hover{filter:brightness(1.06);border-color:var(--brand);}
   #dock{position:fixed;right:18px;bottom:18px;z-index:55;font-family:-apple-system,sans-serif;}
   #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--rule);border-radius:30px;padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
   #count{font-size:13px;color:var(--muted-fg);}
