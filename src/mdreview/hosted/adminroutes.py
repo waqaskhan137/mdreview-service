@@ -33,16 +33,19 @@ import json
 import re
 from urllib.parse import unquote
 
+from mdreview.hosted.sessions import SessionService
+
 _USER_ACTION = re.compile(
     r"/admin/users/(.+)/(ban|unban|admin|super-read|revoke-tokens|revoke-sessions)")
 _BLOCK_ITEM = re.compile(r"/admin/blocklist/(.+)")
 
 
 class AdminModule:
-    def __init__(self, store, users, identity_store):
+    def __init__(self, store, users, identity_store, sessions):
         self.store = store
         self.users = users
         self.id_store = identity_store
+        self.sessions = sessions
 
     @staticmethod
     def _json(h, code, obj):
@@ -70,6 +73,15 @@ class AdminModule:
             # reachable by an agent token, and non-admin membership must not learn the surface exists.
             self._json(h, 403, {"error": "admin only"})
             return True
+
+        # CSRF (#146): every admin write is state-changing on the browser (cookie) plane, so it must
+        # carry the per-session token — same gate sharing.py and logout enforce. Reads (GET) are exempt.
+        if m in ("POST", "DELETE"):
+            cookie = SessionService.read_cookie(h)
+            sess = self.sessions.verify(cookie) if cookie else None
+            if not sess or not self.sessions.check_csrf(sess, h.headers.get("X-CSRF-Token", "")):
+                self._json(h, 403, {"error": "missing or invalid CSRF token"})
+                return True
 
         if path == "/admin/users" and m == "GET":
             self._json(h, 200, {"users": self.users.list_users()})

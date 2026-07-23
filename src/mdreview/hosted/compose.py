@@ -155,6 +155,6 @@ def build_hosted(store):
     # routes), so relative order is immaterial. SharingModule and AdminModule are BOTH wired — sharing
     # widens read/comment via owner-granted shares, admin adds the audited super-read + user-mgmt.
     app.modules.append(AuthModule(store, app.users, sessions, magic, accounts, id_store))
-    app.modules.append(AdminModule(store, app.users, id_store))
+    app.modules.append(AdminModule(store, app.users, id_store, sessions))
     app.modules.append(SharingModule(app.reviews, shares, sessions, app.users))
     return app
