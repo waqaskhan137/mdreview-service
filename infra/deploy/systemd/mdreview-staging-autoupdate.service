@@ -17,7 +17,7 @@ Environment=MDR_DEPLOY_DIR=/home/rana/mdreview-staging
 Environment=MDR_COMPOSE_FILE=docker-compose.staging.yml
 Environment=MDR_ENV_FILE=.env.staging
 Environment=MDR_SERVICE=mdreview-staging
-Environment=MDR_IMAGE=ghcr.io/ranawaqas-ai/mdreview-service:dev
+Environment=MDR_IMAGE=ghcr.io/ranawaqas-ai/mdreview-service-latex:dev
 Environment=MDR_HEALTH=http://127.0.0.1:8141/healthz
 Environment=MDR_AUTHPROBE=http://127.0.0.1:8141/api/reviews
 Environment=MDR_LOG=/home/rana/mdreview-staging/auto-update.log

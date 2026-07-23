@@ -46,9 +46,9 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      # Slim image (latex-free) — staging runs the hosted plane with LaTeX off. amd64 only: Kapture is
-      # x86 and every dev push builds this, so we skip the slow arm64 emulation prod's release does.
-      - name: Build + push the staging service image
+      # Slim image (latex-free). Kept for any consumer that pins mdreview-service:dev; staging itself
+      # now runs the LaTeX image below. amd64 only: Kapture is x86, so skip the slow arm64 emulation.
+      - name: Build + push the slim service image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -57,3 +57,19 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/mdreview-service:dev
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      # LaTeX image — staging renders kind=latex reviews. infra/Dockerfile.latex is the same service PLUS
+      # a pinned Tectonic binary + warmed bundle cache, and it bakes MDREVIEW_ENABLE_LATEX=1, so the
+      # hosted plane comes up with LaTeX on. Fatter + slower to build than slim; the gha cache keeps
+      # repeat builds cheap. Staging's compose pins THIS tag (mdreview-service-latex:dev).
+      - name: Build + push the staging LaTeX image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile.latex
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/mdreview-service-latex:dev
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=latex-dev
+          cache-to: type=gha,scope=latex-dev,mode=max

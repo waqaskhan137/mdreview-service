@@ -11,11 +11,13 @@
 services:
   mdreview-staging:                     # service KEY (used by `compose up -d mdreview-staging`) AND
     container_name: mdreview-staging    # container name (auto-update.sh inspects it) — both distinct from prod.
-    # Slim image (infra/Dockerfile), NOT the latex one: staging runs with LaTeX OFF (out of scope until
-    # the latex module's custody is separately verified), and the slim image is latex-free by
-    # construction — same auth/custody/sharing/admin cluster, a far lighter build every dev push.
-    # ponytail: if staging ever needs to mirror prod's latex artifact, point this at mdreview-service-latex:dev.
-    image: ghcr.io/ranawaqas-ai/mdreview-service:dev
+    # LaTeX image (infra/Dockerfile.latex): staging renders kind=latex reviews. It bakes
+    # MDREVIEW_ENABLE_LATEX=1 + a pinned Tectonic, so `python -m mdreview.hosted` comes up with the latex
+    # module wired (verified: /api/latex/templates 200, anon /api/reviews still 401 — custody intact).
+    # The plan-0f7f62a2ab precondition ("latex off until the module's custody is separately verified") is
+    # now met: /api/latex/* authenticate through the same _authz seam (#103) + child-resource
+    # enforcement (#110) as core routes. Heavier build than slim; CI gha-caches it.
+    image: ghcr.io/ranawaqas-ai/mdreview-service-latex:dev
     restart: unless-stopped
     # Activate the HOSTED build (the slim image's default CMD is `python -m mdreview`, the local tier).
     command: ["python", "-m", "mdreview.hosted"]
