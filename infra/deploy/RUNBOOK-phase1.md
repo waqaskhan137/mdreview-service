@@ -13,10 +13,14 @@ Prereqs: Phase 0 is already deployed (this repo at ~/mdreview-deploy on Kapture,
 ```bash
 # On Kapture, in ~/mdreview-deploy (or a fresh checkout of branch feat/hosted-phase1):
 
-# 1. Secrets: add the two Phase 1 secrets to infra/deploy/.env (600). Generate:
+# 1. Secrets: add the three Phase 1 secrets to infra/deploy/.env (600). Generate:
 python3 -c "import secrets; print('MDREVIEW_PROXY_SECRET=' + secrets.token_urlsafe(32))"
 python3 -c "import secrets; print('MDREVIEW_TOKEN_PEPPER=' + secrets.token_urlsafe(32))"
-#   -> append both to infra/deploy/.env
+# MDREVIEW_SESSION_SECRET signs the app-owned session cookie + magic-link tokens (#67); it joined
+# the boot guard, so REQUIRE_AUTH now refuses to start without it. Keep it STABLE once set (rotating
+# it logs everyone out).
+python3 -c "import secrets; print('MDREVIEW_SESSION_SECRET=' + secrets.token_urlsafe(32))"
+#   -> append all three to infra/deploy/.env
 
 # 2. nginx host-only proxy-secret snippet: MUST equal MDREVIEW_PROXY_SECRET from .env.
 sudo cp infra/deploy/nginx/mdreview-proxy-secret.conf.example /etc/nginx/snippets/mdreview-proxy-secret.conf

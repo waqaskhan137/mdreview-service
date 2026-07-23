@@ -16,9 +16,12 @@ import time
 
 
 class UserService:
-    def __init__(self, store, pepper):
+    def __init__(self, store, pepper, owner_email=""):
         self.store = store
         self._pepper = (pepper or "").encode()
+        # The one email crowned owner (=> admin). Injected from config.OWNER_EMAIL, exactly as the
+        # pepper is injected (the core reads no env directly). Empty => no owner (see _is_owner_email).
+        self._owner_email = (owner_email or "").strip().lower()
 
     def _path(self):
         return os.path.join(self.store.data_dir, "users.json")
@@ -38,26 +41,60 @@ class UserService:
         sub = (sub or "").strip()
         return "%s:%s" % (provider, sub) if provider and sub else None
 
+    def _is_owner_email(self, email):
+        """True IFF `email` equals the configured owner email, case-insensitively. An UNSET owner email
+        matches no one, so an instance with no configured owner has no owner and no stranger can
+        self-crown. This is the SOLE source of owner-ship: never first-registrant order (#67 H1)."""
+        return bool(self._owner_email) and (email or "").strip().lower() == self._owner_email
+
     def ensure_user(self, uid, email):
-        """Auto-provision an allowlisted user on first sign-in (oauth2-proxy already vetted them).
-        Idempotent; refreshes the stored email. The first user provisioned is the owner. Caller
-        holds store.lock."""
+        """Auto-provision a user on first sign-in (the proxy plane vetted them; the native plane proved
+        inbox control). Idempotent; refreshes the stored email. is_owner is pinned to the configured
+        MDREVIEW_OWNER_EMAIL — NEVER the first registrant (#67 H1) — and is_admin follows is_owner
+        (explicit non-owner admin grants are #102, and OR in here then; none exist yet, so a
+        de-crowned account keeps NO admin). Both flags are RECONCILED to the current verified email on
+        every call, so a legacy first-registrant crown is dropped and an owner-email match is honoured.
+        Caller holds store.lock."""
         if not uid:
             return None
         data = self._load()
         u = data["users"].get(uid)
+        owner = self._is_owner_email(email if u is None else (email or u.get("email")))
         if u is None:
             data["users"][uid] = {"email": email or "", "status": "active",
-                                  "is_owner": not data["users"], "created": time.time()}
+                                  "is_owner": owner, "is_admin": owner, "created": time.time()}
             self._save(data)
-        elif email and u.get("email") != email:
+            return uid
+        dirty = False
+        if email and u.get("email") != email:
             u["email"] = email
+            dirty = True
+        if bool(u.get("is_owner")) != owner:
+            u["is_owner"] = owner
+            dirty = True
+        if bool(u.get("is_admin")) != owner:            # is_admin follows is_owner (no grants yet, #102)
+            u["is_admin"] = owner
+            dirty = True
+        if dirty:
             self._save(data)
         return uid
 
     def is_active(self, uid):
         u = self._load()["users"].get(uid)
         return bool(u) and u.get("status", "active") == "active"
+
+    def find_by_email(self, email):
+        """The existing account id whose stored email matches (case-insensitive), or None. Read-only.
+        Used by the hosted native-auth linking (#67 D1) to ADOPT an existing federated owner's durable
+        provider:sub when they first verify the same email via magic-link, so their reviews (keyed on
+        that sub) do not fragment. A no-op for anyone who never uses the native path."""
+        e = (email or "").strip().lower()
+        if not e:
+            return None
+        for uid, rec in self._load()["users"].items():
+            if (rec.get("email") or "").strip().lower() == e:
+                return uid
+        return None
 
     # ---- tokens (agent plane) ----
     def _digest(self, secret):

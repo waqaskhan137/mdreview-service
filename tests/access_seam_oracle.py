@@ -68,7 +68,11 @@ def boot(src, mode):
     env = {**os.environ, "PYTHONPATH": src, "MDREVIEW_DATA": data, "PORT": str(port),
            "MDREVIEW_WEB_DIR": WEB}
     if mode == "hosted":
-        env.update(MDREVIEW_REQUIRE_AUTH="1", MDREVIEW_PROXY_SECRET=SECRET, MDREVIEW_TOKEN_PEPPER=PEPPER)
+        # MDREVIEW_SESSION_SECRET joined the REQUIRE_AUTH boot guard in #67; harmless/unused on the
+        # pre-#67 "before" tree (unknown env), required on the "after" tree. The transcript is
+        # unaffected, so the byte-identical assertion still holds.
+        env.update(MDREVIEW_REQUIRE_AUTH="1", MDREVIEW_PROXY_SECRET=SECRET, MDREVIEW_TOKEN_PEPPER=PEPPER,
+                   MDREVIEW_SESSION_SECRET="oracle-session-secret")
     proc = subprocess.Popen([sys.executable, "-m", "mdreview"], env=env,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     base = "http://127.0.0.1:%d" % port
