@@ -42,6 +42,19 @@
   #flash.ok{display:block;background:#123027;border:1px solid #1f4a38;color:var(--good)}
   .notice{text-align:center;color:var(--muted);padding:52px 0}
   .notice b{color:var(--text);display:block;margin-bottom:6px;font-size:16px}
+  h2{font-size:15px;margin:8px 0 2px}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .blockadd{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
+  .blockadd input[type=text],.blockadd select{font:inherit;padding:8px 10px;border-radius:8px;
+    border:1px solid var(--rule);background:#0f1116;color:var(--text)}
+  .blockadd input#blockval{width:200px} .blockadd input#blocknote{flex:1;min-width:140px}
+  .blockrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--rule);font-size:13px}
+  .blockrow:last-child{border-bottom:none}
+  .blockrow .bv{font-weight:500}
+  .blockrow .bk{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted2);
+    border:1px solid var(--rule);border-radius:20px;padding:1px 7px}
+  .blockrow .bn{flex:1;color:var(--muted)} .blockrow .brm{margin-left:auto}
+  .blockempty{color:var(--muted);padding:8px 0}
 </style>
 </head>
 <body>
@@ -55,6 +68,18 @@
   <div id="confirmbar"><span class="msg"></span><button class="mini danger" id="cfy">Confirm</button><button class="mini" id="cfn">Cancel</button></div>
   <div id="flash"></div>
   <div class="card"><div id="panel" class="notice">Loading…</div></div>
+
+  <div class="card" id="blockcard" style="display:none">
+    <h2 style="margin-top:2px">Blocklist</h2>
+    <p class="sub" style="margin:0 0 4px">A blocked email or IP is refused at the sign-in link step.</p>
+    <div id="blockpanel" class="blockempty">Loading…</div>
+    <div class="blockadd">
+      <input type="text" id="blockval" placeholder="email or IP" autocomplete="off">
+      <select id="blockkind"><option value="email">Email</option><option value="ip">IP</option></select>
+      <input type="text" id="blocknote" placeholder="note (optional)" autocomplete="off">
+      <button class="primary" id="blockbtn" type="button">Block</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -67,6 +92,7 @@ function flash(msg, kind){ const f=$("#flash"); f.textContent=msg; f.className=k
 
 function askConfirm(msg, onYes){
   const bar=$("#confirmbar"); bar.querySelector(".msg").textContent=msg; bar.style.display="flex";
+  bar.scrollIntoView({block:"center", behavior:"smooth"});   // the action may be far down (blocklist)
   $("#cfy").onclick=()=>{ bar.style.display="none"; onYes(); };
   $("#cfn").onclick=()=>{ bar.style.display="none"; };
 }
@@ -75,13 +101,14 @@ async function boot(){
   let s={}; try{ s=await fetch("/auth/session",{cache:"no-store"}).then(r=>r.json()); }catch(e){}
   if(!s.authenticated){ $("#panel").innerHTML = '<div class="notice"><b>Sign in to continue</b><a href="/">Go to sign in &rarr;</a></div>'; return; }
   ME=s.uid; CSRF=s.csrf||"";
+  $("#blockbtn").onclick=addBlock;
   loadUsers();
 }
 async function loadUsers(){
   let r; try{ r=await fetch("/admin/users",{cache:"no-store"}); }catch(e){ $("#panel").innerHTML=notice("Could not reach the service.",""); return; }
   if(r.status===403){ $("#panel").innerHTML=notice("You don't have admin access.","This area is for administrators."); return; }
   if(!r.ok){ $("#panel").innerHTML=notice("Could not load users.","Status "+r.status); return; }
-  const d=await r.json(); renderUsers(d.users||[]);
+  const d=await r.json(); renderUsers(d.users||[]); loadBlock();
 }
 
 function roles(u){
@@ -133,6 +160,36 @@ async function doAction(action, uid, email, value, label){
   }catch(e){ flash("Network error.", "err"); return; }
   if(r.ok){ flash(label+": "+email, "ok"); loadUsers(); }
   else{ const j=await r.json().catch(()=>({})); flash((j.error||("Failed ("+r.status+")"))+" — "+email, "err"); }
+}
+// ---- Blocklist (#143): block an email or IP from the sign-in link step ----
+async function loadBlock(){
+  $("#blockcard").style.display="";
+  let d; try{ d=await fetch("/admin/blocklist",{cache:"no-store"}).then(r=>r.json()); }catch(e){ return; }
+  const items=(d&&d.blocklist)||[];
+  $("#blockpanel").className = items.length ? "" : "blockempty";
+  $("#blockpanel").innerHTML = items.length ? items.map(x=>
+    '<div class="blockrow"><span class="bv">'+esc(x.value)+'</span><span class="bk">'+esc(x.kind)+'</span>'
+    +'<span class="bn">'+esc(x.note||"")+'</span>'
+    +'<button class="mini danger brm" data-value="'+esc(x.value)+'">Remove</button></div>').join("")
+    : "Nothing blocked.";
+  document.querySelectorAll("#blockpanel .brm").forEach(b=>b.addEventListener("click",()=>
+    askConfirm("Unblock "+b.dataset.value+"?", ()=>removeBlock(b.dataset.value))));
+}
+async function addBlock(){
+  const value=($("#blockval").value||"").trim(); if(!value) return;
+  const kind=$("#blockkind").value, note=($("#blocknote").value||"").trim();
+  const btn=$("#blockbtn"); btn.disabled=true;
+  let r; try{ r=await fetch("/admin/blocklist",{method:"POST",
+    headers:{"Content-Type":"application/json","X-CSRF-Token":CSRF}, body:JSON.stringify({value,kind,note})}); }
+  catch(e){ btn.disabled=false; return; }
+  btn.disabled=false;
+  if(r.ok){ $("#blockval").value=""; $("#blocknote").value=""; flash("Blocked "+value,"ok"); loadBlock(); }
+  else{ const j=await r.json().catch(()=>({})); flash(j.error||("Failed ("+r.status+")"),"err"); }
+}
+async function removeBlock(value){
+  let r; try{ r=await fetch("/admin/blocklist/"+encodeURIComponent(value),{method:"DELETE",headers:{"X-CSRF-Token":CSRF}}); }
+  catch(e){ return; }
+  if(r.ok){ flash("Unblocked "+value,"ok"); loadBlock(); } else flash("Failed ("+r.status+")","err");
 }
 boot();
 </script>
