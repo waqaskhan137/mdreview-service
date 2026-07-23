@@ -1,8 +1,10 @@
 # Product goal
 
 > **Status: APPROVED** by the owner 2026-07-22 (mdreview review `3d177a514f`, rev 2, after two
-> feedback rounds). This is the value yardstick for prioritization and scoring. Update it
-> deliberately and re-approve through review; it is strategy, not a scratchpad.
+> feedback rounds). Amended 2026-07-22 per explicit owner direction: **hosted opens to the
+> world**; invite-only retired as the membership model. This is the value yardstick for
+> prioritization and scoring. Update it deliberately and re-approve through review; it is
+> strategy, not a scratchpad.
 
 **North star.** An agent's work never ships past a review the human has not signed off on, and
 earning that sign-off is a tight loop: the agent drafts (markdown or LaTeX), the human reviews
@@ -14,7 +16,9 @@ never the bottleneck. Thinking was."
 
 1. The owner: daily driver for plan and doc review with Claude Code.
 2. Agent-using developers self-hosting locally: no account, no auth, keep-it-yours.
-3. Invited hosted users at app.mdreview.space: Google sign-in, invite-only today.
+3. Hosted users at app.mdreview.space: **open to the world** (owner direction
+   2026-07-22). Google sign-in today; native magic-link login is the incoming primary
+   (#67). The invite allowlist is transitional machinery, not the membership model.
 
 **Product principles** (what "good" means when weighing work):
 
@@ -43,7 +47,8 @@ smoothness first:
    secondary (#67): depending on Google's OAuth approval process means wait-and-approve friction
    the product must not be gated on. Onboarding and packaging stay in scope (#37, #38).
 2. Collaboration (hosted). Per-document public/private visibility and inviting other users by
-   email to view and comment (#68).
+   email to view and comment (#68); with membership open, invites are a sharing feature, not a
+   gate.
 3. Also in play: local-hosted sync (#66) and the rebrand decision (#43).
 
 These enter a sprint only through the gates.
