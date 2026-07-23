@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 
 from mdreview import config
 from mdreview.server import Services
+from mdreview.hosted.adminroutes import AdminModule
 from mdreview.hosted.authroutes import AuthModule
 from mdreview.hosted.custody import CustodyPolicy
 from mdreview.hosted.identity import AccountService, HostedIdentity
@@ -85,4 +86,7 @@ def build_hosted(store):
     app.policy = CustodyPolicy(app.reviews)
 
     app.modules.append(AuthModule(store, app.users, sessions, magic, accounts, id_store))
+    # AdminModule after AuthModule: /admin/* and /auth/* are disjoint prefixes, so order is immaterial;
+    # both run before the core arms and own their own auth (admin: cookie-plane admin only).
+    app.modules.append(AdminModule(store, app.users, id_store))
     return app
