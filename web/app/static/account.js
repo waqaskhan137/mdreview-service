@@ -18,6 +18,12 @@
     "#acct .acct-out:hover{border-color:var(--muted2,var(--muted));}" +
     "#acct .acct-in{color:var(--link);text-decoration:none;font-weight:600;font-size:13px;white-space:nowrap;}" +
     "#acct .acct-in:hover{text-decoration:underline;}" +
+    // Admin: both the indicator (you are an admin) and the way to reach /admin. Fixed violet reads on
+    // every page's ground (light dashboard, dark viewer/account).
+    "#acct .acct-admin{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;" +
+    "color:#fff;background:#6a5acd;border-radius:20px;padding:3px 10px;text-decoration:none;" +
+    "white-space:nowrap;flex:0 0 auto;}" +
+    "#acct .acct-admin:hover{background:#7c6cff;text-decoration:none;}" +
     // sidebar variant (dashboard): pin to the bottom, stack the email above the button
     ".side #acct{margin-top:auto;padding-top:16px;border-top:1px solid var(--rule);}" +
     ".side #acct .acct{flex-wrap:wrap;}" +
@@ -41,9 +47,12 @@
     } catch (e) { /* offline → treat as anonymous */ }
 
     if (sess && sess.authenticated) {
+      var adminLink = sess.is_admin
+        ? '<a class="acct-admin" href="/admin" title="Open the admin console">Admin</a>' : "";
       el.innerHTML =
         '<div class="acct"><span class="acct-dot" title="Signed in"></span>' +
         '<span class="acct-email" title="' + esc(sess.email) + '">' + esc(sess.email) + "</span>" +
+        adminLink +
         '<button class="acct-out" type="button">Sign out</button></div>';
       el.querySelector(".acct-out").addEventListener("click", async function () {
         try {
