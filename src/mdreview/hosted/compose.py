@@ -31,6 +31,8 @@ from mdreview.hosted.identity import AccountService, HostedIdentity
 from mdreview.hosted.identity_store import IdentityStore
 from mdreview.hosted.magiclink import MagicLinkService, SmtpEmailSender, StubEmailSender
 from mdreview.hosted.sessions import SessionService
+from mdreview.hosted.shares import ShareStore
+from mdreview.hosted.sharing import SharingModule
 
 
 def _env_int(name, default):
@@ -135,16 +137,24 @@ def build_hosted(store):
         max_per_ip=_env_int("MDREVIEW_MAGICLINK_MAX_PER_IP", 10),
         global_daily_budget=_env_int("MDREVIEW_MAGICLINK_DAILY_BUDGET", 500))
     accounts = AccountService(app.users, id_store)
+    shares = ShareStore(os.path.join(config.DATA_DIR, "shares.db"))
+    app.shares = shares                         # reached by the delete-review cleanup + SharingModule
 
-    # The authoritative, UNCONDITIONAL selection: the hosted resolver + CustodyPolicy. CustodyPolicy
-    # IS the owner-only Confinement contract (fail-closed on a missing owner) PLUS the audited,
-    # off-by-default admin super-READ exception (#102); named-share (#101/#68) is still a future
-    # extension. Bound to the FINAL app.reviews (the latex wrapper when enabled).
+    # The authoritative, UNCONDITIONAL selection: the hosted resolver + the ONE composed CustodyPolicy
+    # carrying all three Confinement arms. CustodyPolicy IS the custody Confinement contract —
+    # OWNER-ONLY for every write/delete (owner isolation is NOT weakened by either extension) —
+    # EXTENDED with (a) the owner-granted share exception the invariant names: a public share grants
+    # view to anyone incl. anonymous (#101), a named share grants view|view+comment to a grantee (#68);
+    # and (b) the audited, off-by-default, cookie-plane admin super-READ exception (#102). Bound to the
+    # FINAL app.reviews (the latex wrapper when enabled); shares consulted via the injected ShareStore.
     app.identity = HostedIdentity(app.users, store, sessions, config.PROXY_SECRET, allow_proxy_plane)
-    app.policy = CustodyPolicy(app.reviews)
+    app.policy = CustodyPolicy(app.reviews, shares)
 
+    # Feature modules run (in order) BEFORE the core review arms and each owns its own auth. Their
+    # prefixes are disjoint (/auth/*, /admin/*, and the sharing /api/reviews/{rid}/public|shares owner
+    # routes), so relative order is immaterial. SharingModule and AdminModule are BOTH wired — sharing
+    # widens read/comment via owner-granted shares, admin adds the audited super-read + user-mgmt.
     app.modules.append(AuthModule(store, app.users, sessions, magic, accounts, id_store))
-    # AdminModule after AuthModule: /admin/* and /auth/* are disjoint prefixes, so order is immaterial;
-    # both run before the core arms and own their own auth (admin: cookie-plane admin only).
     app.modules.append(AdminModule(store, app.users, id_store))
+    app.modules.append(SharingModule(app.reviews, shares, sessions, app.users))
     return app
