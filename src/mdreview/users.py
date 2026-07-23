@@ -59,6 +59,98 @@ class UserService:
         u = self._load()["users"].get(uid)
         return bool(u) and u.get("status", "active") == "active"
 
+    # ---- platform-admin role + capabilities (#102) ----
+    # is_admin / super_read live on the SAME user record is_active gates every plane on, so a ban and
+    # a capability check read one source of truth. is_admin is grantable (set_admin); the instance
+    # owner (is_owner, the first user provisioned) is admin by construction so there is always at
+    # least one admin without hand-editing the data volume. super_read is NEVER implied by admin and
+    # NEVER seeded - it is off by default and only an explicit set_super_read turns it on (#102).
+    def is_admin(self, uid):
+        u = self._load()["users"].get(uid)
+        return bool(u) and (bool(u.get("is_admin")) or bool(u.get("is_owner")))
+
+    def can_super_read(self, uid):
+        u = self._load()["users"].get(uid)
+        return bool(u) and bool(u.get("super_read"))
+
+    def session_ok(self, uid, iat):
+        """Cookie-plane gate: active AND the session was minted at/after any admin session-revoke
+        cutoff. `sessions_invalid_before` (0 by default) is bumped by revoke_sessions so a force-logout
+        rejects every session issued before it WITHOUT banning the account (a distinct lever). A stale
+        agent token is revoked by deleting it, not by this cutoff, so tokens are unaffected."""
+        u = self._load()["users"].get(uid)
+        if not u or u.get("status", "active") != "active":
+            return False
+        cutoff = u.get("sessions_invalid_before", 0) or 0
+        return not cutoff or (iat or 0) >= cutoff
+
+    def list_users(self):
+        """Every account, for the admin surface. is_admin folds in the owner (matching is_admin())."""
+        return sorted(
+            [{"uid": uid, "email": r.get("email", ""), "status": r.get("status", "active"),
+              "is_owner": bool(r.get("is_owner")),
+              "is_admin": bool(r.get("is_admin")) or bool(r.get("is_owner")),
+              "super_read": bool(r.get("super_read")), "created": r.get("created", 0)}
+             for uid, r in self._load()["users"].items()],
+            key=lambda u: u["created"], reverse=True)
+
+    def set_status(self, uid, status):
+        """Ban (status='banned') or reinstate (status='active') an account. A banned account fails
+        is_active, so its sessions AND tokens are rejected at the next request. Caller holds store.lock;
+        returns True iff the user exists."""
+        data = self._load()
+        u = data["users"].get(uid)
+        if not u:
+            return False
+        u["status"] = status
+        self._save(data)
+        return True
+
+    def set_admin(self, uid, value):
+        """Grant/revoke the admin role. The owner's implicit admin (is_owner) is not stored here and
+        cannot be revoked this way, which keeps at least one admin. Caller holds store.lock."""
+        data = self._load()
+        u = data["users"].get(uid)
+        if not u:
+            return False
+        u["is_admin"] = bool(value)
+        self._save(data)
+        return True
+
+    def set_super_read(self, uid, value):
+        """Grant/revoke the audited document super-READ capability (#102). Off by default; this is the
+        ONLY way it is turned on. Caller holds store.lock; returns True iff the user exists."""
+        data = self._load()
+        u = data["users"].get(uid)
+        if not u:
+            return False
+        u["super_read"] = bool(value)
+        self._save(data)
+        return True
+
+    def revoke_all_tokens(self, uid):
+        """Delete every API token belonging to uid (moderation / lost-device). Caller holds store.lock;
+        returns the count removed."""
+        data = self._load()
+        victims = [tid for tid, r in data["tokens"].items() if r.get("uid") == uid]
+        for tid in victims:
+            del data["tokens"][tid]
+        if victims:
+            self._save(data)
+        return len(victims)
+
+    def revoke_sessions(self, uid):
+        """Force-logout: invalidate every session minted before now (see session_ok). Distinct from a
+        ban (the account stays active) and from token revoke (tokens are unaffected). Caller holds
+        store.lock; returns True iff the user exists."""
+        data = self._load()
+        u = data["users"].get(uid)
+        if not u:
+            return False
+        u["sessions_invalid_before"] = time.time()
+        self._save(data)
+        return True
+
     def find_by_email(self, email):
         """The existing account id whose stored email matches (case-insensitive), or None. Read-only.
         Used by the hosted native-auth linking (#67 D1) to ADOPT an existing federated owner's durable
