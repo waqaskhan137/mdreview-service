@@ -19,13 +19,15 @@ import os
 from urllib.parse import urlparse
 
 from mdreview import config
-from mdreview.access import OwnerPolicy
 from mdreview.server import Services
 from mdreview.hosted.authroutes import AuthModule
+from mdreview.hosted.custody import CustodyPolicy
 from mdreview.hosted.identity import AccountService, HostedIdentity
 from mdreview.hosted.identity_store import IdentityStore
 from mdreview.hosted.magiclink import MagicLinkService, StubEmailSender
 from mdreview.hosted.sessions import SessionService
+from mdreview.hosted.shares import ShareStore
+from mdreview.hosted.sharing import SharingModule
 
 
 def _env_int(name, default):
@@ -76,14 +78,18 @@ def build_hosted(store):
         max_per_ip=_env_int("MDREVIEW_MAGICLINK_MAX_PER_IP", 10),
         global_daily_budget=_env_int("MDREVIEW_MAGICLINK_DAILY_BUDGET", 500))
     accounts = AccountService(app.users, id_store)
+    shares = ShareStore(os.path.join(config.DATA_DIR, "shares.db"))
+    app.shares = shares                         # reached by the delete-review cleanup + SharingModule
 
-    # The authoritative, UNCONDITIONAL selection: the hosted resolver + the real owner-only policy.
-    # OwnerPolicy IS the custody Confinement contract for owner-only scope (fail-closed on a missing
-    # owner); named-share (#101/#68) and audited-admin (#102) access are its future extensions and are
-    # deliberately NOT built tonight, so there is no empty subclass. Bound to the FINAL app.reviews
-    # (the latex wrapper when enabled).
+    # The authoritative, UNCONDITIONAL selection: the hosted resolver + the custody policy. CustodyPolicy
+    # IS the custody Confinement contract — owner-only for every write/delete (owner isolation is NOT
+    # weakened), EXTENDED with the owner-granted share exception the invariant names: a public share
+    # grants view to anyone incl. anonymous (#101), a named share grants view|view+comment to a
+    # grantee (#68). Audited-admin super-access (#102) remains a future extension. Bound to the FINAL
+    # app.reviews (the latex wrapper when enabled); shares consulted via the injected ShareStore.
     app.identity = HostedIdentity(app.users, store, sessions, config.PROXY_SECRET, allow_proxy_plane)
-    app.policy = OwnerPolicy(app.reviews)
+    app.policy = CustodyPolicy(app.reviews, shares)
 
     app.modules.append(AuthModule(store, app.users, sessions, magic, accounts, id_store))
+    app.modules.append(SharingModule(app.reviews, shares, sessions, app.users))
     return app
