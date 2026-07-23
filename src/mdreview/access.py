@@ -70,6 +70,12 @@ class OpenPolicy:
     def can_read(self, principal, rid):
         return self._reviews.exists(rid)
 
+    def can_comment(self, principal, rid):
+        # Everything-open: same as can_write. Present so the seam is uniform across policies (the
+        # handler calls can_comment on the comment-post routes for every tier); the hosted
+        # CustodyPolicy is the only one where comment and write diverge (a comment-share grantee).
+        return self._reviews.exists(rid)
+
     def can_write(self, principal, rid):
         return self._reviews.exists(rid)
 
@@ -133,6 +139,12 @@ class OwnerPolicy:
         return self._reviews.exists(rid) and self._reviews.can_access(rid, principal.uid)
 
     def can_read(self, principal, rid):
+        return self._owns(principal, rid)
+
+    def can_comment(self, principal, rid):
+        # Owner-only, same as can_write: on the owner-only tier posting a comment needs ownership,
+        # exactly as before. The hosted CustodyPolicy overrides this to also admit a comment-share
+        # grantee; here comment and write are one owner check, so behaviour is byte-identical.
         return self._owns(principal, rid)
 
     def can_write(self, principal, rid):
