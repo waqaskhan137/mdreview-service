@@ -94,7 +94,7 @@ docker compose -f infra/deploy/docker-compose.prod.yml down     # keeps the mdre
 
 The `mdreview-prod` volume is untouched by enable/disable, so rollback is just removing the vhost
 and stopping the containers. Because the image is `:latest`, an *exact* image rollback needs a
-pinned digest (`ghcr.io/waqaskhan137/mdreview-service@sha256:...`); `:latest` will re-pull the
+pinned digest (`ghcr.io/ranawaqas-ai/mdreview-service@sha256:...`); `:latest` will re-pull the
 current build on the next `up`.
 
 ## What Phase 1 adds on top (not in this phase)

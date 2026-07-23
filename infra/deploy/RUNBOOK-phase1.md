@@ -67,3 +67,24 @@ auth-off, stop and fix `MDREVIEW_REQUIRE_AUTH` before leaving it exposed.
 Revert nginx to the Phase 0 vhost (gates everything through oauth2-proxy, no bearer) and reload;
 optionally `docker compose ... up -d` the previous image. The `owner` field and users.json are
 additive and inert to older code. Keep a pre-cutover volume tar for a hard rollback.
+
+## Deploy integrity — ONE source of truth (issue #86)
+
+Three sign-in incidents in one day came from a single cause: **two deploy directories on the host
+drifted** and the repo matched neither. The rule now:
+
+- **The live deploy dir is `~/mdreview-deploy`** (compose project `mdreview-deploy`, data volume
+  `mdreview-deploy_mdreview-prod`). It is the ONLY dir. The old `~/mdreview-src/infra/deploy` is
+  retired (`~/mdreview-src.RETIRED-<date>`) — never `docker compose up` from it.
+- **The canonical domain is `https://app.mdreview.space`.** `app.waqasrana.space` 301-redirects here
+  (`nginx/app.waqasrana.space.conf`). oauth2-proxy MUST carry `whitelist_domains = [ "app.mdreview.space" ]`
+  and the matching `redirect_url`, or every sign-in loops (`validator.go:60 domain not in whitelist`).
+- **This repo's `infra/deploy/` is the source of truth.** After ANY deploy change, run the drift check:
+
+  ```
+  ./infra/deploy/check-drift.sh        # from a machine with `ssh kapture`
+  ```
+
+  It asserts: one deploy dir, both containers mounting from `~/mdreview-deploy`, `MDREVIEW_REQUIRE_AUTH=1`,
+  `MDREVIEW_PUBLIC_BASE=https://app.mdreview.space`, the oauth whitelist/redirect, and the allowlist
+  membership count. Exit 0 = clean. Reconcile before any redeploy if it trips.
