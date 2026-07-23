@@ -40,6 +40,7 @@ from mdreview.config import (
 )
 from mdreview.access import OperatorIdentity, OpenPolicy, OwnerPolicy, ProxyBearerIdentity
 from mdreview.errors import ReviewCreateRejected
+from mdreview import latexguard
 from mdreview.store import Store
 from mdreview.comments import CommentService
 from mdreview.assets import AssetService
@@ -348,9 +349,20 @@ class H(BaseHTTPRequestHandler):
             if self._disk_low():
                 return self._json(507, {"error": "insufficient storage"})
             b = self._body_json()
+            kind_explicit = bool(b.get("kind"))
             kind = b.get("kind", "markdown") or "markdown"
             if kind not in ("markdown", "latex"):
                 return self._json(400, {"error": "kind must be 'markdown' or 'latex'"})
+            # MR-100: creation-time LaTeX guard. When latex mode is enabled and the caller did NOT
+            # pass kind explicitly, reject content that looks like a LaTeX paper rather than silently
+            # storing it as a broken markdown review that never compiles. An explicit kind (markdown
+            # or latex) always wins — kind="markdown" is the escape hatch for prose quoting LaTeX. A
+            # markdown-only instance (flag off) keeps today's behavior.
+            if ENABLE_LATEX and not kind_explicit and latexguard.looks_like_latex(
+                    b.get("source_path", ""), b.get("markdown", "")):
+                return self._json(400, {"error": "this looks like LaTeX; pass kind=\"latex\" to "
+                                        "create a paper review (or kind=\"markdown\" to keep it as "
+                                        "markdown)"})
             # A template id is validated inside the (flag-on) latex decorator, which raises a
             # ReviewCreateRejected subclass; core catches only that core-defined base type and never
             # imports the feature module, so the flag-off import graph and behavior are unchanged.
