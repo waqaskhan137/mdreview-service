@@ -23,8 +23,15 @@ class Principal:
 
     uid   - the durable owner key provider:sub (None for the local operator). Never re-keyed (#97).
     email - the vouched email on the cookie plane; "" otherwise (forward-looking, mirrors the header).
-    is_admin - admin super-access is out of scope for #103 (step 3); the field exists for the seam
-               and is always False today.
+    is_admin - the platform-admin role (#102). Grants the admin user-management surface (list / ban /
+               revoke / blocklist). Resolved from the user record by the hosted identity provider;
+               always False on the local tier and for an anonymous caller. Being an admin does NOT by
+               itself grant super-access to another account's document (see super_read).
+    super_read - the SEPARATE, off-by-default platform grant (#102) that lets an admin READ a document
+               they do not own, as an audited Confinement exception (CustodyPolicy). Least-privilege:
+               it is read-only (there is no super-write/super-delete grant, by construction) and it is
+               NOT implied by is_admin - an admin must be explicitly granted it, and every use is
+               audited. False everywhere unless a hosted user record explicitly holds the grant.
     is_anonymous - True when no active user could be resolved on a require-auth tier; the handler
                answers such a caller with 401 (identity demanded) once the policy has denied.
     plane - the auth transport the attribution + token-management branch on: "cookie" (human via
@@ -32,10 +39,12 @@ class Principal:
             only who-authored / which-surface metadata, kept byte-identical to the pre-#103 planes.
     """
 
-    def __init__(self, uid=None, email="", is_admin=False, is_anonymous=False, plane="local"):
+    def __init__(self, uid=None, email="", is_admin=False, super_read=False, is_anonymous=False,
+                 plane="local"):
         self.uid = uid
         self.email = email
         self.is_admin = is_admin
+        self.super_read = super_read
         self.is_anonymous = is_anonymous
         self.plane = plane
 
