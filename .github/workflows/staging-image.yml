@@ -30,6 +30,11 @@ jobs:
       - name: Hosted boot smoke
         run: python3 tests/hosted_boot_smoke.py
 
+      # #115: the executable check #97 lacked. Gates the image build, so a change that reopens the
+      # custody failure class (fail-open default, or a returning bulk owner-stamp) cannot ship.
+      - name: Custody regression smoke
+        run: python3 tests/custody_regression_smoke.py
+
   image:
     needs: boot-smoke
     runs-on: ubuntu-latest
