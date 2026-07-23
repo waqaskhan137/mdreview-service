@@ -93,7 +93,12 @@
     border-radius:5px;padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
   .btn{font:inherit;font-size:12.5px;border-radius:8px;padding:6px 13px;cursor:pointer;border:1px solid var(--rule);background:var(--panel);color:var(--text);}
   .btn:hover{border-color:var(--muted2);}
-  .btn.primary{background:var(--link);color:#fff;border-color:var(--link);}
+  /* #152 slice C: primary buttons (composer "Comment", "Download PDF") use the app-wide brand violet
+     with --bg text, matching Basecoat's --primary on the other pages and the viewer (slice B). --bg
+     text keeps contrast correct in dark mode. Like the viewer, this page stays off Basecoat's CSS on
+     purpose — its preflight would strip list markers from comment-body markdown — and instead aligns
+     via the shared theme.css tokens. */
+  .btn.primary{background:var(--brand);color:var(--bg);border-color:var(--brand);}
   .btn.primary:hover{filter:brightness(1.06);}
   .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
 
