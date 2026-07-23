@@ -22,3 +22,7 @@ services:
 
 volumes:
   mdreview-data:
+    # Explicit name pins the volume to the plain `mdreview-data` a long-lived local
+    # instance owns. Without it Compose project-prefixes to `infra_mdreview-data` and
+    # `docker compose up` would mount an empty volume, silently serving a wiped dashboard.
+    name: mdreview-data
