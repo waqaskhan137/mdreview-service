@@ -169,7 +169,7 @@ class AuthModule:
         else:
             csrf = sess.csrf
         self._json(h, 200, {"authenticated": True, "uid": sess.uid, "email": sess.email,
-                            "csrf": csrf}, cookies=cookies)
+                            "is_admin": self.users.is_admin(sess.uid), "csrf": csrf}, cookies=cookies)
         return True
 
     # ---- POST /auth/logout (CSRF-checked) ----
