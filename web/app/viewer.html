@@ -95,47 +95,9 @@
   .btn:hover{border-color:var(--muted2);}
   .btn.primary{background:var(--link);color:#fff;border-color:var(--link);}
   .btn.primary:hover{filter:brightness(1.06);border-color:var(--link);}
-  /* baton action column (mockup: Send to agent on the right of the violet banner) */
-  .turnactions{flex:0 0 auto;display:flex;flex-direction:column;gap:6px;align-items:stretch;}
-  #sendbtn:not([disabled])::after{content:" \2192";}
   #dock{position:fixed;right:18px;bottom:18px;z-index:55;font-family:-apple-system,sans-serif;}
   #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--rule);border-radius:30px;padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
   #count{font-size:13px;color:var(--muted);}
-  /* MR-052: turn baton — Send button, status banner, reclaim control */
-  .btn.sendagent[disabled]{opacity:.5;cursor:default;}
-  /* baton banner — the mockup's violet "Your turn" treatment (left accent bar + icon), hosting the
-     Send button on the right. renderBanner toggles loading/warn/steps; only CSS changed here. */
-  .turnbanner{display:none;align-items:center;gap:13px;margin:0 0 24px;padding:14px 16px;border:1px solid var(--accent-bg);border-left:3px solid var(--accent);border-radius:11px;background:var(--accent-bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:var(--text);}
-  .turnbanner::before{content:"";flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:var(--accent) var(--baton-ico) center/15px no-repeat;}
-  .turnbanner.warn::before,.turnbanner.loading::before{display:none;}
-  .turnbanner.show{display:flex;}
-  #turnbody{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;}
-  .turnhead{display:flex;align-items:baseline;gap:10px;}
-  #turntext{font-weight:600;}
-  .turnhead #turntext{flex:1;}
-  #turntimer{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;white-space:nowrap;}
-  .turnbanner .reclaim{font-size:12px;padding:4px 11px;white-space:nowrap;}
-  /* MR-073 (issue #27): derived live progress timeline. Shown only while the agent is working
-     (#turnbanner.working); steps come purely from the /status epoch timestamps (no new data). */
-  #turnsteps{display:none;margin:0;padding:0;list-style:none;font-size:12px;color:var(--muted);}
-  #turnbanner.steps #turnsteps{display:flex;flex-direction:column;gap:3px;}
-  #turnsteps li{display:flex;align-items:center;gap:7px;}
-  #turnsteps li::before{content:"\25CB";color:var(--muted);width:1em;text-align:center;font-size:10px;}   /* ○ pending */
-  #turnsteps li.done{color:var(--text);}
-  #turnsteps li.done::before{content:"\25CF";color:var(--accent);}                                          /* ● reached */
-  #turnsteps li.active{color:var(--text);}
-  #turnsteps li.active::before{content:"";display:inline-block;width:9px;height:9px;border:2px solid var(--muted);border-top-color:transparent;border-radius:50%;animation:turnspin .8s linear infinite;}
-  @media (prefers-reduced-motion:reduce){#turnsteps li.active::before{animation:none;border-top-color:var(--muted);opacity:.6;}}
-  /* MR-062 (issue #27, supersedes MR-061): a clear loading SPINNER on the agent-turn *waiting* states — both
-     "Sent — waiting for pickup" AND "Agent is working" (NOT the stale "may have stopped"). renderBanner
-     adds the .loading class in those two arms. Pure CSS rotating ring; reduced-motion shows a static ring. */
-  #turnbanner.loading #turntext::before{content:"";display:inline-block;width:11px;height:11px;margin-right:9px;vertical-align:-1px;border:2px solid var(--muted);border-top-color:transparent;border-radius:50%;animation:turnspin .8s linear infinite;}
-  @keyframes turnspin{to{transform:rotate(360deg);}}
-  @media (prefers-reduced-motion:reduce){#turnbanner.loading #turntext::before{animation:none;border-top-color:var(--muted);opacity:.6;}}
-  /* MR-066 (issue #26): a NON-spinning warning treatment for "nothing is coming, act" states — the
-     pickup-timeout cue (no agent claimed within the grace window) and, reused by MR-068, the crashed-run
-     signal. No animation, so reduced-motion-safe by construction. Defined here; MR-068 reuses it. */
-  #turnbanner.warn{border-color:var(--noteline);border-left:3px solid var(--noteline);background:rgba(212,160,23,.10);}
   #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--accent);color:#fff;font-family:-apple-system,sans-serif;font-size:13px;padding:8px 16px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
   /* MR-006/MR-036: Google-Docs style margin comments (threaded) */
   #gutter{position:absolute;top:0;width:284px;z-index:5;display:none;}
@@ -269,22 +231,12 @@
 <body>
 <header class="topbar">
   <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span><span class="filename" id="filename">loading…</span></div>
-  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><span id="topstate"></span><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
+  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
 </header>
 <div class="wrap">
   <nav class="breadcrumb" id="breadcrumb"></nav>
   <h1 id="doctitle"></h1>
   <div id="docmeta"></div>
-  <div id="turnbanner" class="turnbanner">
-    <div id="turnbody">
-      <div class="turnhead"><span id="turntext"></span><span id="turntimer"></span></div>
-      <ol id="turnsteps"></ol>
-    </div>
-    <div class="turnactions">
-      <button class="btn primary sendagent" id="sendbtn">Send to agent</button>
-      <button class="btn reclaim" id="reclaimbtn">Take back the turn</button>
-    </div>
-  </div>
   <div id="article">Loading...</div>
 </div>
 
@@ -343,145 +295,6 @@ function renderChrome(){
   if(bc)bc.innerHTML=segs.map(s=>`<span>${escapeHtml(s)}</span>`).join('<span class="sep">/</span>');
 }
 
-// --- MR-052: turn baton UI (Send / status banner / reclaim), driven purely by the /status body ---
-const STALE_S=180;   // lease-heartbeat staleness (~3 min); agent_status.at is epoch SECONDS (float).
-                     // MIRRORS app.py LEASE_TTL_S (single source of truth; both seconds) — move together.
-const PICKUP_GRACE_S=60;  // MR-066 (issue #26): pickup grace — turn==agent but NOTHING has claimed a lease
-                          // (agent_status null). A different, shorter clock than STALE_S (which is for a
-                          // claimed-then-stale lease): > one ~25s watcher long-poll cycle + claim/spawn
-                          // jitter (a live watcher won't trip it), < STALE_S=180, > the ~2s poll. Surfaces
-                          // a no-watcher review in ~1 min instead of spinning forever.
-function postHandoff(body){
-  return fetch(API+'/handoff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-}
-// First-match decision: agent rows key on turn==='agent', reviewer rows on agent_status.state, so no
-// row shadows another. agent message is set via textContent (it can't inject HTML).
-// MR-073 (issue #27): per-turn progress state for the derived live timeline + timer. The steps come
-// purely from the /status epoch timestamps (no new data): while turn==='agent', turn_updated is the
-// Send/flip time (stable), so source_updated/comments_updated > turn_updated ⟺ that happened THIS turn.
-// We ACCUMULATE reached steps (cumulative — a skipped 2s poll can't lose one) and keep them into the
-// following 'done' state (where turn_updated is re-bumped to the hand_back time, so the comparison no
-// longer works — the remembered flags + the client-captured start carry the final render). Reset on a
-// NEW agent turn (fresh turn_updated). A fresh page that never observed turn==='agent' leaves these
-// unset → no bogus final duration (the documented reopen-after-done limitation).
-let _turnId=null, _turnStartAt=null, _turnEdited=false, _turnCommented=false, _lastStatus=null, _timerIv=null;
-function fmtDur(s){s=Math.max(0,Math.floor(s));return Math.floor(s/60)+":"+String(s%60).padStart(2,'0');}
-function renderSteps(reached, activeIdx){
-  const steps=$("#turnsteps"); if(!steps)return;
-  const labels=["Connected — reading your comments","Editing the document","Updating comments"];
-  steps.innerHTML='';
-  labels.forEach((label,i)=>{
-    const li=document.createElement('li'); li.textContent=label;     // textContent: no HTML injection
-    if(reached[i]) li.className=(i===activeIdx)?'active':'done';
-    steps.appendChild(li);
-  });
-  return steps;
-}
-function startTicker(){                                               // 1s fetch-free clock for the live timer
-  if(_timerIv)return;
-  _timerIv=setInterval(()=>{
-    const st=_lastStatus, t=$("#turntimer");
-    if(!t||!st||st.turn!=='agent'||!st.agent_status||_turnStartAt==null)return;
-    // MR-073: only tick while the lease is FRESH. Once agent_status.at ages past STALE_S — the agent
-    // stopped pinging, OR /status is unreachable so the cached `at` keeps aging — re-render the banner
-    // off the cached status: it flips to "Agent may have stopped" (clearing the timer), instead of the
-    // timer ticking forever. Works even with no successful poll (a dead server / a stuck agent).
-    if((Date.now()/1000-(st.agent_status.at||0))>STALE_S){renderBanner(st);return;}
-    t.textContent=fmtDur(Date.now()/1000-_turnStartAt);              // fresh: recompute from cached /status, no poll
-  },1000);
-}
-function renderBanner(st){
-  const turn=(st&&st.turn)||'reviewer';
-  const as=st&&st.agent_status;            // null/absent => parked or never handed off
-  const send=$("#sendbtn"),reclaim=$("#reclaimbtn"),tt=$("#turntext"),bar=$("#turnbanner"),timer=$("#turntimer"),steps=$("#turnsteps");
-  if(!bar)return;
-  _lastStatus=st;
-  bar.classList.remove('loading','warn','steps');    // MR-062/066/073: arms below re-add the relevant one
-  if(steps)steps.innerHTML=''; if(timer)timer.textContent='';   // cleared unless a timeline arm repopulates
-  let msg;
-  if(turn==='agent'){
-    if(!as){
-      // MR-066: parked — nothing claimed. Within grace: still spinner. Past grace: non-spinning warning
-      // (no watcher running, or nothing picked it up). turn_updated is in the /status body; renderBanner
-      // runs every ~2s poll tick (not guarded on a status change), so this flips as the clock crosses.
-      if((Date.now()/1000-((st&&st.turn_updated)||0))>PICKUP_GRACE_S){
-        msg="No agent has picked this up — is a watcher running? Take back the turn.";bar.classList.add('warn');
-      }else{
-        msg="Sent — waiting for an agent to pick this up.";bar.classList.add('loading');  // MR-062: spinner
-      }
-    }
-    else if((Date.now()/1000-(as.at||0))>STALE_S){msg="Agent may have stopped — Take back the turn?";bar.classList.add('warn');}  // MR-066: stale lease is also an "act" state
-    else{
-      // MR-073 (issue #27): claimed + working → the live progress timeline + ticking timer.
-      const tu=(st&&st.turn_updated)||0;
-      if(tu!==_turnId){_turnId=tu;_turnStartAt=null;_turnEdited=false;_turnCommented=false;}   // a new turn
-      // MR-073/W1: baseline the timer on the AGENT CLAIM (the first 'working' agent_status.at we see),
-      // NOT the Send time (turn_updated) — so "Agent revised in M:SS" is the agent's work time, not
-      // work time + pickup lag. Captured once per turn; as.at then heartbeats forward.
-      if(_turnStartAt==null && as && as.at) _turnStartAt=as.at;
-      if(((st&&st.source_updated)||0)>tu)_turnEdited=true;            // edited THIS turn (cumulative)
-      if(((st&&st.comments_updated)||0)>tu)_turnCommented=true;       // comment activity THIS turn
-      const reached=[true,_turnEdited,_turnCommented];
-      let active=0; reached.forEach((r,i)=>{if(r)active=i;});         // latest reached step = active (spins)
-      renderSteps(reached,active);
-      bar.classList.add('steps');                                    // show #turnsteps (active step spins → liveness)
-      msg="Agent is working on your feedback…";
-      if(timer&&_turnStartAt!=null)timer.textContent=fmtDur(Date.now()/1000-_turnStartAt);   // live elapsed (since claim)
-      startTicker();
-    }
-    reclaim.style.display='';              // rows 1–3: reclaim available
-    send.disabled=true;send.textContent="Sent — agent's turn";
-  }else{
-    const state=as&&as.state;
-    if(state==='done'){
-      msg="Agent updated the draft"+(as.message?": "+as.message:"")+". Your turn.";
-      // MR-073: if we watched the run (start captured), show the terminal timeline + final duration.
-      if(_turnStartAt!=null){
-        renderSteps([true,_turnEdited,_turnCommented],-1);           // all reached steps done; no active/spin
-        if(_turnCommented&&steps&&steps.children[2])steps.children[2].textContent="Resolved comments"; // honest: only on done
-        bar.classList.add('steps');
-        const at=(as&&as.at)||0;
-        if(timer&&at>_turnStartAt)timer.textContent="Agent revised in "+fmtDur(at-_turnStartAt);
-      }
-    }
-    else if(state==='blocked'){
-      // MR-068 (issue #26): distinguish the WATCHER's crash signal (the turn is already back with you)
-      // from a deliberate agent question. The watcher sends "agent process exited N without finishing".
-      if(as.message&&as.message.indexOf('agent process exited')===0){
-        msg="Agent run stopped: "+as.message+". Your turn.";bar.classList.add('warn');  // reuse MR-066 .warn
-      }else{
-        msg="Agent needs you"+(as.message?": "+as.message:"")+".";   // agent-initiated question (unchanged)
-      }
-    }
-    else msg="Your turn. Comment, then Send to agent.";
-    reclaim.style.display='none';
-    // gate: the agent's whole instruction IS the open comments, so with none there is nothing to
-    // send — disable + grey (the .sendagent[disabled] rule handles the greying).
-    const noOpen=(comments||[]).filter(c=>c.status!=='resolved').length===0;
-    send.disabled=noOpen;
-    send.title=noOpen?"Add a comment first — the agent acts on your open comments":"";
-    send.textContent="Send to agent";
-  }
-  tt.textContent=msg;
-  bar.classList.add('show');
-  // top-bar right: vN · <turn state> (mockup). Derived from the same turn/agent_status.
-  const ts=$("#topstate");
-  if(ts){
-    const lbl = turn==='agent' ? ((as&&as.state==='working')?'agent working':'waiting for agent') : 'your turn';
-    const rev = (st&&st.revision)||META.revision||0;
-    ts.textContent = (rev?('v'+rev+' · '):'')+lbl;
-  }
-}
-$("#sendbtn").onclick=async()=>{
-  if($("#sendbtn").disabled)return;
-  $("#sendbtn").disabled=true;$("#sendbtn").textContent="Sent — agent's turn";
-  try{await postHandoff({to:'agent'});const st=await fetch(API+'/status').then(r=>r.json());renderBanner(st);toast('Sent to agent');}
-  catch(e){toast('Could not send');$("#sendbtn").disabled=false;$("#sendbtn").textContent="Send to agent";}
-};
-$("#reclaimbtn").onclick=async()=>{
-  try{await postHandoff({to:'reviewer',by:'reviewer'});const st=await fetch(API+'/status').then(r=>r.json());renderBanner(st);toast('Turn reclaimed');}
-  catch(e){toast('Could not reclaim');}
-};
 
 function initMermaid(){
   if(!window.mermaid)return;
@@ -595,7 +408,6 @@ async function load(){
   let md=await fetch(API+'/source',{cache:'no-store'}).then(r=>r.text());
   const st=await fetch(API+'/status').then(r=>r.json()).catch(()=>({}));
   lastSrc=st.source_updated||0;lastCmt=st.comments_updated||0;
-  renderBanner(st);   // MR-052: first-paint banner from the same /status body
   // extract YAML front matter (for the title) and strip it
   let title="";
   const fm=md.match(/^﻿?\s*---\r?\n([\s\S]*?)\r?\n---\s*/);
@@ -811,7 +623,6 @@ function renderAll(){
   });
   A.querySelectorAll('mark.cmt').forEach(m=>m.onclick=()=>focusPair(m.dataset.id));
   layoutComments();
-  if(_lastStatus)renderBanner(_lastStatus);   // keep the Send-to-agent gate in sync as comments change
 }
 function layoutComments(){
   const A=$("#article"),G=$("#gutter");if(!A||!G)return;
@@ -916,12 +727,6 @@ function poll(){
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
       if(s.source_updated&&s.source_updated!==lastSrc){await fetchComments();await load();toast('Draft updated by AI');}
       else if(s.comments_updated&&s.comments_updated!==lastCmt){lastCmt=s.comments_updated;await fetchComments();renderAll();}
-      // MR-052 turn baton: reflect the latest turn/agent_status from the SAME /status body. The
-      // source-change branch above already ran load() (re-rendered the doc, reset lastSrc) before we
-      // touch the banner, so the "Draft updated by AI" toast and the banner don't race. renderBanner
-      // runs every tick (not guarded on a turn-change), so the stale-lease row appears over time as
-      // agent_status.at ages past STALE_S even with no /status change.
-      renderBanner(s);
     }catch(e){}
   },2000);
 }
