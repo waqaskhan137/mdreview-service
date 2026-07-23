@@ -58,6 +58,14 @@ from mdreview.users import UserService
 # header does not perturb the byte-identical comparison.)
 NOINDEX = (("X-Robots-Tag", "noindex, nofollow"),)
 
+# The POST routes that post a NOTE (owner OR a #68 comment-share grantee) rather than WRITE the
+# document (owner-only): POST /comments and POST /comments/{cid}/reply. comment resolve/reopen are
+# workflow writes and are deliberately NOT here. _authz derives can_comment-vs-can_write from this ONE
+# regex, the single source of truth the central #110 choke and every per-arm gate share, so they can
+# never disagree — a choke that treated a comment POST as a write would 404 a legitimate comment-share
+# grantee BEFORE the arm ran, silently dropping the #68 collaboration control.
+COMMENT_POST_RE = re.compile(r"/api/reviews/" + RID + r"/comments(?:/c[A-Za-z0-9]{10}/reply)?$")
+
 
 class Services:
     """The composition root's bundle: one Store, injected into each service (constructor injection).
@@ -175,42 +183,50 @@ class H(BaseHTTPRequestHandler):
             return None
         return p
 
-    def _authz(self, rid, action=None):
+    def _authz(self, rid):
         """Per-review gate, read-order INVERTED (#103): consult the AccessPolicy FIRST, then demand
         identity only if it denied. Outcomes are byte-identical to the pre-#103 require-auth-first
         order under the owner-only policy - owner -> allowed; authenticated non-owner or absent
         review -> 404 (fail-closed, not probeable); unauthenticated -> 401 (checked BEFORE the
         exists/404 distinction, so an anonymous caller to any rid still 401s, never 404s).
 
-        The verb selects the permission; `action="comment"` narrows a POST to can_comment (posting a
-        note / reply) instead of can_write (editing the source). On the owner-only tiers can_comment
-        == can_write, so this is behaviour-preserving; only the hosted CustodyPolicy lets a
-        comment-share grantee post without owning. Returns (uid, plane) on allow / (None, None) after
-        a 401/404, the contract every call site destructures."""
+        The capability is derived HERE from (command, path) — the ONE source of truth both the central
+        #110 choke and every per-arm call share, so they can never disagree: GET -> can_read; DELETE ->
+        can_delete; a POST to a comment route (POST /comments or .../reply, per COMMENT_POST_RE) ->
+        can_comment (posting a note: owner OR a #68 comment-share grantee); every other POST/PUT ->
+        can_write (document / workflow write, incl. comment resolve/reopen). On the owner-only tiers
+        can_comment == can_write == can_read, so this is behaviour-preserving; only the hosted
+        CustodyPolicy lets a comment-share grantee post — or a public/named-share reader read, or an
+        audited admin super-read — without owning. Returns (uid, plane) on allow / (None, None) after a
+        401/404, the contract every call site destructures."""
         app = self.server.app
         p = self._principal()
-        if self.command == "GET":
+        m = self.command
+        path = urlparse(self.path).path
+        if m == "GET":
             allowed = app.policy.can_read(p, rid)
-            # Audited admin super-access (#102): if the policy granted this read as a platform
-            # exception (an admin reading a doc they do not own), write the immutable record through
-            # the core _audit() sink - who (uid) / what (method+path) / when (ts) / which (rid+owner).
-            # The hook is absent on OwnerPolicy/OpenPolicy, so the base tiers are byte-identical.
-            if allowed:
+            # Audited admin super-access (#102): if the policy granted this read as a platform exception
+            # (an admin reading a doc they do not own), write the immutable record through the core
+            # _audit() sink - who (uid) / what (method+path) / when (ts) / which (rid+owner). The
+            # classifier hook is absent on OwnerPolicy/OpenPolicy, so the base tiers are byte-identical.
+            # Deduped per request (the #110 choke and the per-arm both call _authz for one GET), so a
+            # single super-read is audited exactly once, never twice.
+            if allowed and rid not in self._super_audited:
                 classify = getattr(app.policy, "audit_super_access", None)
                 rec = classify(p, rid) if classify else None
                 if rec:
-                    self._audit("admin_super_read", method=self.command,
-                                path=urlparse(self.path).path, ts=time.time(), **rec)
-        elif self.command == "DELETE":
+                    self._audit("admin_super_read", method=m, path=path, ts=time.time(), **rec)
+                    self._super_audited.add(rid)
+        elif m == "DELETE":
             allowed = app.policy.can_delete(p, rid)
-        elif action == "comment":                         # POST /comments, POST .../reply
-            allowed = app.policy.can_comment(p, rid)
+        elif m == "POST" and COMMENT_POST_RE.fullmatch(path):
+            allowed = app.policy.can_comment(p, rid)      # post a note / reply, NOT a document write
         else:                                             # POST, PUT (document write / workflow)
             allowed = app.policy.can_write(p, rid)
         if allowed:
             return (p.uid, p.plane)
         if p.is_anonymous:
-            self._audit("auth_fail", path=urlparse(self.path).path)
+            self._audit("auth_fail", path=path)
             self._json(401, {"error": "authentication required"})
             return (None, None)
         self._audit("denied_404", uid=p.uid, rid=rid)     # probing signal (missing or foreign owner)
@@ -292,6 +308,7 @@ class H(BaseHTTPRequestHandler):
     # ---- router ----
     def route(self, m):
         self._pcache = None            # reset the per-request principal memo (#110); handler is reused across keep-alive
+        self._super_audited = set()    # per-request dedup for the #102 super-read audit (choke + per-arm call _authz)
         app = self.server.app
         path = urlparse(self.path).path
         if len(path) > 1:
@@ -597,10 +614,10 @@ class H(BaseHTTPRequestHandler):
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/comments", path)
         if mo:
             rid = mo.group(1)
-            # action="comment": a POST here is posting a note, gated by can_comment (owner OR a
-            # comment-share grantee on the hosted tier), NOT can_write. GET stays can_read, so a
-            # view-share grantee can read the thread. Byte-identical on the owner-only tiers.
-            uid, plane = self._authz(rid, "comment")
+            # A POST here posts a note, gated by can_comment (owner OR a comment-share grantee on the
+            # hosted tier), NOT can_write — _authz derives that from the path (COMMENT_POST_RE). GET
+            # stays can_read, so a view-share grantee can read the thread. Byte-identical on owner tiers.
+            uid, plane = self._authz(rid)
             if plane is None:
                 return
             if m == "GET":
@@ -646,9 +663,10 @@ class H(BaseHTTPRequestHandler):
             r"/api/reviews/" + RID + r"/comments/(c[A-Za-z0-9]{10})/(reply|resolve|reopen)", path)
         if mo and m == "POST":
             rid, cid, action = mo.group(1), mo.group(2), mo.group(3)
-            # A reply is commenting (can_comment: owner OR comment-share grantee). resolve/reopen are
-            # workflow transitions and stay owner-only (can_write). Byte-identical on owner-only tiers.
-            uid, plane = self._authz(rid, "comment" if action == "reply" else None)
+            # A reply is commenting (can_comment: owner OR comment-share grantee); resolve/reopen are
+            # workflow transitions and stay owner-only (can_write). _authz derives which from the path
+            # (COMMENT_POST_RE matches .../reply, not .../resolve|reopen). Byte-identical on owner tiers.
+            uid, plane = self._authz(rid)
             if plane is None:
                 return
             b = self._body_json()
