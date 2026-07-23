@@ -8,20 +8,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · latex</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
+  /* Colour tokens live in /static/theme.css (#153) — never redefine them per page. */
   /* Tokens shared with viewer.html (violet accent, blue, theme swap). */
-  :root{--bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--muted2:#6e727e;--rule:#e6e7ee;
-    --accent:#5b30d6;--accent-bg:#eee9fd;--blue:#1d4fbf;--blue-bg:#e9f0fd;--noteline:#5b30d6;--link:#2f6fed;
-    --canvas:#eceef3;--sheet:#fff;--warn:#b8860b;--warn-bg:rgba(212,160,23,.12);}
-  @media (prefers-color-scheme: dark){:root{--bg:#0f1014;--panel:#17181d;--text:#e9eaf0;--muted:#9a9fb0;
-    --muted2:#878c9c;--rule:#26282f;--accent:#b9a3f5;--accent-bg:#2a2147;--blue:#9cc0f5;--blue-bg:#16243f;
-    --noteline:#b9a3f5;--link:#7ba6f5;--canvas:#0b0c10;--warn:#d4a017;--warn-bg:rgba(212,160,23,.14);}}
-  :root[data-theme="dark"]{--bg:#0f1014;--panel:#17181d;--text:#e9eaf0;--muted:#9a9fb0;--muted2:#878c9c;
-    --rule:#26282f;--accent:#b9a3f5;--accent-bg:#2a2147;--blue:#9cc0f5;--blue-bg:#16243f;--noteline:#b9a3f5;
-    --link:#7ba6f5;--canvas:#0b0c10;--warn:#d4a017;--warn-bg:rgba(212,160,23,.14);}
-  :root[data-theme="light"]{--bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--muted2:#6e727e;
-    --rule:#e6e7ee;--accent:#5b30d6;--accent-bg:#eee9fd;--blue:#1d4fbf;--blue-bg:#e9f0fd;--noteline:#5b30d6;
-    --link:#2f6fed;--canvas:#eceef3;--sheet:#fff;--warn:#b8860b;--warn-bg:rgba(212,160,23,.12);}
 
   *{box-sizing:border-box;}
   html,body{height:100%;}

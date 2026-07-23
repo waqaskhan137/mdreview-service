@@ -10,14 +10,13 @@
 <title>mdreview</title>
 <link rel="stylesheet" href="/static/katex.min.css">
 <link rel="stylesheet" href="/static/hljs-github.css">
+<link rel="stylesheet" href="/static/theme.css">
 <style>
+  /* Colour tokens live in /static/theme.css (#153) — never redefine them per page. */
   /* Light palette = the new mockup (violet baton/comments, blue headings/links); dark derived via
      the existing token swap (mockup is light-only). --accent is the violet primary used by the
      baton + comment threads; --blue is section headings + links; --noteline = the comment margin
      bar (violet, was amber). */
-  :root{--bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--muted2:#6e727e;--rule:#e6e7ee;--accent:#5b30d6;--accent-bg:#eee9fd;--blue:#1d4fbf;--blue-bg:#e9f0fd;--noteline:#5b30d6;--link:#2f6fed;
-    --baton-ico:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>');}
-  @media (prefers-color-scheme: dark){:root{--bg:#0f1014;--panel:#17181d;--text:#e9eaf0;--muted:#9a9fb0;--muted2:#878c9c;--rule:#26282f;--accent:#b9a3f5;--accent-bg:#2a2147;--blue:#9cc0f5;--blue-bg:#16243f;--noteline:#b9a3f5;--link:#7ba6f5;}}
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:Charter,Georgia,Cambria,"Times New Roman",serif;font-size:20px;line-height:1.7;}
   .wrap{max-width:720px;margin:0 auto;padding:40px 24px 160px 64px;}
