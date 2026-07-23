@@ -59,6 +59,19 @@ class UserService:
         u = self._load()["users"].get(uid)
         return bool(u) and u.get("status", "active") == "active"
 
+    def find_by_email(self, email):
+        """The existing account id whose stored email matches (case-insensitive), or None. Read-only.
+        Used by the hosted native-auth linking (#67 D1) to ADOPT an existing federated owner's durable
+        provider:sub when they first verify the same email via magic-link, so their reviews (keyed on
+        that sub) do not fragment. A no-op for anyone who never uses the native path."""
+        e = (email or "").strip().lower()
+        if not e:
+            return None
+        for uid, rec in self._load()["users"].items():
+            if (rec.get("email") or "").strip().lower() == e:
+                return uid
+        return None
+
     # ---- tokens (agent plane) ----
     def _digest(self, secret):
         return hmac.new(self._pepper, secret.encode(), hashlib.sha256).hexdigest()
