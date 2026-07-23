@@ -37,8 +37,19 @@ services:
       MDREVIEW_SESSION_SECRET: "${MDREVIEW_SESSION_SECRET:?set MDREVIEW_SESSION_SECRET in .env.staging}"
       # The verified email crowned owner/admin on this staging instance (never the first registrant).
       MDREVIEW_OWNER_EMAIL: "${MDREVIEW_OWNER_EMAIL:?set MDREVIEW_OWNER_EMAIL in .env.staging}"
+      # Real magic-link delivery via SMTP (Azure ACS — see infra/deploy/RUNBOOK-email-smtp.md). Empty by
+      # default, so the STUB backend below stays in effect. A non-empty MDREVIEW_SMTP_HOST switches the
+      # app to real delivery (SmtpEmailSender) on the next redeploy. To go live: provision per the
+      # runbook, fill MDREVIEW_SMTP_* in .env.staging, then remove MDREVIEW_ALLOW_STUB_EMAIL below.
+      MDREVIEW_SMTP_HOST: "${MDREVIEW_SMTP_HOST:-}"
+      MDREVIEW_SMTP_PORT: "${MDREVIEW_SMTP_PORT:-587}"
+      MDREVIEW_SMTP_USER: "${MDREVIEW_SMTP_USER:-}"
+      MDREVIEW_SMTP_PASSWORD: "${MDREVIEW_SMTP_PASSWORD:-}"
+      MDREVIEW_SMTP_FROM: "${MDREVIEW_SMTP_FROM:-}"
+      MDREVIEW_SMTP_STARTTLS: "${MDREVIEW_SMTP_STARTTLS:-1}"
       # Stub email backend (magic links are LOGGED, not delivered). Accepted staging risk: anyone with
-      # log access on the box can complete a login as any email. Set MDREVIEW_SMTP_HOST for real delivery.
+      # log access on the box can complete a login as any email. Superseded the moment MDREVIEW_SMTP_HOST
+      # is set (HOST wins); remove this line once real delivery is verified.
       MDREVIEW_ALLOW_STUB_EMAIL: "1"
     networks:
       - mdrnet-staging
