@@ -157,6 +157,17 @@
   #histview ul{margin:4px 0;padding-left:1.2em;}
   .histdoc{border:1px solid var(--rule);border-radius:8px;padding:12px 14px;font-family:Charter,Georgia,serif;font-size:15px;line-height:1.5;max-height:38vh;overflow:auto;}
   .histbtnrow{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+  /* #19: History-modal compare mode — pick any two versions, line-level source diff */
+  .cmpbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:var(--muted);}
+  .cmpbar select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);color:var(--text);max-width:min(46%,300px);}
+  .diffdoc{border:1px solid var(--rule);border-radius:8px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.55;max-height:44vh;overflow:auto;white-space:pre-wrap;word-break:break-word;}
+  .diffrow{display:block;padding:0 6px;border-radius:3px;}
+  .diffrow.add{background:rgba(46,160,67,.16);}
+  .diffrow.del{background:rgba(229,83,75,.15);}
+  .diffrow.add::before{content:"+ ";color:#2ea043;}
+  .diffrow.del::before{content:"- ";color:#e5534b;}
+  .diffrow.eq::before{content:"\00a0\00a0";color:var(--muted);}
+  .diffempty{color:var(--muted);padding:8px 4px;}
   /* MR-036: a block carrying an open comment gets the margin bar + dot */
   .blk.has-comment{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
   .blk.has-comment .num::after{content:" \25CF";color:var(--noteline);}
@@ -248,7 +259,7 @@
 <div id="histmodal"><div id="histbox">
   <h3>Version history</h3>
   <div id="histbody"></div>
-  <div class="histbtnrow"><button class="btn" id="histclose">Close</button></div>
+  <div class="histbtnrow"><button class="btn" id="histcmp">Compare</button><button class="btn" id="histclose">Close</button></div>
 </div></div>
 
 <div id="lightbox"><img alt="zoomed figure"></div>
@@ -865,8 +876,12 @@ function poll(){
 }
 
 // --- version history (read-only) ---
+let HISTVERS=[];        // [{n,label}] versions for the compare pickers (newest-first: current, then rounds)
+let HISTMODE='browse';  // 'browse' (one version at a time) | 'compare' (any-two-versions diff, #19)
+
 async function openHistory(){
   const body=$("#histbody");body.innerHTML='Loading...';$("#histmodal").style.display='flex';
+  HISTMODE='browse';$("#histcmp").textContent='Compare';
   try{
     // MR-065 (#18): the current live draft is its own top entry — "current (vN)" reconciles with the
     // dashboard's vN badge; the archived rounds (earlier drafts) list below, newest-first. Labels are
@@ -875,25 +890,89 @@ async function openHistory(){
     const [d,meta]=await Promise.all([fetch(API+'/history').then(r=>r.json()),fetch(API).then(r=>r.json())]);
     const rounds=(d&&d.rounds)||[];
     const rev=(meta&&meta.revision)||0;
-    let items='<button class="histitem" data-n="current">'+(rev>0?'current (v'+rev+')':'current')+' &middot; live draft</button>';
-    if(rounds.length)items+=rounds.map(r=>'<button class="histitem" data-n="'+r.round+'">v'+r.round+' &middot; earlier draft &middot; '+new Date(r.ts*1000).toLocaleString()+'</button>').join('');
-    else items+='<p style="color:var(--muted);font-size:13px;margin:6px 2px 0">No earlier versions yet — a version is saved each time the AI pushes a revised draft.</p>';
-    body.innerHTML='<div class="histlist">'+items+'</div><div id="histview"></div>';
-    body.querySelectorAll('.histitem').forEach(b=>b.onclick=()=>showRound(b.dataset.n));
-    showRound('current');                       // open showing the current draft, never an empty modal
+    // Shared version list for the compare pickers: current draft first, then each archived round.
+    HISTVERS=[{n:'current',label:rev>0?'current (v'+rev+')':'current'}].concat(
+      rounds.map(r=>({n:String(r.round),label:'v'+r.round+' · '+new Date(r.ts*1000).toLocaleString()})));
+    renderBrowse(rounds,rev);
   }catch(e){body.innerHTML='Could not load history.';}
+}
+function renderBrowse(rounds,rev){
+  const body=$("#histbody");
+  let items='<button class="histitem" data-n="current">'+(rev>0?'current (v'+rev+')':'current')+' &middot; live draft</button>';
+  if(rounds.length)items+=rounds.map(r=>'<button class="histitem" data-n="'+r.round+'">v'+r.round+' &middot; earlier draft &middot; '+new Date(r.ts*1000).toLocaleString()+'</button>').join('');
+  else items+='<p style="color:var(--muted);font-size:13px;margin:6px 2px 0">No earlier versions yet — a version is saved each time the AI pushes a revised draft.</p>';
+  body.innerHTML='<div class="histlist">'+items+'</div><div id="histview"></div>';
+  body.querySelectorAll('.histitem').forEach(b=>b.onclick=()=>showRound(b.dataset.n));
+  showRound('current');                       // open showing the current draft, never an empty modal
 }
 async function showRound(n){
   const v=$("#histview");v.innerHTML='Loading...';
   try{
-    let src,heading;
-    if(n==='current'){src=await fetch(API+'/source').then(r=>r.text());heading='current draft';}
-    else{const d=await fetch(API+'/history/'+n).then(r=>r.json());src=d.source||'';heading='v'+n+' draft';}
-    const html=window.marked?marked.parse(src):esc(src);
+    const src=await versionSource(n);
+    const heading=n==='current'?'current draft':'v'+n+' draft';
+    const html=window.marked?marked.parse(src):escapeHtml(src);
     v.innerHTML='<h4>'+heading+'</h4><div class="histdoc">'+html+'</div>';
   }catch(e){v.innerHTML='Could not load that version.';}
 }
+
+// --- compare mode (#19): pick any two versions, render a line-level source diff ---
+// Raw source ("current" via /source, an archived round via /history/{n}). Diffing raw markdown is
+// deliberate: it sidesteps diffing rendered HTML/KaTeX/mermaid/attached images (a separate, larger job).
+function versionSource(n){
+  if(n==='current')return fetch(API+'/source',{cache:'no-store'}).then(r=>r.text());
+  return fetch(API+'/history/'+n).then(r=>r.json()).then(d=>d.source||'');
+}
+// Pure LCS line diff: returns [{tag,text}] where tag is ' ' (unchanged), '-' (only in A), '+' (only in B).
+// No DOM/global access, so tests/diff_selfcheck.js can extract and exercise it directly.
+function lineDiff(aText,bText){
+  const a=String(aText).split('\n'),b=String(bText).split('\n');
+  const n=a.length,m=b.length;
+  const dp=[];                                 // dp[i][j] = LCS length of a[i:] vs b[j:]
+  for(let i=0;i<=n;i++)dp.push(new Int32Array(m+1));
+  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)
+    dp[i][j]=a[i]===b[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);
+  const out=[];let i=0,j=0;
+  while(i<n&&j<m){
+    if(a[i]===b[j]){out.push({tag:' ',text:a[i]});i++;j++;}
+    else if(dp[i+1][j]>=dp[i][j+1]){out.push({tag:'-',text:a[i]});i++;}
+    else{out.push({tag:'+',text:b[j]});j++;}
+  }
+  while(i<n)out.push({tag:'-',text:a[i++]});
+  while(j<m)out.push({tag:'+',text:b[j++]});
+  return out;
+}
+function renderCompare(){
+  const body=$("#histbody");
+  if(HISTVERS.length<2){
+    body.innerHTML='<p class="diffempty">Need at least two versions to compare — a version is saved each time the AI pushes a revised draft.</p>';
+    return;
+  }
+  const opts=sel=>HISTVERS.map((v,idx)=>'<option value="'+escapeHtml(v.n)+'"'+(idx===sel?' selected':'')+'>'+escapeHtml(v.label)+'</option>').join('');
+  // Default A = previous round (index 1), B = current draft (index 0): the most common "what just changed".
+  body.innerHTML='<div class="cmpbar"><span>Compare</span><select id="cmpA">'+opts(1)+'</select>'
+    +'<span>&rarr;</span><select id="cmpB">'+opts(0)+'</select></div>'
+    +'<div id="diffview" class="diffdoc"></div>';
+  const run=()=>renderDiff($("#cmpA").value,$("#cmpB").value);
+  $("#cmpA").onchange=run;$("#cmpB").onchange=run;run();
+}
+async function renderDiff(a,b){
+  const view=$("#diffview");if(!view)return;view.innerHTML='Loading...';
+  try{
+    const [ta,tb]=await Promise.all([versionSource(a),versionSource(b)]);
+    const rows=lineDiff(ta,tb);
+    if(!rows.some(r=>r.tag!==' ')){view.innerHTML='<div class="diffempty">No changes between these versions.</div>';return;}
+    const cls={' ':'eq','+':'add','-':'del'};
+    view.innerHTML=rows.map(r=>'<span class="diffrow '+cls[r.tag]+'">'+escapeHtml(r.text)+'</span>').join('');
+  }catch(e){view.innerHTML='<div class="diffempty">Could not load the diff.</div>';}
+}
 $("#histbtn").onclick=openHistory;
+$("#histcmp").onclick=()=>{
+  if(!HISTVERS.length)return;                   // history not loaded yet
+  HISTMODE=HISTMODE==='compare'?'browse':'compare';
+  $("#histcmp").textContent=HISTMODE==='compare'?'Browse':'Compare';
+  if(HISTMODE==='compare')renderCompare();
+  else openHistory();
+};
 $("#histclose").onclick=()=>$("#histmodal").style.display='none';
 $("#histmodal").onclick=e=>{if(e.target.id==='histmodal')$("#histmodal").style.display='none';};
 
