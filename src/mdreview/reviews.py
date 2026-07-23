@@ -33,8 +33,9 @@ class ReviewService:
         return self.meta(rid).get("owner", "")
 
     def can_access(self, rid, uid):
-        """True iff uid owns rid. Fail CLOSED on a missing owner: an un-backfilled legacy review is
-        inaccessible once auth is on, until `python -m mdreview.migrate` stamps its owner."""
+        """True iff uid owns rid. Fail CLOSED on a missing owner: a legacy/un-owned review is
+        inaccessible once auth is on, until its owner is reconciled through the human-confirm/
+        quarantine tool (#112). There is no bulk owner-stamp."""
         o = self.owner(rid)
         return bool(o) and o == uid
 

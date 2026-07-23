@@ -33,9 +33,11 @@ docker build -f infra/Dockerfile -t mdreview-service:phase1 .
 docker compose -f infra/deploy/docker-compose.prod.yml --env-file infra/deploy/.env up -d
 docker logs --tail 5 mdreview        # must show it started (not a SystemExit about secrets)
 
-# 5. Backfill owner on any pre-auth reviews (else they 404 for everyone). owner id = provider:sub of
-#    the owner's Google account (google:<sub>; find it at https://app.waqasrana.space/oauth2/userinfo).
-docker compose -f infra/deploy/docker-compose.prod.yml exec mdreview python -m mdreview.migrate google:100706495352040931339
+# 5. Reconcile owner on any pre-auth reviews (else they 404 for everyone). The blind bulk owner-stamp
+#    (`mdreview.migrate`) was removed in #111: it assigned a stranger's document to one uid with no
+#    provenance check (the #97 recurrence risk). Owner assignment now routes ONLY through the
+#    human-confirm / quarantine tool (#112) — provenance suggests, a human confirms each record,
+#    ambiguous records are quarantined. Run that tool here once it lands.
 
 # 6. nginx: install the limit zones + swap in the cookie-or-bearer vhost (blank snippet already present).
 sudo cp infra/deploy/nginx/mdreview-limits.conf /etc/nginx/conf.d/
