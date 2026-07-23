@@ -164,6 +164,16 @@ class H(BaseHTTPRequestHandler):
         p = self._principal()
         if self.command == "GET":
             allowed = app.policy.can_read(p, rid)
+            # Audited admin super-access (#102): if the policy granted this read as a platform
+            # exception (an admin reading a doc they do not own), write the immutable record through
+            # the core _audit() sink - who (uid) / what (method+path) / when (ts) / which (rid+owner).
+            # The hook is absent on OwnerPolicy/OpenPolicy, so the base tiers are byte-identical.
+            if allowed:
+                classify = getattr(app.policy, "audit_super_access", None)
+                rec = classify(p, rid) if classify else None
+                if rec:
+                    self._audit("admin_super_read", method=self.command,
+                                path=urlparse(self.path).path, ts=time.time(), **rec)
         elif self.command == "DELETE":
             allowed = app.policy.can_delete(p, rid)
         else:                                             # POST, PUT
