@@ -31,7 +31,7 @@
   .nav-label{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
     color:var(--muted2);padding:0 10px 6px;}
   .nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;
-    color:var(--muted);font-size:13.5px;font-weight:500;border:none;background:none;width:100%;text-align:left;
+    color:var(--muted-fg);font-size:13.5px;font-weight:500;border:none;background:none;width:100%;text-align:left;
     font-family:inherit;}
   .nav-item:hover{background:var(--nav-hover);}
   .nav-item.active{background:var(--nav-active);color:var(--text);font-weight:600;}
@@ -46,7 +46,7 @@
   .main{flex:1 1 auto;min-width:0;padding:26px 32px 56px;}
   .head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 0 18px;}
   h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.4px;}
-  .sub{margin:6px 0 0;color:var(--muted);font-size:13px;}
+  .sub{margin:6px 0 0;color:var(--muted-fg);font-size:13px;}
   #search{flex:0 0 280px;max-width:40vw;}   /* look comes from Basecoat .input */
 
   .eyebrow{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
@@ -79,7 +79,7 @@
   .badge.your-turn{background:var(--violet-bg);color:var(--violet);}
   .badge.agent-working{background:var(--blue-bg);color:var(--blue);}
   .badge.waiting{background:var(--blue-bg);color:var(--blue);}
-  .badge.resolved{background:none;color:var(--muted);padding-left:0;}
+  .badge.resolved{background:none;color:var(--muted-fg);padding-left:0;}
   .badge.latex{background:var(--blue-bg);color:var(--blue);}
   .kindchip{flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--blue);
     background:var(--blue-bg);border-radius:4px;padding:1px 5px;}
@@ -97,7 +97,7 @@
   .del:hover{color:#c0392b;background:rgba(192,57,43,.12);}
   .del:focus-visible{opacity:1;outline:2px solid var(--link);outline-offset:1px;}
 
-  .empty,.noresults{text-align:center;color:var(--muted);padding:64px 0;}
+  .empty,.noresults{text-align:center;color:var(--muted-fg);padding:64px 0;}
   .noresults{display:none;}
   .empty code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
     background:rgba(127,127,127,.12);padding:2px 6px;border-radius:5px;}
@@ -119,11 +119,11 @@
     background:linear-gradient(135deg,#2f6fed,#7c4dff);color:#fff;display:flex;align-items:center;
     justify-content:center;font-size:12px;font-weight:700;}
   #signin-card h1{font-size:21px;font-weight:700;letter-spacing:-.3px;margin:0 0 7px;text-align:center;}
-  #signin-card .lede{color:var(--muted);font-size:13.5px;line-height:1.5;text-align:center;margin:0 0 20px;}
+  #signin-card .lede{color:var(--muted-fg);font-size:13.5px;line-height:1.5;text-align:center;margin:0 0 20px;}
   .signin-field label{display:block;margin:0 0 6px;}
   .signin-note{color:var(--muted2);font-size:12px;text-align:center;margin:16px 0 0;}
   .signin-ok{text-align:center;}
-  .signin-ok .check{width:46px;height:46px;border-radius:50%;background:var(--accent-bg);color:var(--accent);
+  .signin-ok .check{width:46px;height:46px;border-radius:50%;background:var(--accent-bg);color:var(--brand);
     display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
   .signin-ok .addr{color:var(--text);font-weight:600;}
   .linklike{background:none;border:none;color:var(--link);font:inherit;font-size:12.5px;cursor:pointer;
