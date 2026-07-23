@@ -37,7 +37,16 @@ INSTRUCTIONS = (
     "latex mode, so hand_back / ping_working do not apply. To start a paper from a named class, pass "
     "create_review(kind=\"latex\", template=\"<id>\"): it seeds the source and supplies the document "
     "class/style. Bundled ids: ieee, acm, arxiv, lncs, elsevier; download-on-miss ids (fetched on "
-    "first use): acl, iclr2026. GET /api/latex/templates lists them; an unknown id 400s with the list."
+    "first use): acl, iclr2026. GET /api/latex/templates lists them; an unknown id 400s with the list. "
+    "CONVERTING BETWEEN MARKDOWN AND LATEX IS A NEW REVIEW, NOT AN IN-PLACE TRANSFORM: kind is "
+    "immutable, so a markdown review can never become a latex one (or the reverse). If a human asks you "
+    "to 'convert' or re-create a review in the other format, before acting tell them plainly that (1) it "
+    "creates a NEW, separate review (new id + URL); the original is not modified and stays live, (2) the "
+    "content is RE-AUTHORED (markdown and LaTeX are different source languages, so you cannot feed a .md "
+    "into the LaTeX compiler), so it must be re-reviewed, not assumed faithful, and content can be "
+    "silently dropped/added/reworded, (3) comments and history do NOT carry over (approving one is not "
+    "approving the other), and (4) offer to record a link/pointer between the two reviews so the original "
+    "is not orphaned."
 )
 
 _ID = {"type": "string", "description": "the opaque review id"}
@@ -60,7 +69,11 @@ TOOLS = [
                        "kind=\"latex\" (opt-in, default \"markdown\") instead makes a research-paper "
                        "review: `markdown` then carries RAW LaTeX (a single .tex document), shown in an "
                        "Overleaf-style split viewer with a live server-compiled PDF; the markdown/mermaid "
-                       "authoring rule does not apply to a latex review.",
+                       "authoring rule does not apply to a latex review. CAVEAT, kind is IMMUTABLE: "
+                       "'converting' an existing review to the other format does not transform it, it "
+                       "creates a NEW, separate review (new id + URL) with RE-AUTHORED content that must "
+                       "be re-reviewed; comments and history do NOT carry over and the original stays "
+                       "live. Warn the human first and offer to link the two.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -70,7 +83,11 @@ TOOLS = [
                 "session": {"type": "string"},
                 "source_path": {"type": "string"},
                 "kind": {"type": "string", "enum": ["markdown", "latex"],
-                         "description": "review kind; default markdown. latex = an Overleaf-style paper review"},
+                         "description": "review kind; default markdown. latex = an Overleaf-style paper "
+                                        "review. IMMUTABLE: you cannot change a review's kind later; "
+                                        "re-creating a review in the other format makes a NEW, separate "
+                                        "review with re-authored content (comments/history do not carry "
+                                        "over). Warn the human and offer to link the two."},
                 "template": {"type": "string",
                              "description": "for a latex review, start from a named template instead "
                                             "of a blank .tex: it seeds the source (unless you also pass "
@@ -78,7 +95,10 @@ TOOLS = [
                                             "ieee, acm, arxiv, lncs, elsevier (CTAN classes). "
                                             "Download-on-miss (fetched + cached on first use): acl, "
                                             "iclr2026, and more. GET /api/latex/templates lists the "
-                                            "current ids; an unknown id returns 400 with the list."},
+                                            "current ids; an unknown id returns 400 with the list. A "
+                                            "template only applies at creation of a latex review; there "
+                                            "is no re-template of an existing review (see the kind "
+                                            "caveat: re-creating in another format is a new review)."},
             },
             "required": ["markdown"],
         },
