@@ -16,7 +16,7 @@ PUBLIC_BASE = os.environ.get("MDREVIEW_PUBLIC_BASE", "").rstrip("/")
 
 # --- Phase 1 multi-user auth (hosted). OFF by default so local/dev stays open + single-user. ---
 # When ON, every request must resolve to a user: browser via a trusted proxy header, agent via a
-# per-user Bearer token. See server.H._principal.
+# per-user Bearer token. Resolution lives behind the injected IdentityProvider (mdreview.access).
 REQUIRE_AUTH = os.environ.get("MDREVIEW_REQUIRE_AUTH", "").lower() in ("1", "true", "yes")
 # Shared secret proving a request came THROUGH nginx (the cookie/browser plane). nginx sets the
 # X-Mdreview-Proxy header to this value; the app trusts the vouched identity header only on a match.
