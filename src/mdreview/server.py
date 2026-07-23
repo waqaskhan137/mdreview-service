@@ -48,6 +48,17 @@ from mdreview.reviews import ReviewService
 from mdreview.handoff import HandoffService
 from mdreview.users import UserService
 
+# A document's human-facing + raw-content read routes carry X-Robots-Tag: noindex so that a PUBLIC
+# document (#101) means "anyone I hand the link to", NOT "search-engine indexed". Emitted
+# unconditionally on these two routes (not only for public docs): a private doc is only ever served
+# to its owner, who is not a crawler, and a crawler can only ever reach a PUBLIC doc (everything else
+# 404/401s), so unconditional noindex is both correct and free of a per-request shares lookup. The
+# viewer HTML additionally carries a static <meta name="robots"> for defence if a proxy strips the
+# header. (The oracle transcript captures only status + Content-Type + body, so this added response
+# header does not perturb the byte-identical comparison.)
+NOINDEX = (("X-Robots-Tag", "noindex, nofollow"),)
+
+
 class Services:
     """The composition root's bundle: one Store, injected into each service (constructor injection).
     The per-request handler reads these off the server as self.server.app.<name>, decoupled from how
@@ -95,7 +106,7 @@ class H(BaseHTTPRequestHandler):
     server_version = "mdreview/1.0"
 
     # ---- response helpers ----
-    def _send(self, code, body=b"", ctype="application/json"):
+    def _send(self, code, body=b"", ctype="application/json", extra_headers=None):
         if isinstance(body, str):
             body = body.encode("utf-8")
         self.send_response(code)
@@ -106,6 +117,8 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        for k, v in (extra_headers or ()):
+            self.send_header(k, v)
         self.end_headers()
         # HEAD (#75): identical status + headers (incl. Content-Length above) as GET, but no body.
         if self.command != "HEAD":
@@ -162,14 +175,18 @@ class H(BaseHTTPRequestHandler):
             return None
         return p
 
-    def _authz(self, rid):
+    def _authz(self, rid, action=None):
         """Per-review gate, read-order INVERTED (#103): consult the AccessPolicy FIRST, then demand
         identity only if it denied. Outcomes are byte-identical to the pre-#103 require-auth-first
         order under the owner-only policy - owner -> allowed; authenticated non-owner or absent
         review -> 404 (fail-closed, not probeable); unauthenticated -> 401 (checked BEFORE the
-        exists/404 distinction, so an anonymous caller to any rid still 401s, never 404s). The verb
-        selects the permission; read/write/delete are one owner check today. Returns (uid, plane) on
-        allow / (None, None) after a 401/404, the contract every call site destructures."""
+        exists/404 distinction, so an anonymous caller to any rid still 401s, never 404s).
+
+        The verb selects the permission; `action="comment"` narrows a POST to can_comment (posting a
+        note / reply) instead of can_write (editing the source). On the owner-only tiers can_comment
+        == can_write, so this is behaviour-preserving; only the hosted CustodyPolicy lets a
+        comment-share grantee post without owning. Returns (uid, plane) on allow / (None, None) after
+        a 401/404, the contract every call site destructures."""
         app = self.server.app
         p = self._principal()
         if self.command == "GET":
@@ -186,7 +203,9 @@ class H(BaseHTTPRequestHandler):
                                 path=urlparse(self.path).path, ts=time.time(), **rec)
         elif self.command == "DELETE":
             allowed = app.policy.can_delete(p, rid)
-        else:                                             # POST, PUT
+        elif action == "comment":                         # POST /comments, POST .../reply
+            allowed = app.policy.can_comment(p, rid)
+        else:                                             # POST, PUT (document write / workflow)
             allowed = app.policy.can_write(p, rid)
         if allowed:
             return (p.uid, p.plane)
@@ -447,6 +466,12 @@ class H(BaseHTTPRequestHandler):
             if m == "DELETE":
                 with app.store.lock:
                     app.reviews.delete(rid)
+                    # Drop any shares on a deleted document so no grant dangles. Hosted-only:
+                    # app.shares exists solely on the hosted composition root, so getattr keeps the
+                    # local/core path byte-identical (no attribute, no call).
+                    shares = getattr(app, "shares", None)
+                    if shares is not None:
+                        shares.delete_all_for(rid)
                 return self._json(200, {"deleted": rid})
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/source", path)
@@ -457,7 +482,7 @@ class H(BaseHTTPRequestHandler):
                 return
             if m == "GET":
                 return self._send(200, app.reviews.read_source(rid),
-                                  "text/markdown; charset=utf-8")
+                                  "text/markdown; charset=utf-8", extra_headers=NOINDEX)
             if m == "PUT":
                 b = self._body_json()
                 with app.store.lock:
@@ -572,7 +597,10 @@ class H(BaseHTTPRequestHandler):
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/comments", path)
         if mo:
             rid = mo.group(1)
-            uid, plane = self._authz(rid)
+            # action="comment": a POST here is posting a note, gated by can_comment (owner OR a
+            # comment-share grantee on the hosted tier), NOT can_write. GET stays can_read, so a
+            # view-share grantee can read the thread. Byte-identical on the owner-only tiers.
+            uid, plane = self._authz(rid, "comment")
             if plane is None:
                 return
             if m == "GET":
@@ -618,7 +646,9 @@ class H(BaseHTTPRequestHandler):
             r"/api/reviews/" + RID + r"/comments/(c[A-Za-z0-9]{10})/(reply|resolve|reopen)", path)
         if mo and m == "POST":
             rid, cid, action = mo.group(1), mo.group(2), mo.group(3)
-            uid, plane = self._authz(rid)
+            # A reply is commenting (can_comment: owner OR comment-share grantee). resolve/reopen are
+            # workflow transitions and stay owner-only (can_write). Byte-identical on owner-only tiers.
+            uid, plane = self._authz(rid, "comment" if action == "reply" else None)
             if plane is None:
                 return
             b = self._body_json()
@@ -658,7 +688,7 @@ class H(BaseHTTPRequestHandler):
             if plane is None:
                 return
             return self._send(200, app.store.read_text(os.path.join(WEB_DIR, "viewer.html")),
-                              "text/html; charset=utf-8")
+                              "text/html; charset=utf-8", extra_headers=NOINDEX)
 
         mo = re.fullmatch(r"/static/([A-Za-z0-9._-]+)", path)
         if mo and m == "GET":
