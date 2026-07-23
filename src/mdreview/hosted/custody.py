@@ -25,11 +25,19 @@ from mdreview.access import OwnerPolicy
 
 class CustodyPolicy(OwnerPolicy):
     def _super_read_ok(self, principal, rid):
-        """True iff THIS read is served only by the platform grant: the caller is an admin who holds
-        the explicit super_read grant, the document exists, and they are NOT its owner (an owner reads
-        by the base rule, never the exception, so no self-access is ever audited as a super-read)."""
+        """True iff THIS read is served only by the platform grant: an admin who holds the explicit
+        super_read grant, ON THE COOKIE (browser) PLANE, reading a document that exists and that they
+        do NOT own (an owner reads by the base rule, never the exception, so self-access is never
+        audited as a super-read).
+
+        The cookie-plane requirement keeps super-access an ATTENDED human act (do-not-enable-
+        unattended, #102): an admin's long-lived agent token can NEVER super-read every document in
+        the background - only a person in a live browser session can, and every such read is audited.
+        This is the safest-reversible default; it can be loosened to other planes later if a genuine
+        need appears."""
         return (bool(getattr(principal, "super_read", False))
                 and bool(getattr(principal, "is_admin", False))
+                and getattr(principal, "plane", "") == "cookie"
                 and self._reviews.exists(rid)
                 and not self._owns(principal, rid))
 
