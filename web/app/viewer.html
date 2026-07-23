@@ -217,12 +217,40 @@
   /* narrow fallback: the active-comment gutter docks bottom-right with static cards */
   #gutter.docked{position:fixed;right:18px;bottom:70px;top:auto!important;left:auto!important;width:360px;max-height:64vh;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:12px;display:block;z-index:55;}
   #gutter.docked .gcard{position:static;width:auto;margin-bottom:8px;box-shadow:none;}
+
+  /* ---- Share control (#133 public link, extended by #134 people) ---- */
+  .tb-btn{font:inherit;font-size:12.5px;font-weight:600;color:var(--text);background:none;
+    border:1px solid var(--rule);border-radius:8px;padding:5px 12px;cursor:pointer;
+    text-transform:none;letter-spacing:normal;}
+  .tb-btn:hover{border-color:var(--muted2,var(--muted));}
+  .share-wrap{position:relative;display:flex;}
+  .sharepop{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--panel);
+    border:1px solid var(--rule);border-radius:12px;box-shadow:0 12px 40px rgba(20,22,40,.16);
+    padding:16px;z-index:60;text-transform:none;letter-spacing:normal;text-align:left;}
+  .sharepop h3{margin:0 0 12px;font-size:14px;font-weight:700;color:var(--text);}
+  .share-row{display:flex;align-items:center;justify-content:space-between;gap:14px;}
+  .share-lbl{font-size:13px;color:var(--text);}
+  .share-lbl small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px;font-weight:400;}
+  .switch{position:relative;width:40px;height:22px;flex:0 0 auto;display:inline-block;}
+  .switch input{opacity:0;width:0;height:0;position:absolute;}
+  .switch .track{position:absolute;inset:0;background:var(--rule);border-radius:22px;transition:.15s;
+    cursor:pointer;display:block;}
+  .switch .track:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;
+    background:#fff;border-radius:50%;transition:.15s;}
+  .switch input:checked + .track{background:#5b46e6;}
+  .switch input:checked + .track:before{transform:translateX(18px);}
+  .share-link{display:flex;gap:8px;margin-top:14px;}
+  .share-link input{flex:1;min-width:0;font:inherit;font-size:12px;padding:8px 10px;
+    border:1px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--muted);}
+  .share-copy{font:inherit;font-size:12.5px;font-weight:600;padding:8px 14px;border:none;
+    border-radius:8px;background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
+  .share-copy:hover{opacity:.92;}
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span><span class="filename" id="filename">loading…</span></div>
-  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><span id="topstate"></span><div id="acct"></div></div>
+  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><span id="topstate"></span><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
 </header>
 <div class="wrap">
   <nav class="breadcrumb" id="breadcrumb"></nav>
@@ -992,6 +1020,46 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')$("#lightbox").style
 [250,800,1600].forEach(t=>setTimeout(()=>{try{renderAll();}catch(e){}},t));
 
 boot();
+
+// ---- Public-link share control (#133): owner-only toggle for a read-only public link ----
+let _shareCsrf = "", _pubRight = null;
+async function initShare(){
+  const btn = document.getElementById("sharebtn"), pop = document.getElementById("sharepop");
+  if(!btn) return;
+  // Ownership gate: GET /shares → 200 (owner; carries the current public state) | 404 (not owner).
+  let r; try{ r = await fetch(API + "/shares", {cache:"no-store"}); }catch(e){ return; }
+  if(r.status !== 200) return;                        // not the owner → no Share control at all
+  const d = await r.json().catch(()=>({}));
+  _pubRight = d.public || null;                        // "view" or null
+  try{ _shareCsrf = ((await fetch("/auth/session",{cache:"no-store"}).then(x=>x.json())) || {}).csrf || ""; }catch(e){}
+  btn.style.display = "";
+  btn.addEventListener("click", e=>{ e.stopPropagation(); pop.hidden = !pop.hidden; if(!pop.hidden) renderShare(); });
+  document.addEventListener("click", e=>{ if(!pop.hidden && !pop.contains(e.target) && e.target!==btn) pop.hidden = true; });
+}
+function shareUrl(){ return location.origin + "/review/" + encodeURIComponent(ID); }
+function renderShare(){
+  const pop = document.getElementById("sharepop"), on = !!_pubRight;
+  pop.innerHTML =
+    '<h3>Share this review</h3>' +
+    '<div class="share-row"><div class="share-lbl">Public link<small>Anyone with the link can view</small></div>' +
+    '<label class="switch"><input type="checkbox" id="pubtoggle"' + (on?" checked":"") + '><span class="track"></span></label></div>' +
+    (on ? '<div class="share-link"><input id="publink" readonly value="' + shareUrl() + '"><button class="share-copy" id="pubcopy" type="button">Copy</button></div>' : '');
+  pop.querySelector("#pubtoggle").addEventListener("change", async e=>{
+    const t = e.target; t.disabled = true;
+    try{
+      const rr = await fetch(API + "/public", {method: t.checked?"POST":"DELETE", headers:{"X-CSRF-Token":_shareCsrf}});
+      if(rr.ok) _pubRight = t.checked ? "view" : null;
+    }catch(e){}
+    renderShare();
+  });
+  const cp = pop.querySelector("#pubcopy");
+  if(cp) cp.addEventListener("click", ()=>{
+    const i = pop.querySelector("#publink"); i.select();
+    try{ navigator.clipboard.writeText(i.value); }catch(e){}
+    cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy"; }, 1400);
+  });
+}
+initShare();
 </script>
 <script src="/static/account.js"></script>
 </body>
