@@ -26,7 +26,6 @@ API
   GET    /healthz                                             -> {ok}
 """
 import base64
-import hmac
 import json
 import os
 import re
@@ -39,6 +38,7 @@ from mdreview.config import (
     DATA_DIR, DISK_FLOOR, ENABLE_LATEX, LEASE_TTL_S, MAX_BODY, PORT, PROXY_SECRET, PUBLIC_BASE,
     REQUIRE_AUTH, RID, TOKEN_PEPPER, WAIT_TIMEOUT_S, WEB_DIR,
 )
+from mdreview.access import OperatorIdentity, OpenPolicy, OwnerPolicy, ProxyBearerIdentity
 from mdreview.errors import ReviewCreateRejected
 from mdreview.store import Store
 from mdreview.comments import CommentService
@@ -68,6 +68,17 @@ class Services:
             module, self.reviews = latex_review.build(
                 store, self.reviews, self.comments, self.assets)
             self.modules.append(module)
+
+        # Access/identity seam (#103): the tier's injected (IdentityProvider, AccessPolicy) pair.
+        # Wired LAST so the policy binds the FINAL self.reviews (the latex wrapper when enabled). The
+        # handler consults these and hard-codes no access decision. REQUIRE_AUTH picks the tier:
+        # off -> single operator, everything open; on -> oauth2-proxy/Bearer resolver + owner-only.
+        if REQUIRE_AUTH:
+            self.identity = ProxyBearerIdentity(self.users, store, PROXY_SECRET)
+            self.policy = OwnerPolicy(self.reviews)
+        else:
+            self.identity = OperatorIdentity()
+            self.policy = OpenPolicy(self.reviews)
 
 
 class MdreviewServer(ThreadingHTTPServer):
@@ -108,27 +119,15 @@ class H(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             return {}
 
-    # ---- auth: resolve every request to (user_id, plane) ----
-    # plane is "cookie" (human via oauth2-proxy), "token" (agent via Bearer), or "local" (auth off).
-    # A None plane from _require_user/_authz means a 401/404 was already sent, so the caller returns.
+    # ---- access/identity seam (#103) ----
+    # Identity resolution and every access decision live behind the injected IdentityProvider /
+    # AccessPolicy on Services (self.server.app.identity / .policy); the handler hard-codes none.
+    # _require_user surfaces the Principal (its callers need scope_list / stamp_owner); _authz keeps
+    # the (uid, plane) contract its 15 call sites already destructure. A None plane / None Principal
+    # means a 401/404 was already sent, so the caller returns.
     def _principal(self):
-        if not REQUIRE_AUTH:
-            return (None, "local")
-        app = self.server.app
-        auth = self.headers.get("Authorization", "")
-        if auth.startswith("Bearer "):
-            uid = app.users.resolve(auth)
-            return (uid, "token") if uid else (None, None)
-        # Cookie plane: trust the identity header ONLY behind the nginx proxy secret. Fail closed:
-        # an empty PROXY_SECRET would make compare_digest("","") pass (config also refuses to boot).
-        if PROXY_SECRET and hmac.compare_digest(self.headers.get("X-Mdreview-Proxy", ""), PROXY_SECRET):
-            uid = app.users.canonical(self.headers.get("X-Mdreview-Provider", ""),
-                                      self.headers.get("X-Auth-Request-User", ""))
-            if uid:
-                with app.store.lock:
-                    app.users.ensure_user(uid, self.headers.get("X-Auth-Request-Email", ""))
-                return (uid, "cookie")
-        return (None, None)
+        """Resolve the caller to a Principal via the tier's IdentityProvider (no access decision)."""
+        return self.server.app.identity.principal(self)
 
     def _audit(self, event, **kv):
         # Structured stdout line for an internet-facing multi-user service. NEVER logs a secret,
@@ -143,25 +142,41 @@ class H(BaseHTTPRequestHandler):
             return False
 
     def _require_user(self):
-        uid, plane = self._principal()
-        if plane == "local":
-            return (None, "local")
-        if uid is None or not self.server.app.users.is_active(uid):
+        """Identity-only gate for the account + collection routes: the Principal, or None after a 401.
+        No per-review ownership (that is _authz); an active caller (the local operator included) is
+        let through, an anonymous one on a require-auth tier gets 401."""
+        p = self._principal()
+        if p.is_anonymous:
+            self._audit("auth_fail", path=urlparse(self.path).path)
+            self._json(401, {"error": "authentication required"})
+            return None
+        return p
+
+    def _authz(self, rid):
+        """Per-review gate, read-order INVERTED (#103): consult the AccessPolicy FIRST, then demand
+        identity only if it denied. Outcomes are byte-identical to the pre-#103 require-auth-first
+        order under the owner-only policy - owner -> allowed; authenticated non-owner or absent
+        review -> 404 (fail-closed, not probeable); unauthenticated -> 401 (checked BEFORE the
+        exists/404 distinction, so an anonymous caller to any rid still 401s, never 404s). The verb
+        selects the permission; read/write/delete are one owner check today. Returns (uid, plane) on
+        allow / (None, None) after a 401/404, the contract every call site destructures."""
+        app = self.server.app
+        p = self._principal()
+        if self.command == "GET":
+            allowed = app.policy.can_read(p, rid)
+        elif self.command == "DELETE":
+            allowed = app.policy.can_delete(p, rid)
+        else:                                             # POST, PUT
+            allowed = app.policy.can_write(p, rid)
+        if allowed:
+            return (p.uid, p.plane)
+        if p.is_anonymous:
             self._audit("auth_fail", path=urlparse(self.path).path)
             self._json(401, {"error": "authentication required"})
             return (None, None)
-        return (uid, plane)
-
-    def _authz(self, rid):
-        uid, plane = self._require_user()
-        if plane is None:
-            return (None, None)                       # 401 already sent
-        app = self.server.app
-        if not app.reviews.exists(rid) or (REQUIRE_AUTH and not app.reviews.can_access(rid, uid)):
-            self._audit("denied_404", uid=uid, rid=rid)   # probing signal (missing or foreign owner)
-            self._json(404, {"error": "not found"})       # 404 (not 403): ownership must not be probeable
-            return (None, None)
-        return (uid, plane)
+        self._audit("denied_404", uid=p.uid, rid=rid)     # probing signal (missing or foreign owner)
+        self._json(404, {"error": "not found"})           # 404 (not 403): ownership must not be probeable
+        return (None, None)
 
     def _base(self):
         if PUBLIC_BASE:
@@ -266,41 +281,41 @@ class H(BaseHTTPRequestHandler):
         # Account + per-user API tokens (cookie plane ONLY: an agent token can never mint/revoke a
         # token, defense-in-depth beyond the nginx routing).
         if path == "/account" and m == "GET":
-            uid, plane = self._require_user()
-            if plane is None:
+            p = self._require_user()
+            if p is None:
                 return
             return self._send(200, app.store.read_text(os.path.join(WEB_DIR, "account.html")),
                               "text/html; charset=utf-8")
         if path == "/account/tokens":
-            uid, plane = self._require_user()
-            if plane is None:
+            p = self._require_user()
+            if p is None:
                 return
-            if plane == "token":
+            if p.plane == "token":
                 return self._json(403, {"error": "tokens are managed from the browser, not via an API token"})
             if m == "GET":
-                return self._json(200, {"tokens": app.users.list_tokens(uid), "base": self._base()})
+                return self._json(200, {"tokens": app.users.list_tokens(p.uid), "base": self._base()})
             if m == "POST":
                 label = (self._body_json().get("label") or "").strip()
                 with app.store.lock:
-                    token = app.users.mint_token(uid, label)
+                    token = app.users.mint_token(p.uid, label)
                 return self._json(201, {"token": token, "base": self._base()})
         mo = re.fullmatch(r"/account/tokens/([A-Za-z0-9]{4,40})", path)
         if mo and m == "DELETE":
-            uid, plane = self._require_user()
-            if plane is None:
+            p = self._require_user()
+            if p is None:
                 return
-            if plane == "token":
+            if p.plane == "token":
                 return self._json(403, {"error": "tokens are managed from the browser"})
             with app.store.lock:
-                ok = app.users.revoke_token(uid, mo.group(1))
+                ok = app.users.revoke_token(p.uid, mo.group(1))
             return self._json(200 if ok else 404,
                               {"revoked": mo.group(1)} if ok else {"error": "no such token"})
 
         if path == "/api/reviews" and m == "GET":
-            uid, plane = self._require_user()
-            if plane is None:
+            p = self._require_user()
+            if p is None:
                 return
-            reviews = app.reviews.list_reviews(uid if REQUIRE_AUTH else None)
+            reviews = app.reviews.list_reviews(app.policy.scope_list(p))
             # MR-054: optional ?turn= filter. Filtered in Python after list_reviews() (summary() is
             # where the turn default lands); an empty/absent value means no filter (return all),
             # preserving today's behavior. No new field, no cross-review aggregation.
@@ -314,14 +329,14 @@ class H(BaseHTTPRequestHandler):
         # until a baton flips NEWER than the required ?since= cursor (an edge, not the steady-state
         # level of turn==agent), or a bounded timeout elapses.
         if path == "/api/reviews/wait" and m == "GET":
-            uid, plane = self._require_user()
-            if plane is None:
+            p = self._require_user()
+            if p is None:
                 return
-            return self._wait(urlparse(self.path).query, uid if REQUIRE_AUTH else None)
+            return self._wait(urlparse(self.path).query, app.policy.scope_list(p))
 
         if path == "/api/reviews" and m == "POST":
-            uid, plane = self._require_user()
-            if plane is None:
+            p = self._require_user()
+            if p is None:
                 return
             if self._disk_low():
                 return self._json(507, {"error": "insufficient storage"})
@@ -335,7 +350,7 @@ class H(BaseHTTPRequestHandler):
             try:
                 rid = app.reviews.create(b.get("markdown", ""), b.get("title", ""),
                                       b.get("project", ""), b.get("source_path", ""),
-                                      b.get("session", ""), owner=(uid or ""), kind=kind,
+                                      b.get("session", ""), owner=app.policy.stamp_owner(p), kind=kind,
                                       template=b.get("template", ""))
             except ReviewCreateRejected as e:
                 return self._json(e.status, e.payload or {"error": str(e)})
