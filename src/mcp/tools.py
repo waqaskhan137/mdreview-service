@@ -60,7 +60,10 @@ TOOLS = [
                        "kind=\"latex\" (opt-in, default \"markdown\") instead makes a research-paper "
                        "review: `markdown` then carries RAW LaTeX (a single .tex document), shown in an "
                        "Overleaf-style split viewer with a live server-compiled PDF; the markdown/mermaid "
-                       "authoring rule does not apply to a latex review.",
+                       "authoring rule does not apply to a latex review. If the content IS LaTeX — a .tex "
+                       "source_path, or a body with \\documentclass / \\begin{document} — you MUST pass "
+                       "kind=\"latex\"; a latex-enabled server REJECTS such a create when kind is omitted "
+                       "(kind is immutable, so a wrong guess is not fixable in place).",
         "inputSchema": {
             "type": "object",
             "properties": {
