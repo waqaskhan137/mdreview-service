@@ -99,6 +99,12 @@ class MagicLinkService:
         if not e or "@" not in e:
             return "invalid"
         now = time.time()
+        # Admin moderation lever (#67 D3 / #102): a blocklisted address or IP is refused outright,
+        # before the rate counters. Audited server-side; the ROUTE still returns the one constant
+        # response, so a blocked abuser cannot tell they were blocked (enumeration-safe).
+        if self._store.is_blocked(e, ip):
+            self._store.audit("magiclink_blocked", email=e, ip=ip)
+            return "blocked"
         ok, which = self._within_limits(e, ip, now)
         if not ok:
             self._store.audit("magiclink_throttled", email=e, ip=ip, detail=which)
