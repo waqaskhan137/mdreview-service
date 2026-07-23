@@ -467,27 +467,39 @@ async function fetchComments(){
   try{const d=await fetch(API+'/comments',{cache:'no-store'}).then(r=>r.json());comments=(d&&d.comments)||[];}
   catch(e){}
 }
+// A write on a shared/public review that the caller isn't signed in for gets 401 (view-only public
+// links are anonymous-comment-free by design). fetch() only rejects on NETWORK errors, so without an
+// r.ok check a 401 slid straight through to a false "added" toast; instead prompt the visitor to sign
+// in (the top-bar "Sign in" links to the sign-in screen). Returns false so the caller keeps its input.
+function commentDenied(r,fallback){
+  if(r.status===401){toast('Sign in to comment');return true;}
+  if(!r.ok){toast(fallback);return true;}
+  return false;
+}
 async function createComment(anchor,text){
   try{
-    await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({anchor:anchor,text:text})});
-    await fetchComments();renderAll();toast('Comment added');
-  }catch(e){toast('Could not save comment');}
+    if(commentDenied(r,'Could not save comment'))return false;
+    await fetchComments();renderAll();toast('Comment added');return true;
+  }catch(e){toast('Could not save comment');return false;}
 }
 async function replyTo(cid,text){
-  if(!text)return;
+  if(!text)return false;
   try{
-    await fetch(API+'/comments/'+cid+'/reply',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await fetch(API+'/comments/'+cid+'/reply',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({text:text,role:'reviewer'})});
-    await fetchComments();renderAll();
-  }catch(e){toast('Reply failed');}
+    if(commentDenied(r,'Reply failed'))return false;
+    await fetchComments();renderAll();return true;
+  }catch(e){toast('Reply failed');return false;}
 }
 async function reopenComment(cid,text){
   try{
-    await fetch(API+'/comments/'+cid+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await fetch(API+'/comments/'+cid+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(text?{text:text}:{})});
-    await fetchComments();renderAll();toast('Reopened');
-  }catch(e){toast('Reopen failed');}
+    if(commentDenied(r,'Reopen failed'))return false;
+    await fetchComments();renderAll();toast('Reopened');return true;
+  }catch(e){toast('Reopen failed');return false;}
 }
 async function deleteComment(cid){
   // Hard-remove a comment the reviewer made by mistake (DELETE /comments/{cid}). A 404 means it's
@@ -696,9 +708,11 @@ function openPop(c){
   $("#popnote").focus();
 }
 $("#popcancel").onclick=()=>$("#pop").style.display='none';
-$("#popsave").onclick=()=>{
+$("#popsave").onclick=async()=>{
   const v=$("#popnote").value.trim();if(!v)return;
-  createComment({quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null,bid:cur.bid},v);
+  // Keep the popup (and the typed note) open if the post is refused — e.g. an anonymous visitor gets a
+  // "Sign in to comment" prompt instead of silently losing what they wrote.
+  if(!await createComment({quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null,bid:cur.bid},v))return;
   $("#pop").style.display='none';window.getSelection().removeAllRanges();
 };
 
