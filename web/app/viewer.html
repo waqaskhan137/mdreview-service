@@ -245,6 +245,26 @@
   .share-copy{font:inherit;font-size:12.5px;font-weight:600;padding:8px 14px;border:none;
     border-radius:8px;background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
   .share-copy:hover{opacity:.92;}
+  /* #134 named-share / people section */
+  .share-sep{height:1px;background:var(--rule);margin:16px 0;}
+  .share-people h4{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--muted);}
+  .share-list{display:flex;flex-direction:column;gap:8px;margin:0 0 12px;}
+  .share-item{display:flex;align-items:center;gap:8px;font-size:13px;}
+  .share-item .em{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+  .share-item .rt{font-size:11px;font-weight:600;color:var(--muted);text-transform:capitalize;}
+  .share-item .rm{background:none;border:none;color:var(--muted2,var(--muted));cursor:pointer;
+    font-size:16px;line-height:1;padding:1px 5px;border-radius:6px;}
+  .share-item .rm:hover{color:#c0392b;background:rgba(192,57,43,.1);}
+  .share-empty{color:var(--muted);font-size:12.5px;margin:0 0 12px;}
+  .share-invite{display:flex;gap:6px;align-items:center;}
+  .share-invite input{flex:1;min-width:0;font:inherit;font-size:12.5px;padding:8px 10px;
+    border:1px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--text);}
+  .share-invite select{font:inherit;font-size:12.5px;padding:8px 6px;border:1px solid var(--rule);
+    border-radius:8px;background:var(--bg);color:var(--text);}
+  .share-invite button{font:inherit;font-size:12.5px;font-weight:600;padding:8px 12px;border:none;
+    border-radius:8px;background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
+  .share-err{color:#c0392b;font-size:12px;margin:8px 0 0;}
 </style>
 </head>
 <body>
@@ -1021,29 +1041,45 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')$("#lightbox").style
 
 boot();
 
-// ---- Public-link share control (#133): owner-only toggle for a read-only public link ----
-let _shareCsrf = "", _pubRight = null;
+// ---- Share control: public link (#133) + named-share people panel (#134), owner-only ----
+let _shareCsrf = "", _pubRight = null, _shares = [];
+function _esc(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function _shareLabel(subject){ return (subject||"").replace(/^user:/,"").replace(/^email:/,""); } // grantee email
 async function initShare(){
   const btn = document.getElementById("sharebtn"), pop = document.getElementById("sharepop");
   if(!btn) return;
-  // Ownership gate: GET /shares → 200 (owner; carries the current public state) | 404 (not owner).
+  // Ownership gate: GET /shares → 200 (owner; carries public state + named shares) | 404 (not owner).
   let r; try{ r = await fetch(API + "/shares", {cache:"no-store"}); }catch(e){ return; }
   if(r.status !== 200) return;                        // not the owner → no Share control at all
   const d = await r.json().catch(()=>({}));
   _pubRight = d.public || null;                        // "view" or null
+  _shares = d.shares || [];
   try{ _shareCsrf = ((await fetch("/auth/session",{cache:"no-store"}).then(x=>x.json())) || {}).csrf || ""; }catch(e){}
   btn.style.display = "";
   btn.addEventListener("click", e=>{ e.stopPropagation(); pop.hidden = !pop.hidden; if(!pop.hidden) renderShare(); });
   document.addEventListener("click", e=>{ if(!pop.hidden && !pop.contains(e.target) && e.target!==btn) pop.hidden = true; });
 }
 function shareUrl(){ return location.origin + "/review/" + encodeURIComponent(ID); }
+async function refreshShares(){
+  try{ const d = await fetch(API + "/shares",{cache:"no-store"}).then(r=>r.json()); _pubRight = d.public||null; _shares = d.shares||[]; }catch(e){}
+}
 function renderShare(){
   const pop = document.getElementById("sharepop"), on = !!_pubRight;
+  const rows = _shares.length
+    ? _shares.map(s=>'<div class="share-item"><span class="em" title="'+_esc(_shareLabel(s.subject))+'">'+_esc(_shareLabel(s.subject))+'</span><span class="rt">'+_esc(s.right)+'</span><button class="rm" type="button" data-subject="'+_esc(s.subject)+'" title="Remove access">&times;</button></div>').join("")
+    : '<div class="share-empty">No one yet.</div>';
   pop.innerHTML =
     '<h3>Share this review</h3>' +
     '<div class="share-row"><div class="share-lbl">Public link<small>Anyone with the link can view</small></div>' +
     '<label class="switch"><input type="checkbox" id="pubtoggle"' + (on?" checked":"") + '><span class="track"></span></label></div>' +
-    (on ? '<div class="share-link"><input id="publink" readonly value="' + shareUrl() + '"><button class="share-copy" id="pubcopy" type="button">Copy</button></div>' : '');
+    (on ? '<div class="share-link"><input id="publink" readonly value="' + shareUrl() + '"><button class="share-copy" id="pubcopy" type="button">Copy</button></div>' : '') +
+    '<div class="share-sep"></div>' +
+    '<div class="share-people"><h4>Share with people</h4>' +
+    '<div class="share-list">' + rows + '</div>' +
+    '<div class="share-invite"><input id="invemail" type="email" placeholder="email address" autocomplete="off">' +
+    '<select id="invright"><option value="comment">Can comment</option><option value="view">Can view</option></select>' +
+    '<button id="invbtn" type="button">Invite</button></div>' +
+    '<div class="share-err" id="inverr" style="display:none"></div></div>';
   pop.querySelector("#pubtoggle").addEventListener("change", async e=>{
     const t = e.target; t.disabled = true;
     try{
@@ -1058,6 +1094,22 @@ function renderShare(){
     try{ navigator.clipboard.writeText(i.value); }catch(e){}
     cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy"; }, 1400);
   });
+  pop.querySelector("#invbtn").addEventListener("click", async ()=>{
+    const email = (pop.querySelector("#invemail").value||"").trim();
+    const right = pop.querySelector("#invright").value;
+    const err = pop.querySelector("#inverr"); err.style.display = "none";
+    if(!email){ pop.querySelector("#invemail").focus(); return; }
+    const btn = pop.querySelector("#invbtn"); btn.disabled = true; btn.textContent = "…";
+    let rr; try{ rr = await fetch(API + "/shares", {method:"POST", headers:{"Content-Type":"application/json","X-CSRF-Token":_shareCsrf}, body:JSON.stringify({email, right})}); }
+    catch(e){ btn.disabled=false; btn.textContent="Invite"; return; }
+    if(rr.ok){ await refreshShares(); renderShare(); }
+    else{ const j = await rr.json().catch(()=>({})); err.textContent = j.error || "Could not share."; err.style.display = "block"; btn.disabled=false; btn.textContent="Invite"; }
+  });
+  pop.querySelectorAll(".rm").forEach(b=>b.addEventListener("click", async ()=>{
+    b.disabled = true;
+    try{ await fetch(API + "/shares?subject=" + encodeURIComponent(b.dataset.subject), {method:"DELETE", headers:{"X-CSRF-Token":_shareCsrf}}); }catch(e){}
+    await refreshShares(); renderShare();
+  }));
 }
 initShare();
 </script>
