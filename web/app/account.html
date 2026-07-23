@@ -35,7 +35,10 @@
 </head>
 <body>
 <div class="wrap">
-  <p class="muted"><a href="/">&larr; reviews</a></p>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+    <p class="muted" style="margin:0"><a href="/">&larr; reviews</a></p>
+    <div id="acct"></div>
+  </div>
   <h1>Connect your agent</h1>
   <p class="sub">mdreview docs are created by <b>your AI agent</b>, not uploaded by hand. Mint a
   token below, drop it into your agent's MCP config <b>once</b>, and every <code>create_review</code>
@@ -112,5 +115,6 @@ async function revoke(id){
 
 load();
 </script>
+<script src="/static/account.js"></script>
 </body>
 </html>

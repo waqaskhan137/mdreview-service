@@ -222,7 +222,7 @@
 <body>
 <header class="topbar">
   <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span><span class="filename" id="filename">loading…</span></div>
-  <div class="tb-right" id="topstate"></div>
+  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><span id="topstate"></span><div id="acct"></div></div>
 </header>
 <div class="wrap">
   <nav class="breadcrumb" id="breadcrumb"></nav>
@@ -993,5 +993,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')$("#lightbox").style
 
 boot();
 </script>
+<script src="/static/account.js"></script>
 </body>
 </html>
