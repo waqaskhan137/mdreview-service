@@ -42,9 +42,12 @@ check("A. refuses to boot with REQUIRE_AUTH on and secrets unset (fail closed)",
       p.returncode != 0 and "PROXY_SECRET" in (p.stderr + p.stdout))
 
 # --- start the real instance ---
+# MDREVIEW_SESSION_SECRET is now part of the REQUIRE_AUTH boot guard (#67: the hosted tier signs its
+# own session cookie + magic-link tokens), so a REQUIRE_AUTH instance must supply it to boot.
 os.makedirs(DATA, exist_ok=True)
 env = {**os.environ, "MDREVIEW_REQUIRE_AUTH": "1", "MDREVIEW_PROXY_SECRET": SECRET,
-       "MDREVIEW_TOKEN_PEPPER": PEPPER, "MDREVIEW_DATA": DATA, "PORT": str(PORT),
+       "MDREVIEW_TOKEN_PEPPER": PEPPER, "MDREVIEW_SESSION_SECRET": "test-session-secret-xyz",
+       "MDREVIEW_DATA": DATA, "PORT": str(PORT),
        "PYTHONPATH": os.path.join(REPO, "src")}
 srv = subprocess.Popen([sys.executable, "-m", "mdreview"], env=env,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

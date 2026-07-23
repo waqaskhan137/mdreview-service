@@ -24,14 +24,23 @@ PROXY_SECRET = os.environ.get("MDREVIEW_PROXY_SECRET", "")
 # HMAC pepper for API-token digests (env only, never in the data volume), so a users.json leak alone
 # cannot forge a token.
 TOKEN_PEPPER = os.environ.get("MDREVIEW_TOKEN_PEPPER", "")
+# HMAC key for the app-owned session cookie AND the magic-link tokens (#67 D2, native auth). Env
+# only, never on the data volume: it signs the browser session and every single-use login token, so
+# a leak of the data volume alone cannot forge a session or a magic link. The hosted composition root
+# (mdreview.hosted) additionally refuses to boot without it, independent of REQUIRE_AUTH, so the
+# fail-closed guarantee is a property of the hosted BUILD, not of this flag (see hosted/compose.py).
+SESSION_SECRET = os.environ.get("MDREVIEW_SESSION_SECRET", "")
 
 # Fail CLOSED: hmac.compare_digest("", "") returns True, so an empty PROXY_SECRET would trust any
-# client-supplied identity header (impersonation), and an empty pepper would make token digests
-# forgeable. If auth is required, refuse to boot rather than run wide open. A non-empty default flag
-# is not a non-empty secret.
-if REQUIRE_AUTH and not (PROXY_SECRET and TOKEN_PEPPER):
+# client-supplied identity header (impersonation), an empty pepper would make token digests
+# forgeable, and an empty session key would make the session cookie / magic-link tokens forgeable.
+# If auth is required, refuse to boot rather than run wide open. A non-empty default flag is not a
+# non-empty secret. (Deploy note #67: a REQUIRE_AUTH=1 instance now ALSO needs MDREVIEW_SESSION_SECRET
+# set before this rolls out, or it refuses to boot; set the secret with the rollout.)
+if REQUIRE_AUTH and not (PROXY_SECRET and TOKEN_PEPPER and SESSION_SECRET):
     raise SystemExit(
-        "MDREVIEW_REQUIRE_AUTH is on but MDREVIEW_PROXY_SECRET and/or MDREVIEW_TOKEN_PEPPER is unset")
+        "MDREVIEW_REQUIRE_AUTH is on but MDREVIEW_PROXY_SECRET, MDREVIEW_TOKEN_PEPPER, "
+        "and/or MDREVIEW_SESSION_SECRET is unset")
 
 # --- Opt-in feature modules. OFF by default: the composition root registers nothing and the
 # request path is byte-identical to a build without the module packages. ---
