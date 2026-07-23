@@ -30,6 +30,13 @@ TOKEN_PEPPER = os.environ.get("MDREVIEW_TOKEN_PEPPER", "")
 # (mdreview.hosted) additionally refuses to boot without it, independent of REQUIRE_AUTH, so the
 # fail-closed guarantee is a property of the hosted BUILD, not of this flag (see hosted/compose.py).
 SESSION_SECRET = os.environ.get("MDREVIEW_SESSION_SECRET", "")
+# The single account crowned owner (=> admin) on the HOSTED build: the user whose VERIFIED email
+# equals this, case-insensitively. NEVER the first registrant (#67 H1 — under open membership that
+# let a stranger self-crown). Unset => NO account is owner, so nobody can self-crown; the hosted
+# composition root additionally REFUSES TO BOOT without it (see hosted/compose.py), so a hosted
+# instance is never left unadministrable. The transitional `python -m mdreview` path does not require
+# it (owner-ship is unused there today); set it before #102 admin lands, or no account is owner.
+OWNER_EMAIL = (os.environ.get("MDREVIEW_OWNER_EMAIL", "") or "").strip().lower()
 
 # Fail CLOSED: hmac.compare_digest("", "") returns True, so an empty PROXY_SECRET would trust any
 # client-supplied identity header (impersonation), an empty pepper would make token digests

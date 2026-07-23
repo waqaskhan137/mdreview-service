@@ -35,8 +35,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 from mdreview.config import (
-    DATA_DIR, DISK_FLOOR, ENABLE_LATEX, LEASE_TTL_S, MAX_BODY, PORT, PROXY_SECRET, PUBLIC_BASE,
-    REQUIRE_AUTH, RID, TOKEN_PEPPER, WAIT_TIMEOUT_S, WEB_DIR,
+    DATA_DIR, DISK_FLOOR, ENABLE_LATEX, LEASE_TTL_S, MAX_BODY, OWNER_EMAIL, PORT, PROXY_SECRET,
+    PUBLIC_BASE, REQUIRE_AUTH, RID, TOKEN_PEPPER, WAIT_TIMEOUT_S, WEB_DIR,
 )
 from mdreview.access import OperatorIdentity, OpenPolicy, OwnerPolicy, ProxyBearerIdentity
 from mdreview.errors import ReviewCreateRejected
@@ -59,7 +59,7 @@ class Services:
         self.assets = AssetService(store)
         self.reviews = ReviewService(store, self.comments)
         self.handoff = HandoffService(store, LEASE_TTL_S)
-        self.users = UserService(store, TOKEN_PEPPER)
+        self.users = UserService(store, TOKEN_PEPPER, OWNER_EMAIL)
         # Opt-in feature modules (MR-092). Each entry handles requests via H.route's dispatch
         # loop. Flag off: empty list, no import, byte-identical behavior. Flag on without the
         # package installed fails loud at boot: a misconfiguration must never boot half-enabled.
