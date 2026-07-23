@@ -113,10 +113,14 @@ grab-bag sprint mints a lightweight epic issue for the same purpose.
 
 ### Branching (enforced by branch protection, not just convention)
 
-- Cut every branch from current `dev`; open its PR **against `dev`**. `dev` is protected:
-  PR required, 0 approving reviews (authors cannot approve their own PRs, so a review
-  requirement would deadlock a solo repo; self-merge is the intended flow), force-pushes and
-  deletions blocked. Direct pushes to `dev` are rejected.
+- Cut every branch from current `dev`; open its PR **against `dev`** and leave it open:
+  **PRs collect until the owner calls a merge gate.** No agent self-merges outside a gate.
+  At a gate, the product-owner agent prepares the queue (mergeability, overlapping files,
+  dependency-aware order) and the owner gives the go; merges then execute in that order,
+  re-checking mergeability after each. `dev` is protected (PR required, 0 approving reviews,
+  force-pushes and deletions blocked); the 0-approvals setting exists because authors cannot
+  approve their own PRs on a solo repo, and the no-self-merge rule is this agreement's
+  convention on top of it. Direct pushes to `dev` are rejected either way.
 - **Never open a PR against `main`** except the single standing `dev -> main` PR (G8), which
   accumulates each cycle and is updated, never duplicated. `main` requires 1 approving review
   plus **signed commits**: merge the standing PR by **squash** in the GitHub UI (GitHub signs
