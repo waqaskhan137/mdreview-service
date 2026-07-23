@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- A public document (#101) is "anyone with the link", NOT search-indexed: noindex the viewer.
+     Belt-and-suspenders with the X-Robots-Tag header the server sends on this route. Harmless for
+     private docs (only ever served to their owner; a crawler can only reach a public one). -->
+<meta name="robots" content="noindex, nofollow">
 <title>mdreview</title>
 <link rel="stylesheet" href="/static/katex.min.css">
 <link rel="stylesheet" href="/static/hljs-github.css">
