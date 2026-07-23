@@ -69,11 +69,13 @@ TOOLS = [
                        "kind=\"latex\" (opt-in, default \"markdown\") instead makes a research-paper "
                        "review: `markdown` then carries RAW LaTeX (a single .tex document), shown in an "
                        "Overleaf-style split viewer with a live server-compiled PDF; the markdown/mermaid "
-                       "authoring rule does not apply to a latex review. CAVEAT, kind is IMMUTABLE: "
-                       "'converting' an existing review to the other format does not transform it, it "
-                       "creates a NEW, separate review (new id + URL) with RE-AUTHORED content that must "
-                       "be re-reviewed; comments and history do NOT carry over and the original stays "
-                       "live. Warn the human first and offer to link the two.",
+                       "authoring rule does not apply to a latex review. If the content IS LaTeX \u2014 a .tex "
+                       "source_path, or a body with \\documentclass / \\begin{document} \u2014 you MUST pass "
+                       "kind=\"latex\"; a latex-enabled server REJECTS such a create when kind is omitted. "
+                       "CAVEAT, kind is IMMUTABLE: 'converting' an existing review to the other format does "
+                       "not transform it, it creates a NEW, separate review (new id + URL) with RE-AUTHORED "
+                       "content that must be re-reviewed; comments and history do NOT carry over and the "
+                       "original stays live. Warn the human first and offer to link the two.",
         "inputSchema": {
             "type": "object",
             "properties": {
