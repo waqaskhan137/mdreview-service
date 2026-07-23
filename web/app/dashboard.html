@@ -119,10 +119,56 @@
     .main{padding:20px 16px 48px;}
     h1{font-size:24px;}
   }
+
+  /* ---- sign-in screen (shown to anonymous visitors; #131) ---- */
+  .signin-wrap{min-height:100vh;display:none;align-items:center;justify-content:center;padding:24px;}
+  .signin-card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--rule);
+    border-radius:16px;padding:34px 32px;box-shadow:0 10px 44px rgba(20,22,40,.07);}
+  .signin-brand{display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px;
+    font-weight:600;letter-spacing:-.15px;margin:0 0 22px;}
+  .signin-brand .logo{width:30px;height:30px;border-radius:8px;
+    background:linear-gradient(135deg,#2f6fed,#7c4dff);color:#fff;display:flex;align-items:center;
+    justify-content:center;font-size:12px;font-weight:700;}
+  .signin-card h1{font-size:21px;font-weight:700;letter-spacing:-.3px;margin:0 0 7px;text-align:center;}
+  .signin-card .lede{color:var(--muted);font-size:13.5px;line-height:1.5;text-align:center;margin:0 0 22px;}
+  .signin-field{margin:0 0 14px;}
+  .signin-field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:0 0 6px;}
+  .signin-input{width:100%;font:inherit;font-size:14px;padding:11px 13px;border-radius:10px;
+    border:1px solid var(--rule);background:var(--bg);color:var(--text);}
+  .signin-input:focus{outline:none;border-color:var(--link);
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--link) 20%,transparent);}
+  .signin-btn{width:100%;font:inherit;font-size:14px;font-weight:600;padding:11px 16px;border-radius:10px;
+    border:none;background:linear-gradient(135deg,#5b46e6,#7c4dff);color:#fff;cursor:pointer;
+    transition:opacity .12s;}
+  .signin-btn:hover{opacity:.92;}
+  .signin-btn:disabled{opacity:.6;cursor:default;}
+  .signin-note{color:var(--muted2);font-size:12px;text-align:center;margin:16px 0 0;}
+  .signin-ok{text-align:center;}
+  .signin-ok .check{width:46px;height:46px;border-radius:50%;background:var(--violet-bg);color:var(--violet);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .signin-ok .addr{color:var(--text);font-weight:600;}
+  .linklike{background:none;border:none;color:var(--link);font:inherit;font-size:12.5px;cursor:pointer;
+    padding:0;margin-top:16px;text-decoration:underline;}
 </style>
 </head>
 <body>
-<div class="app">
+<div class="signin-wrap" id="signin">
+  <div class="signin-card" id="signin-card">
+    <div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>
+    <h1>Sign in to mdreview</h1>
+    <p class="lede">Enter your email and we'll send you a one-time sign-in link. No password needed.</p>
+    <form id="signin-form" novalidate>
+      <div class="signin-field">
+        <label for="signin-email">Email</label>
+        <input class="signin-input" id="signin-email" type="email" autocomplete="email"
+               placeholder="you@example.com" required>
+      </div>
+      <button class="signin-btn" id="signin-btn" type="submit">Send sign-in link</button>
+    </form>
+    <p class="signin-note">New here? The same link signs you up.</p>
+  </div>
+</div>
+<div class="app" id="app" style="display:none">
   <aside class="side">
     <div class="brand"><span class="logo">md</span><span>mdreview</span></div>
     <nav class="nav-section" id="inbox">
@@ -347,7 +393,41 @@ document.addEventListener('click', async e=>{
 });
 $("#search").addEventListener('input', ()=>{ shownCap=0; applyFilter(); });   // new query → refit viewport
 let _rz; window.addEventListener('resize', ()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ shownCap=Math.max(shownCap, viewportCap()); applyFilter(); }, 120); });   // grow to fill on resize
-load();
+// ---- auth gating (#131): anonymous visitors get the sign-in screen, not the empty dashboard ----
+const MAIL='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';
+function initSignin(){
+  const form=$("#signin-form"), email=$("#signin-email");
+  if(email) email.focus();
+  form.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const addr=(email.value||"").trim();
+    if(!addr){ email.focus(); return; }
+    const btn=$("#signin-btn"); btn.disabled=true; btn.textContent="Sending…";
+    // Always show the SAME confirmation whatever the result — the backend never reveals whether the
+    // address exists, so neither do we (no account enumeration).
+    try{ await fetch('/auth/magic-link',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:addr})}); }catch(_){}
+    $("#signin-card").innerHTML=
+      `<div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
+      `<div class="signin-ok"><div class="check">${MAIL}</div>`+
+      `<h1>Check your email</h1>`+
+      `<p class="lede">If <span class="addr">${esc(addr)}</span> can sign in, a link is on its way.<br>`+
+      `It's valid once and expires shortly.</p>`+
+      `<button class="linklike" onclick="location.reload()">Use a different email</button></div>`;
+  });
+}
+async function boot(){
+  let sess={authenticated:false};
+  try{ sess=await fetch('/auth/session',{cache:'no-store'}).then(r=>r.json()); }catch(_){}
+  if(sess && sess.authenticated){
+    $("#signin").style.display="none"; $("#app").style.display="flex";
+    load();
+  }else{
+    $("#app").style.display="none"; $("#signin").style.display="flex";
+    initSignin();
+  }
+}
+boot();
 </script>
 </body>
 </html>

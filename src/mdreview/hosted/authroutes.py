@@ -19,6 +19,26 @@ from urllib.parse import parse_qs, urlparse
 
 _SEC_HEADERS = (("Cache-Control", "no-store"), ("X-Content-Type-Options", "nosniff"))
 
+# Shared styling for the two server-rendered auth pages (confirm / invalid link), so this interstitial
+# matches the app's sign-in screen (same tokens, light+dark). Presentation only — #131.
+_AUTH_CSS = (
+    ":root{--bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--rule:#e6e7ee;--link:#2f6fed}"
+    "@media(prefers-color-scheme:dark){:root{--bg:#0f1014;--panel:#17181d;--text:#e9eaf0;"
+    "--muted:#9a9fb0;--rule:#26282f;--link:#7ba6f5}}"
+    "*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;"
+    "justify-content:center;padding:24px;background:var(--bg);color:var(--text);"
+    "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.5}"
+    ".card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--rule);"
+    "border-radius:16px;padding:34px 32px;text-align:center;box-shadow:0 10px 44px rgba(20,22,40,.07)}"
+    ".brand{display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px;"
+    "font-weight:600;margin:0 0 22px}.brand .logo{width:30px;height:30px;border-radius:8px;"
+    "background:linear-gradient(135deg,#2f6fed,#7c4dff);color:#fff;display:flex;align-items:center;"
+    "justify-content:center;font-size:12px;font-weight:700}"
+    "h1{font-size:21px;font-weight:700;letter-spacing:-.3px;margin:0 0 7px}p{color:var(--muted);margin:0 0 20px}"
+    "button.primary{width:100%;font:inherit;font-size:14px;font-weight:600;padding:11px 16px;"
+    "border-radius:10px;border:none;background:linear-gradient(135deg,#5b46e6,#7c4dff);color:#fff;cursor:pointer}"
+    "button.primary:hover{opacity:.92}.fine{color:var(--muted);font-size:12px;margin:16px 0 0}a{color:var(--link)}")
+
 
 class AuthModule:
     def __init__(self, store, users, sessions, magic, accounts, identity_store):
@@ -49,6 +69,16 @@ class AuthModule:
 
     def _json(self, h, code, obj, cookies=None):
         self._respond(h, code, json.dumps(obj), "application/json", cookies=cookies)
+
+    @staticmethod
+    def _shell(title, inner):
+        """Wrap an auth interstitial (confirm / invalid) in the shared branded, theme-aware card."""
+        return ("<!doctype html><html lang=en><head><meta charset=utf-8>"
+                "<meta name=viewport content='width=device-width,initial-scale=1'>"
+                "<title>" + title + "</title><style>" + _AUTH_CSS + "</style></head>"
+                "<body><div class=card>"
+                "<div class=brand><span class=logo>md</span><span>mdreview</span></div>"
+                + inner + "</div></body></html>")
 
     @staticmethod
     def _client_ip(h):
@@ -92,19 +122,13 @@ class AuthModule:
     def _redeem_page(self, h):
         token = parse_qs(urlparse(h.path).query).get("token", [""])[0]
         safe = html.escape(token)
-        page = (
-            "<!doctype html><meta charset=utf-8><meta name=viewport "
-            "content='width=device-width,initial-scale=1'>"
-            "<title>Confirm sign-in</title>"
-            "<body style='font-family:system-ui;max-width:32rem;margin:4rem auto;padding:0 1rem'>"
+        page = self._shell("Confirm sign-in",
             "<h1>Confirm your sign-in</h1>"
             "<p>Click the button to finish signing in to mdreview.</p>"
             "<form method='POST' action='/auth/redeem'>"
             "<input type='hidden' name='token' value='" + safe + "'>"
-            "<button type='submit' style='font-size:1rem;padding:.6rem 1.2rem'>"
-            "Confirm sign-in</button></form>"
-            "<p style='color:#666;font-size:.85rem'>This link is valid once and expires shortly.</p>"
-            "</body>")
+            "<button class='primary' type='submit'>Confirm sign-in</button></form>"
+            "<p class='fine'>This link is valid once and expires shortly.</p>")
         self._respond(h, 200, page, "text/html; charset=utf-8")
         return True
 
@@ -114,10 +138,10 @@ class AuthModule:
         email = self.magic.redeem(token)               # verifies MAC, expiry, and single-use nonce
         if not email:
             self._respond(h, 400,
-                          "<!doctype html><meta charset=utf-8><title>Link invalid</title>"
-                          "<body style='font-family:system-ui;max-width:32rem;margin:4rem auto'>"
-                          "<h1>This link is invalid or expired</h1>"
-                          "<p>Request a fresh sign-in link.</p></body>",
+                          self._shell("Link invalid",
+                              "<h1>This link is invalid or expired</h1>"
+                              "<p>Request a fresh sign-in link to continue.</p>"
+                              "<a href='/'>Back to sign in</a>"),
                           "text/html; charset=utf-8")
             return True
         with self.store.lock:
