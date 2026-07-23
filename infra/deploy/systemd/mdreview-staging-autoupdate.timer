@@ -1,0 +1,12 @@
+# Fire the STAGING auto-update check every 15 min — tighter than prod's 30 min so a fresh :dev lands
+# on staging quickly (staging is the fast pre-prod mirror). Distinct unit = distinct schedule/state.
+[Unit]
+Description=Run mdreview STAGING auto-update every 15 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
