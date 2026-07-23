@@ -20,7 +20,9 @@ import hashlib
 import hmac
 import json
 import secrets
+import smtplib
 import time
+from email.message import EmailMessage
 from urllib.parse import quote
 
 from mdreview.hosted.identity_store import normalize_email
@@ -44,6 +46,43 @@ class StubEmailSender(EmailSender):
 
     def send(self, to, subject, body):
         self._sink("EMAIL-STUB to=%s subject=%r body=%r" % (to, subject, body))
+
+
+class SmtpEmailSender(EmailSender):
+    """A real SMTP backend (stdlib smtplib) — the production magic-link delivery path, selected when
+    MDREVIEW_SMTP_HOST is configured. One short-lived connection per send (magic-link volume is low).
+    Port 465 => implicit TLS (SMTP_SSL); otherwise STARTTLS is issued before auth (unless explicitly
+    disabled) so credentials never cross in the clear. No third-party SDK: single algorithm, stdlib."""
+
+    def __init__(self, host, port=587, username="", password="", from_addr="", use_starttls=True,
+                 timeout=15):
+        self._host = host
+        self._port = int(port)
+        self._username = username or ""
+        self._password = password or ""
+        self._from = from_addr
+        self._use_starttls = use_starttls
+        self._timeout = timeout
+
+    def _deliver(self, client, msg):
+        if self._username:
+            client.login(self._username, self._password)
+        client.send_message(msg)
+
+    def send(self, to, subject, body):
+        msg = EmailMessage()
+        msg["From"] = self._from
+        msg["To"] = to
+        msg["Subject"] = subject
+        msg.set_content(body)
+        if self._port == 465:
+            with smtplib.SMTP_SSL(self._host, self._port, timeout=self._timeout) as client:
+                self._deliver(client, msg)
+        else:
+            with smtplib.SMTP(self._host, self._port, timeout=self._timeout) as client:
+                if self._use_starttls:
+                    client.starttls()
+                self._deliver(client, msg)
 
 
 class MagicLinkService:
