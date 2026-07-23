@@ -273,6 +273,15 @@ class H(BaseHTTPRequestHandler):
         if path == "/healthz" and m == "GET":
             return self._json(200, {"ok": True})
 
+        # The MCP wrapper serves its own source so an installed copy can self-update from the server
+        # it talks to (#90/#71). Public code, unauthenticated like /static; on the hosted vhost the
+        # wrapper's Bearer carries it through nginx. /version is the cheap staleness probe.
+        if path in ("/install/version", "/install/wrapper") and m == "GET":
+            from mcp import bundle
+            if path == "/install/version":
+                return self._json(200, {"wrapper_version": bundle.wrapper_version()})
+            return self._json(200, bundle.wrapper_payload())
+
         if path in ("/", "/api") and m == "GET":
             descriptor = {
                 "service": "mdreview",
