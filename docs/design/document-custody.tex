@@ -1,0 +1,263 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=black, urlcolor=blue}
+
+\newtcolorbox{invariant}[1]{colback=black!4, colframe=black!55, title={#1},
+  fonttitle=\bfseries, boxrule=0.5pt, arc=1pt}
+\newtcolorbox{decision}[1]{colback=green!4, colframe=green!45!black, title={#1},
+  fonttitle=\bfseries, boxrule=0.5pt, arc=1pt}
+
+\title{\textbf{Document Custody in mdreview}\\[2pt]
+\large Binding every hosted document to the account that created it}
+\author{mdreview design note}
+\date{Revised 23 July 2026 --- owner decisions folded in; pending G1 delta re-review}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+mdreview is human-in-the-loop review for AI agents: an agent posts a draft, a human reviews it
+in the browser, the agent reads the feedback back. On the hosted tier each document must belong
+to exactly one account and be invisible to every other. On 22 July 2026 that guarantee failed:
+a research document created by one user was reassigned to another during an operational
+recovery, and its owner could read a document that was not theirs. The isolation \emph{filter}
+never broke; the \emph{data} it filtered on was wrong. This note specifies how custody is
+established, enforced, and repaired so the failure class cannot recur. It is the custody half of
+the approved \emph{core + injected access seam} architecture: the ownership rules below ARE the
+\texttt{AccessPolicy} / Confinement contract that the shared core defines and the hosted adapter
+implements. This revision folds in the owner's three build decisions of 23 July 2026 (green
+boxes) and is written ahead of opening the service to public sign-up, where the same bug would
+scale to every stranger's work.
+\end{abstract}
+
+\section{Motivation: how a document changed hands}
+\label{sec:motivation}
+
+The incident (tracked as issue~\#97) was not a break-in. It was the composition of three
+independently-survivable faults into one custody transfer:
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{Creation without an owner.} During an operational window the per-request
+  authentication flag (\texttt{MDREVIEW\_REQUIRE\_AUTH}) was off --- and it \emph{defaults} off,
+  gated only by a session-secret boot guard that does not cover this case. Every document created
+  in that window, including one made through a valid credential, was written with an empty owner
+  field. An unowned document should be impossible; instead it was merely undesirable.
+  \item \textbf{The author locked out.} A separate misconfiguration rejected the author at the
+  authorization gate, so he could not open, or even see, the document he had just created.
+  \item \textbf{A blind repair.} Recovery ran \texttt{migrate.backfill\_owner}, which stamped
+  \emph{every} unowned document onto the operator's account in one unconditional pass, with no
+  provenance check. Most were genuinely the operator's, by coincidence; one was the locked-out
+  author's. Custody transferred silently, and that code path still exists.
+\end{enumerate}
+
+No single fault was a breach. Their product was. The lesson is not ``add another check'' but
+``make the invariant hold by construction, and make its violation loud.''
+
+\section{Threat model and principles}
+\label{sec:principles}
+
+\paragraph{What we defend.} Confidentiality of a document's content and comments against every
+account that is not its owner; integrity of the owner binding against silent reassignment; and
+availability of the document to its rightful owner.
+
+\paragraph{Trust boundary.} The service process is the sole authority on ownership. The reverse
+proxy authenticates \emph{who is calling}; it does not decide \emph{what they may see}. Any
+control that lives only in the proxy is bypassed the moment a request reaches the app on the
+loopback interface, which is a reachable path.
+
+\paragraph{Principles.}
+\begin{enumerate}[leftmargin=1.6em]
+  \item \emph{Stamp at birth.} Ownership is assigned when the document is created, from the
+  resolved principal, never retrofitted (\texttt{AccessPolicy.stamp\_owner}).
+  \item \emph{Fail closed, by construction.} If no principal can be resolved, creation is
+  refused; and a hosted build cannot run with the ownership check off at all (Decision~1).
+  \item \emph{Enforce at the seam.} Every access passes the injected \texttt{AccessPolicy} on the
+  core, so the loopback and proxied paths, and every route and module, enforce identically.
+  \item \emph{Never adopt in bulk.} An unowned or ambiguous record is quarantined for human
+  assignment; provenance is an untrusted hint, not an automatic binding (Decision~3).
+  \item \emph{Loud on anomaly.} An unowned record on an authenticated instance is an alarm, not
+  a routine state to be tidied away.
+\end{enumerate}
+
+\section{The custody model}
+\label{sec:model}
+
+\subsection{Identity}
+A user is a stable canonical identifier \texttt{provider:sub} (e.g.\
+\texttt{google:1007\ldots}, or \texttt{email:alice@example.com} for the native path). Per the
+identity design (\#67 D1) the owner key is \textbf{never re-keyed}: both a federated login and a
+native magic-link login for the same \emph{verified} email resolve to the one existing
+\texttt{provider:sub}, so a document follows its human across login methods rather than
+fragmenting. Confinement depends on this being a \emph{verified} email (see the named risks).
+
+\subsection{The ownership invariant}
+Let $D$ be the set of hosted documents and $U$ the set of accounts. Custody is a total function
+\[
+  \operatorname{owner} : D \rightarrow U,
+\]
+established at creation and never redefined by an automated process. Two properties must hold at
+all times on an authenticated (hosted) instance:
+
+\begin{invariant}{Totality (no orphans)}
+For every $d \in D$, $\operatorname{owner}(d) \in U$. There is no $d$ with an empty or unknown
+owner. Creation that cannot satisfy this is rejected, not deferred.
+\end{invariant}
+
+\begin{invariant}{Confinement (no leakage)}
+For every access to $d$ by principal $p$, the request is served only if $p =
+\operatorname{owner}(d)$, or $p$ holds an explicit owner-granted share on $d$ (public / named,
+the sharing work), or $p$ is an admin acting under an audited platform grant (the admin work).
+Otherwise it is refused \emph{identically to a non-existent document}. The confinement unit is
+the document \textbf{and all its child resources} --- comments, assets, history, feedback, the
+compiled PDF --- each of which must route through the same \texttt{AccessPolicy}, not re-derive
+access on its own.
+\end{invariant}
+
+\subsection{Creation: stamp, or the build won't run}
+\begin{decision}{Decision 1 --- enforcement is a property of the hosted build, not a flag}
+A hosted build must be \emph{incapable} of serving with the ownership check off: it refuses to
+start (or refuses to serve) rather than defaulting open. This closes the root fault ---
+\texttt{MDREVIEW\_REQUIRE\_AUTH} defaulting off behind a secret-only boot guard --- so ``the
+check was off'' stops being a reachable production state. \emph{Carve-out:} this binds the
+\textbf{hosted} build only; the local/localhost tier keeps its open, no-accounts promise by
+design (it injects the null \texttt{OpenPolicy}). This decision gives the fail-closed-creation
+slice its trigger.
+\end{decision}
+
+At creation the hosted \texttt{AccessPolicy.stamp\_owner} resolves the principal and writes the
+owner in the same operation that writes the document; if no principal resolves, creation returns
+an error and no document is written. Combined with Decision~1, the unowned document that started
+the incident cannot come into existence on a hosted build.
+
+\subsection{Access: one check, at the seam}
+Read, list, write, and delete each evaluate Confinement through the injected \texttt{AccessPolicy}
+before returning anything. Today the ownership check lives in the HTTP router
+(\texttt{\_authz}$\rightarrow$\texttt{can\_access}) and each route/module must remember to call
+it --- \texttt{ReviewService}, \texttt{CommentService}, and \texttt{AssetService} do not check
+ownership themselves. The \emph{access-enforcement} slice makes every access-bearing operation go
+through the seam so ``a route forgot to check'' becomes structurally impossible (this is a
+guarded refactor of where the check sits, not merely an audit).
+
+\section{Repair without breach}
+\label{sec:repair}
+
+\begin{decision}{Decision 2 --- delete the blind migrate by construction}
+The unconditional \texttt{migrate.backfill\_owner} path (stamps every unowned doc onto one uid in
+one pass) is \textbf{deleted / neutered}, not kept alongside a guarded tool. The blind bulk-stamp
+becomes impossible to run, so the tripwire below is a second line of defence, not the only one.
+\end{decision}
+
+\begin{decision}{Decision 3 --- provenance is an untrusted hint; a human confirms; quarantine the ambiguous}
+A review's \texttt{project} / \texttt{source\_path} / \texttt{session} are free text taken
+straight from the \texttt{POST /api/reviews} body --- \emph{attacker-controlled}. They may
+therefore only \emph{suggest} an owner to a human, who confirms each assignment; records with no
+usable, corroborated provenance are left unowned and surfaced for explicit human assignment,
+never auto-bound. Consequently ``match by provenance automatically'' is \textbf{not} a separate
+build slice --- it folds into the human-confirm / quarantine path.
+\end{decision}
+
+Reconciliation of legacy or anomalous records therefore obeys: no blanket stamp (Decision~2);
+provenance suggests, a human confirms (Decision~3); quarantine the ambiguous. A startup and drift
+check treats any unowned record on an authenticated instance as an anomaly --- but it must
+\textbf{distinguish legacy orphans from new ones}: prod already holds \texttt{owner=''} records
+that predate the fail-closed rule (the \#97 corpus and pre-auth reviews). A tripwire that treats
+legacy and new orphans identically is either noisy from day one (so it gets muted, then misses a
+real one) or blocks boot on expected state. It must baseline the known-legacy set and alarm only
+on \emph{new} orphans.
+
+\section{Build slices}
+\label{sec:slices}
+
+The epic decomposes into the following slices. Two of them (marked \textsc{new}) were missing
+from the first draft and are added per the G1 review; they are the difference between a design
+and a design that cannot recur.
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{Fail-closed hosted build + creation stamping} (Decision~1). Hosted build refuses
+  to serve with the check off; \texttt{stamp\_owner} fail-closed at create. Gated on the shared
+  boot-guard / principal-resolution surface (see \#67 dependency).
+  \item \textbf{Access-enforcement at the seam.} Route every access-bearing operation (incl.\
+  child resources) through the injected \texttt{AccessPolicy}; no route/module re-derives access.
+  \item \textbf{Delete the blind migrate} (Decision~2).
+  \item \textbf{Human-confirm / quarantine reconciliation tool} (Decision~3) --- the only
+  sanctioned way to assign an owner to an unowned record.
+  \item \textbf{One-time reconciliation of the existing prod \texttt{owner=''} corpus}
+  (\textsc{new}). With the blind migrate deleted and the tripwire about to ship, the existing
+  orphans must be resolved under the new human-confirm rules \emph{before} the tripwire is armed,
+  or it alarms on all of them on day one.
+  \item \textbf{Unowned-record tripwire with a legacy baseline} (\textsc{new precision}). Alarms
+  only on \emph{new} orphans; sequenced \emph{after} slice~5.
+  \item \textbf{Verification / regression slice} (\textsc{new}). An executable check that
+  \emph{would have caught \#97}: proves an auth-off create is refused on a hosted build, and that
+  the bulk-stamp cannot be run. This is the test the incident lacked.
+  \item \textbf{Docs / runbook} (trailing): the sanctioned reconciliation procedure and the
+  tripwire's meaning.
+\end{enumerate}
+
+\section{Interaction with what is coming}
+\label{sec:forward}
+
+\paragraph{Native login (\#67) shares this code surface.} The fail-closed boot guard and
+principal resolution in slice~1 are the \emph{same code} as \#67~D2. Ownership of that shared
+piece must be decided before both epics touch it. Identity is \emph{consistent} with \#67~D1
+(keep \texttt{provider:sub}, resolve by verified email) --- not contradictory. If \#67 slips, the
+hosted fail-closed posture (Decision~1) must be able to ship independently of native login
+(owner's call --- see the named risks).
+
+\paragraph{Open, self-serve membership.} The hosted service is opening to public sign-up. That
+raises the stakes rather than changing the design: a blind back-fill over the documents of $N$
+strangers would have assigned all of them to the operator. Totality plus the no-bulk-adopt rule
+are exactly what make open membership safe to run.
+
+\section{Named risks --- for owner sign-off}
+\label{sec:risks}
+
+These are carried to sign-off, not accepted here:
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{Transitional proxy-vouched header.} During the transition the proxy-vouched
+  header remains a trusted creation \emph{and} access principal on loopback (it requires
+  \texttt{PROXY\_SECRET}, so exposure is scoped to whatever can obtain it --- a co-tenant on the
+  shared VPS). Accept for the transition window \emph{with a stated sunset trigger}: it is retired
+  when the app-owned session plane ships.
+  \item \textbf{Verified-email invariant.} Confinement silently depends on every login path
+  supplying a provider-\emph{verified} email; an unverified-email path is account takeover. State
+  this as a cross-epic invariant on \#67.
+  \item \textbf{\#67 coupling.} If \#67 slips, decide whether to decouple and ship the hosted
+  fail-closed posture alone.
+\end{enumerate}
+
+\section{Scope}
+\label{sec:scope}
+
+\paragraph{In scope.} Ownership stamping at creation; the fail-closed-by-construction hosted
+build; seam-level access enforcement (incl.\ child resources); the migrate deletion; the
+human-confirm reconciliation tool + the one-time corpus reconciliation; the legacy-baselined
+tripwire; the verification/regression check.
+
+\paragraph{Out of scope.}
+\begin{itemize}[leftmargin=1.6em]
+  \item \emph{The local tier.} A self-hosted instance on \texttt{localhost} has no accounts and
+  no auth by design; every document is open to its single operator (the null \texttt{OpenPolicy}).
+  Custody is a hosted concern only; ``keep it yours'' is untouched.
+  \item \emph{Sharing and invites.} Owner-granted exceptions to Confinement (public / named)
+  belong to the sharing work, which consults this model rather than modifying it.
+  \item \emph{Admin super-access.} The audited platform-grant exception is the admin work; this
+  design only defines the Confinement contract it is an exception to.
+  \item \emph{Resource quotas.} Adjacent abuse control, tracked separately.
+\end{itemize}
+
+\vspace{1em}
+\hrule
+\vspace{0.6em}
+\noindent\small Revised 23 July 2026 with the owner's three build decisions folded in (green
+boxes) and the two missing slices + named risks added per the G1 round-1 review. Pending the G1
+delta re-review and the owner's sign-off before child issues are cut.
+
+\end{document}
