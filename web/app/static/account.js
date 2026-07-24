@@ -11,11 +11,11 @@
     // normal-case + no letter-spacing so the email reads right even inside the viewer's uppercase top bar
     "#acct .acct{display:flex;align-items:center;gap:9px;font-size:13px;min-width:0;text-transform:none;letter-spacing:normal;}" +
     "#acct .acct-dot{width:7px;height:7px;border-radius:50%;background:#2f8f5b;flex:0 0 auto;}" +
-    "#acct .acct-email{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}" +
+    "#acct .acct-email{color:var(--muted-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}" +
     "#acct .acct-out{font:inherit;font-size:12.5px;font-weight:600;color:var(--text);background:none;" +
     "border:1px solid var(--rule);border-radius:8px;padding:5px 11px;cursor:pointer;flex:0 0 auto;" +
     "text-transform:none;letter-spacing:normal;}" +
-    "#acct .acct-out:hover{border-color:var(--muted2,var(--muted));}" +
+    "#acct .acct-out:hover{border-color:var(--muted2,var(--muted-fg));}" +
     "#acct .acct-in{color:var(--link);text-decoration:none;font-weight:600;font-size:13px;white-space:nowrap;}" +
     "#acct .acct-in:hover{text-decoration:underline;}" +
     // Admin: both the indicator (you are an admin) and the way to reach /admin. Fixed violet reads on
