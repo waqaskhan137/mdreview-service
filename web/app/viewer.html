@@ -3,28 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- A public document (#101) is "anyone with the link", NOT search-indexed: noindex the viewer.
+     Belt-and-suspenders with the X-Robots-Tag header the server sends on this route. Harmless for
+     private docs (only ever served to their owner; a crawler can only reach a public one). -->
+<meta name="robots" content="noindex, nofollow">
 <title>mdreview</title>
 <link rel="stylesheet" href="/static/katex.min.css">
 <link rel="stylesheet" href="/static/hljs-github.css">
+<link rel="stylesheet" href="/static/theme.css">
 <style>
+  /* Colour tokens live in /static/theme.css (#153) — never redefine them per page. */
   /* Light palette = the new mockup (violet baton/comments, blue headings/links); dark derived via
-     the existing token swap (mockup is light-only). --accent is the violet primary used by the
+     the existing token swap (mockup is light-only). --brand is the violet primary used by the
      baton + comment threads; --blue is section headings + links; --noteline = the comment margin
      bar (violet, was amber). */
-  :root{--bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--muted2:#6e727e;--rule:#e6e7ee;--accent:#5b30d6;--accent-bg:#eee9fd;--blue:#1d4fbf;--blue-bg:#e9f0fd;--noteline:#5b30d6;--link:#2f6fed;
-    --baton-ico:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>');}
-  @media (prefers-color-scheme: dark){:root{--bg:#0f1014;--panel:#17181d;--text:#e9eaf0;--muted:#9a9fb0;--muted2:#878c9c;--rule:#26282f;--accent:#b9a3f5;--accent-bg:#2a2147;--blue:#9cc0f5;--blue-bg:#16243f;--noteline:#b9a3f5;--link:#7ba6f5;}}
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:Charter,Georgia,Cambria,"Times New Roman",serif;font-size:20px;line-height:1.7;}
   .wrap{max-width:720px;margin:0 auto;padding:40px 24px 160px 64px;}
   /* full-width sticky top bar (mockup): ← Reviews + filename (left), vN · turn-state (right) */
   .topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 26px;border-bottom:1px solid var(--rule);background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;}
   .topbar .tb-left{display:flex;align-items:center;gap:10px;min-width:0;}
-  .topbar .home{color:var(--muted);text-decoration:none;font-weight:500;white-space:nowrap;}
+  .topbar .home{color:var(--muted-fg);text-decoration:none;font-weight:500;white-space:nowrap;}
   .topbar .home:hover{color:var(--text);}
   .topbar .tb-sep{color:var(--rule);}
-  .filename{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .tb-right{font-size:12px;color:var(--muted);letter-spacing:.03em;white-space:nowrap;font-variant:small-caps;}
+  .filename{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--brand);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tb-right{font-size:12px;color:var(--muted-fg);letter-spacing:.03em;white-space:nowrap;font-variant:small-caps;}
   /* breadcrumb above the title: project / session / source_path (present segments only) */
   .breadcrumb{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:12.5px;color:var(--muted2);margin:0 0 14px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
   .breadcrumb .sep{color:var(--rule);}
@@ -36,7 +39,7 @@
   #article p{margin:0;}
   #article ul,#article ol{margin:0;padding-left:1.4em;}
   #article li{margin:.2em 0;}
-  #article blockquote{margin:0;padding-left:1em;border-left:3px solid var(--accent);color:var(--muted);font-style:italic;}
+  #article blockquote{margin:0;padding-left:1em;border-left:3px solid var(--brand);color:var(--muted-fg);font-style:italic;}
   #article pre{background:rgba(127,127,127,.1);padding:14px;border-radius:8px;overflow:auto;font-size:14px;}
   #article code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em;}
   #article a{color:var(--blue);}
@@ -59,7 +62,7 @@
      screen-reader-only heading. The viewer has no .sr-only rule otherwise, so without the clip rule
      below that heading renders as a full-size accent banner. */
   .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;padding:0;margin:-1px;}
-  #article .footnotes{margin-top:32px;border-top:1px solid var(--rule);padding-top:6px;font-size:15px;color:var(--muted);}
+  #article .footnotes{margin-top:32px;border-top:1px solid var(--rule);padding-top:6px;font-size:15px;color:var(--muted-fg);}
   #article .footnotes ol{padding-left:1.2em;}
   #article sup a,#article .footnotes a{color:var(--blue);text-decoration:none;}
   #article hr{border:none;border-top:1px solid var(--rule);margin:8px 0;}
@@ -72,84 +75,69 @@
   .blk{position:relative;padding:6px 0;margin:16px 0;border-radius:6px;transition:background .15s;}
   .blk:hover{background:rgba(127,127,127,.06);}
   .blk .num{position:absolute;left:-46px;top:9px;width:32px;text-align:right;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:11.5px;color:var(--muted2);cursor:pointer;user-select:none;opacity:.5;font-variant-numeric:tabular-nums;}
-  .blk .num:hover{opacity:1;color:var(--accent);}
+  .blk .num:hover{opacity:1;color:var(--brand);}
   .blk.has-note{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
   .blk.has-note .num::after{content:" \25CF";color:var(--noteline);}
   @media (max-width:820px){.blk .num{left:-30px;width:22px;font-size:11px;}.wrap{padding-left:40px;}}
-  #addbtn{position:absolute;z-index:50;display:none;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-family:-apple-system,sans-serif;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);}
-  #pop{position:fixed;z-index:60;display:none;width:330px;background:var(--bg);border:1px solid var(--rule);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.3);padding:14px;}
-  #pop .q{font-size:13px;color:var(--muted);font-style:italic;margin:0 0 8px;max-height:64px;overflow:auto;font-family:-apple-system,sans-serif;}
+  #addbtn{position:absolute;z-index:50;display:none;background:var(--brand);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-family:-apple-system,sans-serif;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+  /* Issue #44: composer floats beside the article (positionPop), where the gutter cards live. width
+     284px (was 330) = the .gcard width, so it fits inside the wide gate's envelope — left is rect.right+24
+     and the gate needs innerWidth >= rect.right+320, so 24+284=308 < 320 — instead of overflowing the edge. */
+  #pop{position:fixed;z-index:60;display:none;width:284px;background:var(--bg);border:1px solid var(--rule);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.3);padding:14px;}
+  /* narrow fallback: dock (mirrors #gutter.docked); auto!important beats the wide branch's inline left/top.
+     .top docks upper-right instead, chosen opposite the anchor so the composer never covers it (issue #44 AC3). */
+  #pop.docked{right:18px;bottom:70px;top:auto!important;left:auto!important;width:360px;}
+  #pop.docked.top{top:18px!important;bottom:auto;}
+  #pop .q{font-size:13px;color:var(--muted-fg);font-style:italic;margin:0 0 8px;max-height:64px;overflow:auto;font-family:-apple-system,sans-serif;}
   #pop textarea{width:100%;min-height:74px;font-family:-apple-system,sans-serif;font-size:14px;border:1px solid var(--rule);border-radius:6px;padding:8px;background:var(--bg);color:var(--text);resize:vertical;}
   #pop .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;}
   .btn{font-family:-apple-system,sans-serif;font-size:13px;border-radius:8px;padding:7px 14px;cursor:pointer;border:1px solid var(--rule);background:var(--panel);color:var(--text);}
   .btn:hover{border-color:var(--muted2);}
-  .btn.primary{background:var(--link);color:#fff;border-color:var(--link);}
-  .btn.primary:hover{filter:brightness(1.06);border-color:var(--link);}
-  /* baton action column (mockup: Send to agent on the right of the violet banner) */
-  .turnactions{flex:0 0 auto;display:flex;flex-direction:column;gap:6px;align-items:stretch;}
-  #sendbtn:not([disabled])::after{content:" \2192";}
+  /* #152 slice B: primary buttons use the app-wide brand violet (--brand) with --bg text, matching
+     Basecoat's --primary/--primary-foreground on the other pages (and the viewer's own #addbtn/#toast,
+     already violet). --bg text (not #fff) keeps contrast correct in dark mode, where --brand is a light
+     violet. The viewer stays off Basecoat's CSS on purpose: its Tailwind preflight strips list markers
+     from the bespoke serif prose (verified), and every viewer control already reads the shared tokens. */
+  .btn.primary{background:var(--brand);color:var(--bg);border-color:var(--brand);}
+  .btn.primary:hover{filter:brightness(1.06);border-color:var(--brand);}
   #dock{position:fixed;right:18px;bottom:18px;z-index:55;font-family:-apple-system,sans-serif;}
   #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--rule);border-radius:30px;padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
-  #count{font-size:13px;color:var(--muted);}
-  /* MR-052: turn baton — Send button, status banner, reclaim control */
-  .btn.sendagent[disabled]{opacity:.5;cursor:default;}
-  /* baton banner — the mockup's violet "Your turn" treatment (left accent bar + icon), hosting the
-     Send button on the right. renderBanner toggles loading/warn/steps; only CSS changed here. */
-  .turnbanner{display:none;align-items:center;gap:13px;margin:0 0 24px;padding:14px 16px;border:1px solid var(--accent-bg);border-left:3px solid var(--accent);border-radius:11px;background:var(--accent-bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:var(--text);}
-  .turnbanner::before{content:"";flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:var(--accent) var(--baton-ico) center/15px no-repeat;}
-  .turnbanner.warn::before,.turnbanner.loading::before{display:none;}
-  .turnbanner.show{display:flex;}
-  #turnbody{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;}
-  .turnhead{display:flex;align-items:baseline;gap:10px;}
-  #turntext{font-weight:600;}
-  .turnhead #turntext{flex:1;}
-  #turntimer{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;white-space:nowrap;}
-  .turnbanner .reclaim{font-size:12px;padding:4px 11px;white-space:nowrap;}
-  /* MR-073 (issue #27): derived live progress timeline. Shown only while the agent is working
-     (#turnbanner.working); steps come purely from the /status epoch timestamps (no new data). */
-  #turnsteps{display:none;margin:0;padding:0;list-style:none;font-size:12px;color:var(--muted);}
-  #turnbanner.steps #turnsteps{display:flex;flex-direction:column;gap:3px;}
-  #turnsteps li{display:flex;align-items:center;gap:7px;}
-  #turnsteps li::before{content:"\25CB";color:var(--muted);width:1em;text-align:center;font-size:10px;}   /* ○ pending */
-  #turnsteps li.done{color:var(--text);}
-  #turnsteps li.done::before{content:"\25CF";color:var(--accent);}                                          /* ● reached */
-  #turnsteps li.active{color:var(--text);}
-  #turnsteps li.active::before{content:"";display:inline-block;width:9px;height:9px;border:2px solid var(--muted);border-top-color:transparent;border-radius:50%;animation:turnspin .8s linear infinite;}
-  @media (prefers-reduced-motion:reduce){#turnsteps li.active::before{animation:none;border-top-color:var(--muted);opacity:.6;}}
-  /* MR-062 (issue #27, supersedes MR-061): a clear loading SPINNER on the agent-turn *waiting* states — both
-     "Sent — waiting for pickup" AND "Agent is working" (NOT the stale "may have stopped"). renderBanner
-     adds the .loading class in those two arms. Pure CSS rotating ring; reduced-motion shows a static ring. */
-  #turnbanner.loading #turntext::before{content:"";display:inline-block;width:11px;height:11px;margin-right:9px;vertical-align:-1px;border:2px solid var(--muted);border-top-color:transparent;border-radius:50%;animation:turnspin .8s linear infinite;}
-  @keyframes turnspin{to{transform:rotate(360deg);}}
-  @media (prefers-reduced-motion:reduce){#turnbanner.loading #turntext::before{animation:none;border-top-color:var(--muted);opacity:.6;}}
-  /* MR-066 (issue #26): a NON-spinning warning treatment for "nothing is coming, act" states — the
-     pickup-timeout cue (no agent claimed within the grace window) and, reused by MR-068, the crashed-run
-     signal. No animation, so reduced-motion-safe by construction. Defined here; MR-068 reuses it. */
-  #turnbanner.warn{border-color:var(--noteline);border-left:3px solid var(--noteline);background:rgba(212,160,23,.10);}
-  #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--accent);color:#fff;font-family:-apple-system,sans-serif;font-size:13px;padding:8px 16px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
+  #count{font-size:13px;color:var(--muted-fg);}
+  #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--brand);color:#fff;font-family:-apple-system,sans-serif;font-size:13px;padding:8px 16px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
   /* MR-006/MR-036: Google-Docs style margin comments (threaded) */
   #gutter{position:absolute;top:0;width:284px;z-index:5;display:none;}
   body.gutter-on #cmtbtn{display:none;}
   .gcard{position:absolute;width:284px;background:var(--bg);border:1px solid var(--rule);border-left:3px solid var(--noteline);border-radius:8px;padding:10px 28px 10px 12px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;line-height:1.4;box-shadow:0 1px 6px rgba(0,0,0,.06);transition:top .18s ease,box-shadow .15s,border-color .15s;cursor:pointer;}
-  .gcard:hover,.gcard.active{box-shadow:0 5px 18px rgba(0,0,0,.18);border-left-color:var(--accent);}
-  .gcard .gref{color:var(--accent);font-weight:700;}
-  .gcard .gq{color:var(--muted);font-style:italic;display:block;margin:2px 0 5px;font-size:12px;max-height:48px;overflow:hidden;}
+  .gcard:hover,.gcard.active{box-shadow:0 5px 18px rgba(0,0,0,.18);border-left-color:var(--brand);}
+  .gcard .gref{color:var(--brand);font-weight:700;}
+  .gcard .gq{color:var(--muted-fg);font-style:italic;display:block;margin:2px 0 5px;font-size:12px;max-height:48px;overflow:hidden;}
   .gcard .gnote{color:var(--text);}
-  .gcard .gx{position:absolute;top:5px;right:8px;border:none;background:none;color:var(--muted);font-size:16px;cursor:pointer;line-height:1;}
-  .gcard.addressed{opacity:.55;border-left-color:var(--muted);}
+  .gcard .gx{position:absolute;top:5px;right:8px;border:none;background:none;color:var(--muted-fg);font-size:16px;cursor:pointer;line-height:1;}
+  .gcard.addressed{opacity:.55;border-left-color:var(--muted-fg);}
   .gcard.addressed .gnote{text-decoration:line-through;}
   mark.cmt{background:rgba(91,48,214,.18);color:inherit;border-radius:2px;padding:.5px 0;cursor:pointer;transition:background .15s;}
   mark.cmt.active{background:rgba(91,48,214,.40);}
   #histmodal{display:none;position:fixed;inset:0;z-index:85;background:rgba(0,0,0,.45);align-items:center;justify-content:center;}
   #histbox{width:min(720px,92vw);max-height:82vh;overflow:auto;background:var(--bg);border-radius:12px;padding:18px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13.5px;}
-  #histbox h3{margin:0 0 12px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
+  #histbox h3{margin:0 0 12px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-fg);}
   .histlist{display:flex;flex-direction:column;gap:6px;}
   .histitem{text-align:left;font:inherit;font-size:13px;border:1px solid var(--rule);background:var(--bg);color:var(--text);border-radius:7px;padding:8px 10px;cursor:pointer;}
-  .histitem:hover{border-color:var(--accent);}
-  #histview h4{margin:16px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  .histitem:hover{border-color:var(--brand);}
+  #histview h4{margin:16px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--brand);}
   #histview ul{margin:4px 0;padding-left:1.2em;}
   .histdoc{border:1px solid var(--rule);border-radius:8px;padding:12px 14px;font-family:Charter,Georgia,serif;font-size:15px;line-height:1.5;max-height:38vh;overflow:auto;}
   .histbtnrow{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+  /* #19: History-modal compare mode — pick any two versions, line-level source diff */
+  .cmpbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:var(--muted-fg);}
+  .cmpbar select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);color:var(--text);max-width:min(46%,300px);}
+  .diffdoc{border:1px solid var(--rule);border-radius:8px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.55;max-height:44vh;overflow:auto;white-space:pre-wrap;word-break:break-word;}
+  .diffrow{display:block;padding:0 6px;border-radius:3px;}
+  .diffrow.add{background:rgba(46,160,67,.16);}
+  .diffrow.del{background:rgba(229,83,75,.15);}
+  .diffrow.add::before{content:"+ ";color:#2ea043;}
+  .diffrow.del::before{content:"- ";color:#e5534b;}
+  .diffrow.eq::before{content:"\00a0\00a0";color:var(--muted-fg);}
+  .diffempty{color:var(--muted-fg);padding:8px 4px;}
   /* MR-036: a block carrying an open comment gets the margin bar + dot */
   .blk.has-comment{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
   .blk.has-comment .num::after{content:" \25CF";color:var(--noteline);}
@@ -157,14 +145,14 @@
   .gcard{cursor:default;padding:9px 11px;}
   .gcard .ghead,.rcard .ghead{display:flex;gap:6px;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;}
   /* MR-050: secondary, muted Delete affordance — only on the reviewer's own un-engaged comment */
-  .gcard .ghead .gdel{margin-left:auto;align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--muted);padding:1px 5px;border-radius:4px;}
+  .gcard .ghead .gdel{margin-left:auto;align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--muted-fg);padding:1px 5px;border-radius:4px;}
   .gcard .ghead .gdel:hover{color:#c0392b;background:rgba(192,57,43,.10);}
   .gcard .ghead .gdel.armed{color:#fff;background:#c0392b;font-weight:600;}
   .gthread{display:flex;flex-direction:column;gap:5px;}
   .gentry{border-left:3px solid var(--rule);background:rgba(127,127,127,.05);border-radius:4px;padding:4px 8px;}
   .gentry.reviewer{border-left-color:var(--noteline);background:rgba(91,48,214,.07);}
   .gentry.agent{border-left-color:var(--blue);background:rgba(29,79,191,.08);}
-  .gentry .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted);margin-right:5px;}
+  .gentry .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted-fg);margin-right:5px;}
   .gentry.reviewer .grole{color:var(--noteline);}
   .gentry.agent .grole{color:var(--blue);}
   .gentry .gtext{color:var(--text);}
@@ -176,8 +164,8 @@
   .gentry .gtext code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:rgba(127,127,127,.16);padding:.5px 4px;border-radius:4px;}
   .gentry .gtext pre{background:rgba(127,127,127,.12);padding:7px 9px;border-radius:6px;overflow:auto;margin:.4em 0;}
   .gentry .gtext pre code{background:none;padding:0;font-size:.86em;}
-  .gentry .gtext a{color:var(--accent);}
-  .gentry .gtext blockquote{margin:.4em 0;padding-left:8px;border-left:2px solid var(--rule);color:var(--muted);}
+  .gentry .gtext a{color:var(--brand);}
+  .gentry .gtext blockquote{margin:.4em 0;padding-left:8px;border-left:2px solid var(--rule);color:var(--muted-fg);}
   .gentry .gtext h1,.gentry .gtext h2,.gentry .gtext h3,.gentry .gtext h4,.gentry .gtext h5{font-size:13px;margin:.5em 0 .2em;}
   .gentry .gtext img{max-width:100%;border-radius:4px;}
   .gentry .gtext hr{border:none;border-top:1px solid var(--rule);margin:.5em 0;}
@@ -186,36 +174,74 @@
   .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
   /* Resolved history panel */
   #resolved{display:none;position:fixed;right:18px;bottom:70px;z-index:55;width:380px;max-height:64vh;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:14px;font-family:-apple-system,sans-serif;}
-  #resolved h3{margin:0 0 6px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
-  .resolved-count{color:var(--accent);font-weight:700;}
-  #resempty{color:var(--muted);font-size:13px;}
+  #resolved h3{margin:0 0 6px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-fg);}
+  .resolved-count{color:var(--brand);font-weight:700;}
+  #resempty{color:var(--muted-fg);font-size:13px;}
   .rcard{border-top:1px solid var(--rule);padding:11px 0;font-size:13px;}
-  .rcard .gref{color:var(--accent);font-weight:700;}
-  .rcard .gq{color:var(--muted);font-style:italic;font-size:12px;}
+  .rcard .gref{color:var(--brand);font-weight:700;}
+  .rcard .gq{color:var(--muted-fg);font-style:italic;font-size:12px;}
   /* narrow fallback: the active-comment gutter docks bottom-right with static cards */
   #gutter.docked{position:fixed;right:18px;bottom:70px;top:auto!important;left:auto!important;width:360px;max-height:64vh;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:12px;display:block;z-index:55;}
   #gutter.docked .gcard{position:static;width:auto;margin-bottom:8px;box-shadow:none;}
+
+  /* ---- Share control (#133 public link, extended by #134 people) ---- */
+  .tb-btn{font:inherit;font-size:12.5px;font-weight:600;color:var(--text);background:none;
+    border:1px solid var(--rule);border-radius:8px;padding:5px 12px;cursor:pointer;
+    text-transform:none;letter-spacing:normal;}
+  .tb-btn:hover{border-color:var(--muted2,var(--muted-fg));}
+  .share-wrap{position:relative;display:flex;}
+  .sharepop{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--panel);
+    border:1px solid var(--rule);border-radius:12px;box-shadow:0 12px 40px rgba(20,22,40,.16);
+    padding:16px;z-index:60;text-transform:none;letter-spacing:normal;text-align:left;}
+  .sharepop h3{margin:0 0 12px;font-size:14px;font-weight:700;color:var(--text);}
+  .share-row{display:flex;align-items:center;justify-content:space-between;gap:14px;}
+  .share-lbl{font-size:13px;color:var(--text);}
+  .share-lbl small{display:block;color:var(--muted-fg);font-size:11.5px;margin-top:2px;font-weight:400;}
+  .switch{position:relative;width:40px;height:22px;flex:0 0 auto;display:inline-block;}
+  .switch input{opacity:0;width:0;height:0;position:absolute;}
+  .switch .track{position:absolute;inset:0;background:var(--rule);border-radius:22px;transition:.15s;
+    cursor:pointer;display:block;}
+  .switch .track:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;
+    background:#fff;border-radius:50%;transition:.15s;}
+  .switch input:checked + .track{background:#5b46e6;}
+  .switch input:checked + .track:before{transform:translateX(18px);}
+  .share-link{display:flex;gap:8px;margin-top:14px;}
+  .share-link input{flex:1;min-width:0;font:inherit;font-size:12px;padding:8px 10px;
+    border:1px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--muted-fg);}
+  .share-copy{font:inherit;font-size:12.5px;font-weight:600;padding:8px 14px;border:none;
+    border-radius:8px;background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
+  .share-copy:hover{opacity:.92;}
+  /* #134 named-share / people section */
+  .share-sep{height:1px;background:var(--rule);margin:16px 0;}
+  .share-people h4{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--muted-fg);}
+  .share-list{display:flex;flex-direction:column;gap:8px;margin:0 0 12px;}
+  .share-item{display:flex;align-items:center;gap:8px;font-size:13px;}
+  .share-item .em{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+  .share-item .rt{font-size:11px;font-weight:600;color:var(--muted-fg);text-transform:capitalize;}
+  .share-item .rm{background:none;border:none;color:var(--muted2,var(--muted-fg));cursor:pointer;
+    font-size:16px;line-height:1;padding:1px 5px;border-radius:6px;}
+  .share-item .rm:hover{color:#c0392b;background:rgba(192,57,43,.1);}
+  .share-empty{color:var(--muted-fg);font-size:12.5px;margin:0 0 12px;}
+  .share-invite{display:flex;gap:6px;align-items:center;}
+  .share-invite input{flex:1;min-width:0;font:inherit;font-size:12.5px;padding:8px 10px;
+    border:1px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--text);}
+  .share-invite select{font:inherit;font-size:12.5px;padding:8px 6px;border:1px solid var(--rule);
+    border-radius:8px;background:var(--bg);color:var(--text);}
+  .share-invite button{font:inherit;font-size:12.5px;font-weight:600;padding:8px 12px;border:none;
+    border-radius:8px;background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
+  .share-err{color:#c0392b;font-size:12px;margin:8px 0 0;}
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span><span class="filename" id="filename">loading…</span></div>
-  <div class="tb-right" id="topstate"></div>
+  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
 </header>
 <div class="wrap">
   <nav class="breadcrumb" id="breadcrumb"></nav>
   <h1 id="doctitle"></h1>
   <div id="docmeta"></div>
-  <div id="turnbanner" class="turnbanner">
-    <div id="turnbody">
-      <div class="turnhead"><span id="turntext"></span><span id="turntimer"></span></div>
-      <ol id="turnsteps"></ol>
-    </div>
-    <div class="turnactions">
-      <button class="btn primary sendagent" id="sendbtn">Send to agent</button>
-      <button class="btn reclaim" id="reclaimbtn">Take back the turn</button>
-    </div>
-  </div>
   <div id="article">Loading...</div>
 </div>
 
@@ -241,7 +267,7 @@
 <div id="histmodal"><div id="histbox">
   <h3>Version history</h3>
   <div id="histbody"></div>
-  <div class="histbtnrow"><button class="btn" id="histclose">Close</button></div>
+  <div class="histbtnrow"><button class="btn" id="histcmp">Compare</button><button class="btn" id="histclose">Close</button></div>
 </div></div>
 
 <div id="lightbox"><img alt="zoomed figure"></div>
@@ -274,145 +300,6 @@ function renderChrome(){
   if(bc)bc.innerHTML=segs.map(s=>`<span>${escapeHtml(s)}</span>`).join('<span class="sep">/</span>');
 }
 
-// --- MR-052: turn baton UI (Send / status banner / reclaim), driven purely by the /status body ---
-const STALE_S=180;   // lease-heartbeat staleness (~3 min); agent_status.at is epoch SECONDS (float).
-                     // MIRRORS app.py LEASE_TTL_S (single source of truth; both seconds) — move together.
-const PICKUP_GRACE_S=60;  // MR-066 (issue #26): pickup grace — turn==agent but NOTHING has claimed a lease
-                          // (agent_status null). A different, shorter clock than STALE_S (which is for a
-                          // claimed-then-stale lease): > one ~25s watcher long-poll cycle + claim/spawn
-                          // jitter (a live watcher won't trip it), < STALE_S=180, > the ~2s poll. Surfaces
-                          // a no-watcher review in ~1 min instead of spinning forever.
-function postHandoff(body){
-  return fetch(API+'/handoff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-}
-// First-match decision: agent rows key on turn==='agent', reviewer rows on agent_status.state, so no
-// row shadows another. agent message is set via textContent (it can't inject HTML).
-// MR-073 (issue #27): per-turn progress state for the derived live timeline + timer. The steps come
-// purely from the /status epoch timestamps (no new data): while turn==='agent', turn_updated is the
-// Send/flip time (stable), so source_updated/comments_updated > turn_updated ⟺ that happened THIS turn.
-// We ACCUMULATE reached steps (cumulative — a skipped 2s poll can't lose one) and keep them into the
-// following 'done' state (where turn_updated is re-bumped to the hand_back time, so the comparison no
-// longer works — the remembered flags + the client-captured start carry the final render). Reset on a
-// NEW agent turn (fresh turn_updated). A fresh page that never observed turn==='agent' leaves these
-// unset → no bogus final duration (the documented reopen-after-done limitation).
-let _turnId=null, _turnStartAt=null, _turnEdited=false, _turnCommented=false, _lastStatus=null, _timerIv=null;
-function fmtDur(s){s=Math.max(0,Math.floor(s));return Math.floor(s/60)+":"+String(s%60).padStart(2,'0');}
-function renderSteps(reached, activeIdx){
-  const steps=$("#turnsteps"); if(!steps)return;
-  const labels=["Connected — reading your comments","Editing the document","Updating comments"];
-  steps.innerHTML='';
-  labels.forEach((label,i)=>{
-    const li=document.createElement('li'); li.textContent=label;     // textContent: no HTML injection
-    if(reached[i]) li.className=(i===activeIdx)?'active':'done';
-    steps.appendChild(li);
-  });
-  return steps;
-}
-function startTicker(){                                               // 1s fetch-free clock for the live timer
-  if(_timerIv)return;
-  _timerIv=setInterval(()=>{
-    const st=_lastStatus, t=$("#turntimer");
-    if(!t||!st||st.turn!=='agent'||!st.agent_status||_turnStartAt==null)return;
-    // MR-073: only tick while the lease is FRESH. Once agent_status.at ages past STALE_S — the agent
-    // stopped pinging, OR /status is unreachable so the cached `at` keeps aging — re-render the banner
-    // off the cached status: it flips to "Agent may have stopped" (clearing the timer), instead of the
-    // timer ticking forever. Works even with no successful poll (a dead server / a stuck agent).
-    if((Date.now()/1000-(st.agent_status.at||0))>STALE_S){renderBanner(st);return;}
-    t.textContent=fmtDur(Date.now()/1000-_turnStartAt);              // fresh: recompute from cached /status, no poll
-  },1000);
-}
-function renderBanner(st){
-  const turn=(st&&st.turn)||'reviewer';
-  const as=st&&st.agent_status;            // null/absent => parked or never handed off
-  const send=$("#sendbtn"),reclaim=$("#reclaimbtn"),tt=$("#turntext"),bar=$("#turnbanner"),timer=$("#turntimer"),steps=$("#turnsteps");
-  if(!bar)return;
-  _lastStatus=st;
-  bar.classList.remove('loading','warn','steps');    // MR-062/066/073: arms below re-add the relevant one
-  if(steps)steps.innerHTML=''; if(timer)timer.textContent='';   // cleared unless a timeline arm repopulates
-  let msg;
-  if(turn==='agent'){
-    if(!as){
-      // MR-066: parked — nothing claimed. Within grace: still spinner. Past grace: non-spinning warning
-      // (no watcher running, or nothing picked it up). turn_updated is in the /status body; renderBanner
-      // runs every ~2s poll tick (not guarded on a status change), so this flips as the clock crosses.
-      if((Date.now()/1000-((st&&st.turn_updated)||0))>PICKUP_GRACE_S){
-        msg="No agent has picked this up — is a watcher running? Take back the turn.";bar.classList.add('warn');
-      }else{
-        msg="Sent — waiting for an agent to pick this up.";bar.classList.add('loading');  // MR-062: spinner
-      }
-    }
-    else if((Date.now()/1000-(as.at||0))>STALE_S){msg="Agent may have stopped — Take back the turn?";bar.classList.add('warn');}  // MR-066: stale lease is also an "act" state
-    else{
-      // MR-073 (issue #27): claimed + working → the live progress timeline + ticking timer.
-      const tu=(st&&st.turn_updated)||0;
-      if(tu!==_turnId){_turnId=tu;_turnStartAt=null;_turnEdited=false;_turnCommented=false;}   // a new turn
-      // MR-073/W1: baseline the timer on the AGENT CLAIM (the first 'working' agent_status.at we see),
-      // NOT the Send time (turn_updated) — so "Agent revised in M:SS" is the agent's work time, not
-      // work time + pickup lag. Captured once per turn; as.at then heartbeats forward.
-      if(_turnStartAt==null && as && as.at) _turnStartAt=as.at;
-      if(((st&&st.source_updated)||0)>tu)_turnEdited=true;            // edited THIS turn (cumulative)
-      if(((st&&st.comments_updated)||0)>tu)_turnCommented=true;       // comment activity THIS turn
-      const reached=[true,_turnEdited,_turnCommented];
-      let active=0; reached.forEach((r,i)=>{if(r)active=i;});         // latest reached step = active (spins)
-      renderSteps(reached,active);
-      bar.classList.add('steps');                                    // show #turnsteps (active step spins → liveness)
-      msg="Agent is working on your feedback…";
-      if(timer&&_turnStartAt!=null)timer.textContent=fmtDur(Date.now()/1000-_turnStartAt);   // live elapsed (since claim)
-      startTicker();
-    }
-    reclaim.style.display='';              // rows 1–3: reclaim available
-    send.disabled=true;send.textContent="Sent — agent's turn";
-  }else{
-    const state=as&&as.state;
-    if(state==='done'){
-      msg="Agent updated the draft"+(as.message?": "+as.message:"")+". Your turn.";
-      // MR-073: if we watched the run (start captured), show the terminal timeline + final duration.
-      if(_turnStartAt!=null){
-        renderSteps([true,_turnEdited,_turnCommented],-1);           // all reached steps done; no active/spin
-        if(_turnCommented&&steps&&steps.children[2])steps.children[2].textContent="Resolved comments"; // honest: only on done
-        bar.classList.add('steps');
-        const at=(as&&as.at)||0;
-        if(timer&&at>_turnStartAt)timer.textContent="Agent revised in "+fmtDur(at-_turnStartAt);
-      }
-    }
-    else if(state==='blocked'){
-      // MR-068 (issue #26): distinguish the WATCHER's crash signal (the turn is already back with you)
-      // from a deliberate agent question. The watcher sends "agent process exited N without finishing".
-      if(as.message&&as.message.indexOf('agent process exited')===0){
-        msg="Agent run stopped: "+as.message+". Your turn.";bar.classList.add('warn');  // reuse MR-066 .warn
-      }else{
-        msg="Agent needs you"+(as.message?": "+as.message:"")+".";   // agent-initiated question (unchanged)
-      }
-    }
-    else msg="Your turn. Comment, then Send to agent.";
-    reclaim.style.display='none';
-    // gate: the agent's whole instruction IS the open comments, so with none there is nothing to
-    // send — disable + grey (the .sendagent[disabled] rule handles the greying).
-    const noOpen=(comments||[]).filter(c=>c.status!=='resolved').length===0;
-    send.disabled=noOpen;
-    send.title=noOpen?"Add a comment first — the agent acts on your open comments":"";
-    send.textContent="Send to agent";
-  }
-  tt.textContent=msg;
-  bar.classList.add('show');
-  // top-bar right: vN · <turn state> (mockup). Derived from the same turn/agent_status.
-  const ts=$("#topstate");
-  if(ts){
-    const lbl = turn==='agent' ? ((as&&as.state==='working')?'agent working':'waiting for agent') : 'your turn';
-    const rev = (st&&st.revision)||META.revision||0;
-    ts.textContent = (rev?('v'+rev+' · '):'')+lbl;
-  }
-}
-$("#sendbtn").onclick=async()=>{
-  if($("#sendbtn").disabled)return;
-  $("#sendbtn").disabled=true;$("#sendbtn").textContent="Sent — agent's turn";
-  try{await postHandoff({to:'agent'});const st=await fetch(API+'/status').then(r=>r.json());renderBanner(st);toast('Sent to agent');}
-  catch(e){toast('Could not send');$("#sendbtn").disabled=false;$("#sendbtn").textContent="Send to agent";}
-};
-$("#reclaimbtn").onclick=async()=>{
-  try{await postHandoff({to:'reviewer',by:'reviewer'});const st=await fetch(API+'/status').then(r=>r.json());renderBanner(st);toast('Turn reclaimed');}
-  catch(e){toast('Could not reclaim');}
-};
 
 function initMermaid(){
   if(!window.mermaid)return;
@@ -526,7 +413,6 @@ async function load(){
   let md=await fetch(API+'/source',{cache:'no-store'}).then(r=>r.text());
   const st=await fetch(API+'/status').then(r=>r.json()).catch(()=>({}));
   lastSrc=st.source_updated||0;lastCmt=st.comments_updated||0;
-  renderBanner(st);   // MR-052: first-paint banner from the same /status body
   // extract YAML front matter (for the title) and strip it
   let title="";
   const fm=md.match(/^﻿?\s*---\r?\n([\s\S]*?)\r?\n---\s*/);
@@ -552,20 +438,32 @@ async function load(){
   renderAll();
 }
 
+// content-derived stable block id (issue #15): FNV-1a over whitespace-normalized text -> hex, so a
+// whole-block comment re-anchors by CONTENT after a live-reload renumber (positional #N is unstable
+// when a block is inserted/removed above it). Hex-only charset keeps `.blk[data-bid="…"]` selector-safe.
+function blockHash(s){s=(s||'').replace(/\s+/g,' ').trim();let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193);}return(h>>>0).toString(16);}
 function numberBlocks(){
   const art=$("#article");
   const kids=[...art.children];
   art.innerHTML="";
-  let n=0,heading="";
+  let n=0,heading="";const seen={};
   kids.forEach(el=>{
     if(/^H[1-3]$/.test(el.tagName))heading=el.textContent.trim();
     n++;
+    // hash el (the child), NOT blk: blk holds the .num span (text = n), which would fold the block
+    // NUMBER into the hash and break it on every renumber. Computed here in numberBlocks (called
+    // BEFORE renderMermaid) so a diagram/code block hashes its stable SOURCE, and the .blk keeps its
+    // data-bid after mermaid swaps its innards to SVG (do NOT move this to renderAll). A per-render
+    // occurrence suffix disambiguates verbatim-identical blocks (else querySelector grabs the first).
+    let bid=blockHash(el.textContent);const k=seen[bid]=(seen[bid]||0)+1;if(k>1)bid+='-'+k;
     const blk=document.createElement('div');
-    blk.className="blk";blk.dataset.num=n;blk.dataset.heading=heading;
+    blk.className="blk";blk.dataset.num=n;blk.dataset.heading=heading;blk.dataset.bid=bid;
     const num=document.createElement('span');num.className="num";num.title="comment on this block";num.textContent=n;
     blk.appendChild(num);blk.appendChild(el);
     art.appendChild(blk);
-    num.onclick=()=>openPop({block_num:String(n),quoted_text:''});
+    // block_num:blk.dataset.num (per-iteration const), NOT String(n): n is function-scoped, so the old
+    // closure read the FINAL n (=total block count) for every gutter click. bid carries the stable id.
+    num.onclick=()=>openPop({block_num:blk.dataset.num,quoted_text:'',bid:blk.dataset.bid});
   });
 }
 
@@ -574,27 +472,39 @@ async function fetchComments(){
   try{const d=await fetch(API+'/comments',{cache:'no-store'}).then(r=>r.json());comments=(d&&d.comments)||[];}
   catch(e){}
 }
+// A write on a shared/public review that the caller isn't signed in for gets 401 (view-only public
+// links are anonymous-comment-free by design). fetch() only rejects on NETWORK errors, so without an
+// r.ok check a 401 slid straight through to a false "added" toast; instead prompt the visitor to sign
+// in (the top-bar "Sign in" links to the sign-in screen). Returns false so the caller keeps its input.
+function commentDenied(r,fallback){
+  if(r.status===401){toast('Sign in to comment');return true;}
+  if(!r.ok){toast(fallback);return true;}
+  return false;
+}
 async function createComment(anchor,text){
   try{
-    await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({anchor:anchor,text:text})});
-    await fetchComments();renderAll();toast('Comment added');
-  }catch(e){toast('Could not save comment');}
+    if(commentDenied(r,'Could not save comment'))return false;
+    await fetchComments();renderAll();toast('Comment added');return true;
+  }catch(e){toast('Could not save comment');return false;}
 }
 async function replyTo(cid,text){
-  if(!text)return;
+  if(!text)return false;
   try{
-    await fetch(API+'/comments/'+cid+'/reply',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await fetch(API+'/comments/'+cid+'/reply',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({text:text,role:'reviewer'})});
-    await fetchComments();renderAll();
-  }catch(e){toast('Reply failed');}
+    if(commentDenied(r,'Reply failed'))return false;
+    await fetchComments();renderAll();return true;
+  }catch(e){toast('Reply failed');return false;}
 }
 async function reopenComment(cid,text){
   try{
-    await fetch(API+'/comments/'+cid+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await fetch(API+'/comments/'+cid+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(text?{text:text}:{})});
-    await fetchComments();renderAll();toast('Reopened');
-  }catch(e){toast('Reopen failed');}
+    if(commentDenied(r,'Reopen failed'))return false;
+    await fetchComments();renderAll();toast('Reopened');return true;
+  }catch(e){toast('Reopen failed');return false;}
 }
 async function deleteComment(cid){
   // Hard-remove a comment the reviewer made by mistake (DELETE /comments/{cid}). A 404 means it's
@@ -676,7 +586,9 @@ function renderAll(){
     const mk=highlightComment(c);
     // anchor the card + margin bar to the block the highlight actually landed in (an agent-authored
     // comment may have no block_num — derive it from the highlight).
-    const blk=mk?mk.closest('.blk'):document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]');
+    // whole-block (quoted_text='') re-resolve: bid FIRST (content-stable across renumbers, issue #15),
+    // positional #N only as fallback. bid absent (legacy/agent/text comments) -> straight to positional.
+    const blk=mk?mk.closest('.blk'):((c.anchor.bid&&document.querySelector('.blk[data-bid="'+c.anchor.bid+'"]'))||document.querySelector('.blk[data-num="'+(c.anchor.block_num||'')+'"]'));
     if(blk)blk.classList.add('has-comment');
     const ref=(blk&&blk.dataset.num)||c.anchor.block_num||'';
     const card=document.createElement('div');card.className='gcard';card.dataset.id=c.comment_id;
@@ -728,7 +640,6 @@ function renderAll(){
   });
   A.querySelectorAll('mark.cmt').forEach(m=>m.onclick=()=>focusPair(m.dataset.id));
   layoutComments();
-  if(_lastStatus)renderBanner(_lastStatus);   // keep the Send-to-agent gate in sync as comments change
 }
 function layoutComments(){
   const A=$("#article"),G=$("#gutter");if(!A||!G)return;
@@ -748,7 +659,29 @@ function layoutComments(){
     if(!G.classList.contains('docked'))G.style.display='none';   // narrow: hidden unless toggled docked
   }
 }
-window.addEventListener('resize',()=>{try{layoutComments();}catch(e){}});
+// Issue #44: place the composer BESIDE the anchored block (where comment cards live), never over it.
+// Mirrors layoutComments' wide/narrow gate + right-margin x. #pop is position:fixed so it uses VIEWPORT
+// coords — NO window.scroll* (unlike layoutComments' absolute #gutter, which adds scrollX at line 740).
+function positionPop(){
+  const pop=$("#pop");if(pop.style.display!=='block')return;   // closed: no-op (safe from the resize handler)
+  const A=$("#article");if(!A)return;
+  const rect=A.getBoundingClientRect();
+  const blk=cur&&document.querySelector('.blk[data-num="'+cur.block_num+'"]');   // graft: null-safe if the block's gone
+  if(window.innerWidth>=rect.right+320){                       // wide: float beside the gutter-card column
+    pop.classList.remove('docked');
+    const popH=pop.offsetHeight;                               // measured after display:block, before positioning
+    pop.style.left=(rect.right+24)+'px';                       // layoutComments' x (line 740) minus scrollX (fixed)
+    const anchorTop=blk?blk.getBoundingClientRect().top:(window.innerHeight-popH)/2;
+    pop.style.top=Math.max(12,Math.min(window.innerHeight-popH-12,anchorTop))+'px';   // AC2: clamp top/bottom on-screen
+  }else{                                                       // narrow: dock on the viewport half OPPOSITE the anchor
+    pop.classList.add('docked');                              // CSS top/left:auto!important beats the wide inline styles
+    // AC3: anchor in the lower half -> dock top-right; upper half (or no anchor) -> bottom-right. The composer
+    // and the block sit on opposite halves, so it never covers the anchored block (no scroll hack, no residual).
+    const low=blk&&blk.getBoundingClientRect().top>window.innerHeight/2;
+    pop.classList.toggle('top',!!low);
+  }
+}
+window.addEventListener('resize',()=>{try{layoutComments();positionPop();}catch(e){}});
 
 // selection -> "+ comment" button (the single author surface: a highlight starts a comment)
 const addbtn=$("#addbtn");
@@ -776,14 +709,15 @@ function openPop(c){
   $("#popq").textContent=(c.quoted_text===''?'Block #'+c.block_num+' (whole paragraph)':'#'+c.block_num+': "'+c.quoted_text+'"');
   $("#popnote").value="";
   const pop=$("#pop");pop.style.display='block';
-  pop.style.left=Math.max(12,Math.min(window.innerWidth-342,window.innerWidth/2-165))+'px';
-  pop.style.top=(window.innerHeight/2-120)+'px';
+  positionPop();                                               // issue #44: beside the anchor, not viewport-center
   $("#popnote").focus();
 }
 $("#popcancel").onclick=()=>$("#pop").style.display='none';
-$("#popsave").onclick=()=>{
+$("#popsave").onclick=async()=>{
   const v=$("#popnote").value.trim();if(!v)return;
-  createComment({quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null},v);
+  // Keep the popup (and the typed note) open if the post is refused — e.g. an anonymous visitor gets a
+  // "Sign in to comment" prompt instead of silently losing what they wrote.
+  if(!await createComment({quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null,bid:cur.bid},v))return;
   $("#pop").style.display='none';window.getSelection().removeAllRanges();
 };
 
@@ -812,19 +746,17 @@ function poll(){
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
       if(s.source_updated&&s.source_updated!==lastSrc){await fetchComments();await load();toast('Draft updated by AI');}
       else if(s.comments_updated&&s.comments_updated!==lastCmt){lastCmt=s.comments_updated;await fetchComments();renderAll();}
-      // MR-052 turn baton: reflect the latest turn/agent_status from the SAME /status body. The
-      // source-change branch above already ran load() (re-rendered the doc, reset lastSrc) before we
-      // touch the banner, so the "Draft updated by AI" toast and the banner don't race. renderBanner
-      // runs every tick (not guarded on a turn-change), so the stale-lease row appears over time as
-      // agent_status.at ages past STALE_S even with no /status change.
-      renderBanner(s);
     }catch(e){}
   },2000);
 }
 
 // --- version history (read-only) ---
+let HISTVERS=[];        // [{n,label}] versions for the compare pickers (newest-first: current, then rounds)
+let HISTMODE='browse';  // 'browse' (one version at a time) | 'compare' (any-two-versions diff, #19)
+
 async function openHistory(){
   const body=$("#histbody");body.innerHTML='Loading...';$("#histmodal").style.display='flex';
+  HISTMODE='browse';$("#histcmp").textContent='Compare';
   try{
     // MR-065 (#18): the current live draft is its own top entry — "current (vN)" reconciles with the
     // dashboard's vN badge; the archived rounds (earlier drafts) list below, newest-first. Labels are
@@ -833,25 +765,89 @@ async function openHistory(){
     const [d,meta]=await Promise.all([fetch(API+'/history').then(r=>r.json()),fetch(API).then(r=>r.json())]);
     const rounds=(d&&d.rounds)||[];
     const rev=(meta&&meta.revision)||0;
-    let items='<button class="histitem" data-n="current">'+(rev>0?'current (v'+rev+')':'current')+' &middot; live draft</button>';
-    if(rounds.length)items+=rounds.map(r=>'<button class="histitem" data-n="'+r.round+'">v'+r.round+' &middot; earlier draft &middot; '+new Date(r.ts*1000).toLocaleString()+'</button>').join('');
-    else items+='<p style="color:var(--muted);font-size:13px;margin:6px 2px 0">No earlier versions yet — a version is saved each time the AI pushes a revised draft.</p>';
-    body.innerHTML='<div class="histlist">'+items+'</div><div id="histview"></div>';
-    body.querySelectorAll('.histitem').forEach(b=>b.onclick=()=>showRound(b.dataset.n));
-    showRound('current');                       // open showing the current draft, never an empty modal
+    // Shared version list for the compare pickers: current draft first, then each archived round.
+    HISTVERS=[{n:'current',label:rev>0?'current (v'+rev+')':'current'}].concat(
+      rounds.map(r=>({n:String(r.round),label:'v'+r.round+' · '+new Date(r.ts*1000).toLocaleString()})));
+    renderBrowse(rounds,rev);
   }catch(e){body.innerHTML='Could not load history.';}
+}
+function renderBrowse(rounds,rev){
+  const body=$("#histbody");
+  let items='<button class="histitem" data-n="current">'+(rev>0?'current (v'+rev+')':'current')+' &middot; live draft</button>';
+  if(rounds.length)items+=rounds.map(r=>'<button class="histitem" data-n="'+r.round+'">v'+r.round+' &middot; earlier draft &middot; '+new Date(r.ts*1000).toLocaleString()+'</button>').join('');
+  else items+='<p style="color:var(--muted-fg);font-size:13px;margin:6px 2px 0">No earlier versions yet — a version is saved each time the AI pushes a revised draft.</p>';
+  body.innerHTML='<div class="histlist">'+items+'</div><div id="histview"></div>';
+  body.querySelectorAll('.histitem').forEach(b=>b.onclick=()=>showRound(b.dataset.n));
+  showRound('current');                       // open showing the current draft, never an empty modal
 }
 async function showRound(n){
   const v=$("#histview");v.innerHTML='Loading...';
   try{
-    let src,heading;
-    if(n==='current'){src=await fetch(API+'/source').then(r=>r.text());heading='current draft';}
-    else{const d=await fetch(API+'/history/'+n).then(r=>r.json());src=d.source||'';heading='v'+n+' draft';}
-    const html=window.marked?marked.parse(src):esc(src);
+    const src=await versionSource(n);
+    const heading=n==='current'?'current draft':'v'+n+' draft';
+    const html=window.marked?marked.parse(src):escapeHtml(src);
     v.innerHTML='<h4>'+heading+'</h4><div class="histdoc">'+html+'</div>';
   }catch(e){v.innerHTML='Could not load that version.';}
 }
+
+// --- compare mode (#19): pick any two versions, render a line-level source diff ---
+// Raw source ("current" via /source, an archived round via /history/{n}). Diffing raw markdown is
+// deliberate: it sidesteps diffing rendered HTML/KaTeX/mermaid/attached images (a separate, larger job).
+function versionSource(n){
+  if(n==='current')return fetch(API+'/source',{cache:'no-store'}).then(r=>r.text());
+  return fetch(API+'/history/'+n).then(r=>r.json()).then(d=>d.source||'');
+}
+// Pure LCS line diff: returns [{tag,text}] where tag is ' ' (unchanged), '-' (only in A), '+' (only in B).
+// No DOM/global access, so tests/diff_selfcheck.js can extract and exercise it directly.
+function lineDiff(aText,bText){
+  const a=String(aText).split('\n'),b=String(bText).split('\n');
+  const n=a.length,m=b.length;
+  const dp=[];                                 // dp[i][j] = LCS length of a[i:] vs b[j:]
+  for(let i=0;i<=n;i++)dp.push(new Int32Array(m+1));
+  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)
+    dp[i][j]=a[i]===b[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);
+  const out=[];let i=0,j=0;
+  while(i<n&&j<m){
+    if(a[i]===b[j]){out.push({tag:' ',text:a[i]});i++;j++;}
+    else if(dp[i+1][j]>=dp[i][j+1]){out.push({tag:'-',text:a[i]});i++;}
+    else{out.push({tag:'+',text:b[j]});j++;}
+  }
+  while(i<n)out.push({tag:'-',text:a[i++]});
+  while(j<m)out.push({tag:'+',text:b[j++]});
+  return out;
+}
+function renderCompare(){
+  const body=$("#histbody");
+  if(HISTVERS.length<2){
+    body.innerHTML='<p class="diffempty">Need at least two versions to compare — a version is saved each time the AI pushes a revised draft.</p>';
+    return;
+  }
+  const opts=sel=>HISTVERS.map((v,idx)=>'<option value="'+escapeHtml(v.n)+'"'+(idx===sel?' selected':'')+'>'+escapeHtml(v.label)+'</option>').join('');
+  // Default A = previous round (index 1), B = current draft (index 0): the most common "what just changed".
+  body.innerHTML='<div class="cmpbar"><span>Compare</span><select id="cmpA">'+opts(1)+'</select>'
+    +'<span>&rarr;</span><select id="cmpB">'+opts(0)+'</select></div>'
+    +'<div id="diffview" class="diffdoc"></div>';
+  const run=()=>renderDiff($("#cmpA").value,$("#cmpB").value);
+  $("#cmpA").onchange=run;$("#cmpB").onchange=run;run();
+}
+async function renderDiff(a,b){
+  const view=$("#diffview");if(!view)return;view.innerHTML='Loading...';
+  try{
+    const [ta,tb]=await Promise.all([versionSource(a),versionSource(b)]);
+    const rows=lineDiff(ta,tb);
+    if(!rows.some(r=>r.tag!==' ')){view.innerHTML='<div class="diffempty">No changes between these versions.</div>';return;}
+    const cls={' ':'eq','+':'add','-':'del'};
+    view.innerHTML=rows.map(r=>'<span class="diffrow '+cls[r.tag]+'">'+escapeHtml(r.text)+'</span>').join('');
+  }catch(e){view.innerHTML='<div class="diffempty">Could not load the diff.</div>';}
+}
 $("#histbtn").onclick=openHistory;
+$("#histcmp").onclick=()=>{
+  if(!HISTVERS.length)return;                   // history not loaded yet
+  HISTMODE=HISTMODE==='compare'?'browse':'compare';
+  $("#histcmp").textContent=HISTMODE==='compare'?'Browse':'Compare';
+  if(HISTMODE==='compare')renderCompare();
+  else openHistory();
+};
 $("#histclose").onclick=()=>$("#histmodal").style.display='none';
 $("#histmodal").onclick=e=>{if(e.target.id==='histmodal')$("#histmodal").style.display='none';};
 
@@ -867,6 +863,79 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')$("#lightbox").style
 [250,800,1600].forEach(t=>setTimeout(()=>{try{renderAll();}catch(e){}},t));
 
 boot();
+
+// ---- Share control: public link (#133) + named-share people panel (#134), owner-only ----
+let _shareCsrf = "", _pubRight = null, _shares = [];
+function _esc(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function _shareLabel(subject){ return (subject||"").replace(/^user:/,"").replace(/^email:/,""); } // grantee email
+async function initShare(){
+  const btn = document.getElementById("sharebtn"), pop = document.getElementById("sharepop");
+  if(!btn) return;
+  // Ownership gate: GET /shares → 200 (owner; carries public state + named shares) | 404 (not owner).
+  let r; try{ r = await fetch(API + "/shares", {cache:"no-store"}); }catch(e){ return; }
+  if(r.status !== 200) return;                        // not the owner → no Share control at all
+  const d = await r.json().catch(()=>({}));
+  _pubRight = d.public || null;                        // "view" or null
+  _shares = d.shares || [];
+  try{ _shareCsrf = ((await fetch("/auth/session",{cache:"no-store"}).then(x=>x.json())) || {}).csrf || ""; }catch(e){}
+  btn.style.display = "";
+  btn.addEventListener("click", e=>{ e.stopPropagation(); pop.hidden = !pop.hidden; if(!pop.hidden) renderShare(); });
+  document.addEventListener("click", e=>{ if(!pop.hidden && !pop.contains(e.target) && e.target!==btn) pop.hidden = true; });
+}
+function shareUrl(){ return location.origin + "/review/" + encodeURIComponent(ID); }
+async function refreshShares(){
+  try{ const d = await fetch(API + "/shares",{cache:"no-store"}).then(r=>r.json()); _pubRight = d.public||null; _shares = d.shares||[]; }catch(e){}
+}
+function renderShare(){
+  const pop = document.getElementById("sharepop"), on = !!_pubRight;
+  const rows = _shares.length
+    ? _shares.map(s=>'<div class="share-item"><span class="em" title="'+_esc(_shareLabel(s.subject))+'">'+_esc(_shareLabel(s.subject))+'</span><span class="rt">'+_esc(s.right)+'</span><button class="rm" type="button" data-subject="'+_esc(s.subject)+'" title="Remove access">&times;</button></div>').join("")
+    : '<div class="share-empty">No one yet.</div>';
+  pop.innerHTML =
+    '<h3>Share this review</h3>' +
+    '<div class="share-row"><div class="share-lbl">Public link<small>Anyone with the link can view</small></div>' +
+    '<label class="switch"><input type="checkbox" id="pubtoggle"' + (on?" checked":"") + '><span class="track"></span></label></div>' +
+    (on ? '<div class="share-link"><input id="publink" readonly value="' + shareUrl() + '"><button class="share-copy" id="pubcopy" type="button">Copy</button></div>' : '') +
+    '<div class="share-sep"></div>' +
+    '<div class="share-people"><h4>Share with people</h4>' +
+    '<div class="share-list">' + rows + '</div>' +
+    '<div class="share-invite"><input id="invemail" type="email" placeholder="email address" autocomplete="off">' +
+    '<select id="invright"><option value="comment">Can comment</option><option value="view">Can view</option></select>' +
+    '<button id="invbtn" type="button">Invite</button></div>' +
+    '<div class="share-err" id="inverr" style="display:none"></div></div>';
+  pop.querySelector("#pubtoggle").addEventListener("change", async e=>{
+    const t = e.target; t.disabled = true;
+    try{
+      const rr = await fetch(API + "/public", {method: t.checked?"POST":"DELETE", headers:{"X-CSRF-Token":_shareCsrf}});
+      if(rr.ok) _pubRight = t.checked ? "view" : null;
+    }catch(e){}
+    renderShare();
+  });
+  const cp = pop.querySelector("#pubcopy");
+  if(cp) cp.addEventListener("click", ()=>{
+    const i = pop.querySelector("#publink"); i.select();
+    try{ navigator.clipboard.writeText(i.value); }catch(e){}
+    cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy"; }, 1400);
+  });
+  pop.querySelector("#invbtn").addEventListener("click", async ()=>{
+    const email = (pop.querySelector("#invemail").value||"").trim();
+    const right = pop.querySelector("#invright").value;
+    const err = pop.querySelector("#inverr"); err.style.display = "none";
+    if(!email){ pop.querySelector("#invemail").focus(); return; }
+    const btn = pop.querySelector("#invbtn"); btn.disabled = true; btn.textContent = "…";
+    let rr; try{ rr = await fetch(API + "/shares", {method:"POST", headers:{"Content-Type":"application/json","X-CSRF-Token":_shareCsrf}, body:JSON.stringify({email, right})}); }
+    catch(e){ btn.disabled=false; btn.textContent="Invite"; return; }
+    if(rr.ok){ await refreshShares(); renderShare(); }
+    else{ const j = await rr.json().catch(()=>({})); err.textContent = j.error || "Could not share."; err.style.display = "block"; btn.disabled=false; btn.textContent="Invite"; }
+  });
+  pop.querySelectorAll(".rm").forEach(b=>b.addEventListener("click", async ()=>{
+    b.disabled = true;
+    try{ await fetch(API + "/shares?subject=" + encodeURIComponent(b.dataset.subject), {method:"DELETE", headers:{"X-CSRF-Token":_shareCsrf}}); }catch(e){}
+    await refreshShares(); renderShare();
+  }));
+}
+initShare();
 </script>
+<script src="/static/account.js"></script>
 </body>
 </html>

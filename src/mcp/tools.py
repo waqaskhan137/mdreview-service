@@ -26,9 +26,10 @@ INSTRUCTIONS = (
     "architecture belongs in a ```mermaid diagram, NOT ASCII art or a plain ``` fence (which renders as "
     "monospace text, not a picture). Operate only on reviews you created (on a hosted instance your per-user "
     "token scopes them to you; a local instance is open and single-user). If a tool you expect is missing or misbehaves, the running server may be stale: "
-    "server_info reports its tools_hash, but you CANNOT conclude 'stale' from inside MCP — a human/CI "
-    "compares that hash to the repo's `python3 mcp_server.py --print-version` and reconnects the client "
-    "on a mismatch (the server signals staleness; it cannot reload itself). "
+    "server_info reports its tools_hash, but you CANNOT conclude 'stale' from inside MCP. An installer-managed "
+    "wrapper (~/.mdreview) self-updates from its own server (MDREVIEW_BASE) on startup, so a stale hash usually "
+    "just means that update lands next session — RECONNECT the client. (Auto-update is skipped for repo/dev "
+    "checkouts and when MDREVIEW_NO_AUTO_UPDATE=1; the server can signal staleness but never reloads itself.) "
     "LATEX PAPER REVIEWS: create_review(kind=\"latex\") makes a research-paper review shown in an "
     "Overleaf-style split viewer (LaTeX source + a live server-compiled PDF). For a latex review the "
     "source is RAW LaTeX end to end — push .tex via update_source, read it via get_source — and the "
@@ -37,7 +38,16 @@ INSTRUCTIONS = (
     "latex mode, so hand_back / ping_working do not apply. To start a paper from a named class, pass "
     "create_review(kind=\"latex\", template=\"<id>\"): it seeds the source and supplies the document "
     "class/style. Bundled ids: ieee, acm, arxiv, lncs, elsevier; download-on-miss ids (fetched on "
-    "first use): acl, iclr2026. GET /api/latex/templates lists them; an unknown id 400s with the list."
+    "first use): acl, iclr2026. GET /api/latex/templates lists them; an unknown id 400s with the list. "
+    "CONVERTING BETWEEN MARKDOWN AND LATEX IS A NEW REVIEW, NOT AN IN-PLACE TRANSFORM: kind is "
+    "immutable, so a markdown review can never become a latex one (or the reverse). If a human asks you "
+    "to 'convert' or re-create a review in the other format, before acting tell them plainly that (1) it "
+    "creates a NEW, separate review (new id + URL); the original is not modified and stays live, (2) the "
+    "content is RE-AUTHORED (markdown and LaTeX are different source languages, so you cannot feed a .md "
+    "into the LaTeX compiler), so it must be re-reviewed, not assumed faithful, and content can be "
+    "silently dropped/added/reworded, (3) comments and history do NOT carry over (approving one is not "
+    "approving the other), and (4) offer to record a link/pointer between the two reviews so the original "
+    "is not orphaned."
 )
 
 _ID = {"type": "string", "description": "the opaque review id"}
@@ -60,7 +70,13 @@ TOOLS = [
                        "kind=\"latex\" (opt-in, default \"markdown\") instead makes a research-paper "
                        "review: `markdown` then carries RAW LaTeX (a single .tex document), shown in an "
                        "Overleaf-style split viewer with a live server-compiled PDF; the markdown/mermaid "
-                       "authoring rule does not apply to a latex review.",
+                       "authoring rule does not apply to a latex review. If the content IS LaTeX \u2014 a .tex "
+                       "source_path, or a body with \\documentclass / \\begin{document} \u2014 you MUST pass "
+                       "kind=\"latex\"; a latex-enabled server REJECTS such a create when kind is omitted. "
+                       "CAVEAT, kind is IMMUTABLE: 'converting' an existing review to the other format does "
+                       "not transform it, it creates a NEW, separate review (new id + URL) with RE-AUTHORED "
+                       "content that must be re-reviewed; comments and history do NOT carry over and the "
+                       "original stays live. Warn the human first and offer to link the two.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -70,7 +86,11 @@ TOOLS = [
                 "session": {"type": "string"},
                 "source_path": {"type": "string"},
                 "kind": {"type": "string", "enum": ["markdown", "latex"],
-                         "description": "review kind; default markdown. latex = an Overleaf-style paper review"},
+                         "description": "review kind; default markdown. latex = an Overleaf-style paper "
+                                        "review. IMMUTABLE: you cannot change a review's kind later; "
+                                        "re-creating a review in the other format makes a NEW, separate "
+                                        "review with re-authored content (comments/history do not carry "
+                                        "over). Warn the human and offer to link the two."},
                 "template": {"type": "string",
                              "description": "for a latex review, start from a named template instead "
                                             "of a blank .tex: it seeds the source (unless you also pass "
@@ -78,7 +98,10 @@ TOOLS = [
                                             "ieee, acm, arxiv, lncs, elsevier (CTAN classes). "
                                             "Download-on-miss (fetched + cached on first use): acl, "
                                             "iclr2026, and more. GET /api/latex/templates lists the "
-                                            "current ids; an unknown id returns 400 with the list."},
+                                            "current ids; an unknown id returns 400 with the list. A "
+                                            "template only applies at creation of a latex review; there "
+                                            "is no re-template of an existing review (see the kind "
+                                            "caveat: re-creating in another format is a new review)."},
             },
             "required": ["markdown"],
         },
@@ -303,11 +326,12 @@ TOOLS = [
         "description": "Report THIS running MCP server's identity: name, version, protocol_version, "
                        "tools_hash, tool_count, tool_names — so you can see what the *running* process "
                        "exposes. This SURFACES the running server's identity; it does NOT by itself tell "
-                       "you the server is stale. To check staleness a human/CI compares this tools_hash "
-                       "to the repo's `python3 mcp_server.py --print-version`; on a mismatch, RECONNECT "
-                       "the MCP client (the server can signal, it cannot reload itself). An MCP-only "
-                       "agent cannot self-detect staleness — it has the running hash but no on-disk "
-                       "comparand over MCP.",
+                       "you the server is stale. A human/CI compares this tools_hash to the repo's "
+                       "`python3 mcp_server.py --print-version`; a managed wrapper (~/.mdreview) also "
+                       "auto-updates from its server on startup, so on a suspected-stale hash just "
+                       "RECONNECT the MCP client and the update takes effect (the server can signal "
+                       "staleness but never reloads a live process). An MCP-only agent cannot "
+                       "self-detect staleness — it has the running hash but no on-disk comparand over MCP.",
         "inputSchema": {"type": "object", "properties": {}},
     },
 ]

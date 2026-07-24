@@ -1,0 +1,64 @@
+# Staging deploy for the Kapture VPS — an ISOLATED stack that runs the NATIVE hosted plane
+# (magic-link + sharing + admin: `python -m mdreview.hosted`) off the :dev image, so every dev push
+# auto-deploys here for end-to-end validation BEFORE prod. Shares NOTHING with the prod stack:
+# distinct project (mdreview-staging), container name, data volume, network, loopback port, and nginx.
+#
+#   docker compose -p mdreview-staging -f infra/deploy/docker-compose.staging.yml \
+#       --env-file infra/deploy/.env.staging up -d
+#
+# NO oauth2-proxy sidecar: the browser plane is the app's OWN magic-link session (MDREVIEW_ALLOW_PROXY_PLANE=0),
+# so there is no /oauth2/ endpoint and no spoofable proxy-identity header. See nginx/staging.mdreview.space.conf.
+services:
+  mdreview-staging:                     # service KEY (used by `compose up -d mdreview-staging`) AND
+    container_name: mdreview-staging    # container name (auto-update.sh inspects it) — both distinct from prod.
+    # LaTeX image (infra/Dockerfile.latex): staging renders kind=latex reviews. It bakes
+    # MDREVIEW_ENABLE_LATEX=1 + a pinned Tectonic, so `python -m mdreview.hosted` comes up with the latex
+    # module wired (verified: /api/latex/templates 200, anon /api/reviews still 401 — custody intact).
+    # The plan-0f7f62a2ab precondition ("latex off until the module's custody is separately verified") is
+    # now met: /api/latex/* authenticate through the same _authz seam (#103) + child-resource
+    # enforcement (#110) as core routes. Heavier build than slim; CI gha-caches it.
+    image: ghcr.io/ranawaqas-ai/mdreview-service-latex:dev
+    restart: unless-stopped
+    # Activate the HOSTED build (the slim image's default CMD is `python -m mdreview`, the local tier).
+    command: ["python", "-m", "mdreview.hosted"]
+    # LOOPBACK-ONLY on 8141 (prod is 8140). nginx is the sole public ingress; nothing binds a public interface.
+    ports:
+      - "127.0.0.1:8141:8080"
+    volumes:
+      - mdreview-staging-data:/data
+    environment:
+      MDREVIEW_PUBLIC_BASE: "https://staging.mdreview.space"
+      MDREVIEW_REQUIRE_AUTH: "1"
+      # Native plane only: retire the transitional proxy-identity plane. This drops build_hosted's
+      # PROXY_SECRET requirement, but config.py's import-time guard still needs a NON-EMPTY secret when
+      # REQUIRE_AUTH=1 (it protects the non-hosted path) — so we pass a fresh INERT secret below that
+      # the hosted plane never consumes (the proxy plane is never constructed with this flag off).
+      MDREVIEW_ALLOW_PROXY_PLANE: "0"
+      MDREVIEW_PROXY_SECRET: "${MDREVIEW_PROXY_SECRET:?set an inert MDREVIEW_PROXY_SECRET in .env.staging (openssl rand -hex 32)}"
+      MDREVIEW_TOKEN_PEPPER: "${MDREVIEW_TOKEN_PEPPER:?set MDREVIEW_TOKEN_PEPPER in .env.staging}"
+      MDREVIEW_SESSION_SECRET: "${MDREVIEW_SESSION_SECRET:?set MDREVIEW_SESSION_SECRET in .env.staging}"
+      # The verified email crowned owner/admin on this staging instance (never the first registrant).
+      MDREVIEW_OWNER_EMAIL: "${MDREVIEW_OWNER_EMAIL:?set MDREVIEW_OWNER_EMAIL in .env.staging}"
+      # Real magic-link delivery via SMTP (Azure ACS — see infra/deploy/RUNBOOK-email-smtp.md). Empty by
+      # default, so the STUB backend below stays in effect. A non-empty MDREVIEW_SMTP_HOST switches the
+      # app to real delivery (SmtpEmailSender) on the next redeploy. To go live: provision per the
+      # runbook, fill MDREVIEW_SMTP_* in .env.staging, then remove MDREVIEW_ALLOW_STUB_EMAIL below.
+      MDREVIEW_SMTP_HOST: "${MDREVIEW_SMTP_HOST:-}"
+      MDREVIEW_SMTP_PORT: "${MDREVIEW_SMTP_PORT:-587}"
+      MDREVIEW_SMTP_USER: "${MDREVIEW_SMTP_USER:-}"
+      MDREVIEW_SMTP_PASSWORD: "${MDREVIEW_SMTP_PASSWORD:-}"
+      MDREVIEW_SMTP_FROM: "${MDREVIEW_SMTP_FROM:-}"
+      MDREVIEW_SMTP_STARTTLS: "${MDREVIEW_SMTP_STARTTLS:-1}"
+      # Stub email backend (magic links are LOGGED, not delivered). Accepted staging risk: anyone with
+      # log access on the box can complete a login as any email. Superseded the moment MDREVIEW_SMTP_HOST
+      # is set (HOST wins); remove this line once real delivery is verified.
+      MDREVIEW_ALLOW_STUB_EMAIL: "1"
+    networks:
+      - mdrnet-staging
+
+networks:
+  mdrnet-staging:
+    driver: bridge
+
+volumes:
+  mdreview-staging-data:

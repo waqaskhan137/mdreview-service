@@ -1,3 +1,9 @@
+> **ARCHIVED 2026-07-22.** This board is frozen history. Work is tracked exclusively on
+> [GitHub issues](https://github.com/ranawaqas-ai/mdreview-service/issues); the working
+> agreement is [`docs/process/README.md`](README.md). The live items below had already shipped
+> (frontmatter audit 2026-07-22) except MR-021, migrated to issue #70. This archive may be
+> deleted once the GitHub-only process has proven stable.
+
 # TRACKER — the board
 
 At-a-glance view of every ticket grouped by status. The ticket frontmatter is the source of

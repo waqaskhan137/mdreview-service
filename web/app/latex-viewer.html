@@ -8,20 +8,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · latex</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
+  /* Colour tokens live in /static/theme.css (#153) — never redefine them per page. */
   /* Tokens shared with viewer.html (violet accent, blue, theme swap). */
-  :root{--bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--muted2:#6e727e;--rule:#e6e7ee;
-    --accent:#5b30d6;--accent-bg:#eee9fd;--blue:#1d4fbf;--blue-bg:#e9f0fd;--noteline:#5b30d6;--link:#2f6fed;
-    --canvas:#eceef3;--sheet:#fff;--warn:#b8860b;--warn-bg:rgba(212,160,23,.12);}
-  @media (prefers-color-scheme: dark){:root{--bg:#0f1014;--panel:#17181d;--text:#e9eaf0;--muted:#9a9fb0;
-    --muted2:#878c9c;--rule:#26282f;--accent:#b9a3f5;--accent-bg:#2a2147;--blue:#9cc0f5;--blue-bg:#16243f;
-    --noteline:#b9a3f5;--link:#7ba6f5;--canvas:#0b0c10;--warn:#d4a017;--warn-bg:rgba(212,160,23,.14);}}
-  :root[data-theme="dark"]{--bg:#0f1014;--panel:#17181d;--text:#e9eaf0;--muted:#9a9fb0;--muted2:#878c9c;
-    --rule:#26282f;--accent:#b9a3f5;--accent-bg:#2a2147;--blue:#9cc0f5;--blue-bg:#16243f;--noteline:#b9a3f5;
-    --link:#7ba6f5;--canvas:#0b0c10;--warn:#d4a017;--warn-bg:rgba(212,160,23,.14);}
-  :root[data-theme="light"]{--bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--muted2:#6e727e;
-    --rule:#e6e7ee;--accent:#5b30d6;--accent-bg:#eee9fd;--blue:#1d4fbf;--blue-bg:#e9f0fd;--noteline:#5b30d6;
-    --link:#2f6fed;--canvas:#eceef3;--sheet:#fff;--warn:#b8860b;--warn-bg:rgba(212,160,23,.12);}
 
   *{box-sizing:border-box;}
   html,body{height:100%;}
@@ -31,24 +21,24 @@
   .topbar{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;
     padding:11px 20px;border-bottom:1px solid var(--rule);background:var(--bg);}
   .tb-left{display:flex;align-items:center;gap:10px;min-width:0;}
-  .home{color:var(--muted);text-decoration:none;font-weight:500;white-space:nowrap;}
+  .home{color:var(--muted-fg);text-decoration:none;font-weight:500;white-space:nowrap;}
   .home:hover{color:var(--text);}
   .tb-sep{color:var(--rule);}
-  .filename{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--accent);
+  .filename{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--brand);
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .typechip{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--blue);background:var(--blue-bg);border-radius:4px;padding:2px 6px;}
-  .tb-right{font-size:12px;color:var(--muted);letter-spacing:.03em;white-space:nowrap;font-variant:small-caps;}
+  .tb-right{font-size:12px;color:var(--muted-fg);letter-spacing:.03em;white-space:nowrap;font-variant:small-caps;}
 
   .tabbar{display:none;}
   .split{flex:1;display:flex;min-height:0;}
   .srcpane{flex:0 0 46%;min-width:280px;display:flex;flex-direction:column;min-height:0;background:var(--bg);}
   .vdiv{flex:0 0 5px;cursor:col-resize;background:var(--rule);position:relative;}
   .vdiv::after{content:"";position:absolute;inset:0 -3px;}
-  .vdiv:hover,.vdiv.drag{background:var(--accent);}
+  .vdiv:hover,.vdiv.drag{background:var(--brand);}
   .pdfpane{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--canvas);}
 
   .panehead{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--rule);
-    background:var(--bg);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+    background:var(--bg);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);}
   .panehead .mono{font-family:ui-monospace,Menlo,monospace;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text);}
 
   .srcscroll{flex:1;overflow:auto;position:relative;display:flex;align-items:flex-start;}
@@ -58,17 +48,17 @@
   .ln .n{flex:0 0 46px;text-align:right;padding-right:12px;color:var(--muted2);opacity:.55;
     font-family:ui-monospace,Menlo,monospace;font-size:11.5px;user-select:none;cursor:pointer;
     font-variant-numeric:tabular-nums;padding-top:1px;}
-  .ln .n:hover{opacity:1;color:var(--accent);}
+  .ln .n:hover{opacity:1;color:var(--brand);}
   .ln .src{flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;white-space:pre-wrap;word-break:break-word;}
   .ln.has-c{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
   .ln.has-c .n{opacity:1;}
   .ln.flash{background:var(--accent-bg);}
   .addb{position:absolute;left:3px;top:50%;transform:translateY(-50%);width:18px;height:18px;border:none;
-    border-radius:4px;background:var(--accent);color:#fff;font-size:14px;line-height:1;cursor:pointer;
+    border-radius:4px;background:var(--brand);color:#fff;font-size:14px;line-height:1;cursor:pointer;
     display:none;padding:0;box-shadow:0 1px 4px rgba(0,0,0,.25);}
   .ln:hover .addb,.addb:focus-visible{display:block;}
   .tx-c{color:var(--blue);}          /* \command */
-  .tx-m{color:var(--accent);}        /* $math$ */
+  .tx-m{color:var(--brand);}        /* $math$ */
   .tx-x{color:var(--muted2);font-style:italic;}   /* % comment */
   mark.cmt{background:rgba(91,48,214,.18);color:inherit;border-radius:2px;cursor:pointer;}
   mark.cmt.active{background:rgba(91,48,214,.40);}
@@ -79,37 +69,42 @@
   .gcard{position:absolute;width:284px;background:var(--bg);border:1px solid var(--rule);border-left:3px solid var(--noteline);
     border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.4;box-shadow:0 1px 6px rgba(0,0,0,.06);
     transition:top .16s ease,box-shadow .15s,border-color .15s;}
-  .gcard:hover,.gcard.active{box-shadow:0 5px 18px rgba(0,0,0,.18);border-left-color:var(--accent);}
+  .gcard:hover,.gcard.active{box-shadow:0 5px 18px rgba(0,0,0,.18);border-left-color:var(--brand);}
   .ghead{display:flex;gap:6px;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;}
-  .gref{color:var(--accent);font-weight:700;}
-  .gq{color:var(--muted);font-style:italic;font-size:12px;max-height:48px;overflow:hidden;}
-  .gdel{margin-left:auto;background:none;border:none;cursor:pointer;font:inherit;font-size:11px;color:var(--muted);padding:1px 5px;border-radius:4px;}
+  .gref{color:var(--brand);font-weight:700;}
+  .gq{color:var(--muted-fg);font-style:italic;font-size:12px;max-height:48px;overflow:hidden;}
+  .gdel{margin-left:auto;background:none;border:none;cursor:pointer;font:inherit;font-size:11px;color:var(--muted-fg);padding:1px 5px;border-radius:4px;}
   .gdel:hover{color:#c0392b;background:rgba(192,57,43,.10);}
   .gdel.armed{color:#fff;background:#c0392b;font-weight:600;}
   .gthread{display:flex;flex-direction:column;gap:5px;}
   .gentry{border-left:3px solid var(--rule);background:rgba(127,127,127,.05);border-radius:4px;padding:4px 8px;}
   .gentry.reviewer{border-left-color:var(--noteline);background:rgba(91,48,214,.07);}
   .gentry.agent{border-left-color:var(--blue);background:rgba(29,79,191,.08);}
-  .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted);margin-right:5px;}
+  .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted-fg);margin-right:5px;}
   .gentry.reviewer .grole{color:var(--noteline);}
   .gentry.agent .grole{color:var(--blue);}
   .gtext{color:var(--text);}
   .gtext>:first-child{margin-top:0;}.gtext>:last-child{margin-bottom:0;}
   .gtext p{margin:.4em 0;}.gtext code{font-family:ui-monospace,Menlo,monospace;font-size:.9em;background:rgba(127,127,127,.16);padding:.5px 4px;border-radius:4px;}
   .gtext pre{background:rgba(127,127,127,.12);padding:7px 9px;border-radius:6px;overflow:auto;margin:.4em 0;}
-  .gtext a{color:var(--accent);}
+  .gtext a{color:var(--brand);}
   .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
   .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font:inherit;font-size:12.5px;border:1px solid var(--rule);
     border-radius:5px;padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
   .btn{font:inherit;font-size:12.5px;border-radius:8px;padding:6px 13px;cursor:pointer;border:1px solid var(--rule);background:var(--panel);color:var(--text);}
   .btn:hover{border-color:var(--muted2);}
-  .btn.primary{background:var(--link);color:#fff;border-color:var(--link);}
+  /* #152 slice C: primary buttons (composer "Comment", "Download PDF") use the app-wide brand violet
+     with --bg text, matching Basecoat's --primary on the other pages and the viewer (slice B). --bg
+     text keeps contrast correct in dark mode. Like the viewer, this page stays off Basecoat's CSS on
+     purpose — its preflight would strip list markers from comment-body markdown — and instead aligns
+     via the shared theme.css tokens. */
+  .btn.primary{background:var(--brand);color:var(--bg);border-color:var(--brand);}
   .btn.primary:hover{filter:brightness(1.06);}
   .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
 
   /* PDF pane */
   .pdfbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--rule);
-    background:var(--bg);font-size:12px;color:var(--muted);}
+    background:var(--bg);font-size:12px;color:var(--muted-fg);}
   .pdfbar .st{font-variant-numeric:tabular-nums;}
   .pdfbar .dl{margin-left:auto;}
   .dl{text-decoration:none;}
@@ -119,15 +114,15 @@
   .errbar pre{margin:6px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--text);}
   .pdfwrap{flex:1;min-height:0;position:relative;}
   #pdfframe{border:0;width:100%;height:100%;background:var(--canvas);}
-  .pdfmsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;padding:20px;text-align:center;}
+  .pdfmsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted-fg);font-size:13px;padding:20px;text-align:center;}
 
-  #toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:90;background:var(--accent);color:#fff;
+  #toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:90;background:var(--brand);color:#fff;
     font-size:13px;padding:8px 16px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
-  #addbtn{position:fixed;z-index:50;display:none;background:var(--accent);color:#fff;border:none;border-radius:6px;
+  #addbtn{position:fixed;z-index:50;display:none;background:var(--brand);color:#fff;border:none;border-radius:6px;
     padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);}
   #pop{position:fixed;z-index:60;display:none;width:320px;background:var(--bg);border:1px solid var(--rule);border-radius:10px;
     box-shadow:0 8px 30px rgba(0,0,0,.3);padding:13px;}
-  #pop .q{font-size:12px;color:var(--muted);font-style:italic;margin:0 0 8px;font-family:ui-monospace,Menlo,monospace;
+  #pop .q{font-size:12px;color:var(--muted-fg);font-style:italic;margin:0 0 8px;font-family:ui-monospace,Menlo,monospace;
     white-space:pre-wrap;max-height:56px;overflow:auto;}
   #pop textarea{width:100%;min-height:70px;font:inherit;font-size:13.5px;border:1px solid var(--rule);border-radius:6px;
     padding:8px;background:var(--bg);color:var(--text);resize:vertical;}
@@ -136,7 +131,7 @@
   #dock{position:fixed;right:18px;bottom:18px;z-index:55;}
   #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--rule);border-radius:30px;
     padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
-  #count{font-size:13px;color:var(--muted);}
+  #count{font-size:13px;color:var(--muted-fg);}
   #cmtdock{display:none;position:fixed;right:18px;bottom:70px;z-index:55;width:340px;max-height:64vh;overflow:auto;
     background:var(--bg);border:1px solid var(--rule);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:12px;}
   #cmtdock.show{display:block;}
@@ -149,18 +144,67 @@
     .pdfpane{flex:1;}
     .tabbar{display:flex;gap:6px;padding:7px 14px;border-bottom:1px solid var(--rule);background:var(--bg);}
     .tabbar button{font:inherit;font-size:12px;border:1px solid var(--rule);background:var(--bg);color:var(--text);border-radius:14px;padding:4px 14px;cursor:pointer;}
-    .tabbar button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;}
+    .tabbar button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff;}
     body.show-pdf .srcpane{display:none;}
     body:not(.show-pdf) .pdfpane{display:none;}
   }
-  button:focus-visible,a:focus-visible,.ln .n:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  button:focus-visible,a:focus-visible,.ln .n:focus-visible{outline:2px solid var(--brand);outline-offset:2px;}
+
+  /* ---- Share control (#133 public link, extended by #134 people) — copied verbatim from viewer.html
+     so both viewers show the same panel (#152 latex share-parity). Keep in sync with viewer.html. ---- */
+  .tb-btn{font:inherit;font-size:12.5px;font-weight:600;color:var(--text);background:none;
+    border:1px solid var(--rule);border-radius:8px;padding:5px 12px;cursor:pointer;
+    text-transform:none;letter-spacing:normal;}
+  .tb-btn:hover{border-color:var(--muted2,var(--muted-fg));}
+  .share-wrap{position:relative;display:flex;}
+  .sharepop{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--panel);
+    border:1px solid var(--rule);border-radius:12px;box-shadow:0 12px 40px rgba(20,22,40,.16);
+    padding:16px;z-index:60;text-transform:none;letter-spacing:normal;text-align:left;}
+  .sharepop h3{margin:0 0 12px;font-size:14px;font-weight:700;color:var(--text);}
+  .share-row{display:flex;align-items:center;justify-content:space-between;gap:14px;}
+  .share-lbl{font-size:13px;color:var(--text);}
+  .share-lbl small{display:block;color:var(--muted-fg);font-size:11.5px;margin-top:2px;font-weight:400;}
+  .switch{position:relative;width:40px;height:22px;flex:0 0 auto;display:inline-block;}
+  .switch input{opacity:0;width:0;height:0;position:absolute;}
+  .switch .track{position:absolute;inset:0;background:var(--rule);border-radius:22px;transition:.15s;
+    cursor:pointer;display:block;}
+  .switch .track:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;
+    background:#fff;border-radius:50%;transition:.15s;}
+  .switch input:checked + .track{background:#5b46e6;}
+  .switch input:checked + .track:before{transform:translateX(18px);}
+  .share-link{display:flex;gap:8px;margin-top:14px;}
+  .share-link input{flex:1;min-width:0;font:inherit;font-size:12px;padding:8px 10px;
+    border:1px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--muted-fg);}
+  .share-copy{font:inherit;font-size:12.5px;font-weight:600;padding:8px 14px;border:none;
+    border-radius:8px;background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
+  .share-copy:hover{opacity:.92;}
+  /* #134 named-share / people section */
+  .share-sep{height:1px;background:var(--rule);margin:16px 0;}
+  .share-people h4{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--muted-fg);}
+  .share-list{display:flex;flex-direction:column;gap:8px;margin:0 0 12px;}
+  .share-item{display:flex;align-items:center;gap:8px;font-size:13px;}
+  .share-item .em{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+  .share-item .rt{font-size:11px;font-weight:600;color:var(--muted-fg);text-transform:capitalize;}
+  .share-item .rm{background:none;border:none;color:var(--muted2,var(--muted-fg));cursor:pointer;
+    font-size:16px;line-height:1;padding:1px 5px;border-radius:6px;}
+  .share-item .rm:hover{color:#c0392b;background:rgba(192,57,43,.1);}
+  .share-empty{color:var(--muted-fg);font-size:12.5px;margin:0 0 12px;}
+  .share-invite{display:flex;gap:6px;align-items:center;}
+  .share-invite input{flex:1;min-width:0;font:inherit;font-size:12.5px;padding:8px 10px;
+    border:1px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--text);}
+  .share-invite select{font:inherit;font-size:12.5px;padding:8px 6px;border:1px solid var(--rule);
+    border-radius:8px;background:var(--bg);color:var(--text);}
+  .share-invite button{font:inherit;font-size:12.5px;font-weight:600;padding:8px 12px;border:none;
+    border-radius:8px;background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
+  .share-err{color:#c0392b;font-size:12px;margin:8px 0 0;}
 </style>
 </head>
 <body class="norail">
 <header class="topbar">
   <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span>
     <span class="filename" id="filename">loading…</span><span class="typechip">LATEX</span></div>
-  <div class="tb-right" id="topstate"></div>
+  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><span id="topstate"></span><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
 </header>
 <div class="tabbar" role="tablist">
   <button id="tab-src" aria-pressed="true">Source</button>
@@ -328,7 +372,7 @@ function renderComments(){
   });
   wireCards(rail);
   // mirror into the narrow dock (static list)
-  dock.innerHTML='<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:8px">Comments ('+active.length+')</div>';
+  dock.innerHTML='<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted-fg);margin-bottom:8px">Comments ('+active.length+')</div>';
   cards.forEach(c=>dock.appendChild(c.cloneNode(true)));wireCards(dock);
   $('#count').textContent=active.length+' open';
   document.querySelectorAll('mark.cmt').forEach(m=>m.onclick=()=>focusPair(m.dataset.id));
@@ -473,6 +517,81 @@ async function boot(){
   poll();
 }
 boot();
+
+// ---- Share control: public link (#133) + named-share people panel (#134), owner-only ----
+// Copied verbatim from viewer.html so the latex viewer shows the same panel (#152 share-parity).
+// Depends only on API/ID (defined above) + the #sharebtn/#sharepop topbar markup. Keep in sync.
+let _shareCsrf = "", _pubRight = null, _shares = [];
+function _esc(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function _shareLabel(subject){ return (subject||"").replace(/^user:/,"").replace(/^email:/,""); } // grantee email
+async function initShare(){
+  const btn = document.getElementById("sharebtn"), pop = document.getElementById("sharepop");
+  if(!btn) return;
+  // Ownership gate: GET /shares → 200 (owner; carries public state + named shares) | 404 (not owner).
+  let r; try{ r = await fetch(API + "/shares", {cache:"no-store"}); }catch(e){ return; }
+  if(r.status !== 200) return;                        // not the owner → no Share control at all
+  const d = await r.json().catch(()=>({}));
+  _pubRight = d.public || null;                        // "view" or null
+  _shares = d.shares || [];
+  try{ _shareCsrf = ((await fetch("/auth/session",{cache:"no-store"}).then(x=>x.json())) || {}).csrf || ""; }catch(e){}
+  btn.style.display = "";
+  btn.addEventListener("click", e=>{ e.stopPropagation(); pop.hidden = !pop.hidden; if(!pop.hidden) renderShare(); });
+  document.addEventListener("click", e=>{ if(!pop.hidden && !pop.contains(e.target) && e.target!==btn) pop.hidden = true; });
+}
+function shareUrl(){ return location.origin + "/review/" + encodeURIComponent(ID); }
+async function refreshShares(){
+  try{ const d = await fetch(API + "/shares",{cache:"no-store"}).then(r=>r.json()); _pubRight = d.public||null; _shares = d.shares||[]; }catch(e){}
+}
+function renderShare(){
+  const pop = document.getElementById("sharepop"), on = !!_pubRight;
+  const rows = _shares.length
+    ? _shares.map(s=>'<div class="share-item"><span class="em" title="'+_esc(_shareLabel(s.subject))+'">'+_esc(_shareLabel(s.subject))+'</span><span class="rt">'+_esc(s.right)+'</span><button class="rm" type="button" data-subject="'+_esc(s.subject)+'" title="Remove access">&times;</button></div>').join("")
+    : '<div class="share-empty">No one yet.</div>';
+  pop.innerHTML =
+    '<h3>Share this review</h3>' +
+    '<div class="share-row"><div class="share-lbl">Public link<small>Anyone with the link can view</small></div>' +
+    '<label class="switch"><input type="checkbox" id="pubtoggle"' + (on?" checked":"") + '><span class="track"></span></label></div>' +
+    (on ? '<div class="share-link"><input id="publink" readonly value="' + shareUrl() + '"><button class="share-copy" id="pubcopy" type="button">Copy</button></div>' : '') +
+    '<div class="share-sep"></div>' +
+    '<div class="share-people"><h4>Share with people</h4>' +
+    '<div class="share-list">' + rows + '</div>' +
+    '<div class="share-invite"><input id="invemail" type="email" placeholder="email address" autocomplete="off">' +
+    '<select id="invright"><option value="comment">Can comment</option><option value="view">Can view</option></select>' +
+    '<button id="invbtn" type="button">Invite</button></div>' +
+    '<div class="share-err" id="inverr" style="display:none"></div></div>';
+  pop.querySelector("#pubtoggle").addEventListener("change", async e=>{
+    const t = e.target; t.disabled = true;
+    try{
+      const rr = await fetch(API + "/public", {method: t.checked?"POST":"DELETE", headers:{"X-CSRF-Token":_shareCsrf}});
+      if(rr.ok) _pubRight = t.checked ? "view" : null;
+    }catch(e){}
+    renderShare();
+  });
+  const cp = pop.querySelector("#pubcopy");
+  if(cp) cp.addEventListener("click", ()=>{
+    const i = pop.querySelector("#publink"); i.select();
+    try{ navigator.clipboard.writeText(i.value); }catch(e){}
+    cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy"; }, 1400);
+  });
+  pop.querySelector("#invbtn").addEventListener("click", async ()=>{
+    const email = (pop.querySelector("#invemail").value||"").trim();
+    const right = pop.querySelector("#invright").value;
+    const err = pop.querySelector("#inverr"); err.style.display = "none";
+    if(!email){ pop.querySelector("#invemail").focus(); return; }
+    const btn = pop.querySelector("#invbtn"); btn.disabled = true; btn.textContent = "…";
+    let rr; try{ rr = await fetch(API + "/shares", {method:"POST", headers:{"Content-Type":"application/json","X-CSRF-Token":_shareCsrf}, body:JSON.stringify({email, right})}); }
+    catch(e){ btn.disabled=false; btn.textContent="Invite"; return; }
+    if(rr.ok){ await refreshShares(); renderShare(); }
+    else{ const j = await rr.json().catch(()=>({})); err.textContent = j.error || "Could not share."; err.style.display = "block"; btn.disabled=false; btn.textContent="Invite"; }
+  });
+  pop.querySelectorAll(".rm").forEach(b=>b.addEventListener("click", async ()=>{
+    b.disabled = true;
+    try{ await fetch(API + "/shares?subject=" + encodeURIComponent(b.dataset.subject), {method:"DELETE", headers:{"X-CSRF-Token":_shareCsrf}}); }catch(e){}
+    await refreshShares(); renderShare();
+  }));
+}
+initShare();
 </script>
+<script src="/static/account.js"></script>
 </body>
 </html>

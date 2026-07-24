@@ -61,6 +61,9 @@ SRC="$1"
 mkdir -p "$HOME_DIR"
 rm -rf "$DEST"
 mv "$SRC" "$DEST"
+# Marker that this is an installer-managed tree: the wrapper self-updates from its server only when
+# present (a repo/dev checkout has none), so #90's auto-update never clobbers a working tree.
+: > "$DEST/.managed"
 WRAPPER="$DEST/src/mcp_server.py"
 "$PY" "$WRAPPER" --print-version >/dev/null 2>&1 || die "the wrapper failed to run under $PY."
 

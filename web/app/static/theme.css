@@ -1,0 +1,135 @@
+/* mdreview design tokens — the single source of truth for colour (#153).
+ *
+ * Every page links this file and NO page redefines these values. Before #153 each page carried its
+ * own inline copy, which is how they drifted (--violet vs --brand for the same colour, three
+ * different --rule darks) and how /account + /admin ended up hardcoded dark with no media query.
+ * Adding or changing a colour means editing THIS file, once.
+ *
+ * Light is the base on :root. Dark arrives two ways, and both are needed:
+ *   - the system preference, scoped :not([data-theme="light"]) so an explicit light choice wins;
+ *   - an explicit [data-theme="dark"], which wins regardless of the system.
+ * Light needs no override block: it is the base, and the media query steps aside for it.
+ *
+ * Self-hosted, no CDN — the project is self-contained by design.
+ */
+
+:root{
+  /* surfaces */
+  --bg:#fafafc;            /* page */
+  --panel:#fff;            /* cards, panels */
+  --canvas:#eceef3;        /* recessed area behind a sheet (latex viewer) */
+  --sheet:#fff;            /* the paper sheet itself — stays white in both themes */
+  --inset:#f0f1f6;         /* inputs, <pre>, <code> */
+  --btn:#f0f1f6;           /* neutral button face */
+  --nav-hover:#f5f6f9;
+  --nav-active:#f0f1f6;
+
+  /* text */
+  --text:#181a20;
+  --muted-fg:#5c6270;
+  --muted2:#6e727e;
+
+  /* lines */
+  --rule:#e6e7ee;
+
+  /* accent (violet). --violet/--violet-bg are legacy aliases for the SAME colour: the dashboard
+     called it violet, the viewer called it accent. Kept so neither page needs rewriting. */
+  --brand:#5b30d6;
+  --accent-bg:#eee9fd;
+  --violet:var(--brand);
+  --violet-bg:var(--accent-bg);
+  --noteline:var(--brand);
+
+  /* blue */
+  --blue:#1d4fbf;
+  --blue-bg:#e9f0fd;
+
+  /* link */
+  --link:#2f6fed;
+
+  /* status */
+  --green:#2f8f5b;
+  --good:var(--green);
+  --good-bg:#e6f4ec;
+  --warn:#b8860b;
+  --warn-bg:rgba(212,160,23,.12);
+  --danger:#c0392b;
+  --danger-bg:#fdecea;
+  --danger-rule:#f0c8c2;
+  --good-rule:#b7e0c8;
+  --warn-rule:#e3d08a;
+}
+
+/* System dark — yields to an explicit [data-theme="light"]. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1014;
+    --panel:#17181d;
+    --canvas:#0b0c10;
+    --sheet:#fff;
+    --inset:#0f1116;
+    --btn:#20232b;
+    --nav-hover:#1d1f25;
+    --nav-active:#22242b;
+
+    --text:#e9eaf0;
+    --muted-fg:#9a9fb0;
+    --muted2:#878c9c;
+
+    --rule:#26282f;
+
+    --brand:#b9a3f5;
+    --accent-bg:#2a2147;
+
+    --blue:#9cc0f5;
+    --blue-bg:#16243f;
+
+    --link:#7ba6f5;
+
+    --green:#6dd39b;
+    --good-bg:#123027;
+    --warn:#d4a017;
+    --warn-bg:rgba(212,160,23,.14);
+    --danger:#e07a7a;
+    --danger-bg:#3a1f1f;
+    --danger-rule:#4a2a2a;
+    --good-rule:#1f4a38;
+    --warn-rule:#5a4a1f;
+  }
+}
+
+/* Explicit dark — wins over the system preference. */
+:root[data-theme="dark"]{
+  --bg:#0f1014;
+  --panel:#17181d;
+  --canvas:#0b0c10;
+  --sheet:#fff;
+  --inset:#0f1116;
+  --btn:#20232b;
+  --nav-hover:#1d1f25;
+  --nav-active:#22242b;
+
+  --text:#e9eaf0;
+  --muted-fg:#9a9fb0;
+  --muted2:#878c9c;
+
+  --rule:#26282f;
+
+  --brand:#b9a3f5;
+  --accent-bg:#2a2147;
+
+  --blue:#9cc0f5;
+  --blue-bg:#16243f;
+
+  --link:#7ba6f5;
+
+  --green:#6dd39b;
+  --good-bg:#123027;
+  --warn:#d4a017;
+  --warn-bg:rgba(212,160,23,.14);
+  --danger:#e07a7a;
+  --danger-bg:#3a1f1f;
+  --danger-rule:#4a2a2a;
+  --good-rule:#1f4a38;
+  --warn-rule:#5a4a1f;
+}

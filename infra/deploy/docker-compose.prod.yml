@@ -11,7 +11,10 @@ services:
   mdreview:
     # :latest = auto-update on re-pull (the owner's stated preference). Trade-off: a re-pull can
     # swap the running image, so an EXACT rollback needs a pinned digest (ghcr.io/...@sha256:...).
-    image: ghcr.io/waqaskhan137/mdreview-service:latest
+    # The hosted instance runs the LaTeX-enabled image (ENABLE_LATEX baked in) — this must match live
+    # so a redeploy reproduces it (issue #86). The slim ghcr.io/.../mdreview-service:latest is the
+    # non-LaTeX variant; do not use it here.
+    image: ghcr.io/ranawaqas-ai/mdreview-service-latex:latest
     container_name: mdreview
     restart: unless-stopped
     # LOOPBACK-ONLY publish: nginx reaches this on 127.0.0.1; nothing binds a public interface.
@@ -21,14 +24,19 @@ services:
     volumes:
       - mdreview-prod:/data
     environment:
-      # Correct review_url regardless of the Host header.
-      MDREVIEW_PUBLIC_BASE: "https://app.waqasrana.space"
+      # Correct review_url regardless of the Host header. Single canonical domain (issue #86).
+      MDREVIEW_PUBLIC_BASE: "https://app.mdreview.space"
       # Phase 1: auth is MANDATORY on the hosted instance. The app boot-guard plus these ${VAR:?}
       # refuse to start if a secret is missing, so this service can NEVER come up wide open (the
       # security-review P0: the cookie-or-bearer nginx in front of an auth-off app = open read/delete).
       MDREVIEW_REQUIRE_AUTH: "1"
       MDREVIEW_PROXY_SECRET: "${MDREVIEW_PROXY_SECRET:?set MDREVIEW_PROXY_SECRET in infra/deploy/.env}"
       MDREVIEW_TOKEN_PEPPER: "${MDREVIEW_TOKEN_PEPPER:?set MDREVIEW_TOKEN_PEPPER in infra/deploy/.env}"
+      # #67: signs the app-owned session cookie + magic-link tokens. Now part of the REQUIRE_AUTH
+      # boot guard, so it is MANDATORY here (a REQUIRE_AUTH=1 instance refuses to boot without it) and
+      # is also required by the future hosted build (python -m mdreview.hosted). Generate once:
+      # `openssl rand -hex 32`, then keep it stable (rotating it invalidates every live session).
+      MDREVIEW_SESSION_SECRET: "${MDREVIEW_SESSION_SECRET:?set MDREVIEW_SESSION_SECRET in infra/deploy/.env}"
     networks:
       - mdrnet
 

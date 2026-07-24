@@ -4,23 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · reviews</title>
+<!-- #152 Basecoat: vendored (self-hosted, no runtime CDN). Basecoat skins the generic chrome (sign-in
+     form, search, buttons); the signature inbox grid + sidebar stay bespoke. -->
+<link rel="stylesheet" href="/static/basecoat.cdn.min.css">
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/basecoat-theme.css">
+<script src="/static/basecoat.all.min.js" defer></script>
 <style>
+  /* Colour tokens live in /static/theme.css (#153) — never redefine them per page. */
   /* Light palette = the mockup; dark derived via the existing token swap (no STALE_S here — the
      viewer is the authoritative staleness surface; a dashboard card never tests lease freshness). */
-  :root{
-    --bg:#fafafc;--panel:#fff;--text:#181a20;--muted:#5c6270;--muted2:#6e727e;
-    --rule:#e6e7ee;--nav-active:#f0f1f6;--nav-hover:#f5f6f9;
-    --violet:#5b30d6;--violet-bg:#eee9fd;--blue:#1d4fbf;--blue-bg:#e9f0fd;
-    --green:#2f8f5b;--link:#2f6fed;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{
-      --bg:#0f1014;--panel:#17181d;--text:#e9eaf0;--muted:#9a9fb0;--muted2:#878c9c;
-      --rule:#26282f;--nav-active:#22242b;--nav-hover:#1d1f25;
-      --violet:#b9a3f5;--violet-bg:#2a2147;--blue:#9cc0f5;--blue-bg:#16243f;
-      --green:#6dd39b;--link:#7ba6f5;
-    }
-  }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
@@ -38,7 +31,7 @@
   .nav-label{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
     color:var(--muted2);padding:0 10px 6px;}
   .nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;
-    color:var(--muted);font-size:13.5px;font-weight:500;border:none;background:none;width:100%;text-align:left;
+    color:var(--muted-fg);font-size:13.5px;font-weight:500;border:none;background:none;width:100%;text-align:left;
     font-family:inherit;}
   .nav-item:hover{background:var(--nav-hover);}
   .nav-item.active{background:var(--nav-active);color:var(--text);font-weight:600;}
@@ -53,10 +46,8 @@
   .main{flex:1 1 auto;min-width:0;padding:26px 32px 56px;}
   .head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 0 18px;}
   h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.4px;}
-  .sub{margin:6px 0 0;color:var(--muted);font-size:13px;}
-  #search{flex:0 0 280px;max-width:40vw;font:inherit;font-size:13.5px;padding:9px 13px;border-radius:10px;
-    border:1px solid var(--rule);background:var(--panel);color:var(--text);}
-  #search:focus{outline:none;border-color:var(--link);}
+  .sub{margin:6px 0 0;color:var(--muted-fg);font-size:13px;}
+  #search{flex:0 0 280px;max-width:40vw;}   /* look comes from Basecoat .input */
 
   .eyebrow{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
     color:var(--muted2);margin:0 0 12px;}
@@ -66,8 +57,7 @@
     border-left:3px solid var(--rule);transition:border-color .12s,box-shadow .12s,transform .06s;}
   .card:hover{box-shadow:0 4px 16px rgba(20,22,40,.08);transform:translateY(-1px);}
   .card.is-hidden{display:none;}
-  .showmore{display:none;margin:18px auto 4px;padding:8px 18px;font:inherit;font-size:13px;color:var(--text);background:var(--panel);border:1px solid var(--rule);border-radius:8px;cursor:pointer;}
-  .showmore:hover{border-color:var(--muted2);}
+  .showmore{display:none;margin:18px auto 4px;}   /* look comes from Basecoat .btn */
   .proj-more{padding:6px 10px 2px;color:var(--muted2);font-size:11.5px;}
   .card.s-your-turn{border-left-color:var(--violet);}
   .card.s-agent-working,.card.s-waiting{border-left-color:var(--blue);}
@@ -89,7 +79,7 @@
   .badge.your-turn{background:var(--violet-bg);color:var(--violet);}
   .badge.agent-working{background:var(--blue-bg);color:var(--blue);}
   .badge.waiting{background:var(--blue-bg);color:var(--blue);}
-  .badge.resolved{background:none;color:var(--muted);padding-left:0;}
+  .badge.resolved{background:none;color:var(--muted-fg);padding-left:0;}
   .badge.latex{background:var(--blue-bg);color:var(--blue);}
   .kindchip{flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--blue);
     background:var(--blue-bg);border-radius:4px;padding:1px 5px;}
@@ -107,7 +97,7 @@
   .del:hover{color:#c0392b;background:rgba(192,57,43,.12);}
   .del:focus-visible{opacity:1;outline:2px solid var(--link);outline-offset:1px;}
 
-  .empty,.noresults{text-align:center;color:var(--muted);padding:64px 0;}
+  .empty,.noresults{text-align:center;color:var(--muted-fg);padding:64px 0;}
   .noresults{display:none;}
   .empty code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
     background:rgba(127,127,127,.12);padding:2px 6px;border-radius:5px;}
@@ -119,10 +109,45 @@
     .main{padding:20px 16px 48px;}
     h1{font-size:24px;}
   }
+
+  /* ---- sign-in screen (anonymous; #131) — Basecoat card/input/btn + layout only ---- */
+  .signin-wrap{min-height:100vh;display:none;align-items:center;justify-content:center;padding:24px;}
+  #signin-card{width:100%;max-width:400px;}
+  .signin-brand{display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px;
+    font-weight:600;letter-spacing:-.15px;margin:0 0 12px;}
+  .signin-brand .logo{width:30px;height:30px;border-radius:8px;
+    background:linear-gradient(135deg,#2f6fed,#7c4dff);color:#fff;display:flex;align-items:center;
+    justify-content:center;font-size:12px;font-weight:700;}
+  #signin-card h1{font-size:21px;font-weight:700;letter-spacing:-.3px;margin:0 0 7px;text-align:center;}
+  #signin-card .lede{color:var(--muted-fg);font-size:13.5px;line-height:1.5;text-align:center;margin:0 0 20px;}
+  .signin-field label{display:block;margin:0 0 6px;}
+  .signin-note{color:var(--muted2);font-size:12px;text-align:center;margin:16px 0 0;}
+  .signin-ok{text-align:center;}
+  .signin-ok .check{width:46px;height:46px;border-radius:50%;background:var(--accent-bg);color:var(--brand);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .signin-ok .addr{color:var(--text);font-weight:600;}
+  .linklike{background:none;border:none;color:var(--link);font:inherit;font-size:12.5px;cursor:pointer;
+    padding:0;margin-top:16px;text-decoration:underline;}
 </style>
 </head>
 <body>
-<div class="app">
+<div class="signin-wrap" id="signin">
+  <div class="card" id="signin-card"><section>
+    <div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>
+    <h1>Sign in to mdreview</h1>
+    <p class="lede">Enter your email and we'll send you a one-time sign-in link. No password needed.</p>
+    <form id="signin-form" novalidate>
+      <div class="signin-field">
+        <label class="label" for="signin-email">Email</label>
+        <input class="input" id="signin-email" type="email" autocomplete="email"
+               placeholder="you@example.com" required style="width:100%">
+      </div>
+      <button class="btn" id="signin-btn" type="submit" style="width:100%;margin-top:14px">Send sign-in link</button>
+    </form>
+    <p class="signin-note">New here? The same link signs you up.</p>
+  </section></div>
+</div>
+<div class="app" id="app" style="display:none">
   <aside class="side">
     <div class="brand"><span class="logo">md</span><span>mdreview</span></div>
     <nav class="nav-section" id="inbox">
@@ -136,6 +161,7 @@
       <div class="nav-label">Projects</div>
       <div id="projlist"></div>
     </nav>
+    <div id="acct"></div>
   </aside>
   <main class="main">
     <div class="head">
@@ -143,11 +169,11 @@
         <h1 id="h1">All reviews</h1>
         <p class="sub" id="sub">Loading…</p>
       </div>
-      <input id="search" type="search" placeholder="Search reviews, projects…" autocomplete="off">
+      <input id="search" class="input" type="search" placeholder="Search reviews, projects…" autocomplete="off">
     </div>
     <div class="eyebrow" id="eyebrow">Recent activity</div>
     <div id="list" class="grid"></div>
-    <button class="showmore" id="showmore">Show more</button>
+    <button class="showmore btn" data-variant="outline" data-size="sm" id="showmore">Show more</button>
     <div class="noresults" id="noresults">No reviews match your search.</div>
   </main>
 </div>
@@ -347,7 +373,42 @@ document.addEventListener('click', async e=>{
 });
 $("#search").addEventListener('input', ()=>{ shownCap=0; applyFilter(); });   // new query → refit viewport
 let _rz; window.addEventListener('resize', ()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ shownCap=Math.max(shownCap, viewportCap()); applyFilter(); }, 120); });   // grow to fill on resize
-load();
+// ---- auth gating (#131): anonymous visitors get the sign-in screen, not the empty dashboard ----
+const MAIL='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';
+function initSignin(){
+  const form=$("#signin-form"), email=$("#signin-email");
+  if(email) email.focus();
+  form.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const addr=(email.value||"").trim();
+    if(!addr){ email.focus(); return; }
+    const btn=$("#signin-btn"); btn.disabled=true; btn.textContent="Sending…";
+    // Always show the SAME confirmation whatever the result — the backend never reveals whether the
+    // address exists, so neither do we (no account enumeration).
+    try{ await fetch('/auth/magic-link',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:addr})}); }catch(_){}
+    $("#signin-card").innerHTML=
+      `<section><div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
+      `<div class="signin-ok"><div class="check">${MAIL}</div>`+
+      `<h1>Check your email</h1>`+
+      `<p class="lede">If <span class="addr">${esc(addr)}</span> can sign in, a link is on its way.<br>`+
+      `It's valid once and expires shortly.</p>`+
+      `<button class="linklike" onclick="location.reload()">Use a different email</button></div></section>`;
+  });
+}
+async function boot(){
+  let sess={authenticated:false};
+  try{ sess=await fetch('/auth/session',{cache:'no-store'}).then(r=>r.json()); }catch(_){}
+  if(sess && sess.authenticated){
+    $("#signin").style.display="none"; $("#app").style.display="flex";
+    load();
+  }else{
+    $("#app").style.display="none"; $("#signin").style.display="flex";
+    initSignin();
+  }
+}
+boot();
 </script>
+<script src="/static/account.js"></script>
 </body>
 </html>

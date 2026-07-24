@@ -1,0 +1,75 @@
+name: staging-image
+
+# Every push to dev builds + pushes the :dev service image to GHCR, which the Kapture staging stack's
+# auto-update timer then pulls and health-gates. Boot-smoke-gated: a dev push that would crash-loop
+# staging (e.g. a config.py guard change vs the hosted env) fails here and never publishes :dev.
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+# A burst of dev pushes builds the newest commit once; older in-flight runs cancel.
+concurrency:
+  group: staging-image
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write          # push the :dev image to GHCR
+
+jobs:
+  boot-smoke:
+    # Runs with the EXACT staging env (REQUIRE_AUTH=1, ALLOW_PROXY_PLANE=0, inert PROXY_SECRET) — the
+    # only check that does, so the R2-NEW crash-loop can't regress unnoticed. Stdlib-only, no deps.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Hosted boot smoke
+        run: python3 tests/hosted_boot_smoke.py
+
+      # #115: the executable check #97 lacked. Gates the image build, so a change that reopens the
+      # custody failure class (fail-open default, or a returning bulk owner-stamp) cannot ship.
+      - name: Custody regression smoke
+        run: python3 tests/custody_regression_smoke.py
+
+  image:
+    needs: boot-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Slim image (latex-free). Kept for any consumer that pins mdreview-service:dev; staging itself
+      # now runs the LaTeX image below. amd64 only: Kapture is x86, so skip the slow arm64 emulation.
+      - name: Build + push the slim service image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/mdreview-service:dev
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      # LaTeX image — staging renders kind=latex reviews. infra/Dockerfile.latex is the same service PLUS
+      # a pinned Tectonic binary + warmed bundle cache, and it bakes MDREVIEW_ENABLE_LATEX=1, so the
+      # hosted plane comes up with LaTeX on. Fatter + slower to build than slim; the gha cache keeps
+      # repeat builds cheap. Staging's compose pins THIS tag (mdreview-service-latex:dev).
+      - name: Build + push the staging LaTeX image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile.latex
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/mdreview-service-latex:dev
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=latex-dev
+          cache-to: type=gha,scope=latex-dev,mode=max

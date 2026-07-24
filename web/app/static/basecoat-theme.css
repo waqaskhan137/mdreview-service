@@ -1,0 +1,30 @@
+/* #152 — Basecoat's shadcn tokens dressed in mdreview's palette (theme.css). Load order:
+ * basecoat.cdn.min.css → theme.css → THIS. Every token aliases an mdreview token, so light/dark is
+ * driven entirely by theme.css (prefers-color-scheme / [data-theme]) — no .dark class, no JS.
+ *
+ * After the slice-A rename (--accent→--brand, --muted→--muted-fg) the names no longer collide, so
+ * Basecoat's OWN --accent/--muted (its hover / muted SURFACES) can finally take mdreview's --inset
+ * (which theme.css flips light↔dark) — fixing the dark-mode hover surfaces the read-only workaround
+ * couldn't.
+ */
+:root {
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--panel);
+  --card-foreground: var(--text);
+  --popover: var(--panel);
+  --popover-foreground: var(--text);
+  --primary: var(--brand);            /* mdreview brand violet */
+  --primary-foreground: var(--bg);    /* contrasts in both themes (the #153 insight) */
+  --secondary: var(--inset);
+  --secondary-foreground: var(--text);
+  --muted: var(--inset);              /* Basecoat muted SURFACE — now free to set (light+dark) */
+  --muted-foreground: var(--muted-fg);/* mdreview muted TEXT */
+  --accent: var(--inset);            /* Basecoat hover SURFACE — now free to set (light+dark) */
+  --accent-foreground: var(--text);
+  --destructive: var(--danger);
+  --border: var(--rule);
+  --input: var(--rule);
+  --ring: var(--brand);
+  --radius: 0.5rem;
+}

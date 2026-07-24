@@ -26,7 +26,6 @@ API
   GET    /healthz                                             -> {ok}
 """
 import base64
-import hmac
 import json
 import os
 import re
@@ -36,16 +35,37 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 from mdreview.config import (
-    DATA_DIR, DISK_FLOOR, ENABLE_LATEX, LEASE_TTL_S, MAX_BODY, PORT, PROXY_SECRET, PUBLIC_BASE,
-    REQUIRE_AUTH, RID, TOKEN_PEPPER, WAIT_TIMEOUT_S, WEB_DIR,
+    DATA_DIR, DISK_FLOOR, ENABLE_LATEX, LEASE_TTL_S, MAX_BODY, OWNER_EMAIL, PORT, PROXY_SECRET,
+    PUBLIC_BASE, REQUIRE_AUTH, RID, TOKEN_PEPPER, WAIT_TIMEOUT_S, WEB_DIR,
 )
+from mdreview.access import OperatorIdentity, OpenPolicy, OwnerPolicy, ProxyBearerIdentity
 from mdreview.errors import ReviewCreateRejected
+from mdreview import latexguard
 from mdreview.store import Store
 from mdreview.comments import CommentService
 from mdreview.assets import AssetService
 from mdreview.reviews import ReviewService
 from mdreview.handoff import HandoffService
 from mdreview.users import UserService
+
+# A document's human-facing + raw-content read routes carry X-Robots-Tag: noindex so that a PUBLIC
+# document (#101) means "anyone I hand the link to", NOT "search-engine indexed". Emitted
+# unconditionally on these two routes (not only for public docs): a private doc is only ever served
+# to its owner, who is not a crawler, and a crawler can only ever reach a PUBLIC doc (everything else
+# 404/401s), so unconditional noindex is both correct and free of a per-request shares lookup. The
+# viewer HTML additionally carries a static <meta name="robots"> for defence if a proxy strips the
+# header. (The oracle transcript captures only status + Content-Type + body, so this added response
+# header does not perturb the byte-identical comparison.)
+NOINDEX = (("X-Robots-Tag", "noindex, nofollow"),)
+
+# The POST routes that post a NOTE (owner OR a #68 comment-share grantee) rather than WRITE the
+# document (owner-only): POST /comments and POST /comments/{cid}/reply. comment resolve/reopen are
+# workflow writes and are deliberately NOT here. _authz derives can_comment-vs-can_write from this ONE
+# regex, the single source of truth the central #110 choke and every per-arm gate share, so they can
+# never disagree — a choke that treated a comment POST as a write would 404 a legitimate comment-share
+# grantee BEFORE the arm ran, silently dropping the #68 collaboration control.
+COMMENT_POST_RE = re.compile(r"/api/reviews/" + RID + r"/comments(?:/c[A-Za-z0-9]{10}/reply)?$")
+
 
 class Services:
     """The composition root's bundle: one Store, injected into each service (constructor injection).
@@ -58,7 +78,7 @@ class Services:
         self.assets = AssetService(store)
         self.reviews = ReviewService(store, self.comments)
         self.handoff = HandoffService(store, LEASE_TTL_S)
-        self.users = UserService(store, TOKEN_PEPPER)
+        self.users = UserService(store, TOKEN_PEPPER, OWNER_EMAIL)
         # Opt-in feature modules (MR-092). Each entry handles requests via H.route's dispatch
         # loop. Flag off: empty list, no import, byte-identical behavior. Flag on without the
         # package installed fails loud at boot: a misconfiguration must never boot half-enabled.
@@ -68,6 +88,17 @@ class Services:
             module, self.reviews = latex_review.build(
                 store, self.reviews, self.comments, self.assets)
             self.modules.append(module)
+
+        # Access/identity seam (#103): the tier's injected (IdentityProvider, AccessPolicy) pair.
+        # Wired LAST so the policy binds the FINAL self.reviews (the latex wrapper when enabled). The
+        # handler consults these and hard-codes no access decision. REQUIRE_AUTH picks the tier:
+        # off -> single operator, everything open; on -> oauth2-proxy/Bearer resolver + owner-only.
+        if REQUIRE_AUTH:
+            self.identity = ProxyBearerIdentity(self.users, store, PROXY_SECRET)
+            self.policy = OwnerPolicy(self.reviews)
+        else:
+            self.identity = OperatorIdentity()
+            self.policy = OpenPolicy(self.reviews)
 
 
 class MdreviewServer(ThreadingHTTPServer):
@@ -83,7 +114,7 @@ class H(BaseHTTPRequestHandler):
     server_version = "mdreview/1.0"
 
     # ---- response helpers ----
-    def _send(self, code, body=b"", ctype="application/json"):
+    def _send(self, code, body=b"", ctype="application/json", extra_headers=None):
         if isinstance(body, str):
             body = body.encode("utf-8")
         self.send_response(code)
@@ -94,8 +125,12 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        for k, v in (extra_headers or ()):
+            self.send_header(k, v)
         self.end_headers()
-        self.wfile.write(body)
+        # HEAD (#75): identical status + headers (incl. Content-Length above) as GET, but no body.
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
     def _json(self, code, obj):
         self._send(code, json.dumps(obj), "application/json")
@@ -108,27 +143,22 @@ class H(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             return {}
 
-    # ---- auth: resolve every request to (user_id, plane) ----
-    # plane is "cookie" (human via oauth2-proxy), "token" (agent via Bearer), or "local" (auth off).
-    # A None plane from _require_user/_authz means a 401/404 was already sent, so the caller returns.
+    # ---- access/identity seam (#103) ----
+    # Identity resolution and every access decision live behind the injected IdentityProvider /
+    # AccessPolicy on Services (self.server.app.identity / .policy); the handler hard-codes none.
+    # _require_user surfaces the Principal (its callers need scope_list / stamp_owner); _authz keeps
+    # the (uid, plane) contract its 15 call sites already destructure. A None plane / None Principal
+    # means a 401/404 was already sent, so the caller returns.
     def _principal(self):
-        if not REQUIRE_AUTH:
-            return (None, "local")
-        app = self.server.app
-        auth = self.headers.get("Authorization", "")
-        if auth.startswith("Bearer "):
-            uid = app.users.resolve(auth)
-            return (uid, "token") if uid else (None, None)
-        # Cookie plane: trust the identity header ONLY behind the nginx proxy secret. Fail closed:
-        # an empty PROXY_SECRET would make compare_digest("","") pass (config also refuses to boot).
-        if PROXY_SECRET and hmac.compare_digest(self.headers.get("X-Mdreview-Proxy", ""), PROXY_SECRET):
-            uid = app.users.canonical(self.headers.get("X-Mdreview-Provider", ""),
-                                      self.headers.get("X-Auth-Request-User", ""))
-            if uid:
-                with app.store.lock:
-                    app.users.ensure_user(uid, self.headers.get("X-Auth-Request-Email", ""))
-                return (uid, "cookie")
-        return (None, None)
+        """Resolve the caller to a Principal via the tier's IdentityProvider (no access decision).
+
+        Memoized per request (reset at route() entry) so the central custody guard (#110) and the
+        per-arm _authz resolve identity ONCE - avoiding a double ensure_user under store.lock on the
+        cookie plane. Handler instances are REUSED across keep-alive connections, so the reset in
+        route() is what stops a principal leaking from one request into the next."""
+        if getattr(self, "_pcache", None) is None:
+            self._pcache = self.server.app.identity.principal(self)
+        return self._pcache
 
     def _audit(self, event, **kv):
         # Structured stdout line for an internet-facing multi-user service. NEVER logs a secret,
@@ -143,25 +173,65 @@ class H(BaseHTTPRequestHandler):
             return False
 
     def _require_user(self):
-        uid, plane = self._principal()
-        if plane == "local":
-            return (None, "local")
-        if uid is None or not self.server.app.users.is_active(uid):
+        """Identity-only gate for the account + collection routes: the Principal, or None after a 401.
+        No per-review ownership (that is _authz); an active caller (the local operator included) is
+        let through, an anonymous one on a require-auth tier gets 401."""
+        p = self._principal()
+        if p.is_anonymous:
             self._audit("auth_fail", path=urlparse(self.path).path)
             self._json(401, {"error": "authentication required"})
-            return (None, None)
-        return (uid, plane)
+            return None
+        return p
 
     def _authz(self, rid):
-        uid, plane = self._require_user()
-        if plane is None:
-            return (None, None)                       # 401 already sent
+        """Per-review gate, read-order INVERTED (#103): consult the AccessPolicy FIRST, then demand
+        identity only if it denied. Outcomes are byte-identical to the pre-#103 require-auth-first
+        order under the owner-only policy - owner -> allowed; authenticated non-owner or absent
+        review -> 404 (fail-closed, not probeable); unauthenticated -> 401 (checked BEFORE the
+        exists/404 distinction, so an anonymous caller to any rid still 401s, never 404s).
+
+        The capability is derived HERE from (command, path) — the ONE source of truth both the central
+        #110 choke and every per-arm call share, so they can never disagree: GET -> can_read; DELETE ->
+        can_delete; a POST to a comment route (POST /comments or .../reply, per COMMENT_POST_RE) ->
+        can_comment (posting a note: owner OR a #68 comment-share grantee); every other POST/PUT ->
+        can_write (document / workflow write, incl. comment resolve/reopen). On the owner-only tiers
+        can_comment == can_write == can_read, so this is behaviour-preserving; only the hosted
+        CustodyPolicy lets a comment-share grantee post — or a public/named-share reader read, or an
+        audited admin super-read — without owning. Returns (uid, plane) on allow / (None, None) after a
+        401/404, the contract every call site destructures."""
         app = self.server.app
-        if not app.reviews.exists(rid) or (REQUIRE_AUTH and not app.reviews.can_access(rid, uid)):
-            self._audit("denied_404", uid=uid, rid=rid)   # probing signal (missing or foreign owner)
-            self._json(404, {"error": "not found"})       # 404 (not 403): ownership must not be probeable
+        p = self._principal()
+        m = self.command
+        path = urlparse(self.path).path
+        if m == "GET":
+            allowed = app.policy.can_read(p, rid)
+            # Audited admin super-access (#102): if the policy granted this read as a platform exception
+            # (an admin reading a doc they do not own), write the immutable record through the core
+            # _audit() sink - who (uid) / what (method+path) / when (ts) / which (rid+owner). The
+            # classifier hook is absent on OwnerPolicy/OpenPolicy, so the base tiers are byte-identical.
+            # Deduped per request (the #110 choke and the per-arm both call _authz for one GET), so a
+            # single super-read is audited exactly once, never twice.
+            if allowed and rid not in self._super_audited:
+                classify = getattr(app.policy, "audit_super_access", None)
+                rec = classify(p, rid) if classify else None
+                if rec:
+                    self._audit("admin_super_read", method=m, path=path, ts=time.time(), **rec)
+                    self._super_audited.add(rid)
+        elif m == "DELETE":
+            allowed = app.policy.can_delete(p, rid)
+        elif m == "POST" and COMMENT_POST_RE.fullmatch(path):
+            allowed = app.policy.can_comment(p, rid)      # post a note / reply, NOT a document write
+        else:                                             # POST, PUT (document write / workflow)
+            allowed = app.policy.can_write(p, rid)
+        if allowed:
+            return (p.uid, p.plane)
+        if p.is_anonymous:
+            self._audit("auth_fail", path=path)
+            self._json(401, {"error": "authentication required"})
             return (None, None)
-        return (uid, plane)
+        self._audit("denied_404", uid=p.uid, rid=rid)     # probing signal (missing or foreign owner)
+        self._json(404, {"error": "not found"})           # 404 (not 403): ownership must not be probeable
+        return (None, None)
 
     def _base(self):
         if PUBLIC_BASE:
@@ -221,6 +291,11 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         self.route("GET")
 
+    def do_HEAD(self):
+        # #75: run the GET route (so status/headers/Content-Length match GET exactly); _send drops the
+        # body for HEAD. Fixes `curl -sI` probes that got 501 from the stdlib handler's missing do_HEAD.
+        self.route("GET")
+
     def do_POST(self):
         self.route("POST")
 
@@ -232,6 +307,8 @@ class H(BaseHTTPRequestHandler):
 
     # ---- router ----
     def route(self, m):
+        self._pcache = None            # reset the per-request principal memo (#110); handler is reused across keep-alive
+        self._super_audited = set()    # per-request dedup for the #102 super-read audit (choke + per-arm call _authz)
         app = self.server.app
         path = urlparse(self.path).path
         if len(path) > 1:
@@ -250,6 +327,15 @@ class H(BaseHTTPRequestHandler):
         if path == "/healthz" and m == "GET":
             return self._json(200, {"ok": True})
 
+        # The MCP wrapper serves its own source so an installed copy can self-update from the server
+        # it talks to (#90/#71). Public code, unauthenticated like /static; on the hosted vhost the
+        # wrapper's Bearer carries it through nginx. /version is the cheap staleness probe.
+        if path in ("/install/version", "/install/wrapper") and m == "GET":
+            from mcp import bundle
+            if path == "/install/version":
+                return self._json(200, {"wrapper_version": bundle.wrapper_version()})
+            return self._json(200, bundle.wrapper_payload())
+
         if path in ("/", "/api") and m == "GET":
             descriptor = {
                 "service": "mdreview",
@@ -266,41 +352,41 @@ class H(BaseHTTPRequestHandler):
         # Account + per-user API tokens (cookie plane ONLY: an agent token can never mint/revoke a
         # token, defense-in-depth beyond the nginx routing).
         if path == "/account" and m == "GET":
-            uid, plane = self._require_user()
-            if plane is None:
+            p = self._require_user()
+            if p is None:
                 return
             return self._send(200, app.store.read_text(os.path.join(WEB_DIR, "account.html")),
                               "text/html; charset=utf-8")
         if path == "/account/tokens":
-            uid, plane = self._require_user()
-            if plane is None:
+            p = self._require_user()
+            if p is None:
                 return
-            if plane == "token":
+            if p.plane == "token":
                 return self._json(403, {"error": "tokens are managed from the browser, not via an API token"})
             if m == "GET":
-                return self._json(200, {"tokens": app.users.list_tokens(uid), "base": self._base()})
+                return self._json(200, {"tokens": app.users.list_tokens(p.uid), "base": self._base()})
             if m == "POST":
                 label = (self._body_json().get("label") or "").strip()
                 with app.store.lock:
-                    token = app.users.mint_token(uid, label)
+                    token = app.users.mint_token(p.uid, label)
                 return self._json(201, {"token": token, "base": self._base()})
         mo = re.fullmatch(r"/account/tokens/([A-Za-z0-9]{4,40})", path)
         if mo and m == "DELETE":
-            uid, plane = self._require_user()
-            if plane is None:
+            p = self._require_user()
+            if p is None:
                 return
-            if plane == "token":
+            if p.plane == "token":
                 return self._json(403, {"error": "tokens are managed from the browser"})
             with app.store.lock:
-                ok = app.users.revoke_token(uid, mo.group(1))
+                ok = app.users.revoke_token(p.uid, mo.group(1))
             return self._json(200 if ok else 404,
                               {"revoked": mo.group(1)} if ok else {"error": "no such token"})
 
         if path == "/api/reviews" and m == "GET":
-            uid, plane = self._require_user()
-            if plane is None:
+            p = self._require_user()
+            if p is None:
                 return
-            reviews = app.reviews.list_reviews(uid if REQUIRE_AUTH else None)
+            reviews = app.reviews.list_reviews(app.policy.scope_list(p))
             # MR-054: optional ?turn= filter. Filtered in Python after list_reviews() (summary() is
             # where the turn default lands); an empty/absent value means no filter (return all),
             # preserving today's behavior. No new field, no cross-review aggregation.
@@ -314,31 +400,47 @@ class H(BaseHTTPRequestHandler):
         # until a baton flips NEWER than the required ?since= cursor (an edge, not the steady-state
         # level of turn==agent), or a bounded timeout elapses.
         if path == "/api/reviews/wait" and m == "GET":
-            uid, plane = self._require_user()
-            if plane is None:
+            p = self._require_user()
+            if p is None:
                 return
-            return self._wait(urlparse(self.path).query, uid if REQUIRE_AUTH else None)
+            return self._wait(urlparse(self.path).query, app.policy.scope_list(p))
 
         if path == "/api/reviews" and m == "POST":
-            uid, plane = self._require_user()
-            if plane is None:
+            p = self._require_user()
+            if p is None:
                 return
             if self._disk_low():
                 return self._json(507, {"error": "insufficient storage"})
             b = self._body_json()
+            kind_explicit = bool(b.get("kind"))
             kind = b.get("kind", "markdown") or "markdown"
             if kind not in ("markdown", "latex"):
                 return self._json(400, {"error": "kind must be 'markdown' or 'latex'"})
+            # MR-100: creation-time LaTeX guard. When latex mode is enabled and the caller did NOT
+            # pass kind explicitly, reject content that looks like a LaTeX paper rather than silently
+            # storing it as a broken markdown review that never compiles. An explicit kind (markdown
+            # or latex) always wins — kind="markdown" is the escape hatch for prose quoting LaTeX. A
+            # markdown-only instance (flag off) keeps today's behavior.
+            if ENABLE_LATEX and not kind_explicit and latexguard.looks_like_latex(
+                    b.get("source_path", ""), b.get("markdown", "")):
+                return self._json(400, {"error": "this looks like LaTeX; pass kind=\"latex\" to "
+                                        "create a paper review (or kind=\"markdown\" to keep it as "
+                                        "markdown)"})
             # A template id is validated inside the (flag-on) latex decorator, which raises a
             # ReviewCreateRejected subclass; core catches only that core-defined base type and never
             # imports the feature module, so the flag-off import graph and behavior are unchanged.
+            owner = app.policy.stamp_owner(p)
             try:
                 rid = app.reviews.create(b.get("markdown", ""), b.get("title", ""),
                                       b.get("project", ""), b.get("source_path", ""),
-                                      b.get("session", ""), owner=(uid or ""), kind=kind,
+                                      b.get("session", ""), owner=owner, kind=kind,
                                       template=b.get("template", ""))
             except ReviewCreateRejected as e:
                 return self._json(e.status, e.payload or {"error": str(e)})
+            # Custody audit (#110, identity-architecture.md §6): the ownership stamp is a core-side
+            # custody event, logged through the SAME _audit() sink as denied_404 - who a review was
+            # stamped to (empty owner = the local/open tier). Ids + outcomes only, never source/secret.
+            self._audit("review_created", rid=rid, owner=owner or "")
             base = self._base()
             return self._json(201, {
                 "id": rid,
@@ -347,6 +449,28 @@ class H(BaseHTTPRequestHandler):
                 "source_url": f"{base}/api/reviews/{rid}/source",
                 "status_url": f"{base}/api/reviews/{rid}/status",
             })
+
+        # ---- central custody choke point (#110) ----
+        # Every review-scoped path funnels through the injected AccessPolicy HERE, before its arm
+        # runs, so a child resource added below (comment, asset, history, feedback, source, status,
+        # handoff, viewer, ...) is gated by the SAME can_read/can_write as its PARENT review even if
+        # its author forgets the per-arm _authz. This makes "a route forgot to check" structurally
+        # impossible for the review-scoped surface, and is the #97 confinement rule: the document AND
+        # its children route through one AccessPolicy, never re-deriving access. The per-arm _authz
+        # calls below stay as defense-in-depth (memoized principal => one identity resolve).
+        #
+        # Scope: /api/reviews/{rid}... and /review/{rid}. The collection routes (/api/reviews,
+        # /api/reviews/wait) and /account/* already returned above; non-review paths (/static, the
+        # descriptor, unknown) do not match and fall through untouched. Latex /api/latex/{rid}/... is
+        # gated inside the module (which runs BEFORE this router in the dispatch loop), so it never
+        # reaches here. On allow we fall through to the matching arm; on deny _authz already wrote the
+        # 401/404 and we return (an ungated child arm added below is still refused).
+        scoped = (re.match(r"/api/reviews/" + RID + r"(?:/|$)", path)
+                  or re.match(r"/review/" + RID + r"$", path))
+        if scoped:
+            _uid, _plane = self._authz(scoped.group(1))
+            if _plane is None:
+                return
 
         mo = re.fullmatch(r"/api/reviews/" + RID, path)
         if mo:
@@ -359,6 +483,12 @@ class H(BaseHTTPRequestHandler):
             if m == "DELETE":
                 with app.store.lock:
                     app.reviews.delete(rid)
+                    # Drop any shares on a deleted document so no grant dangles. Hosted-only:
+                    # app.shares exists solely on the hosted composition root, so getattr keeps the
+                    # local/core path byte-identical (no attribute, no call).
+                    shares = getattr(app, "shares", None)
+                    if shares is not None:
+                        shares.delete_all_for(rid)
                 return self._json(200, {"deleted": rid})
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/source", path)
@@ -369,7 +499,7 @@ class H(BaseHTTPRequestHandler):
                 return
             if m == "GET":
                 return self._send(200, app.reviews.read_source(rid),
-                                  "text/markdown; charset=utf-8")
+                                  "text/markdown; charset=utf-8", extra_headers=NOINDEX)
             if m == "PUT":
                 b = self._body_json()
                 with app.store.lock:
@@ -484,6 +614,9 @@ class H(BaseHTTPRequestHandler):
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/comments", path)
         if mo:
             rid = mo.group(1)
+            # A POST here posts a note, gated by can_comment (owner OR a comment-share grantee on the
+            # hosted tier), NOT can_write — _authz derives that from the path (COMMENT_POST_RE). GET
+            # stays can_read, so a view-share grantee can read the thread. Byte-identical on owner tiers.
             uid, plane = self._authz(rid)
             if plane is None:
                 return
@@ -530,6 +663,9 @@ class H(BaseHTTPRequestHandler):
             r"/api/reviews/" + RID + r"/comments/(c[A-Za-z0-9]{10})/(reply|resolve|reopen)", path)
         if mo and m == "POST":
             rid, cid, action = mo.group(1), mo.group(2), mo.group(3)
+            # A reply is commenting (can_comment: owner OR comment-share grantee); resolve/reopen are
+            # workflow transitions and stay owner-only (can_write). _authz derives which from the path
+            # (COMMENT_POST_RE matches .../reply, not .../resolve|reopen). Byte-identical on owner tiers.
             uid, plane = self._authz(rid)
             if plane is None:
                 return
@@ -570,7 +706,7 @@ class H(BaseHTTPRequestHandler):
             if plane is None:
                 return
             return self._send(200, app.store.read_text(os.path.join(WEB_DIR, "viewer.html")),
-                              "text/html; charset=utf-8")
+                              "text/html; charset=utf-8", extra_headers=NOINDEX)
 
         mo = re.fullmatch(r"/static/([A-Za-z0-9._-]+)", path)
         if mo and m == "GET":

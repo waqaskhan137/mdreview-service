@@ -16,7 +16,7 @@ PUBLIC_BASE = os.environ.get("MDREVIEW_PUBLIC_BASE", "").rstrip("/")
 
 # --- Phase 1 multi-user auth (hosted). OFF by default so local/dev stays open + single-user. ---
 # When ON, every request must resolve to a user: browser via a trusted proxy header, agent via a
-# per-user Bearer token. See server.H._principal.
+# per-user Bearer token. Resolution lives behind the injected IdentityProvider (mdreview.access).
 REQUIRE_AUTH = os.environ.get("MDREVIEW_REQUIRE_AUTH", "").lower() in ("1", "true", "yes")
 # Shared secret proving a request came THROUGH nginx (the cookie/browser plane). nginx sets the
 # X-Mdreview-Proxy header to this value; the app trusts the vouched identity header only on a match.
@@ -24,14 +24,30 @@ PROXY_SECRET = os.environ.get("MDREVIEW_PROXY_SECRET", "")
 # HMAC pepper for API-token digests (env only, never in the data volume), so a users.json leak alone
 # cannot forge a token.
 TOKEN_PEPPER = os.environ.get("MDREVIEW_TOKEN_PEPPER", "")
+# HMAC key for the app-owned session cookie AND the magic-link tokens (#67 D2, native auth). Env
+# only, never on the data volume: it signs the browser session and every single-use login token, so
+# a leak of the data volume alone cannot forge a session or a magic link. The hosted composition root
+# (mdreview.hosted) additionally refuses to boot without it, independent of REQUIRE_AUTH, so the
+# fail-closed guarantee is a property of the hosted BUILD, not of this flag (see hosted/compose.py).
+SESSION_SECRET = os.environ.get("MDREVIEW_SESSION_SECRET", "")
+# The single account crowned owner (=> admin) on the HOSTED build: the user whose VERIFIED email
+# equals this, case-insensitively. NEVER the first registrant (#67 H1 — under open membership that
+# let a stranger self-crown). Unset => NO account is owner, so nobody can self-crown; the hosted
+# composition root additionally REFUSES TO BOOT without it (see hosted/compose.py), so a hosted
+# instance is never left unadministrable. The transitional `python -m mdreview` path does not require
+# it (owner-ship is unused there today); set it before #102 admin lands, or no account is owner.
+OWNER_EMAIL = (os.environ.get("MDREVIEW_OWNER_EMAIL", "") or "").strip().lower()
 
 # Fail CLOSED: hmac.compare_digest("", "") returns True, so an empty PROXY_SECRET would trust any
-# client-supplied identity header (impersonation), and an empty pepper would make token digests
-# forgeable. If auth is required, refuse to boot rather than run wide open. A non-empty default flag
-# is not a non-empty secret.
-if REQUIRE_AUTH and not (PROXY_SECRET and TOKEN_PEPPER):
+# client-supplied identity header (impersonation), an empty pepper would make token digests
+# forgeable, and an empty session key would make the session cookie / magic-link tokens forgeable.
+# If auth is required, refuse to boot rather than run wide open. A non-empty default flag is not a
+# non-empty secret. (Deploy note #67: a REQUIRE_AUTH=1 instance now ALSO needs MDREVIEW_SESSION_SECRET
+# set before this rolls out, or it refuses to boot; set the secret with the rollout.)
+if REQUIRE_AUTH and not (PROXY_SECRET and TOKEN_PEPPER and SESSION_SECRET):
     raise SystemExit(
-        "MDREVIEW_REQUIRE_AUTH is on but MDREVIEW_PROXY_SECRET and/or MDREVIEW_TOKEN_PEPPER is unset")
+        "MDREVIEW_REQUIRE_AUTH is on but MDREVIEW_PROXY_SECRET, MDREVIEW_TOKEN_PEPPER, "
+        "and/or MDREVIEW_SESSION_SECRET is unset")
 
 # --- Opt-in feature modules. OFF by default: the composition root registers nothing and the
 # request path is byte-identical to a build without the module packages. ---

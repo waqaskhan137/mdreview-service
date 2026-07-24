@@ -1,218 +1,141 @@
-# mdreview-service — Process & Ticketing
+# mdreview-service — Process & Working Agreement (GitHub-only)
 
-A local, file-based delivery process. All state lives in this repo as markdown and is
-**committed and pushed** so any future session (or clone) reconstructs where things stand from
-frontmatter + filenames + git, not from a chat it cannot see. Tickets are files, sprints are
-files, the board is a file, gate evidence is a file.
+Work is tracked **exclusively on GitHub**: issues are the tickets, labels carry status /
+priority / layer, milestones are the sprints, epic issues hold plans and gate evidence. This
+file is the working agreement: the gates, the label taxonomy, and the queries that replace the
+old board. Migrated 2026-07-22 from the file-based process (per the approved plan, mdreview
+review `79fb2c6f6e`; staff-critic gate passed in 2 rounds).
 
-Adapted from the `yeoward-boatyards` feature-cycle process. That repo is a Next.js/Supabase team
-app and keeps its `docs/process/` git-ignored; this repo is a stdlib-only solo micro-service and
-does the opposite on purpose (see Divergences). The gate philosophy is identical; the app-specific
-rails are swapped.
+## Two zones in this directory
 
-| Concept | Local equivalent |
-|---------|------------------|
-| Issue | a file in `tickets/` (`MR-###-*.md`) |
-| Milestone | a file in `sprints/` (`sprint-##.md`) |
-| Status label | `status:` field in ticket frontmatter |
-| Priority label | `priority:` field |
-| Comments / notes | the **Work log** + **Validation** sections in the ticket |
-| Project board | `TRACKER.md` |
-| Epic / planning doc | a file in `epics/` |
-| Gate sign-off / critique | a file in `reviews/` |
-
-## Layout
+**Live** (authoritative):
 
 ```
-docs/process/
-  README.md        this file: the working agreement + gates
-  TRACKER.md       the board: every ticket grouped by status
-  backlog.md       parking lot for deferred / not-yet-groomed ideas
-  templates/       copy these to start a new ticket / sprint / epic
-  requirements/    verbatim source briefs, kept untouched
-  epics/           scoping docs: <slug>-plan.md
-  tickets/         one file per ticket: MR-###-slug.md
-  sprints/         one file per sprint: sprint-##.md
-  reviews/         gate evidence: critiques (<artifact>-review-YYYY-MM-DD.md) + render-evidence dirs (sprint-NN-render-evidence-YYYY-MM-DD/)
+README.md        this working agreement
+product.md       the product goal + principles: the value yardstick for prioritization
+evidence/        committed gate evidence: render/binary artifacts per sprint (evidence/sprint-NN/)
 ```
 
-## Divergences from the source process (deliberate)
+The **roadmap** is NOT a file: it is the GitHub Project
+[**"mdreview Roadmap"**](https://github.com/users/ranawaqas-ai/projects/3) (linked in the
+repo's Projects tab), a single-select **Horizon** field with Now / Next / Later. Entries are
+epic issues; the board holds membership + sequencing, the epic issue body holds the why and
+the size. Owner decision 2026-07-22, superseding the plan's roadmap.md default.
 
-- **This tree is committed + pushed.** The whole point is cross-session durability, so the
-  process must travel with the repo.
-- **No database / no Next build.** The validation gate is `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/latex_review/*.py src/mcp_server.py src/watch.py`
-  (+ `docker build -f infra/Dockerfile` for infra changes) and a curl/browser render smoke, not `npm run build` or
-  authenticated RSC renders.
-- **Single-flight.** One developer, one cycle at a time. The source's multi-agent collision and
-  worktree-contention rails are dropped.
-- **One lightweight sprint per epic.** No concurrent-milestone machinery.
-- **Commits keep the `Co-Authored-By: Claude` trailer** (matches this repo's baseline + the
-  harness default). Conventional subject with the ticket ID: `feat(svc): add list endpoint (MR-002)`.
+**Frozen** (read-only history of the retired file process; each dir carries `_ARCHIVED.md`):
+`tickets/ sprints/ epics/ reviews/ requirements/ templates/ TRACKER.md backlog.md`. Never
+edit these; old links must keep working. The archive may be **deleted once the GitHub-only
+process has proven stable** (owner's call; phase-out intent recorded 2026-07-22).
 
-## Requirements (source of record)
+## The system
 
-When a brief or spec arrives, capture it **verbatim** in `requirements/<slug>.md` before
-grooming.
+| Concept | Where it lives |
+|---|---|
+| Ticket | An issue. **done = closed** (wontfix = closed as not-planned) |
+| Status | Exactly ONE `status:` label per open issue: `backlog \| ready \| in-progress \| review \| blocked` |
+| Priority | One of `P0` (urgent) `P1` (high) `P2` (normal) `P3` (nice-to-have) |
+| Layer | `layer:svc \| layer:ui \| layer:infra \| layer:docs` |
+| Type | GitHub's default labels (`bug`, `enhancement`, `question`, ...) |
+| Sprint | Milestone `sprint-##`: description = the goal; open = G6, close = G7 |
+| Epic | An issue labeled `epic`: body = the plan + a task list of child issues; child issues exist only after G1 |
+| Dependencies | `Depends on #N` lines in the issue body for live issues; a plain repo link for anything in the frozen archive (frozen tickets have no issue number) |
+| Requirement brief | A marked **verbatim** section in the epic issue body under `## Requirement (verbatim, do not edit)`; never edited afterward (GitHub keeps edit history); amendments as dated comments |
+| Gate evidence, prose | Comments on the sprint's epic issue |
+| Gate evidence, render/binary | Committed under `evidence/sprint-NN/`, linked from the G7 comment (`gh` comments are text-only, and evidence is shipped history that must stay in git) |
+| Strategy | `product.md` in git; the roadmap = GitHub Project "mdreview Roadmap" (Horizon: Now/Next/Later), entries = epic issues |
 
-- **Never edit the brief.** It is the record of what was originally asked. Grooming, scope cuts,
-  and decisions happen in the epic plan and tickets, not by rewriting history.
-- If the requirement genuinely changes later, append a dated note under an **Amendments**
-  section rather than altering the original text.
-- Every epic links back to its brief (`source:`); every brief links forward to its epic
-  (`related_epic:`). That round-trip lets any session trace ticket -> epic -> original ask.
-
-## Ticket IDs
-
-- Format `MR-###`, zero-padded to 3 digits, **sequential across the whole project**.
-- Next ID is `(highest existing ID) + 1`. IDs are never reused.
-- Filename `MR-###-kebab-summary.md`.
-- Every ticket carries a **layer** tag:
-
-| `layer` | Means | Typical files |
-|---------|-------|---------------|
-| `svc` | the service: HTTP server, router, API, storage | `src/mdreview/**` |
-| `ui` | the human-facing pages and assets | `web/app/viewer.html`, `web/app/dashboard.html`, `web/app/latex-viewer.html`, `web/app/static/**` |
-| `infra` | container, compose, config, deploy | `infra/Dockerfile`, `infra/docker-compose.yml`, `infra/.env*`, `vercel`/host config |
-| `docs` | documentation, this process | `README.md`, `CLAUDE.md`, `docs/**` |
-
-## Status lifecycle
+Status lifecycle (unchanged in meaning; closed replaces done):
 
 ```
-backlog -> ready -> in-progress -> review -> done
+backlog -> ready -> in-progress -> review -> closed
                         ^v
                      blocked
 ```
 
-| `status` | Meaning |
-|----------|---------|
-| `backlog` | Captured, not groomed. Not eligible to pick up. |
-| `ready` | Groomed: acceptance criteria written, no open questions. Eligible once its `depends_on` are `done`. |
-| `in-progress` | Actively being worked. One at a time unless genuinely independent. |
-| `review` | Implemented and locally validated; awaiting approval. |
-| `done` | Definition of Done met. |
-| `blocked` | Has an unmet prerequisite. Record the blocker and blocking ticket in the Work log. |
+**Do not use auto-close keywords** (`closes #N`) in PRs or commits: an issue closes only at G5
+(owner approval), never as a merge side effect. Commits reference their issue in the subject:
+`feat(svc): add list endpoint (#70)`, with the `Co-Authored-By: Claude` trailer.
 
-## Priority
+## Board queries (replace TRACKER.md)
 
-`P0` urgent · `P1` high · `P2` normal · `P3` nice-to-have. When several tickets are `ready`,
-start the highest priority first.
+```sh
+gh issue list --state open                              # everything
+gh issue list --label status:ready                      # the pickup queue
+gh issue list --label epic --state open                 # live epics
+gh issue list --milestone sprint-NN                     # a sprint's scope
+gh project item-list 3 --owner ranawaqas-ai             # the roadmap (Horizon = Now/Next/Later)
+# DRIFT QUERY — any open issue with zero or 2+ status labels is out of contract:
+gh issue list --state open --json number,title,labels \
+  --jq '.[] | select(([.labels[].name | select(startswith("status:"))] | length) != 1) | "\(.number) \(.title)"'
+```
 
----
-
-## Working Agreement
-
-### Task pickup rule
-
-A ticket may be started only if **all** hold: it belongs to the **active sprint**; its `status`
-is `ready`; every ticket in its `depends_on` is `done`; it is groomed enough to start
-immediately. If several are eligible, pick the highest `priority` first.
-
-### Development flow
-
-1. Pick exactly one ticket; set `status: in-progress`, update `updated:`.
-2. **Restate the goal and acceptance criteria** before touching code.
-3. Verify dependencies are actually `done` in the tracker and reflected in the code.
-4. Implement on a ticket branch (`MR-###-slug`) cut from `dev` (small changes may commit to
-   `dev` directly).
-5. Validate locally: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/latex_review/*.py src/mcp_server.py src/watch.py`; for `infra`, `docker build -f infra/Dockerfile`; for `ui`,
-   rebuild from the image and assert the rendered DOM nodes with
-   `tests/render-smoke.sh <url> <selector>...` (a 200 is not a render; a screenshot proves
-   first-paint only). See `CLAUDE.md` "Run".
-6. Commit referencing the ticket ID (conventional subject).
-7. Fill the ticket's **Work log** (what changed, files) and **Validation** (what you checked).
-8. Set `status: review`. On approval, set `status: done`.
-
-### Branching rule
-
-- **All work integrates into `dev`, never directly into `main`.** `dev` is the long-lived
-  integration branch; `main` advances only on explicit user go-ahead (G8).
-- A **single standing `dev -> main` PR** accumulates unmerged work and is updated each cycle, not
-  duplicated.
-
-### Definition of Done
-
-A ticket is `done` only when: all acceptance criteria met; local validation passes; durable
-behavior changes are reflected in `README.md` / `CLAUDE.md` **in the same change**
-**or** deferred to a trailing **docs-sweep ticket within the same sprint** (the deferring ticket
-must name its sweep ticket in its Work log); the ticket's Work log + Validation are filled in; the
-work is committed (and pushed).
-
-A **docs-sweep ticket is not eligible for carry-over** — it must be `done` before its sprint
-closes (see G7), so deferred docs cannot cross a sprint boundary.
-
-### Blocking rule
-
-If a ticket reveals a missing prerequisite: **stop**, set it `blocked`, and either widen the
-ticket's scope deliberately or create a new prerequisite ticket. Never bury a prerequisite fix
-inside an unrelated ticket.
-
----
+The drift query is the board's integrity check. Any session can run it; the product-owner
+agent runs it on every reconcile.
 
 ## Gates
 
-A **gate** is a checkpoint work cannot pass until its condition holds. Gates make review happen
-by default, not by memory. A failed gate is the gate doing its job.
+A gate is a checkpoint work cannot pass until its condition holds. A failed gate is the gate
+doing its job. **Evidence home rule:** every sprint has exactly one epic and every epic is an
+issue, so gate evidence always has a live home. A ticket whose epic is frozen history is
+*adopted* into the sprint's epic issue task list (under "Adopted", linking the frozen plan). A
+grab-bag sprint mints a lightweight epic issue for the same purpose.
 
 | Gate | Boundary | Pass condition |
 |------|----------|----------------|
-| **G0 — Requirement captured** | brief -> grooming | Verbatim source exists in `requirements/` and is not edited after capture. |
-| **G1 — Plan Gate** | epic plan -> tickets | The epic plan has a recorded **independent** review in `docs/process/reviews/` (reviewer is NOT the plan's author: the `staff-critic` agent, or the product owner), **all blocker questions answered**, and explicit sign-off. Only then does the epic move to `status: active`/`gate: passed` and tickets may be created. |
-| **G2 — Definition of Ready** | ticket -> `ready` | Acceptance criteria written, dependencies identified, `layer` + `priority` set, no open questions, roughly sized. |
-| **G3 — Pickup** | `ready` -> `in-progress` | Active sprint + every `depends_on` is `done` + the one-in-progress rule. |
-| **G4 — Review** | `in-progress` -> `review` | `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/latex_review/*.py src/mcp_server.py src/watch.py` passes (and `docker build -f infra/Dockerfile` for `infra`); **for `ui` tickets, a render-smoke from the rebuilt image passes** — `tests/render-smoke.sh <url> <selector>...` asserts the expected DOM nodes rendered (a 200 is not a render; see Development flow step 5); author self-checked the acceptance criteria. |
-| **G5 — Definition of Done** | `review` -> `done` | All AC met + validation + docs updated (in the same change, or deferred to a same-sprint docs-sweep ticket named in the Work log) + Work log/Validation filled + committed. |
-| **G6 — Sprint open** | -> sprint `active` | Every committed ticket is `ready`; the sprint has a goal and a committed-ticket list. |
-| **G7 — Sprint close** | sprint -> `closed` | Every committed ticket is `done` or explicitly carried over (**a docs-sweep ticket is NOT eligible for carry-over**); **no committed ticket has docs deferred to a docs-sweep ticket that is not yet `done`** (deferred docs are force-closed at sprint close, never carried across cycles); an **independent `staff-critic` sprint-close review** is recorded in `docs/process/reviews/` (reviewer is NOT the implementer), verifying shipped work against each ticket's acceptance criteria, **including a render smoke** (rebuild the container, `curl /healthz` + `/api/reviews`) — and, **only if a product page (`web/app/viewer.html` / `web/app/dashboard.html` / `web/app/latex-viewer.html` / `web/app/static/**`) was touched this sprint**, `tests/render-smoke.sh` against each touched page asserting its DOM nodes plus a screenshot under `docs/process/reviews/sprint-NN-render-evidence-*`; a docs/infra-only sprint that touches no product page is **not** non-compliant for lacking the per-page DOM assertion and screenshot, but still owes the container rebuild + `curl /healthz` + `/api/reviews` smoke; retro + carry-overs are written into the sprint file. |
-| **G8 — Promote to main** | `dev` -> `main` | **Explicit user go-ahead.** `dev` holds all work; `main` advances only when the user approves. A single standing `dev -> main` PR accumulates work until then. |
+| **G0 — Requirement captured** | brief -> grooming | Verbatim brief in the epic issue body under the do-not-edit heading; changed only by dated amendment comments. |
+| **G1 — Plan gate** | epic -> child issues | Independent review (staff-critic or the owner, never the plan's author) posted as a comment on the epic issue; all blockers answered; owner sign-off comment. Only then are child issues created. |
+| **G2 — Definition of Ready** | -> `status:ready` | Issue body has checkable acceptance criteria, linked dependencies, layer + priority labels, a rough size, no open questions. |
+| **G3 — Pickup** | `ready` -> `in-progress` | Issue is in the active milestone; every dependency closed; one in-progress at a time. |
+| **G4 — Review** | `in-progress` -> `status:review` | Validation passes (below) and the author self-checked the acceptance criteria; evidence summarized in an issue comment. |
+| **G5 — Done** | `review` -> closed | All AC met + validation + docs updated in the same change (or a same-sprint docs-sweep issue named in a comment); **owner approval**; then close the issue. |
+| **G6 — Sprint open** | -> milestone active | Milestone created with a goal; only `status:ready` issues assigned. |
+| **G7 — Sprint close** | milestone -> closed | Independent close review (staff-critic or owner, not the implementer) as a comment on the sprint's epic issue, verifying shipped work against each issue's AC, including the container rebuild + `curl /healthz` + `/api/reviews` smoke; render/binary evidence committed under `evidence/sprint-NN/` and linked from that comment; carry-overs moved to a later milestone (a docs-sweep issue is NOT eligible for carry-over); then close the milestone. |
+| **G8 — Promote to main** | `dev` -> `main` | Explicit owner go-ahead. A single standing `dev -> main` PR accumulates work until then. |
 
-**Two gates require a recorded independent review: G1 (before tickets exist) and G7 (before a
-sprint closes).** G1 stops a plausible-looking plan from spawning a dozen wrong tickets; G7 stops
-a sprint being declared done when the shipped work does not meet the tickets' acceptance criteria.
+## Development flow
 
-**Independence rule:** the reviewer must NOT be the artifact's author or the sprint's
-implementer. Use the `staff-critic` agent or the product owner. An author self-review may exist
-as a labelled, non-gating pre-pass (`independent: false`) but never satisfies the gate.
+1. Pick exactly one `status:ready` issue from the active milestone (highest priority first);
+   swap its label to `status:in-progress`.
+2. Restate the goal and acceptance criteria (in the issue, as a comment, if they need
+   clarification) before touching code.
+3. Implement on a branch cut from current `dev`, named `<kind>/<issue>-slug` (e.g.
+   `fix/15-comment-anchor`). `dev` accepts changes only via PR, so even a small change rides
+   a branch + PR (self-merge is fine, see Branching).
+4. Validate locally: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/latex_review/*.py src/mcp_server.py src/watch.py`;
+   for `layer:infra`, `docker build -f infra/Dockerfile`; for `layer:ui`, rebuild from the
+   image and assert rendered DOM nodes with `tests/render-smoke.sh <url> <selector>...` (a 200
+   is not a render). See `CLAUDE.md` "Run".
+5. Commit referencing the issue (`(#N)` in the subject, no auto-close keywords).
+6. Summarize what changed + what was validated as an issue comment; swap the label to
+   `status:review`. On owner approval, close (G5).
+7. Blocked? Swap to `status:blocked`, name the blocker in a comment (and file the prerequisite
+   as its own issue; never bury a prerequisite fix inside an unrelated one).
 
-### Reviews (gate evidence)
+### Branching (enforced by branch protection, not just convention)
 
-Independent critiques live in `docs/process/reviews/`, one file per review, named
-`<artifact-slug>-review-YYYY-MM-DD.md` (round suffix `-r2`, `-r3` for re-reviews). A review
-carries frontmatter: `review_of`, `gate`, `reviewer`, `independent` (`true`/`false`, must be
-`true` for G1/G7), `timestamp`, `verdict`, `status` (`open`|`resolved`); links to the artifact
-and the specific files it cites; and ends with a **Resolution log** updated as blockers are
-answered. Set `status: resolved` only once every blocker is closed.
-
-Naming by gate:
-- **G1 (plan):** `<epic-slug>-plan-review-YYYY-MM-DD.md`.
-- **G7 (sprint close):** `sprint-NN-close-review-YYYY-MM-DD.md`.
-
-**Citation convention.** In process docs, reviews, and plans, **cite gates and sections by name**
-(e.g. "the G7 pass-condition row", "the Definition of Done section"), not by line number — these
-docs grow and numeric anchors drift. **Reserve line numbers for code citations** (`src/mdreview/server.py:NNN`).
-
-## The board
-
-`TRACKER.md` is the at-a-glance view, maintained by hand. The ticket frontmatter is the source of
-truth; whenever a ticket's `status` changes, move its row to the matching section in `TRACKER.md`.
-
-## Starting things
-
-- **New ticket:** copy `templates/ticket.md` -> `tickets/MR-###-slug.md`, fill it in, add a row
-  to `TRACKER.md`.
-- **New sprint:** copy `templates/sprint.md` -> `sprints/sprint-##.md`, set its goal, list
-  committed tickets, set `status: active` when it starts.
-- **New epic:** copy `templates/epic-plan.md` -> `epics/<slug>-plan.md` and scope it. **Do not
-  create its tickets until it clears G1.**
-- **New review:** write `docs/process/reviews/<artifact-slug>-review-YYYY-MM-DD.md` per the Reviews section.
+- Cut every branch from current `dev`; open its PR **against `dev`** and leave it open:
+  **PRs collect until the owner calls a merge gate.** No agent self-merges outside a gate.
+  At a gate, the product-owner agent prepares the queue (mergeability, overlapping files,
+  dependency-aware order) and the owner gives the go; merges then execute in that order,
+  re-checking mergeability after each. `dev` is protected (PR required, 0 approving reviews,
+  force-pushes and deletions blocked); the 0-approvals setting exists because authors cannot
+  approve their own PRs on a solo repo, and the no-self-merge rule is this agreement's
+  convention on top of it. Direct pushes to `dev` are rejected either way.
+- **Never open a PR against `main`** except the single standing `dev -> main` PR (G8), which
+  accumulates each cycle and is updated, never duplicated. `main` requires 1 approving review
+  plus **signed commits**: merge the standing PR by **squash** in the GitHub UI (GitHub signs
+  the squash commit); a merge-commit or rebase-merge fails on unsigned agent commits.
+- `main` advances only on the owner's explicit G8 go-ahead. Nothing merges around the flow;
+  if `dev` ever trails `main`, something did, reconcile before cutting new branches.
 
 ## Automation
 
-`.claude/skills/feature-cycle/` drives these gates end-to-end (see its `SKILL.md`). It does not
-redefine the gates; this README is the source of truth. The `cycle-retrospective` agent runs at
-the end of every cycle and is enforced by a `Stop` hook
-(`.claude/hooks/enforce-cycle-retro.sh`). If a run ever gets stuck behind that hook, the manual
-unstick is `rm .claude/.feature-cycle-pending-retro`.
+The `product-owner` agent (`.claude/agents/product-owner.md`, local-only: `.claude/` is
+gitignored) does triage, RICE/WSJF scoring (stamps land as issue comments), grooming, sprint
+and roadmap proposals, and board reconciliation. It is optional: every query and gate above
+works by hand, so the process is a repo property, not a machine property.
 
 ## Dates
 
-Dates in process files are `Europe/London`.
+Dates in process artifacts are `Europe/London`. Cite gates and sections by name, not line
+number; line numbers are for code.
