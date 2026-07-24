@@ -125,6 +125,24 @@ grab-bag sprint mints a lightweight epic issue for the same purpose.
   accumulates each cycle and is updated, never duplicated. `main` requires 1 approving review
   plus **signed commits**: merge the standing PR by **squash** in the GitHub UI (GitHub signs
   the squash commit); a merge-commit or rebase-merge fails on unsigned agent commits.
+  Note the review requirement cannot be satisfied normally on a solo repo (GitHub forbids
+  approving your own PR), so the squash lands via the owner's **admin override** ("merge without
+  waiting for requirements", or `gh pr merge --squash --admin`). `enforce_admins` is off for
+  exactly this reason; `required_signatures` still applies and the squash commit is signed.
+- **After every G8 squash, merge `main` back into `dev`.** Squashing means `dev` never becomes an
+  ancestor of `main`, so the merge base stops advancing. Files legitimately changed on both sides
+  then collide and the NEXT `dev -> main` PR fails on phantom conflicts, even when the real content
+  difference is one commit. (Hit for real on 2026-07-24: `dev -> main` conflicted on
+  `web/app/dashboard.html` with a merge base three days stale.) The fix restores shared ancestry:
+
+      git switch -c sync-main-into-dev origin/dev
+      git merge origin/main          # resolve any conflict by taking dev's side
+      # verify it is ancestry-only: `git diff origin/dev` MUST be empty
+      # open a PR into dev and merge it with a MERGE COMMIT
+
+  Merge that sync PR with a **merge commit, never squash** — squashing flattens the merge and
+  destroys the very ancestry it exists to create. Confirm with
+  `git merge-base --is-ancestor origin/main origin/dev` before cutting the next release.
 - `main` advances only on the owner's explicit G8 go-ahead. Nothing merges around the flow;
   if `dev` ever trails `main`, something did, reconcile before cutting new branches.
 
