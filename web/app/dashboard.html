@@ -122,6 +122,8 @@
   #signin-card .lede{color:var(--muted-fg);font-size:13.5px;line-height:1.5;text-align:center;margin:0 0 20px;}
   .signin-field label{display:block;margin:0 0 6px;}
   .signin-note{color:var(--muted2);font-size:12px;text-align:center;margin:16px 0 0;}
+  /* the always-shown "didn't get it?" note: quieter than the lede so it reads as a footnote */
+  #signin-card .lede.signin-fine{font-size:12px;color:var(--muted2,var(--muted-fg));margin:-8px 0 18px;}
   .signin-ok{text-align:center;}
   .signin-ok .check{width:46px;height:46px;border-radius:50%;background:var(--accent-bg);color:var(--brand);
     display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
@@ -375,6 +377,30 @@ $("#search").addEventListener('input', ()=>{ shownCap=0; applyFilter(); });   //
 let _rz; window.addEventListener('resize', ()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ shownCap=Math.max(shownCap, viewportCap()); applyFilter(); }, 120); });   // grow to fill on resize
 // ---- auth gating (#131): anonymous visitors get the sign-in screen, not the empty dashboard ----
 const MAIL='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';
+// Magic-link send limits, mirrored from MagicLink's defaults in src/mdreview/hosted/magiclink.py
+// (max_per_address=3, address_window_s=900). Copy only — the SERVER stays the sole enforcer; this is
+// for telling the user why a link may not have arrived. Keep in sync if those defaults change.
+const LINK_MAX=3, LINK_WINDOW_MS=900000, LINK_KEY='mdr.linkreq.';
+// Request timestamps are tracked HERE, in the browser, on purpose: the /auth/magic-link response is a
+// single constant body precisely so a caller cannot probe rate state or enumerate addresses. Reporting
+// the throttle from local history keeps the user informed without the server disclosing anything.
+function linkHistory(addr){
+  const k=LINK_KEY+addr.toLowerCase(), now=Date.now();
+  let hist=[];
+  try{ hist=JSON.parse(localStorage.getItem(k)||'[]').filter(t=>now-t<LINK_WINDOW_MS); }catch(_){}
+  return {key:k, hist:hist, now:now};
+}
+function recordLinkRequest(addr){
+  const {key,hist,now}=linkHistory(addr);
+  hist.push(now);
+  try{ localStorage.setItem(key, JSON.stringify(hist)); }catch(_){}
+}
+// Minutes until the OLDEST request in the window ages out, freeing a slot.
+function linkCooldownMins(addr){
+  const {hist,now}=linkHistory(addr);
+  if(hist.length<LINK_MAX) return 0;
+  return Math.max(1, Math.ceil((LINK_WINDOW_MS-(now-Math.min.apply(null,hist)))/60000));
+}
 function initSignin(){
   const form=$("#signin-form"), email=$("#signin-email");
   if(email) email.focus();
@@ -383,16 +409,29 @@ function initSignin(){
     const addr=(email.value||"").trim();
     if(!addr){ email.focus(); return; }
     const btn=$("#signin-btn"); btn.disabled=true; btn.textContent="Sending…";
+    // Read the cooldown BEFORE recording this attempt, so it reflects the state the server saw.
+    const waitMins=linkCooldownMins(addr);
     // Always show the SAME confirmation whatever the result — the backend never reveals whether the
     // address exists, so neither do we (no account enumeration).
     try{ await fetch('/auth/magic-link',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({email:addr})}); }catch(_){}
+    recordLinkRequest(addr);
+    // Throttled: the server silently declined to send, so say so rather than leaving the user waiting
+    // on an email that is never coming.
+    const lede = waitMins
+      ? `You've already requested ${LINK_MAX} links for <span class="addr">${esc(addr)}</span> in the last `+
+        `15 minutes, so a new one wasn't sent.<br>Your most recent link still works — check your inbox `+
+        `and spam. You can request another in about ${waitMins} minute${waitMins===1?'':'s'}.`
+      : `If <span class="addr">${esc(addr)}</span> can sign in, a link is on its way.<br>`+
+        `It's valid once and expires shortly.`;
     $("#signin-card").innerHTML=
       `<section><div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
       `<div class="signin-ok"><div class="check">${MAIL}</div>`+
       `<h1>Check your email</h1>`+
-      `<p class="lede">If <span class="addr">${esc(addr)}</span> can sign in, a link is on its way.<br>`+
-      `It's valid once and expires shortly.</p>`+
+      `<p class="lede">${lede}</p>`+
+      // Shown to everyone, always the same text, so it reveals nothing about this address.
+      `<p class="lede signin-fine">Didn't get it? Check your spam folder. Sign-in links are limited to `+
+      `${LINK_MAX} per 15 minutes per address.</p>`+
       `<button class="linklike" onclick="location.reload()">Use a different email</button></div></section>`;
   });
 }
