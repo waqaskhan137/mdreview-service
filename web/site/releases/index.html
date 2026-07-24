@@ -85,16 +85,65 @@
 
     <div class="timeline">
 
-      <!-- v0.1.0 -->
+      <!-- v0.2.0 -->
       <section class="entry latest">
         <div class="card">
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
-            <span class="ver">v0.1.0</span>
+            <span class="ver">v0.2.0</span>
             <span class="pill">Latest</span>
+            <span style="flex:1"></span>
+            <span style="color:var(--muted2);font-size:13.5px">Jul 24, 2026</span>
+          </div>
+          <h2 style="font-size:24px;line-height:1.2;letter-spacing:-.02em;font-weight:700">Accounts, sharing, and a rebuilt interface</h2>
+          <p style="color:var(--muted);font-size:15.5px;margin-top:12px">mdreview grows from a single-user tool into a hosted service you
+            can share. Sign in with a magic link, keep your documents to yourself by default, then open one up — by public link or by
+            inviting people you name. The whole interface was rebuilt on one design system along the way.</p>
+
+          <div data-grid2 style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px">
+            <div class="feat">
+              <h4>Accounts and per-document custody</h4>
+              <p>Native sign-in, no third-party identity provider required. Every review belongs to whoever created it, and access is
+                gated at a single custody choke point rather than per-route — so a document you did not create is not yours to read,
+                comment on, or delete. Anonymous callers get nothing.</p>
+            </div>
+            <div class="feat">
+              <h4>Sharing: public links and named people</h4>
+              <p>Flip a review to a public, view-only link, or invite specific people by email with <em>view</em> or <em>comment</em>
+                rights. Revocation takes effect immediately. Available on markdown and LaTeX reviews alike.</p>
+            </div>
+            <div class="feat">
+              <h4>Admin console</h4>
+              <p>Manage the people on your instance: grant or revoke admin, ban and unban, revoke tokens and live sessions, and keep an
+                email/IP blocklist that is refused at the sign-in step.</p>
+            </div>
+            <div class="feat">
+              <h4>Rebuilt UI on shared design tokens</h4>
+              <p>One token layer drives every page, with light and dark following your system. The dashboard, account, and admin pages
+                were rebuilt on component styles; the viewer gained a composer that sits beside the text it annotates, comments that
+                stay anchored to their block as the document changes, and a version-history diff.</p>
+            </div>
+          </div>
+
+          <p style="color:var(--muted2);font-size:13.5px;margin-top:18px;padding-top:16px;border-top:1px solid var(--rule)">
+            Agents connect with per-user API tokens minted from your account page and dropped into an MCP config once. The LaTeX review
+            mode introduced in v0.1.0 now has full comment and sharing parity with markdown reviews.</p>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
+            <a class="flink" href="https://github.com/ranawaqas-ai/mdreview-service/releases/tag/v0.2.0">Release notes on GitHub →</a>
+            <a class="flink" href="/docs/">Docs</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- v0.1.0 -->
+      <section class="entry">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+            <span class="ver">v0.1.0</span>
             <span style="flex:1"></span>
             <span style="color:var(--muted2);font-size:13.5px">Jul 22, 2026</span>
           </div>
-          <h2 style="font-size:24px;line-height:1.2;letter-spacing:-.02em;font-weight:700">LaTeX paper review mode + template catalog</h2>
+          <h2 style="font-size:20px;line-height:1.25;letter-spacing:-.02em;font-weight:680">LaTeX paper review mode + template catalog</h2>
           <p style="color:var(--muted);font-size:15.5px;margin-top:12px">The review loop now handles LaTeX papers. Your agent creates a
             <code>kind=latex</code> review; you get an Overleaf-style split view — source on the left, a live-compiled PDF on the right —
             and comment on it exactly like a markdown draft.</p>
