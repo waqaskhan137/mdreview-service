@@ -1,0 +1,12 @@
+# /etc/sudoers.d/agent — restricted `agent` user may run ONLY these three read-only wrappers as root.
+# Installed 0440, validated with `visudo -c` (see agent-user-setup.sh). Exact commands, NO wildcards:
+# `agent-logs` takes args (container/n) validated inside the wrapper; the others take none.
+# There is deliberately NO agent-deploy / restart / edit line — the agent has no mutating capability.
+#
+# env_reset (sudo default) is asserted; MDR_*/LD_*/BASH_ENV/IFS must never be in env_keep, so an agent
+# cannot smuggle environment into a wrapper. secure_path pins the wrappers' PATH.
+Defaults:agent   env_reset, secure_path="/usr/sbin:/usr/bin:/sbin:/bin"
+
+agent ALL=(root) NOPASSWD: /usr/local/agent/agent-logs, \
+                           /usr/local/agent/agent-status, \
+                           /usr/local/agent/agent-drift
