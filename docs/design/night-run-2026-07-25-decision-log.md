@@ -146,6 +146,51 @@ screenshot of a "static" element proves nothing. #184's reduced-motion AC is the
 computed `animationName`/`currentTime` stepping under a CDP override, exactly as its AC already
 says — and #184 is out of this sprint anyway.
 
+### D13 SUPERSEDED · The owner rejected hand deployment. Root cause fixed instead — but the host is unreachable.
+
+The owner's response to D13 was correct and I had under-thought it: describing a manual
+`--force-recreate` as the plan normalises a broken automation. The pipeline is *designed* to be
+fully automatic in two hops — CI builds and pushes `:dev` on a `dev` push (works), and the host's
+`mdreview-autoupdate.timer` pulls, health-gates and recreates (broken, #163). Hop 2 is the
+automation; doing it by hand is not "deploying", it is papering over the bug.
+
+**So #163 was fixed rather than worked around.** Pulled into sprint-34, shipped as PR #191, merged
+to `dev`, issue at `status:review`. The script compared `{{.Id}}` of the pulled multi-arch tag
+(manifest digest under containerd) against `{{.Image}}` of the running container (config id) —
+never equal, so the no-churn check never fired and the adoption guard reported "did not adopt"
+forever. Now: one digest kind on both sides (repo digest vs a `.deployed-digest` marker written
+only after a passing health gate), `--force-recreate`, and a container-id adoption guard that is
+storage-driver agnostic. Prod runs the same script and had the same latent bug.
+
+`tests/autoupdate_digest_smoke.sh` is new and is the executable check the script never had. It was
+**run against the pre-fix script and fails there** with #163's own symptom, so it is a regression
+test rather than decoration.
+
+### D15 · BLOCKER: the Kapture host cannot be reached, so the fix cannot be installed tonight
+
+`ssh kapture` -> **connection refused on port 22** (72.62.4.70). The host is not down: it answers
+ping, and both `staging.mdreview.space/healthz` and `app.mdreview.space/healthz` return 200. So
+sshd is down, moved, or firewalled from this network. Stopped after three attempts rather than
+probing further, which would be guessing at someone's infrastructure.
+
+**Consequence, and it changes what the owner sees in the morning.** The fixed script lives in the
+repo; the *host* still runs the old one. So tonight:
+
+- Sprint work merges to `dev`. ✓
+- CI builds and pushes the `:dev` image. ✓
+- Staging does **not** pick it up — the host's copy of the script is still broken. ✗
+- I cannot hand-deploy either, which is moot since the owner ruled that out anyway. ✗
+
+**Adaptation: verification moves local.** The throwaway hosted instance on `:8172` already works,
+so every ticket is still verified against a real running server with the same render-smoke and
+computed-style gates, and screenshots are captured there for the morning eyeball. What the owner
+loses is *staging* specifically, not verification. Recorded plainly rather than quietly
+substituting one for the other.
+
+**First thing needed in the morning:** SSH access. Once the host is reachable, installing the one
+fixed script is a single step, after which every `dev` merge — including tonight's — deploys itself
+with no further manual act. That is the outcome the owner asked for; only the bootstrap is blocked.
+
 ---
 
 ## Run-time decisions
