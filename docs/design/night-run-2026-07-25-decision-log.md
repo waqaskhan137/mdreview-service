@@ -106,6 +106,48 @@ card cannot both be right from one `--radius`. #177's after-state must show `.bt
 
 ---
 
+## The delivery loop (owner-specified, 2026-07-26)
+
+Branch per issue → PR into `dev` → merge → work accumulates on `dev` → deploy to staging →
+visually inspect → hand back. The owner holds approval on what happens after.
+
+### D12 · PRs merge sequentially, not batched at the end
+The owner said "gather all PRs and merge to dev". Reading that as *the work accumulates on `dev`*,
+not *six PRs sit open until the end*, because **#178 consumes #177's tokens and #182 consumes
+#178's shell** — an unmerged stack means each ticket is verified against a `dev` that does not
+yet contain what it depends on, which is how you get six green PRs and a broken `dev`. Each
+ticket therefore: branch from current `dev`, PR, self-merge, next branch from the updated `dev`.
+One staging deploy at the end covering everything, per the loop above.
+
+### D13 · Staging does NOT auto-deploy — that assumption is false, and #163 is why
+The owner's instruction says "watch if it gets deployed automatically on staging". Half of that
+happens:
+
+- `.github/workflows/staging-image.yml` **does** build and push the `:dev` image on a `dev` push. ✓
+- The staging host **never adopts it**. That is open bug **#163** — `auto-update.sh` never picks
+  up a new `:dev` image under the containerd image store (manifest-vs-config digest mismatch). ✗
+
+So waiting for staging to update on its own would mean waiting all night and reporting nothing.
+**Decision: deploy staging by hand**, using the established documented workaround —
+`docker pull :dev` then `compose up -d --force-recreate mdreview-staging` on the Kapture host,
+**health-gated on `healthz`=200 and `/api/reviews`=401** (the second proves custody is intact and
+the instance did not come up unauthenticated). This is staging, not prod, and the procedure is
+already the recorded norm rather than something invented tonight.
+
+If the host is unreachable, or the health gate fails, I **restore the previous image and report**
+rather than leave staging broken overnight. A broken staging box the owner wakes up to is worse
+than an un-deployed one.
+
+### D14 · Chrome-extension inspection is valid for layout, not for animation
+Screenshots via the browser extension are the right tool for the shell, the row rules, both
+themes, and the narrow-width pass. They are **not** valid evidence for `prefers-reduced-motion`
+or any CSS animation: automation tabs are backgrounded, which freezes CSS animations, so a
+screenshot of a "static" element proves nothing. #184's reduced-motion AC is therefore verified by
+computed `animationName`/`currentTime` stepping under a CDP override, exactly as its AC already
+says — and #184 is out of this sprint anyway.
+
+---
+
 ## Run-time decisions
 
 Appended as the run proceeds. Each entry: ticket, decision, why, and what would falsify it.
