@@ -67,6 +67,45 @@ Six code tickets, each with a real verification gate, is optimistic for one unat
 
 ---
 
+## Pre-flight — done before the owner slept
+
+Deliberately validated the verification toolchain first, because a night run that discovers at
+03:00 that it cannot verify anything is a night run that ships unverified work.
+
+### D5 amended · Docker is not running on this machine
+`docker ps` fails — no daemon. So "throwaway container" becomes **throwaway stdlib process**:
+same isolation (own port `:8172`, own `MDREVIEW_DATA` under `.scratch/`), no daemon needed. The
+live instance on `:8139` is still untouched and `docker compose up` is still never run, which is
+what D5 was actually protecting. Harness checked in at `.scratch/nr-up.sh`.
+
+### The hosted plane needs six env vars and fails closed on each
+Discovered one at a time, because each guard refuses to boot rather than defaulting:
+`MDREVIEW_SESSION_SECRET`, `MDREVIEW_TOKEN_PEPPER`, `MDREVIEW_OWNER_EMAIL` (without it "a stranger
+could self-crown under open membership", #67 H1), `MDREVIEW_ALLOW_PROXY_PLANE=0`,
+`MDREVIEW_PUBLIC_BASE` (absolute `https://`), and an email sender — which refuses to boot
+"rather than silently leak login tokens". That is good design and tedious bring-up; the script
+now encodes all six so it is derived once, not six times.
+
+### What is reachable without a session
+`/` 200, `/admin` 200, `/account` **401**. So `/account`'s verification in #178 needs a session
+cookie; the pattern exists at `tests/auth_smoke.py` (`cookie(sub, email)`, its own pepper and
+session secret). Noted now so #178 does not stall on it.
+
+### Both AC tools work, and fail loudly rather than false-passing
+- `tests/render-smoke.sh` — reported `MISSING: .btn (0 nodes)` against a down server rather than
+  passing. That is the R2 gate behaving correctly.
+- `scripts/cdp-shot.mjs --eval` — reported `eval threw` rather than passing. `--resize 1180x900`
+  confirmed `window.innerWidth===1180`, so **R3's breakpoint method is validated** before #180
+  depends on it.
+
+### Baseline captured: #177's premise is confirmed empirically
+On `/admin` as it stands today, `.btn` computes to **6px** and `.card` to **12px**. That is
+exactly the mismatch the critic derived from Basecoat's `calc()` offsets in round 1 — control and
+card cannot both be right from one `--radius`. #177's after-state must show `.btn` 8px, `.card`
+12px. The before/after now has a measured baseline rather than an assumed one.
+
+---
+
 ## Run-time decisions
 
 Appended as the run proceeds. Each entry: ticket, decision, why, and what would falsify it.
