@@ -18,7 +18,7 @@
   .tophead{display:flex;align-items:center;justify-content:space-between;gap:12px}
   h1{font-size:22px;margin:0 0 4px} .sub{color:var(--muted-fg);margin:0 0 24px} h2{font-size:15px;margin:8px 0 2px}
   .muted{color:var(--muted-fg)} .email{font-weight:500}
-  .you{font-size:10px;color:var(--muted2);border:1px solid var(--rule);border-radius:20px;padding:1px 7px;margin-left:7px}
+  .you{font-size:10px;color:var(--muted2);border:1px solid var(--rule);border-radius:var(--r-pill);padding:1px 7px;margin-left:7px}
   /* semantic role/status colours layered on Basecoat's .badge base */
   .badge.b-owner{background:var(--accent-bg);color:var(--brand);border-color:transparent}
   .badge.b-admin{background:var(--good-bg);color:var(--good);border-color:transparent}
@@ -26,16 +26,25 @@
   .chip{font-size:11.5px;font-weight:600}
   .chip.active{color:var(--good)} .chip.banned{color:var(--danger)}
   .rowbanned td{opacity:.55}
-  .acts{text-align:right;white-space:normal} .acts .btn{margin:2px 0 2px 5px}
+  .acts{text-align:right;white-space:normal}
   .notice{text-align:center;color:var(--muted-fg);padding:52px 0}
   .notice b{color:var(--text);display:block;margin-bottom:6px;font-size:16px}
-  /* interaction bars (confirm + flash) — token-styled, radius from Basecoat */
+  /* Confirm bar. The flash bar is theme.css's shared `.flash` (#178) — admin does not redeclare it. */
   #confirmbar{display:none;align-items:center;gap:10px;background:var(--warn-bg);border:1px solid var(--warn-rule);
-    border-radius:var(--radius);padding:11px 14px;margin:0 0 14px}
+    border-radius:var(--r-control);padding:11px 14px;margin:0 0 14px}
   #confirmbar .msg{flex:1}
-  #flash{display:none;padding:11px 14px;border-radius:var(--radius);margin:0 0 14px;font-size:13px}
-  #flash.err{display:block;background:var(--danger-bg);border:1px solid var(--danger-rule);color:var(--danger)}
-  #flash.ok{display:block;background:var(--good-bg);border:1px solid var(--good-rule);color:var(--good)}
+  /* Row menu (#179). Basecoat positions [data-popover] `position:absolute` inside the relative
+     .dropdown-menu — NOT in the top layer — so every scrolling/clipping ancestor between the menu
+     and the page would cut it off: Basecoat's own `.card{overflow:hidden}` and `.table-container
+     {overflow-x:auto}` (one axis non-visible forces the other to `auto`). Both are opened up HERE,
+     scoped to the user card, rather than globally. The menu also sits in the right-aligned last
+     column, so it is anchored to the trigger's right edge or it spills past the card. */
+  #usercard{overflow:visible}
+  #panel .table-container{overflow:visible}
+  .acts .dropdown-menu>[data-popover]{left:auto;right:0}
+  .acts [role=menu]{min-width:190px}
+  .acts [role=menuitem],.acts [role=menuitemcheckbox]{font:inherit;background:none;border:0;text-align:left}
+  .acts [data-indicator]{font-size:12px;line-height:1}
   /* blocklist */
   .blockadd{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
   .blockadd input#blockval{max-width:200px} .blockadd input#blocknote{flex:1;min-width:140px}
@@ -43,7 +52,7 @@
   .blockrow:last-child{border-bottom:none}
   .blockrow .bv{font-weight:500}
   .blockrow .bk{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted2);
-    border:1px solid var(--rule);border-radius:20px;padding:1px 7px}
+    border:1px solid var(--rule);border-radius:var(--r-pill);padding:1px 7px}
   .blockrow .bn{flex:1;color:var(--muted-fg)} .blockrow .brm{margin-left:auto}
   .blockempty{color:var(--muted-fg);padding:8px 0}
 </style>
@@ -57,8 +66,8 @@
   <h1>Admin</h1>
   <p class="sub">Manage the people on this mdreview instance.</p>
   <div id="confirmbar"><span class="msg"></span><button class="btn mini danger" data-variant="destructive" data-size="sm" id="cfy">Confirm</button><button class="btn mini" data-variant="outline" data-size="sm" id="cfn">Cancel</button></div>
-  <div id="flash"></div>
-  <div class="card"><section><div id="panel" class="notice">Loading…</div></section></div>
+  <div id="flash" class="flash" role="status" aria-live="polite"></div>
+  <div class="card" id="usercard"><section><div id="panel" class="notice">Loading…</div></section></div>
 
   <div class="card" id="blockcard" style="display:none">
     <header>
@@ -76,6 +85,9 @@
     </section>
   </div>
 </div>
+<!-- Undo surface for the ban (#179). OUTSIDE .wrap and outside #panel: the `#panel .mini` re-bind at
+     renderUsers() must never see a toast button. Basecoat's MutationObserver initialises it. -->
+<div id="toaster" class="toaster" data-align="end"></div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -83,7 +95,10 @@ let ME = null, CSRF = "";
 function esc(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function fmt(ts){ return ts ? new Date(ts*1000).toISOString().slice(0,10) : "-"; }
 function notice(title, body){ return '<div class="notice"><b>'+esc(title)+'</b>'+esc(body||"")+'</div>'; }
-function flash(msg, kind){ const f=$("#flash"); f.textContent=msg; f.className=kind; if(kind){ setTimeout(()=>{ f.className=""; }, 4000); } }
+// The base class stays on in every state: theme.css's shared `.flash` carries `display:none`, so
+// clearing className outright would leave the bar permanently visible and unstyled.
+function flash(msg, kind){ const f=$("#flash"); f.textContent=msg; f.className=kind?("flash "+kind):"flash";
+  if(kind){ setTimeout(()=>{ f.className="flash"; }, 4000); } }
 
 function askConfirm(msg, onYes){
   const bar=$("#confirmbar"); bar.querySelector(".msg").textContent=msg; bar.style.display="flex";
@@ -114,47 +129,109 @@ function roles(u){
   return b.length ? b.join("") : '<span class="muted">member</span>';
 }
 function statusChip(st){ return st==="banned" ? '<span class="chip banned">Banned</span>' : '<span class="chip active">Active</span>'; }
-// act(action, label, value, danger) -> a button carrying its intent; uid/email added by the row.
-function act(action, label, value, danger){
-  return {action, label, value, danger};
+// act(action, label, value, danger) -> one menu item carrying its intent; uid/email added by the row.
+// `text` is what the item reads on screen; `label` stays the sentence the flash and the confirm use.
+// `checked` is null for a plain command and true/false for a role toggle, which renders it as a
+// menuitemcheckbox so the CURRENT role is visible without opening anything else.
+function act(action, label, value, danger, text, checked){
+  return {action, label, value, danger, text:text||label, checked:(checked===undefined?null:checked)};
 }
+// Role and Ban belong to the same decision (§06), so one menu carries both — plus the two session
+// levers, which have working endpoints and would otherwise be silently dropped.
+//
+// Role is TWO independent booleans server-side (is_admin, super_read), not a three-way choice: a
+// user can hold both, and `:145` posts exactly one action per click. Member/Admin/Super-read as
+// radios could therefore show two checked at once and could not demote a both-roles user in one
+// POST — a control that half-applies. So Admin and Super-read are checkboxes and "Member" is simply
+// the state where neither is checked, which `roles()` already prints in the Roles column.
+//
+// The isMe carve-outs mirror the server's self-lockout guards (adminroutes.py:123-128): an admin can
+// neither ban themselves nor drop their own admin role, so those items are not offered.
 function actionsFor(u){
   if(u.is_owner) return [];                       // the owner row is protected: no actions
-  const isMe=u.uid===ME, banned=u.status==="banned", a=[];
-  if(!isMe) a.push(banned ? act("unban","Unban",true,false) : act("ban","Ban",true,true));
-  if(!isMe) a.push(u.is_admin ? act("admin","Revoke admin",false,true) : act("admin","Make admin",true,false));
-  a.push(u.super_read ? act("super-read","Revoke super-read",false,true) : act("super-read","Grant super-read",true,false));
-  a.push(act("revoke-tokens","Revoke tokens",true,true));
-  a.push(act("revoke-sessions","Revoke sessions",true,true));
-  return a;
+  const isMe=u.uid===ME, banned=u.status==="banned";
+  const role=[], sessions=[], access=[];
+  if(!isMe) role.push(u.is_admin ? act("admin","Revoke admin",false,true,"Admin",true)
+                                 : act("admin","Make admin",true,false,"Admin",false));
+  role.push(u.super_read ? act("super-read","Revoke super-read",false,true,"Super-read",true)
+                         : act("super-read","Grant super-read",true,false,"Super-read",false));
+  sessions.push(act("revoke-tokens","Revoke tokens",true,true));
+  sessions.push(act("revoke-sessions","Revoke sessions",true,true));
+  if(!isMe) access.push(banned ? act("unban","Unban",true,false) : act("ban","Ban",true,true));
+  return [{heading:"Role", items:role}, {items:sessions}, {items:access}];
+}
+function menuItem(u, x){
+  const role = x.checked===null ? "menuitem" : "menuitemcheckbox";
+  // Only the commands are dressed destructive; a role checkbox must not turn red merely for being on.
+  const variant = (x.danger && x.checked===null) ? ' data-variant="destructive"' : "";
+  return '<button type="button" role="'+role+'"'+(x.checked===null?"":' aria-checked="'+x.checked+'"')
+    +' class="mini'+(x.danger?" danger":"")+'"'+variant
+    +' data-action="'+x.action+'" data-value="'+x.value+'" data-uid="'+esc(u.uid)
+    +'" data-email="'+esc(u.email)+'" data-label="'+esc(x.label)+'">'+esc(x.text)
+    +(x.checked===null?"":'<span data-indicator aria-hidden="true">&check;</span>')+'</button>';
+}
+function rowMenu(u){
+  const groups=actionsFor(u).filter(g=>g.items.length);
+  if(!groups.length) return '<span class="muted">&mdash;</span>';   // the owner: nothing to arm
+  const id="m-"+esc(u.uid);
+  const body=groups.map(g=>(g.heading?'<div role="heading">'+esc(g.heading)+'</div>':"")
+    +g.items.map(x=>menuItem(u,x)).join("")).join('<hr role="separator">');
+  return '<div class="dropdown-menu">'
+    +'<button type="button" class="btn" data-variant="outline" data-size="sm" aria-haspopup="menu"'
+    +' aria-controls="'+id+'" id="t-'+id+'">Manage</button>'
+    +'<div data-popover aria-hidden="true" id="'+id+'">'
+    +'<div role="menu" aria-labelledby="t-'+id+'">'+body+'</div></div></div>';
 }
 function renderUsers(users){
   const rows = users.map(u=>{
-    const acts = actionsFor(u).map(x=>
-      '<button class="btn mini'+(x.danger?" danger":"")+'" data-variant="'+(x.danger?"destructive":"outline")+'" data-size="sm" data-action="'+x.action+'" data-value="'+x.value
-      +'" data-uid="'+esc(u.uid)+'" data-email="'+esc(u.email)+'" data-label="'+esc(x.label)+'">'+esc(x.label)+'</button>').join("");
+    const acts = rowMenu(u);
     return '<tr'+(u.status==="banned"?' class="rowbanned"':'')+'>'
       +'<td class="email">'+esc(u.email)+(u.uid===ME?' <span class="you">you</span>':'')+'</td>'
       +'<td>'+statusChip(u.status)+'</td>'
       +'<td>'+roles(u)+'</td>'
       +'<td class="muted">'+fmt(u.created)+'</td>'
-      +'<td class="acts">'+(acts||'<span class="muted">&mdash;</span>')+'</td></tr>';
+      +'<td class="acts">'+acts+'</td></tr>';
   }).join("");
   $("#panel").className=""; $("#panel").removeAttribute("style");
   $("#panel").innerHTML='<div class="table-container"><table class="table"><thead><tr><th>User</th><th>Status</th><th>Roles</th><th>Joined</th><th class="acts">Actions</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   document.querySelectorAll("#panel .mini").forEach(b=>b.addEventListener("click",()=>{
     const {action, uid, email, label} = b.dataset, value = b.dataset.value==="true";
-    if(b.classList.contains("danger")) askConfirm(label+" — "+email+"?", ()=>doAction(action, uid, email, value, label));
+    if(b.classList.contains("danger")) askConfirm(confirmCopy(action, email, label), ()=>doAction(action, uid, email, value, label));
     else doAction(action, uid, email, value, label);
   }));
+}
+// What the operator is actually about to do. Ban says its blast radius, because "Ban sam@acme.io?"
+// alone does not tell you whether the account's documents go with it.
+//
+// It does NOT quote a review count: /admin/users (users.py:116) returns none, and this slice may not
+// change the API. A wrong or invented number is worse than no number.
+function confirmCopy(action, email, label){
+  if(action==="ban")
+    return "Ban "+email+"? They lose access immediately: open sessions and API tokens stop working. "
+         + "Their reviews are kept, and you can undo this for 10 seconds.";
+  return label+" for "+email+"?";
+}
+const UNDO_MS=10000;
+// After a ban, the undo IS the safety net: 10 seconds to take it back without hunting for the row.
+function offerUndo(uid, email){
+  const t=$("#toaster");
+  if(!t || typeof t.toast!=="function") return;      // no toaster (bundle blocked): the ban still stands
+  const el=t.toast({category:"warning", title:"Banned "+email,
+                    description:"Access revoked. Undo within 10 seconds.",
+                    cancel:{label:"Undo"}, duration:UNDO_MS});
+  const undo=el && el.querySelector("[data-toast-cancel]");
+  // Routed through doAction so the unban carries the CSRF header and re-renders like any other action.
+  if(undo) undo.addEventListener("click", ()=>doAction("unban", uid, email, true, "Unban"));
 }
 async function doAction(action, uid, email, value, label){
   let r; try{
     r=await fetch("/admin/users/"+encodeURIComponent(uid)+"/"+action,
       {method:"POST", headers:{"Content-Type":"application/json","X-CSRF-Token":CSRF}, body:JSON.stringify({value})});
-  }catch(e){ flash("Network error.", "err"); return; }
-  if(r.ok){ flash(label+": "+email, "ok"); loadUsers(); }
-  else{ const j=await r.json().catch(()=>({})); flash((j.error||("Failed ("+r.status+")"))+" — "+email, "err"); }
+  }catch(e){ flash("Network error.", "err"); loadUsers(); return; }
+  if(r.ok){ flash(label+": "+email, "ok"); if(action==="ban") offerUndo(uid, email); loadUsers(); }
+  // Re-render on failure too: Basecoat flips a menuitemcheckbox's aria-checked optimistically on
+  // click, so without this a refused role change leaves a tick mark asserting a state that is false.
+  else{ const j=await r.json().catch(()=>({})); flash((j.error||("Failed ("+r.status+")"))+": "+email, "err"); loadUsers(); }
 }
 // ---- Blocklist (#143): block an email or IP from the sign-in link step ----
 async function loadBlock(){
