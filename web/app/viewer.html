@@ -189,6 +189,11 @@
     border:1px solid var(--rule);border-radius:var(--r-control);padding:5px 12px;cursor:pointer;
     text-transform:none;letter-spacing:normal;}
   .tb-btn:hover{border-color:var(--muted2,var(--muted-fg));}
+  /* #181 (§08 rule 01) — the button states what is true: brand-tinted once a public link OR a
+     named grantee exists. Declared AFTER :hover on purpose — both are (0,2,0), so source order
+     is what stops the brand border reverting to grey under the pointer. */
+  .tb-btn.shared,.tb-btn.shared:hover{color:var(--brand);background:var(--accent-bg);border-color:var(--brand);}
+  .tb-btn .ct{font-weight:500;opacity:.75;}
   .share-wrap{position:relative;display:flex;}
   .sharepop{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--panel);
     border:1px solid var(--rule);border-radius:var(--r-panel);box-shadow:0 12px 40px rgba(20,22,40,.16);
@@ -211,6 +216,10 @@
   .share-copy{font:inherit;font-size:12.5px;font-weight:600;padding:8px 14px;border:none;
     border-radius:var(--r-control);background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
   .share-copy:hover{opacity:.92;}
+  /* Confirmed state (§08 rule 02). The ring is an inset shadow, not a border: .share-copy has
+     border:none, and adding one here would shift the row by 2px on every confirm. */
+  .share-copy.ok,.share-copy.ok:hover{background:var(--good-bg);color:var(--good);opacity:1;
+    box-shadow:inset 0 0 0 1px var(--good-rule);}
   /* #134 named-share / people section */
   .share-sep{height:1px;background:var(--rule);margin:16px 0;}
   .share-people h4{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.05em;
@@ -878,16 +887,41 @@ async function initShare(){
   _pubRight = d.public || null;                        // "view" or null
   _shares = d.shares || [];
   try{ _shareCsrf = ((await fetch("/auth/session",{cache:"no-store"}).then(x=>x.json())) || {}).csrf || ""; }catch(e){}
+  updateShareBtn();                                    // state before first paint, not on first open
   btn.style.display = "";
   btn.addEventListener("click", e=>{ e.stopPropagation(); pop.hidden = !pop.hidden; if(!pop.hidden) renderShare(); });
   document.addEventListener("click", e=>{ if(!pop.hidden && !pop.contains(e.target) && e.target!==btn) pop.hidden = true; });
 }
 function shareUrl(){ return location.origin + "/review/" + encodeURIComponent(ID); }
+// #181 (§08 rule 01): "Share" while private, "Shared" in --brand once a public link OR a named
+// grantee exists, carrying the people count. The count is grantees (_shares), not the owner.
+function updateShareBtn(){
+  const btn = document.getElementById("sharebtn"); if(!btn) return;
+  const n = _shares.length, shared = !!_pubRight || n > 0;
+  btn.classList.toggle("shared", shared);
+  btn.innerHTML = (shared ? "Shared" : "Share") + (n ? ' <span class="ct">&middot; ' + n + '</span>' : "");
+}
+// Clipboard write, best effort. navigator.clipboard needs a secure context and live user
+// activation; where it is refused, the selected input still leaves ⌘C one keystroke away.
+async function copyShareLink(input){
+  try{ if(input){ input.focus(); input.select(); } }catch(e){}
+  try{ await navigator.clipboard.writeText(shareUrl()); return true; }
+  catch(e){ try{ return !!(input && document.execCommand("copy")); }catch(e2){ return false; } }
+}
+// The button CONFIRMS (§08 rule 02) — and only when the write actually landed; a refused write
+// leaves it reading "Copy" rather than claiming a clipboard the user does not have.
+function markCopied(done){
+  const cp = document.querySelector("#sharepop #pubcopy");
+  if(!cp || !done) return;
+  cp.textContent = "Copied"; cp.classList.add("ok");
+  setTimeout(()=>{ if(cp.isConnected){ cp.textContent = "Copy"; cp.classList.remove("ok"); } }, 2000);
+}
 async function refreshShares(){
   try{ const d = await fetch(API + "/shares",{cache:"no-store"}).then(r=>r.json()); _pubRight = d.public||null; _shares = d.shares||[]; }catch(e){}
 }
 function renderShare(){
   const pop = document.getElementById("sharepop"), on = !!_pubRight;
+  updateShareBtn();
   const rows = _shares.length
     ? _shares.map(s=>'<div class="share-item"><span class="em" title="'+_esc(_shareLabel(s.subject))+'">'+_esc(_shareLabel(s.subject))+'</span><span class="rt">'+_esc(s.right)+'</span><button class="rm" type="button" data-subject="'+_esc(s.subject)+'" title="Remove access">&times;</button></div>').join("")
     : '<div class="share-empty">No one yet.</div>';
@@ -903,20 +937,20 @@ function renderShare(){
     '<select id="invright"><option value="comment">Can comment</option><option value="view">Can view</option></select>' +
     '<button id="invbtn" type="button">Invite</button></div>' +
     '<div class="share-err" id="inverr" style="display:none"></div></div>';
+  // Turning the link OFF is instant and needs no confirm (§08 rule 05) — it is reversible.
   pop.querySelector("#pubtoggle").addEventListener("change", async e=>{
     const t = e.target; t.disabled = true;
+    let enabled = false;
     try{
       const rr = await fetch(API + "/public", {method: t.checked?"POST":"DELETE", headers:{"X-CSRF-Token":_shareCsrf}});
-      if(rr.ok) _pubRight = t.checked ? "view" : null;
+      if(rr.ok){ _pubRight = t.checked ? "view" : null; enabled = t.checked; }
     }catch(e){}
     renderShare();
+    // §08 rule 02 — enabling puts the link on the clipboard itself; nothing asks for a second click.
+    if(enabled) markCopied(await copyShareLink(document.querySelector("#sharepop #publink")));
   });
   const cp = pop.querySelector("#pubcopy");
-  if(cp) cp.addEventListener("click", ()=>{
-    const i = pop.querySelector("#publink"); i.select();
-    try{ navigator.clipboard.writeText(i.value); }catch(e){}
-    cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy"; }, 1400);
-  });
+  if(cp) cp.addEventListener("click", async ()=>{ markCopied(await copyShareLink(pop.querySelector("#publink"))); });
   pop.querySelector("#invbtn").addEventListener("click", async ()=>{
     const email = (pop.querySelector("#invemail").value||"").trim();
     const right = pop.querySelector("#invright").value;
