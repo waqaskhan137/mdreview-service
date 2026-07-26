@@ -29,12 +29,12 @@
   .acts{text-align:right;white-space:normal}
   .notice{text-align:center;color:var(--muted-fg);padding:52px 0}
   .notice b{color:var(--text);display:block;margin-bottom:6px;font-size:16px}
-  /* Confirm bar. The flash bar is theme.css's shared `.flash` (#178) — admin does not redeclare it. */
+  /* Confirm bar. The flash bar is theme.css's shared `.flash` (#178); admin does not redeclare it. */
   #confirmbar{display:none;align-items:center;gap:10px;background:var(--warn-bg);border:1px solid var(--warn-rule);
     border-radius:var(--r-control);padding:11px 14px;margin:0 0 14px}
   #confirmbar .msg{flex:1}
   /* Row menu (#179). Basecoat positions [data-popover] `position:absolute` inside the relative
-     .dropdown-menu — NOT in the top layer — so every scrolling/clipping ancestor between the menu
+     .dropdown-menu, NOT in the top layer, so every scrolling/clipping ancestor between the menu
      and the page would cut it off: Basecoat's own `.card{overflow:hidden}` and `.table-container
      {overflow-x:auto}` (one axis non-visible forces the other to `auto`). Both are opened up HERE,
      scoped to the user card, rather than globally. The menu also sits in the right-aligned last
@@ -141,14 +141,14 @@ function statusChip(st){ return st==="banned" ? '<span class="chip banned">Banne
 function act(action, label, value, danger, text, checked){
   return {action, label, value, danger, text:text||label, checked:(checked===undefined?null:checked)};
 }
-// Role and Ban belong to the same decision (§06), so one menu carries both — plus the two session
+// Role and Ban belong to the same decision (§06), so one menu carries both, plus the two session
 // levers, which have working endpoints and would otherwise be silently dropped.
 //
 // Role is TWO independent booleans server-side (is_admin, super_read), not a three-way choice: a
 // user can hold both, and `:145` posts exactly one action per click. Member/Admin/Super-read as
 // radios could therefore show two checked at once and could not demote a both-roles user in one
-// POST — a control that half-applies. So Admin and Super-read are checkboxes and "Member" is simply
-// the state where neither is checked, which `roles()` already prints in the Roles column.
+// POST, i.e. a control that half-applies. So Admin and Super-read are checkboxes and "Member" is
+// simply the state where neither is checked, which `roles()` already prints in the Roles column.
 //
 // The isMe carve-outs mirror the server's self-lockout guards (adminroutes.py:123-128): an admin can
 // neither ban themselves nor drop their own admin role, so those items are not offered.
@@ -166,10 +166,10 @@ function actionsFor(u){
   return [{heading:"Role", items:role}, {items:sessions}, {items:access}];
 }
 function menuItem(u, x){
-  const role = x.checked===null ? "menuitem" : "menuitemcheckbox";
+  const kind = x.checked===null ? "menuitem" : "menuitemcheckbox";
   // Only the commands are dressed destructive; a role checkbox must not turn red merely for being on.
   const variant = (x.danger && x.checked===null) ? ' data-variant="destructive"' : "";
-  return '<button type="button" role="'+role+'"'+(x.checked===null?"":' aria-checked="'+x.checked+'"')
+  return '<button type="button" role="'+kind+'"'+(x.checked===null?"":' aria-checked="'+x.checked+'"')
     +' class="mini'+(x.danger?" danger":"")+'"'+variant
     +' data-action="'+x.action+'" data-value="'+x.value+'" data-uid="'+esc(u.uid)
     +'" data-email="'+esc(u.email)+'" data-label="'+esc(x.label)+'">'+esc(x.text)
@@ -205,6 +205,9 @@ function renderUsers(users){
     else doAction(action, uid, email, value, label);
   }));
 }
+// The undo window, stated once. The toast's lifetime and both sentences that quote it derive from
+// this, so a UI that promises 10 seconds cannot be served by a toast that lives for 3.
+const UNDO_MS=10000, UNDO_S=UNDO_MS/1000;
 // What the operator is actually about to do. Ban says its blast radius, because "Ban sam@acme.io?"
 // alone does not tell you whether the account's documents go with it.
 //
@@ -213,16 +216,15 @@ function renderUsers(users){
 function confirmCopy(action, email, label){
   if(action==="ban")
     return "Ban "+email+"? They lose access immediately: open sessions and API tokens stop working. "
-         + "Their reviews are kept, and you can undo this for 10 seconds.";
+         + "Their reviews are kept, and you can undo this for "+UNDO_S+" seconds.";
   return label+" for "+email+"?";
 }
-const UNDO_MS=10000;
-// After a ban, the undo IS the safety net: 10 seconds to take it back without hunting for the row.
+// After a ban, the undo IS the safety net: take it back without hunting for the row again.
 function offerUndo(uid, email){
   const t=$("#toaster");
   if(!t || typeof t.toast!=="function") return;      // no toaster (bundle blocked): the ban still stands
   const el=t.toast({category:"warning", title:"Banned "+email,
-                    description:"Access revoked. Undo within 10 seconds.",
+                    description:"Access revoked. Undo within "+UNDO_S+" seconds.",
                     cancel:{label:"Undo"}, duration:UNDO_MS});
   const undo=el && el.querySelector("[data-toast-cancel]");
   // Routed through doAction so the unban carries the CSRF header and re-renders like any other action.
