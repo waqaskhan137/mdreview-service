@@ -99,8 +99,14 @@
 /* ---- The shell (#178, §05) -------------------------------------------------------------------
  * One top line, one 680px column. Authored HERE, once, rather than per page: account and the
  * dashboard were each about to hand-roll their own, and two shells that drift apart is the exact
- * failure this sprint exists to fix. The dashboard (#182) and admin (#179) consume these; they do
- * not re-author them.
+ * failure this sprint exists to fix. The dashboard (#182) consumes these; it does not re-author
+ * them.
+ *
+ * NOT admin. An earlier version of this comment named #179 as a consumer, which was wrong on two
+ * counts: its issue never asked for the shell, and a 680px column actively hurts the page — the
+ * users table is five columns wide with a dropdown hanging off the last one. Admin keeps its own
+ * width deliberately. Recorded here because "adopt the shell everywhere" reads like an obvious
+ * good until you meet a page that is a table rather than a column.
  *
  * 680px is the design's measure and matches the viewer's reading column, so moving between a
  * review and the app does not feel like changing products.
