@@ -96,6 +96,49 @@
   outline-offset:2px;
 }
 
+/* ---- The shell (#178, §05) -------------------------------------------------------------------
+ * One top line, one 680px column. Authored HERE, once, rather than per page: account and the
+ * dashboard were each about to hand-roll their own, and two shells that drift apart is the exact
+ * failure this sprint exists to fix. The dashboard (#182) and admin (#179) consume these; they do
+ * not re-author them.
+ *
+ * 680px is the design's measure and matches the viewer's reading column, so moving between a
+ * review and the app does not feel like changing products.
+ *
+ * (Slice 1 said "CSS files only, no page CSS in theme.css". This is a NAMED exception, agreed when
+ * it turned out the shell had no declared home: the plan gave it to §05/#182 while telling #178 to
+ * "adopt" it, which is only possible if it exists first.)
+ */
+.app-top{
+  display:flex; align-items:center; gap:var(--s-3);
+  padding:var(--s-3) var(--s-6);
+  border-bottom:1px solid var(--rule-faint);
+  background:var(--bg);
+  position:sticky; top:0; z-index:20;
+}
+.app-top .brand{
+  display:flex; align-items:center; gap:var(--s-2);
+  font-weight:650; letter-spacing:-.01em; color:var(--text); text-decoration:none;
+}
+.app-top .brand .mark{
+  width:26px; height:26px; border-radius:var(--r-control);
+  background:var(--brand); color:var(--bg);
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700; letter-spacing:-.02em;
+}
+.app-top .spacer{ flex:1 1 auto; }
+
+.app-col{
+  max-width:680px; margin:0 auto;
+  padding:var(--s-8) var(--s-6) var(--s-12);
+}
+
+/* Shared flash bar. Replaces alert() on account and the duplicated #flash block on admin — same
+   three-state shape (hidden / ok / err) both pages already used, promoted to one definition. */
+.flash{ display:none; padding:11px 14px; border-radius:var(--r-control); margin:0 0 var(--s-4); font-size:13px; }
+.flash.ok { display:block; background:var(--good-bg);   border:1px solid var(--good-rule);   color:var(--good); }
+.flash.err{ display:block; background:var(--danger-bg); border:1px solid var(--danger-rule); color:var(--danger); }
+
 /* System dark — yields to an explicit [data-theme="light"]. */
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
