@@ -24,14 +24,35 @@ say() { printf '  %s\n' "$*"; }
 
 echo "== agent-user-setup (idempotent) =="
 
-# 1. the user: no password, no sudo group, NOT in docker group ---------------------------------------
+# 1. the user: no usable password, no sudo group, NOT in docker group --------------------------------
+#
+# TWO COUNTERINTUITIVE CHOICES — do NOT "harden" them back, both were verified to BREAK the boundary:
+#
+#  a) shell is /bin/bash, NOT /usr/sbin/nologin.  sshd runs a forced command via the user's LOGIN
+#     SHELL (`$SHELL -c "<command>"`). With nologin the shell just prints "This account is currently
+#     not available" and exits, so dispatch.sh NEVER RUNS — the account is unusable, not safer. The
+#     security here comes from the forced command + no-pty + restrict in authorized_keys, which apply
+#     to every connection with that key; the shell is only ever used to exec dispatch.sh.
+#
+#  b) the password is an unguessable random string, NOT `passwd -l`.  `passwd -l` writes a "!" prefix
+#     into /etc/shadow, and sshd's locked-account check (auth.c / platform_locked_account) rejects the
+#     login BEFORE public-key auth is considered — logging "User agent not allowed because account is
+#     locked". Note `usermod -p '*'` fails the same way (LOCKED_PASSWD_STRING). A random 48-byte value
+#     is not a valid crypt() hash, so NO password can ever match it, while leaving the account
+#     un-flagged so pubkey auth works.
 if ! id agent &>/dev/null; then
-  useradd --create-home --shell /usr/sbin/nologin --comment "restricted read-only agent" agent
-  passwd -l agent >/dev/null      # no password login
-  say "created user agent (nologin, locked password)"
+  useradd --create-home --shell /bin/bash --comment "restricted read-only agent" agent
+  say "created user agent"
 else
   say "user agent exists"
 fi
+usermod -s /bin/bash agent                       # idempotent: repair a nologin shell if one crept in
+usermod -p "$(openssl rand -base64 48 2>/dev/null | tr -d ':\n' \
+              || head -c 48 /dev/urandom | base64 | tr -d ':\n')" agent
+case "$(passwd -S agent | awk '{print $2}')" in
+  L|LK) echo "FATAL: agent account still flagged locked; sshd would refuse pubkey auth" >&2; exit 1 ;;
+esac
+say "agent: shell=/bin/bash, password unguessable-and-unusable, account NOT locked"
 # hard assert it never gained docker/sudo/wheel (root-equivalent) — fail loudly if it did
 for g in docker sudo wheel; do
   if id -nG agent | tr ' ' '\n' | grep -qx "$g"; then

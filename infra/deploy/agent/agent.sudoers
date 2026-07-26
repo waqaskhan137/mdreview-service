@@ -7,6 +7,8 @@
 # cannot smuggle environment into a wrapper. secure_path pins the wrappers' PATH.
 Defaults:agent   env_reset, secure_path="/usr/sbin:/usr/bin:/sbin:/bin"
 
-agent ALL=(root) NOPASSWD: /usr/local/agent/agent-logs, \
-                           /usr/local/agent/agent-status, \
-                           /usr/local/agent/agent-drift
+# One command per line (no backslash continuations) so the setup script can cleanly drop the
+# agent-drift line when drift-check is disabled without leaving a dangling comma/continuation.
+agent ALL=(root) NOPASSWD: /usr/local/agent/agent-logs
+agent ALL=(root) NOPASSWD: /usr/local/agent/agent-status
+agent ALL=(root) NOPASSWD: /usr/local/agent/agent-drift
