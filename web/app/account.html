@@ -11,27 +11,28 @@
 <link rel="stylesheet" href="/static/basecoat-theme.css">
 <script src="/static/basecoat.all.min.js" defer></script>
 <style>
-  /* layout only — components come from Basecoat now. Body font stays mdreview's system stack. */
+  /* Page-specific only. The shell (.app-top/.app-col), the flash bar and every scale come from
+     theme.css; components come from Basecoat. Nothing here re-declares either. */
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);
-       font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
-  .wrap{max-width:820px;margin:0 auto;padding:40px 24px 80px;}
-  .tophead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px}
-  h1{font-size:22px;margin:0 0 4px}
-  .sub{color:var(--muted-fg);margin:0 0 24px}
-  .stack{display:flex;flex-direction:column;gap:16px}
+       font:var(--t-body)/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  h1{font-size:var(--t-title);margin:0 0 var(--s-1)}
+  .sub{color:var(--muted-fg);margin:0 0 var(--s-6)}
+  .stack{display:flex;flex-direction:column;gap:var(--s-4)}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  pre{background:var(--inset);border:1px solid var(--rule);border-radius:8px;padding:14px;overflow:auto;
-      font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text)}
-  .tok{font:12.5px ui-monospace,Menlo,monospace;word-break:break-all}
+  pre{background:var(--inset);border:1px solid var(--rule);border-radius:var(--r-control);padding:14px;overflow:auto;
+      font:var(--t-meta)/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text)}
+  .tok{font:var(--t-meta) ui-monospace,Menlo,monospace;word-break:break-all}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="tophead">
-    <a class="btn" data-variant="ghost" data-size="sm" href="/">&larr; reviews</a>
-    <div id="acct"></div>
-  </div>
+<div class="app-top">
+  <a class="brand" href="/"><span class="mark">md</span><span>mdreview</span></a>
+  <span class="spacer"></span>
+  <div id="acct"></div>
+</div>
+<div class="app-col">
+  <div id="flash" class="flash" role="status" aria-live="polite"></div>
   <h1>Connect your agent</h1>
   <p class="sub">mdreview docs are created by <b>your AI agent</b>, not uploaded by hand. Mint a
   token below, drop it into your agent's MCP config <b>once</b>, and every <code>create_review</code>
@@ -83,6 +84,16 @@ let BASE = location.origin;
 
 function fmt(ts){ return ts ? new Date(ts*1000).toISOString().slice(0,10) : "-"; }
 
+// Same shape admin already used, now reading the shared .flash from theme.css. Replaces alert():
+// a modal dialog for a failed mint blocks the page, cannot be styled, and reads as a browser
+// error rather than as part of the app.
+function flash(msg, kind){
+  const f = $("#flash");
+  f.textContent = msg;
+  f.className = "flash" + (kind ? " " + kind : "");
+  if(kind) setTimeout(() => { f.className = "flash"; }, 4000);
+}
+
 async function load(){
   const r = await fetch("/account/tokens", {headers:{Accept:"application/json"}});
   if(!r.ok){ $("#rows").innerHTML = '<tr><td class="text-muted-foreground" colspan="4">could not load</td></tr>'; return; }
@@ -109,7 +120,7 @@ $("#mint").onclick = async () => {
   const r = await fetch("/account/tokens", {method:"POST",
     headers:{"Content-Type":"application/json"}, body:JSON.stringify({label:$("#label").value})});
   $("#mint").disabled = false;
-  if(!r.ok){ alert("mint failed ("+r.status+")"); return; }
+  if(!r.ok){ flash("Could not mint the token (" + r.status + "). Nothing was created.", "err"); return; }
   const d = await r.json();
   BASE = d.base || BASE;
   $("#tokval").textContent = d.token;
@@ -121,7 +132,8 @@ $("#mint").onclick = async () => {
 
 async function revoke(id){
   const r = await fetch("/account/tokens/"+id, {method:"DELETE"});
-  if(r.ok) load(); else alert("revoke failed ("+r.status+")");
+  if(r.ok){ flash("Token " + id + " revoked.", "ok"); load(); }
+  else flash("Could not revoke " + id + " (" + r.status + "). It is still active.", "err");
 }
 
 load();
