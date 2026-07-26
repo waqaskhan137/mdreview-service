@@ -201,3 +201,52 @@ Appended as the run proceeds. Each entry: ticket, decision, why, and what would 
 Completed before the run began. #152 retitled off the stale "Next.js + shadcn" framing (original preserved in a collapsed `<details>`), Adopted section added recording the predecessor epic and carrying its R2/R3/R7 forward as gates, child task list wired, dated amendment comment posted. `docs/process/` unmodified, as required.
 
 **Correction recorded:** the plan's §1a said that epic's viewer half had not shipped. It had — `viewer.html` carries the breadcrumb, `body.gutter-on` (`:648`), `#dock` (`:255`) and `#resolved` (`:262`), and sprint-28 closed under a recorded G7. So §1a shrank from "reconcile live work" to "write the marker". Two further citation errors found at the same time: `scripts/render-smoke.sh` is `tests/render-smoke.sh`, and the `gutter-on` toggle is `viewer.html:648`, not `:694`. Errata posted to the review.
+
+### D16 · Two of my own assertions were wrong, corrected by the agents that hit them
+
+Recorded because both were stated confidently in briefs the agents were told to follow.
+
+**(a) Basecoat's dropdown does NOT use the native popover API.** I asserted it did — in the plan,
+in #179's issue body, and in the agent brief — and reasoned from there that `#panel .mini` would
+keep matching because the top layer leaves the element in the DOM. The vendored bundle actually
+positions `[data-popover]` with `position:absolute`, so it is *not* in the top layer and *was*
+being clipped by `.card{overflow:hidden}` plus `.table-container{overflow-x:auto}`. The agent
+found it by checking rather than trusting the brief, and opened both overflows scoped to
+`#usercard`. The right conclusion held (the class still binds) via the wrong mechanism, which is
+the kind of correct-by-accident that fails silently next time.
+
+**(b) The harness I handed both agents is a cross-agent footgun.** `.scratch/nr-up.sh` starts with
+`pkill -f "mdreview.hosted"`, which matches *every* agent's instance regardless of port. The #179
+agent's first run killed the #180 agent's server on :8183 mid-verification. Nobody lost work, but
+the #180 agent may have seen an inexplicable failure it never attributed. Fixed here: the pkill is
+now scoped to the port's own PID file. Concurrency has to be designed into shared tooling, not
+assumed because each agent was given a different port number.
+
+### D17 · The shell is not adopted everywhere, and that is deliberate
+
+`theme.css` originally named #179 as a consumer of `.app-top`/`.app-col`. Wrong: admin's issue
+never asked for it, and a 680px column actively hurts a five-column users table with a dropdown
+hanging off the last column. Comment corrected. "Adopt the shared shell everywhere" reads like an
+obvious good right up until the page is a table rather than a column.
+
+### D18 · #199 filed — the comment rail has been broken below 1312px the whole time
+
+#180's R3 criterion (`body.gutter-on` at ~1180px) cannot pass, and it could not have passed before
+the sprint either. Verified independently at `4d44180` and `275716c`: byte-identical, rail engages
+only at innerWidth >= 1312, because the gate `W >= rect.right + 320` meets a centred column whose
+`rect.right` is `W/2 + 336`. The entire 1100-1311px band is docked, which covers common laptop
+widths.
+
+The agent did not weaken the criterion to make the ticket green, and did not file the issue itself
+(scope frozen, D9). Both calls were right. Filed as #199 with the measurements. This is exactly
+the failure the frozen reskin epic's R3 predicted, and it survived because verification had always
+been done at 1400px, where it looks fine.
+
+### D19 · Three of my own verification probes returned false negatives
+
+All on `viewer.html`, all the same cause: the page renders through marked plus `setTimeout`
+fallbacks, so anything read immediately after load sees a half-built DOM. `querySelectorAll('ul')`
+returned **zero** for lists that were plainly on screen. A `gutter-on` read after `--resize`
+reported `false` at a width where the arithmetic says `true`, because the layout handler had not
+re-run. Every assertion against this page needs an explicit settle, and `--resize` additionally
+needs a dispatched `resize` event. Worth knowing before #181 touches the same file.
