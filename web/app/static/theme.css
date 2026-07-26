@@ -58,6 +58,42 @@
   --danger-rule:#f0c8c2;
   --good-rule:#b7e0c8;
   --warn-rule:#e3d08a;
+
+  /* Row rule (#177, design doc §05 rule 02). Fainter than --rule: the no-chrome dashboard
+     separates rows with a hairline instead of wrapping them in cards. Dark is a JUDGEMENT CALL,
+     not an interpolation — the doc gives light only. Light sits ~0.42 of the way from --bg to
+     --rule; applying 0.42 to the dark pair would give #191a1f, and dark separators need more
+     relative contrast than that, so this sits at ~0.67. DO NOT "correct" it to #191a1f. */
+  --rule-faint:#f2f2f6;
+
+  /* ---- Shape (#177, §02) ------------------------------------------------------------------
+     Four roles, not a t-shirt scale, so a rule reads as "this is a control" rather than "this is
+     a medium". basecoat-theme.css maps Basecoat's derived tokens onto these; see the long note
+     there for why the base --radius cannot do it. */
+  --r-control:8px;         /* buttons, inputs, selects, menus */
+  --r-card:12px;           /* cards, toasts */
+  --r-panel:16px;          /* floating surfaces: the share popover, the command palette */
+  --r-pill:999px;          /* status badges */
+
+  /* ---- Space (§02) — one 4px grid, only the steps the design actually uses. ---- */
+  --s-1:4px;  --s-2:8px;  --s-3:12px; --s-4:16px;
+  --s-6:24px; --s-8:32px; --s-12:48px;
+
+  /* ---- Type (§02) ---------------------------------------------------------------------------
+     UI is system sans; --f-doc is the reading column, which only the viewer uses and which
+     already has its own serif stack — the size/leading here describe what it does, they do not
+     change its family. */
+  --t-display:32px; --t-title:22px; --t-card:16px; --t-body:14px;
+  --t-meta:12.5px;  --t-eyebrow:11px;
+  --f-doc:20px;     --lh-doc:1.7;
+}
+
+/* One focus ring, everywhere (§03). The design is explicit that no page may use `outline:none`
+   without a replacement — a keyboard user who cannot see focus cannot use the app at all. Scoped
+   to :focus-visible so it does not fire on mouse clicks. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible{
+  outline:2px solid var(--brand);
+  outline-offset:2px;
 }
 
 /* System dark — yields to an explicit [data-theme="light"]. */
@@ -77,6 +113,7 @@
     --muted2:#878c9c;
 
     --rule:#26282f;
+    --rule-faint:#1e2027;    /* judgement call, not an interpolation — see the light block */
 
     --brand:#b9a3f5;
     --accent-bg:#2a2147;
@@ -114,6 +151,7 @@
   --muted2:#878c9c;
 
   --rule:#26282f;
+  --rule-faint:#1e2027;      /* judgement call, not an interpolation — see the light block */
 
   --brand:#b9a3f5;
   --accent-bg:#2a2147;
