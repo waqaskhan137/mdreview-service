@@ -26,5 +26,45 @@
   --border: var(--rule);
   --input: var(--rule);
   --ring: var(--brand);
+
+  /* ---- Shape (#177) -------------------------------------------------------------------------
+   * Map Basecoat's DERIVED radius tokens onto theme.css's four roles. Do NOT try to drive this
+   * from `--radius`: Basecoat computes the family with fixed offsets
+   *     --radius-sm: calc(--radius - 4px)   --radius-lg: var(--radius)
+   *     --radius-md: calc(--radius - 2px)   --radius-xl: calc(--radius + 4px)
+   * and assigns .btn -> md, .card -> xl. So 8px controls would need --radius:10px while 12px
+   * cards would need --radius:8px — no single value satisfies both, which is why the current
+   * 0.5rem yields btn 6px / card 12px. Setting the derived tokens directly is the only mapping
+   * that expresses four independent roles.
+   *
+   * This works because the vendored tokens live in `@layer theme` (Tailwind v4's @theme) while
+   * this file is UNLAYERED, and unlayered normal declarations beat every cascade layer regardless
+   * of order. That is also what lets us reach --radius-2xl / --radius-4xl, which Basecoat
+   * hardcodes to 1rem / 2rem.
+   *
+   * --radius-lg has SEVEN consumers, not the two you would guess:
+   *   .tabs>[role=tablist] · .alert · .command>header ·
+   *   :where(.command-dialog) :is(.command [role=menuitem]) · .chart-tooltip ·
+   *   .empty · .empty figure:has(>svg:only-child)
+   * Note the fourth: inside a command dialog (i.e. the ⌘K palette) menu items resolve through
+   * `lg`, NOT `sm` — the two rules have equal specificity (`:where` contributes 0) and the
+   * `.command-dialog` one comes later in the bundle, so it wins. Palette items land at 8px.
+   */
+  --radius-sm:  calc(var(--r-control) - 2px);  /* menu items outside a command dialog */
+  --radius-md:  var(--r-control);              /* .btn .input .select .dropdown-menu */
+  --radius-lg:  var(--r-control);              /* the seven above — all want control-8 */
+  --radius-xl:  var(--r-card);                 /* .card, .command */
+  --radius-2xl: var(--r-card);                 /* .toast-content — hardcoded 1rem in the bundle */
+  --radius-4xl: var(--r-pill);                 /* .badge — hardcoded 2rem in the bundle */
+
+  /* Kept, not forgotten: after the mapping above the base token's only surviving consumers are
+     two `.input-group` rules at calc(var(--radius) - 5px), and `input-group` appears in zero
+     pages. Harmless to leave, and removing it would be a change with no observable effect. */
   --radius: 0.5rem;
 }
+
+/* --r-panel (16px) has no Basecoat consumer — nothing in the bundle maps to it. Its consumers are
+   named explicitly so the token is not "defined but unused": the ⌘K palette, which otherwise
+   inherits card-12 from --radius-xl. The viewer's .sharepop is the other one, but that page does
+   not load this file, so it takes --r-panel directly from theme.css. */
+.command-dialog{ border-radius:var(--r-panel); }
