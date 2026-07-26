@@ -45,6 +45,11 @@
   .acts [role=menu]{min-width:190px}
   .acts [role=menuitem],.acts [role=menuitemcheckbox]{font:inherit;background:none;border:0;text-align:left}
   .acts [data-indicator]{font-size:12px;line-height:1}
+  /* Basecoat gives a toast paragraph `word-break:break-all`, which suits a long opaque token and
+     mangles a sentence ("Undo within 10 se / conds"). Break on words; keep `anywhere` so a long
+     address in the title still wraps rather than overflowing the 360px toast. */
+  #toaster .toast-content section p{word-break:normal;overflow-wrap:anywhere}
+  #toaster .toast-content section h2{overflow-wrap:anywhere}
   /* blocklist */
   .blockadd{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
   .blockadd input#blockval{max-width:200px} .blockadd input#blocknote{flex:1;min-width:140px}
