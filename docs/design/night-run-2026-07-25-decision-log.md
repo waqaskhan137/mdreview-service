@@ -250,3 +250,35 @@ returned **zero** for lists that were plainly on screen. A `gutter-on` read afte
 reported `false` at a width where the arithmetic says `true`, because the layout handler had not
 re-run. Every assertion against this page needs an explicit settle, and `--resize` additionally
 needs a dispatched `resize` event. Worth knowing before #181 touches the same file.
+
+---
+
+## Close — all eight tickets merged, none closed
+
+| # | what | landed |
+|---|---|---|
+| #163 | auto-update digest fix + regression test | PR #191 |
+| #176 | epic #152 retitled off "Next.js"; predecessor epic recorded superseded | — |
+| #177 | radius / spacing / type scales on Basecoat's derived tokens | PR #193 |
+| #178 | account flash bar; the shared shell authored | PR #196 |
+| #179 | admin row menus, ban blast-radius, 10s undo | PR #198 |
+| #180 | 63 radius literals on viewer + latex-viewer | PR #197 |
+| #181 | share button states what is true; copy-on-enable | PR #201 |
+| #182 | dashboard no-chrome shell | PR #202 |
+
+All eight sit at `status:review`. **Nothing closed, nothing near `main`** — G5, G7 and G8 are the owner's, exactly as D1 set out.
+
+Filed en route: **#199**, the comment rail docked below 1312px, pre-existing and verified byte-identical before and after #180.
+
+### The keep-list held
+Independently re-verified after the merge, with auth ENFORCED and signed out: `#signin` renders, `#app` is hidden, submitting the form reaches "Check your email", and the server log confirms a magic link was issued for the typed address. This was the single highest-stakes criterion in the sprint — a literal reading of "full rebuild" would have deleted the sign-in screen and locked every new user out of the hosted app.
+
+### What the run got wrong, so it is not repeated
+1. **The night-run premise was false.** I only execute when a message arrives; there is no daemon. #177 merged at 01:13 and #178 at 16:05 — a 15-hour gap in which nothing ran, because nothing invoked me. Background subagents are what actually survive a turn ending. A future unattended run needs `/loop`, not intent.
+2. **Both agents were first launched into the same worktree.** A worktree has one checked-out branch; the second `git switch` would have pulled the checkout out from under the first. Caught before either had edited a file. `isolation: "worktree"` is mandatory for concurrent agents, not an optimisation.
+3. **The shared harness pkilled by process name**, so one agent killed the other's server mid-verification. Fixed to a PID-file kill. Concurrency has to be designed into shared tooling; handing out different port numbers is not enough.
+4. **I asserted Basecoat used the native popover API** in the plan and in both briefs, and reasoned from it. It uses `position:absolute` and was being clipped by `.card{overflow:hidden}`. Right conclusion, wrong mechanism.
+5. **Several of my own probes were false negatives** from reading an async-rendering page too early, and one grep counted a comment as a `confirm()` call. Every claim in this log that survived did so because it was measured twice.
+
+### Still blocked
+Staging. The `auto-update.sh` fix is in the repo and cannot reach the host: `ssh kapture` is refused on :22 while the host is up and serving. One install unblocks every future `dev` merge.
