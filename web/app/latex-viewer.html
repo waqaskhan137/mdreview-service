@@ -40,6 +40,12 @@
   .panehead{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--rule);
     background:var(--bg);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);}
   .panehead .mono{font-family:ui-monospace,Menlo,monospace;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text);}
+  /* #189: copy the raw .tex. margin-left:auto parks it at the pane's trailing edge. */
+  .panehead .headbtn{margin-left:auto;font:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--muted-fg);background:none;border:1px solid var(--rule);border-radius:var(--r-control);
+    padding:2px 9px;cursor:pointer;}
+  .panehead .headbtn:hover{color:var(--text);border-color:var(--muted-fg);}
+  .panehead .headbtn:focus-visible{outline:2px solid var(--brand);outline-offset:2px;}
 
   .srcscroll{flex:1;overflow:auto;position:relative;display:flex;align-items:flex-start;}
   .codecol{flex:1;min-width:0;padding:12px 0 60vh;}
@@ -212,7 +218,7 @@
 </div>
 <div class="split">
   <section class="srcpane" aria-label="LaTeX source">
-    <div class="panehead">Source <span class="mono" id="srcname">paper.tex</span><span id="srcmeta"></span></div>
+    <div class="panehead">Source <span class="mono" id="srcname">paper.tex</span><span id="srcmeta"></span><button type="button" class="headbtn" id="copysrc" aria-label="Copy the LaTeX source to the clipboard">Copy</button></div>
     <div class="srcscroll" id="srcscroll">
       <div class="codecol" id="codecol"><div class="pdfmsg">Loading source…</div></div>
       <div class="railcol" id="railcol"></div>
@@ -269,8 +275,14 @@ function highlightLatex(line){
   return out;
 }
 
+// #189: the raw .tex exactly as /source returned it. Rendering interleaves gutter numbers into the
+// DOM, so reading the copy back off .ln would not round-trip. loadSource() is re-invoked by the
+// live-reload path, so this tracks the current revision rather than the one present at boot.
+let rawSource='';
+
 async function loadSource(){
   const t=await (await fetch(API+'/source',{cache:'no-store'})).text();
+  rawSource=t;
   const col=$('#codecol');col.innerHTML='';
   const lines=t.split('\n');
   lines.forEach((line,idx)=>{
@@ -502,6 +514,14 @@ function poll(){
 })();
 let tTimer=null;
 function toast(m){const t=$('#toast');t.textContent=m;t.style.opacity=1;clearTimeout(tTimer);tTimer=setTimeout(()=>t.style.opacity=0,1800);}
+
+// #189: AWAIT the write. writeText returns a promise, so a synchronous try/catch around it cannot
+// see a rejection and would report success while the clipboard stayed empty (denied permission,
+// non-secure context, unfocused document). Failure has to be visibly distinct from success.
+$('#copysrc').addEventListener('click',async()=>{
+  try{ await navigator.clipboard.writeText(rawSource); toast('Source copied'); }
+  catch(e){ toast('Copy failed — '+(e&&e.name?e.name:'clipboard unavailable')); }
+});
 
 async function boot(){
   try{const meta=await (await fetch(API,{cache:'no-store'})).json();
