@@ -39,7 +39,7 @@ from mdreview.config import (
     PUBLIC_BASE, REQUIRE_AUTH, RID, TOKEN_PEPPER, WAIT_TIMEOUT_S, WEB_DIR,
 )
 from mdreview.access import OperatorIdentity, OpenPolicy, OwnerPolicy, ProxyBearerIdentity
-from mdreview.errors import ReviewCreateRejected
+from mdreview.errors import ReviewWriteRejected
 from mdreview import latexguard
 from mdreview.store import Store
 from mdreview.comments import CommentService
@@ -427,7 +427,7 @@ class H(BaseHTTPRequestHandler):
                                         "create a paper review (or kind=\"markdown\" to keep it as "
                                         "markdown)"})
             # A template id is validated inside the (flag-on) latex decorator, which raises a
-            # ReviewCreateRejected subclass; core catches only that core-defined base type and never
+            # ReviewWriteRejected subclass; core catches only that core-defined base type and never
             # imports the feature module, so the flag-off import graph and behavior are unchanged.
             owner = app.policy.stamp_owner(p)
             try:
@@ -435,7 +435,7 @@ class H(BaseHTTPRequestHandler):
                                       b.get("project", ""), b.get("source_path", ""),
                                       b.get("session", ""), owner=owner, kind=kind,
                                       template=b.get("template", ""))
-            except ReviewCreateRejected as e:
+            except ReviewWriteRejected as e:
                 return self._json(e.status, e.payload or {"error": str(e)})
             # Custody audit (#110, identity-architecture.md §6): the ownership stamp is a core-side
             # custody event, logged through the SAME _audit() sink as denied_404 - who a review was
@@ -508,7 +508,7 @@ class H(BaseHTTPRequestHandler):
                 try:
                     with app.store.lock:
                         app.reviews.put_source(rid, b.get("markdown", ""))
-                except ReviewCreateRejected as e:
+                except ReviewWriteRejected as e:
                     return self._json(e.status, e.payload or {"error": str(e)})
                 return self._json(200, app.reviews.meta(rid))
 

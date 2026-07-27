@@ -14,7 +14,7 @@ app.reviews for EVERY review kind, not just latex ones, so both guards below are
 meta.kind == "latex"; an ungated check here would reject every markdown write in the product.
 """
 from mdreview import latexguard
-from mdreview.errors import ReviewCreateRejected
+from mdreview.errors import ReviewWriteRejected
 
 # What the offending agent actually reads: mcp/client.py surfaces the raw response body in its
 # ToolError, so this text is the entire value of the fix over a Tectonic error 200 lines downstream.
@@ -38,7 +38,7 @@ def _require_tex(markdown, allow_empty):
     if allow_empty and not (markdown or "").strip():
         return
     if not latexguard.is_tex_source(markdown):
-        raise ReviewCreateRejected(_NOT_TEX)
+        raise ReviewWriteRejected(_NOT_TEX)
 
 
 class LatexAwareReviews:
@@ -54,7 +54,7 @@ class LatexAwareReviews:
 
     def create(self, *args, **kwargs):
         # For a latex review created from a template: validate the id BEFORE any review exists (an
-        # unknown id raises UnknownTemplate, a core ReviewCreateRejected, which the POST arm renders
+        # unknown id raises UnknownTemplate, a core ReviewWriteRejected, which the POST arm renders
         # as a 400 with the available list), and seed the source from the template's starter .tex
         # ONLY when the caller supplied no source (an explicit markdown wins; the template still
         # contributes its companion files at compile time via the worker).

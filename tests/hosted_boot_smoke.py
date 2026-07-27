@@ -48,7 +48,7 @@ GUARD = r'''
 import mdreview.config as c
 from mdreview.store import Store
 from mdreview.hosted.compose import build_hosted
-from mdreview.errors import ReviewCreateRejected
+from mdreview.errors import ReviewWriteRejected
 
 app = build_hosted(Store(c.DATA_DIR))
 # Proves the flag actually took effect; without this the rest could pass vacuously on a build where
@@ -61,7 +61,7 @@ MD = "# Reading copy\n\n- a list item\n"
 def rejects(fn):
     try:
         fn()
-    except ReviewCreateRejected:
+    except ReviewWriteRejected:
         return True
     return False
 
@@ -86,6 +86,16 @@ app.reviews.create("", "blank", kind="latex")
 
 # 5. The rejected writes did not land — a guard that rejects after writing would pass 3 and fail here.
 assert app.reviews.read_source(tex_id).startswith("\\documentclass"), "good source survived"
+
+# 6. The OTHER user of this exception type still works. template_smoke.py never constructs
+#    TemplateService or references UnknownTemplate, so nothing in the repo covered the unknown-id
+#    route until now — and that is precisely the path a botched rename turns from a 400 into a 500.
+try:
+    app.reviews.create("", "t", kind="latex", template="no-such-template")
+    raise AssertionError("unknown template id was accepted")
+except ReviewWriteRejected as e:
+    assert e.status == 400, e.status
+    assert e.payload.get("available"), e.payload
 print("GUARD_OK")
 '''
 

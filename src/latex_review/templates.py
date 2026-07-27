@@ -11,16 +11,16 @@ companion files, bundled outright for the top ones or downloaded on miss for the
 
 The service is assembled in latex_review.build() and injected; the RegistryPuller is added only when
 the registry is enabled (MR-104), so this file has no network. `UnknownTemplate` subclasses the
-core-defined `ReviewCreateRejected` so the core POST arm catches it without importing this module.
+core-defined `ReviewWriteRejected` so the core POST arm catches it without importing this module.
 """
 import os
 
-from mdreview.errors import ReviewCreateRejected
+from mdreview.errors import ReviewWriteRejected
 
 _BUNDLED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
 
 
-class UnknownTemplate(ReviewCreateRejected):
+class UnknownTemplate(ReviewWriteRejected):
     def __init__(self, template_id, available):
         super().__init__(
             "unknown template %r" % template_id,
@@ -129,7 +129,7 @@ class TemplateService:
         }
 
     def require(self, template_id):
-        """Raise UnknownTemplate (a core ReviewCreateRejected) if the id is not offered anywhere."""
+        """Raise UnknownTemplate (a core ReviewWriteRejected) if the id is not offered anywhere."""
         if template_id not in self.known_ids():
             av = self.available()
             everything = sorted(set(av["bundled"]) | set(av["registry"]) | set(av["cached"]))
