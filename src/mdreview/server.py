@@ -502,8 +502,14 @@ class H(BaseHTTPRequestHandler):
                                   "text/markdown; charset=utf-8", extra_headers=NOINDEX)
             if m == "PUT":
                 b = self._body_json()
-                with app.store.lock:
-                    app.reviews.put_source(rid, b.get("markdown", ""))
+                # Same seam the POST arm uses at :438 — a feature module rejects the write by
+                # raising the core-defined base type, and core renders it without importing the
+                # module. #188: the latex decorator raises when a latex review's body is not TeX.
+                try:
+                    with app.store.lock:
+                        app.reviews.put_source(rid, b.get("markdown", ""))
+                except ReviewCreateRejected as e:
+                    return self._json(e.status, e.payload or {"error": str(e)})
                 return self._json(200, app.reviews.meta(rid))
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/feedback", path)
