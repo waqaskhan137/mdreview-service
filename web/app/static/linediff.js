@@ -94,8 +94,76 @@
     return { add: add, del: del, changed: add + del };
   }
 
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
+    });
+  }
+
+  /* Render a hunked unified diff into `host` and wire its folds. Lives here rather than in either
+   * page because BOTH viewers draw the same thing (#207 markdown, #208 latex) and a second copy of
+   * the row markup would drift from this one's classes, which theme.css styles centrally.
+   *
+   * Returns the {add,del,changed} counts so a caller can badge its toggle. DOM-only; no fetching,
+   * so the caller owns where the two texts come from. */
+  function renderInto(host, aText, bText, opts) {
+    opts = opts || {};
+    var rows = numberRows(lineDiff(aText, bText));
+    var c = counts(rows);
+    if (!c.changed) {
+      host.innerHTML = '<div class="diffempty">' +
+        esc(opts.emptyText || 'No changes between these versions.') + '</div>';
+      return c;
+    }
+    var segs = hunkify(rows, opts);
+    segs.forEach(function (s) { s.shown = 0; });      // each fold keeps its own reveal cursor
+    var hidden = segs.reduce(function (n, s) { return n + (s.vis ? 0 : s.rows.length); }, 0);
+    var hunks = segs.reduce(function (n, s) { return n + (s.vis ? 1 : 0); }, 0);
+
+    function rowHtml(r) {
+      var cls = r.tag === '+' ? 'add' : r.tag === '-' ? 'del' : 'eq';
+      var sign = r.tag === '+' ? '+' : r.tag === '-' ? '−' : ' ';
+      return '<div class="drow ' + cls + '">'
+        + '<span class="dnum">' + (r.a == null ? '' : r.a) + '</span>'
+        + '<span class="dnum b">' + (r.b == null ? '' : r.b) + '</span>'
+        + '<span class="dsign" aria-hidden="true">' + sign + '</span>'
+        + '<span class="dtxt">' + (esc(r.text) || '&nbsp;') + '</span></div>';
+    }
+
+    host.innerHTML =
+      '<div class="diffhead"><span class="dpill plus">+' + c.add + '</span>'
+      + '<span class="dpill minus">−' + c.del + '</span><span class="dgrow"></span><span>'
+      + hunks + ' hunk' + (hunks === 1 ? '' : 's')
+      + (hidden ? ' · ' + hidden + ' unchanged lines hidden' : '') + '</span></div>'
+      + '<div class="diffbody"></div>';
+    var body = host.querySelector('.diffbody');
+
+    function paint() {
+      body.innerHTML = segs.map(function (s, idx) {
+        if (s.vis) return s.rows.map(rowHtml).join('');
+        var left = s.rows.length - s.shown;
+        var shown = s.rows.slice(0, s.shown).map(rowHtml).join('');
+        if (left <= 0) return shown;
+        return shown + '<button type="button" class="dfold" data-seg="' + idx + '">'
+          + '<span class="dchev" aria-hidden="true">▾</span><span>' + left
+          + ' unchanged line' + (left === 1 ? '' : 's') + '</span>'
+          + '<span class="dmore">+' + Math.min(REVEAL, left) + '</span></button>';
+      }).join('');
+      Array.prototype.forEach.call(body.querySelectorAll('.dfold'), function (b) {
+        b.onclick = function () {
+          var s = segs[+b.dataset.seg];
+          s.shown = Math.min(s.rows.length, s.shown + REVEAL);
+          paint();
+        };
+      });
+    }
+    paint();
+    return c;
+  }
+
   var api = {
     lineDiff: lineDiff, numberRows: numberRows, hunkify: hunkify, counts: counts,
+    renderInto: renderInto,
     CONTEXT: CONTEXT, MIN_GAP: MIN_GAP, REVEAL: REVEAL
   };
 

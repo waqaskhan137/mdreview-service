@@ -48,6 +48,13 @@
   .panehead .headbtn:focus-visible{outline:2px solid var(--brand);outline-offset:2px;}
 
   .srcscroll{flex:1;overflow:auto;position:relative;display:flex;align-items:flex-start;}
+  /* An explicit `display` BEATS the [hidden] attribute's UA display:none, so hiding the source
+     pane needs saying out loud. Without this, toggling diff mode left both panes stacked (#208). */
+  .srcscroll[hidden]{display:none;}
+  /* The diff pane is its own scroller and must lay out as a BLOCK: .srcscroll is a flex row built
+     for codecol + railcol, and reusing it put the diff header beside the rows instead of above. */
+  .diffscroll{flex:1;overflow:auto;position:relative;display:block;}
+  .diffscroll[hidden]{display:none;}
   .codecol{flex:1;min-width:0;padding:12px 0 60vh;}
   .ln{display:flex;padding:1px 14px 1px 0;line-height:1.62;position:relative;}
   .ln:hover{background:rgba(127,127,127,.07);}
@@ -124,6 +131,12 @@
 
   #toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:90;background:var(--brand);color:#fff;
     font-size:13px;padding:8px 16px;border-radius:var(--r-card);box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
+  /* An action toast has to be clickable, which the default explicitly is not, and has to outlive
+     the 1.8s fade or the action is decorative (#208). */
+  #toast.hasaction{pointer-events:auto;display:flex;align-items:center;gap:12px;}
+  #toast .toastbtn{font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;background:none;
+    border:1px solid rgba(255,255,255,.65);color:#fff;border-radius:var(--r-control);padding:2px 9px;}
+  #toast .toastbtn:hover{background:rgba(255,255,255,.15);}
   #addbtn{position:fixed;z-index:50;display:none;background:var(--brand);color:#fff;border:none;border-radius:var(--r-control);
     padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);}
   #pop{position:fixed;z-index:60;display:none;width:320px;background:var(--bg);border:1px solid var(--rule);border-radius:var(--r-card);
@@ -218,11 +231,16 @@
 </div>
 <div class="split">
   <section class="srcpane" aria-label="LaTeX source">
-    <div class="panehead">Source <span class="mono" id="srcname">paper.tex</span><span id="srcmeta"></span><button type="button" class="headbtn" id="copysrc" aria-label="Copy the LaTeX source to the clipboard">Copy</button></div>
+    <div class="panehead">Source <span class="mono" id="srcname">paper.tex</span><span id="srcmeta"></span><button type="button" class="headbtn difftoggle" id="difftoggle" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><button type="button" class="headbtn" id="copysrc" aria-label="Copy the LaTeX source to the clipboard">Copy</button></div>
     <div class="srcscroll" id="srcscroll">
       <div class="codecol" id="codecol"><div class="pdfmsg">Loading source…</div></div>
       <div class="railcol" id="railcol"></div>
     </div>
+    <!-- #208: diff mode replaces the source rows only. The PDF pane keeps its half, which is the
+         point of the split — you compare the source with the compiled paper still beside it. The
+         comment rail is deliberately NOT shown here: comments anchor to current line numbers, and a
+         unified diff interleaves old and new ones, so an anchor drawn against it would be a lie. -->
+    <div class="diffscroll" id="texdiffpane" hidden></div>
   </section>
   <div class="vdiv" id="vdiv" role="separator" aria-label="Resize panes" aria-orientation="vertical"></div>
   <section class="pdfpane" aria-label="PDF preview">
@@ -243,6 +261,7 @@
 <div id="cmtdock"></div>
 <div id="toast" role="status"></div>
 
+<script src="/static/linediff.js"></script>
 <script src="/static/marked.min.js"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -295,6 +314,76 @@ async function loadSource(){
   $('#srcmeta').textContent=' · '+lines.length+' lines';
   wireLineAffordances();
   renderComments();
+}
+
+// ---- #208: diff mode in the source pane -------------------------------------------------------
+// Same contract as the markdown viewer (#207): OFF on load, STICKY once opened, and a push only
+// ever hints. Only the source pane swaps; the PDF pane and the compile bar are untouched.
+let DIFFON=false;
+let PREVROUND=null;      // newest archived round, or null when there is nothing to compare against
+
+function setDiffCount(c){
+  const el=$('#diffcount');
+  if(!c||!c.changed){el.hidden=true;return;}
+  el.innerHTML='+'+c.add+' <span class="dm">&minus;'+c.del+'</span>';
+  el.hidden=false;
+}
+// The button only appears once an earlier version exists — before the first agent push there is
+// nothing to diff, and an inert control would raise a question it cannot answer.
+async function refreshDiffAvail(){
+  try{
+    const d=await (await fetch(API+'/history',{cache:'no-store'})).json();
+    const rounds=(d&&d.rounds)||[];
+    PREVROUND=rounds.length?String(rounds[0].round):null;   // rounds are newest-first
+  }catch(e){PREVROUND=null;}
+  $('#difftoggle').hidden=!PREVROUND;
+}
+async function versionSource(n){
+  if(n==='current')return (await fetch(API+'/source',{cache:'no-store'})).text();
+  const d=await (await fetch(API+'/history/'+n)).json();
+  return d.source||'';
+}
+async function paintTexDiff(){
+  const pane=$('#texdiffpane');
+  if(!PREVROUND){pane.innerHTML='<div class="diffempty">No earlier version yet — a version is saved each time the AI pushes a revised draft.</div>';return;}
+  pane.innerHTML='<div class="diffempty">Loading…</div>';
+  try{
+    const [ta,tb]=await Promise.all([versionSource(PREVROUND),versionSource('current')]);
+    setDiffCount(mdDiff.renderInto(pane,ta,tb));
+  }catch(e){pane.innerHTML='<div class="diffempty">Could not load the diff.</div>';}
+}
+// DIFFON is the single source of truth for which pane shows; kept separate so a push can
+// re-assert it without also re-triggering a repaint.
+function syncDiffVisibility(){
+  $('#srcscroll').hidden=DIFFON;
+  $('#texdiffpane').hidden=!DIFFON;
+  $('#difftoggle').setAttribute('aria-pressed',DIFFON?'true':'false');
+}
+function applyDiffMode(){
+  syncDiffVisibility();
+  if(DIFFON)paintTexDiff();
+}
+async function onAgentPush(){
+  await refreshDiffAvail();
+  if(DIFFON){await paintTexDiff();syncDiffVisibility();toast('Draft updated by AI');return;}
+  let changed=0;
+  try{
+    if(PREVROUND){
+      const [ta,tb]=await Promise.all([versionSource(PREVROUND),versionSource('current')]);
+      const c=mdDiff.counts(mdDiff.lineDiff(ta,tb));
+      setDiffCount(c);changed=c.changed;
+      if(c.changed)$('#difftoggle').classList.add('hinted');
+    }
+  }catch(e){}
+  // The toast is where the reviewer learns their paper was rewritten, so it is where the way to
+  // see it belongs. Clicking is the reviewer ASKING — that is the one case where opening the diff
+  // for them is correct, and it is still their action, not the push's.
+  if(changed)toastAction('Draft updated by AI','See what changed',()=>{DIFFON=true;$('#difftoggle').classList.remove('hinted');applyDiffMode();});
+  else toast('Draft updated by AI');
+  // Re-assert from DIFFON, always and last: loadSource() has just rebuilt the pane and several
+  // awaits have passed, so this guarantees a push cannot leave the reviewer in a pane they did
+  // not open.
+  syncDiffVisibility();
 }
 
 // ---- comments: same store + CRUD as viewer.html, block_num = line number ----
@@ -492,7 +581,7 @@ function poll(){
     if(addbtn.style.display==='block'||$('#pop').style.display==='block'||confirming)return;
     try{
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
-      if(s.source_updated&&s.source_updated!==lastSrc){lastSrc=s.source_updated;await fetchComments();await loadSource();toast('Draft updated by AI');}
+      if(s.source_updated&&s.source_updated!==lastSrc){lastSrc=s.source_updated;await fetchComments();await loadSource();await onAgentPush();}
       else if(s.comments_updated&&s.comments_updated!==lastCmt){lastCmt=s.comments_updated;await fetchComments();renderComments();}
     }catch(e){}
     refreshPdf();
@@ -513,7 +602,19 @@ function poll(){
   window.addEventListener('resize',()=>{try{layoutCards();}catch(e){}});
 })();
 let tTimer=null;
-function toast(m){const t=$('#toast');t.textContent=m;t.style.opacity=1;clearTimeout(tTimer);tTimer=setTimeout(()=>t.style.opacity=0,1800);}
+function toast(m){const t=$('#toast');t.classList.remove('hasaction');t.textContent=m;t.style.opacity=1;clearTimeout(tTimer);tTimer=setTimeout(()=>t.style.opacity=0,1800);}
+// Toast carrying one action. Used for "the AI rewrote your paper — see what changed", which is the
+// moment the question is raised, so it is the right place to answer it. Longer-lived than a plain
+// toast because a 1.8s window is not long enough to read a sentence and then aim at a button.
+function toastAction(m,label,fn){
+  const t=$('#toast');
+  t.classList.add('hasaction');
+  t.innerHTML='<span></span><button type="button" class="toastbtn"></button>';
+  t.querySelector('span').textContent=m;
+  const b=t.querySelector('.toastbtn');b.textContent=label;
+  b.onclick=()=>{t.style.opacity=0;t.classList.remove('hasaction');fn();};
+  t.style.opacity=1;clearTimeout(tTimer);tTimer=setTimeout(()=>{t.style.opacity=0;t.classList.remove('hasaction');},7000);
+}
 
 // #189: AWAIT the write. writeText returns a promise, so a synchronous try/catch around it cannot
 // see a rejection and would report success while the clipboard stayed empty (denied permission,
@@ -534,8 +635,14 @@ async function boot(){
   // review nothing changed (mirrors viewer.html's load()).
   try{const s=await (await fetch(API+'/status',{cache:'no-store'})).json();
     lastSrc=s.source_updated||0;lastCmt=s.comments_updated||0;}catch(e){}
+  await refreshDiffAvail();   // reveals the toggle if an earlier version exists; never opens it
   poll();
 }
+$('#difftoggle').onclick=()=>{
+  DIFFON=!DIFFON;
+  $('#difftoggle').classList.remove('hinted');   // acted on; stop advertising
+  applyDiffMode();
+};
 boot();
 
 // ---- Share control: public link (#133) + named-share people panel (#134), owner-only ----

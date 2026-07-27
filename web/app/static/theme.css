@@ -145,6 +145,78 @@
 .flash.ok { display:block; background:var(--good-bg);   border:1px solid var(--good-rule);   color:var(--good); }
 .flash.err{ display:block; background:var(--danger-bg); border:1px solid var(--danger-rule); color:var(--danger); }
 
+/* ---- Diff rows (#207 markdown viewer, #208 latex viewer) -------------------------------------
+ * Authored HERE for the same reason the shell above is: BOTH viewers render this markup, from the
+ * one renderer in /static/linediff.js, and two copies of the CSS would drift from each other and
+ * from the renderer's class names. Same NAMED exception to "no page CSS in theme.css".
+ *
+ * Colours are the EXISTING --good / --danger status pairs, not new tokens: an addition is "good"
+ * and a removal is "danger" in exactly the sense this file already means. The `.dsign` column
+ * carries the add/remove distinction independently of colour, so the diff still reads in greyscale
+ * and for a colourblind reader — which is why it is a real column and not a ::before decoration.
+ *
+ * Neither viewer loads basecoat-theme.css (its preflight strips list markers), so everything here
+ * resolves against the tokens above and nothing else.
+ */
+.diffhead{
+  display:flex; align-items:center; gap:9px;
+  padding:8px 13px; border-bottom:1px solid var(--rule); background:var(--bg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:var(--t-meta); color:var(--muted2);
+}
+.diffhead .dgrow{ flex:1 1 auto; }
+.dpill{ font-size:10.5px; font-weight:700; letter-spacing:.04em; border-radius:var(--r-pill); padding:2px 8px; }
+.dpill.plus { background:var(--good-bg);   color:var(--good);   border:1px solid var(--good-rule); }
+.dpill.minus{ background:var(--danger-bg); color:var(--danger); border:1px solid var(--danger-rule); }
+
+.diffbody{ overflow-x:auto; background:var(--panel); }
+.drow{ display:flex; align-items:flex-start; }
+.dnum{
+  flex:0 0 auto; width:3.1em; text-align:right; padding:0 7px;
+  color:var(--muted2); font-size:11.5px; user-select:none; font-variant-numeric:tabular-nums;
+}
+.dnum.b{ border-right:1px solid var(--rule); }
+.dsign{ flex:0 0 auto; width:1.5em; text-align:center; user-select:none; color:var(--muted2); }
+.dtxt{ flex:1 1 auto; padding-right:14px; white-space:pre-wrap; word-break:break-word; }
+.drow.add{ background:var(--good-bg); }
+.drow.add .dsign{ color:var(--good); font-weight:700; }
+.drow.del{ background:var(--danger-bg); }
+.drow.del .dsign{ color:var(--danger); font-weight:700; }
+.drow.eq{ color:var(--muted-fg); }
+
+.dfold{
+  display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+  font:inherit; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:11.5px; cursor:pointer; background:var(--inset); color:var(--muted2);
+  border:none; border-top:1px solid var(--rule); border-bottom:1px solid var(--rule);
+  padding:5px 13px;
+}
+.dfold:hover{ color:var(--brand); }
+.dfold .dchev{ font-family:ui-monospace,Menlo,monospace; font-size:11px; }
+.dfold .dmore{ margin-left:auto; font-family:ui-monospace,Menlo,monospace; font-size:10.5px; }
+
+.diffempty{
+  color:var(--muted-fg); padding:10px 13px;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:13px;
+}
+
+/* The toggle that opens the diff. Shared shape; each viewer positions it in its own chrome. */
+.difftoggle{ display:inline-flex; align-items:center; gap:7px; }
+.difftoggle .dglyph{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:12px; letter-spacing:-1px; color:var(--muted2);
+}
+.difftoggle[aria-pressed="true"]{ background:var(--accent-bg); border-color:var(--brand); color:var(--brand); }
+.difftoggle[aria-pressed="true"] .dglyph{ color:var(--brand); }
+.difftoggle .dcount{
+  font-family:ui-monospace,Menlo,monospace; font-size:11px; font-weight:700;
+  border-radius:var(--r-pill); padding:1px 7px;
+  background:var(--good-bg); border:1px solid var(--good-rule); color:var(--good);
+}
+.difftoggle .dcount .dm{ color:var(--danger); }
+/* The hint after an agent push: the button advertises that a diff is available. It never opens it. */
+.difftoggle.hinted{ border-color:var(--brand); }
+
 /* System dark — yields to an explicit [data-theme="light"]. */
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
