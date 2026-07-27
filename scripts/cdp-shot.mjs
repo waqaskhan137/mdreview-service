@@ -53,10 +53,10 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const STEP_VERBS = ['url', 'wait', 'wait-for', 'click', 'type', 'resize', 'eval', 'shot'];
+const STEP_VERBS = ['url', 'wait', 'wait-for', 'click', 'type', 'resize', 'eval', 'shot', 'clipboard'];
 const argv = process.argv.slice(2);
 if (argv.length === 0 || argv.includes('-h') || argv.includes('--help')) {
-  console.error('usage: node scripts/cdp-shot.mjs --url <URL> [--click sel | --wait ms | --wait-for sel | --type sel=text | --resize WxH | --eval expr | --shot path]...');
+  console.error('usage: node scripts/cdp-shot.mjs --url <URL> [--click sel | --wait ms | --wait-for sel | --type sel=text | --resize WxH | --eval expr | --shot path | --clipboard origin]...');
   process.exit(argv.length === 0 ? 2 : 0);
 }
 
@@ -153,6 +153,16 @@ await check('Runtime.enable');
 await check('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }); // sane default; --resize overrides
 
 for (const [verb, val] of steps) {
+  if (verb === 'clipboard') {
+    // #189: navigator.clipboard needs BOTH, and the two failures look nothing alike. Without the
+    // grant, reads reject NotAllowedError "Read permission denied"; without focus emulation, even
+    // writeText rejects NotAllowedError "Document is not focused" — headless has no focused window.
+    // Put this step BEFORE --url: grantPermissions is per-origin and survives the navigation.
+    await check('Browser.grantPermissions', { origin: val, permissions: ['clipboardReadWrite', 'clipboardSanitizedWrite'] });
+    await check('Emulation.setFocusEmulationEnabled', { enabled: true });
+    console.log('ok  clipboard: granted read/write + focus emulation for ' + val);
+    continue;
+  }
   if (verb === 'url') {
     const loaded = new Promise(r => loadWaiters.push(r));
     await check('Page.navigate', { url: val });
