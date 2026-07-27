@@ -242,50 +242,17 @@
      removal is "danger" in exactly the sense theme.css already means. The sign column carries the
      add/remove distinction independently of colour, so the diff survives greyscale and a
      colourblind reader. */
-  #difftoggle{display:inline-flex;align-items:center;gap:7px;}
-  #difftoggle .dglyph{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;letter-spacing:-1px;color:var(--muted2);}
-  #difftoggle[aria-pressed="true"]{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);}
-  #difftoggle[aria-pressed="true"] .dglyph{color:var(--accent);}
-  #difftoggle .dcount{font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:700;
-    border-radius:999px;padding:1px 7px;background:var(--good-bg);border:1px solid var(--good-rule);color:var(--good);}
-  #difftoggle .dcount .dm{color:var(--danger);}
-  /* The hint after an agent push: the button advertises, it never opens the diff itself. */
-  #difftoggle.hinted{border-color:var(--accent);}
-
+  /* Row/gutter/fold styling and the .difftoggle shape moved to theme.css in #208, so the latex
+     viewer renders the identical markup from the identical rules. Only the pane wrapper, which is
+     this page's own layout, stays here. */
   #diffpane{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.6;
     border:1px solid var(--rule);border-radius:var(--r-card,12px);overflow:hidden;margin:8px 0 40px;}
-  .diffhead{display:flex;align-items:center;gap:9px;padding:8px 13px;border-bottom:1px solid var(--rule);
-    background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    font-size:12px;color:var(--muted2);}
-  .diffhead .dgrow{flex:1 1 auto;}
-  .dpill{font-size:10.5px;font-weight:700;letter-spacing:.04em;border-radius:999px;padding:2px 8px;}
-  .dpill.plus{background:var(--good-bg);color:var(--good);border:1px solid var(--good-rule);}
-  .dpill.minus{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-rule);}
-  .diffbody{overflow-x:auto;background:var(--panel);}
-  .drow{display:flex;align-items:flex-start;}
-  .dnum{flex:0 0 auto;width:3.1em;text-align:right;padding:0 7px;color:var(--muted2);font-size:11.5px;
-    user-select:none;font-variant-numeric:tabular-nums;}
-  .dnum.b{border-right:1px solid var(--rule);}
-  .dsign{flex:0 0 auto;width:1.5em;text-align:center;user-select:none;color:var(--muted2);}
-  .dtxt{flex:1 1 auto;padding-right:14px;white-space:pre-wrap;word-break:break-word;}
-  .drow.add{background:var(--good-bg);}
-  .drow.add .dsign{color:var(--good);font-weight:700;}
-  .drow.del{background:var(--danger-bg);}
-  .drow.del .dsign{color:var(--danger);font-weight:700;}
-  .drow.eq{color:var(--muted-fg,var(--muted2));}
-  .dfold{display:flex;align-items:center;gap:9px;width:100%;text-align:left;font:inherit;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:11.5px;cursor:pointer;
-    background:var(--inset);color:var(--muted2);border:none;border-top:1px solid var(--rule);
-    border-bottom:1px solid var(--rule);padding:5px 13px;}
-  .dfold:hover{color:var(--accent);}
-  .dfold .dchev{font-family:ui-monospace,Menlo,monospace;font-size:11px;}
-  .dfold .dmore{margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;}
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span><span class="filename" id="filename">loading…</span></div>
-  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><button id="difftoggle" class="tb-btn" type="button" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
+  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><button id="difftoggle" class="tb-btn difftoggle" type="button" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
 </header>
 <div class="wrap">
   <nav class="breadcrumb" id="breadcrumb"></nav>
@@ -852,61 +819,11 @@ function versionSource(n){
 // lineDiff + hunkify now live in /static/linediff.js so the latex viewer can share them (#207/#208).
 // One implementation, required directly by tests/diff_selfcheck.js — see that file's header.
 
-// Render a hunked unified diff into `host`. Only changed lines plus mdDiff.CONTEXT lines either
-// side are shown; the rest collapse into folds that reveal mdDiff.REVEAL lines per click, so a long
-// document with a small edit does not render in full. Returns the {add,del} counts.
-function paintDiff(host,ta,tb){
-  const rows=mdDiff.numberRows(mdDiff.lineDiff(ta,tb));
-  const c=mdDiff.counts(rows);
-  if(!c.changed){host.innerHTML='<div class="diffempty">No changes between these versions.</div>';return c;}
-  const segs=mdDiff.hunkify(rows);
-  segs.forEach(s=>{s.shown=0;});                // each fold keeps its own reveal cursor
-  const hidden=segs.filter(s=>!s.vis).reduce((n,s)=>n+s.rows.length,0);
-  const hunks=segs.filter(s=>s.vis).length;
-  const row=r=>{
-    const cls=r.tag==='+'?'add':r.tag==='-'?'del':'eq';
-    const sign=r.tag==='+'?'+':r.tag==='-'?'−':' ';
-    return '<div class="drow '+cls+'"><span class="dnum">'+(r.a==null?'':r.a)+'</span>'
-      +'<span class="dnum b">'+(r.b==null?'':r.b)+'</span>'
-      +'<span class="dsign" aria-hidden="true">'+sign+'</span>'
-      +'<span class="dtxt">'+(escapeHtml(r.text)||'&nbsp;')+'</span></div>';
-  };
-  const head='<div class="diffhead"><span class="dpill plus">+'+c.add+'</span>'
-    +'<span class="dpill minus">−'+c.del+'</span><span class="dgrow"></span><span>'
-    +hunks+' hunk'+(hunks===1?'':'s')+(hidden?' · '+hidden+' unchanged lines hidden':'')+'</span></div>';
-  host.innerHTML=head+'<div class="diffbody"></div>';
-  const body=host.querySelector('.diffbody');
-  const paint=()=>{
-    body.innerHTML=segs.map((s,idx)=>{
-      if(s.vis)return s.rows.map(row).join('');
-      const left=s.rows.length-s.shown;
-      const shown=s.rows.slice(0,s.shown).map(row).join('');
-      if(left<=0)return shown;
-      return shown+'<button type="button" class="dfold" data-seg="'+idx+'">'
-        +'<span class="dchev" aria-hidden="true">▾</span><span>'+left+' unchanged line'
-        +(left===1?'':'s')+'</span><span class="dmore">+'+Math.min(mdDiff.REVEAL,left)+'</span></button>';
-    }).join('');
-    body.querySelectorAll('.dfold').forEach(b=>{
-      b.onclick=()=>{const s=segs[+b.dataset.seg];s.shown=Math.min(s.rows.length,s.shown+mdDiff.REVEAL);paint();};
-    });
-  };
-  paint();
-  return c;
-}
-function renderCompare(){
-  const body=$("#histbody");
-  if(HISTVERS.length<2){
-    body.innerHTML='<p class="diffempty">Need at least two versions to compare — a version is saved each time the AI pushes a revised draft.</p>';
-    return;
-  }
-  const opts=sel=>HISTVERS.map((v,idx)=>'<option value="'+escapeHtml(v.n)+'"'+(idx===sel?' selected':'')+'>'+escapeHtml(v.label)+'</option>').join('');
-  // Default A = previous round (index 1), B = current draft (index 0): the most common "what just changed".
-  body.innerHTML='<div class="cmpbar"><span>Compare</span><select id="cmpA">'+opts(1)+'</select>'
-    +'<span>&rarr;</span><select id="cmpB">'+opts(0)+'</select></div>'
-    +'<div id="diffview" class="diffdoc"></div>';
-  const run=()=>renderDiff($("#cmpA").value,$("#cmpB").value);
-  $("#cmpA").onchange=run;$("#cmpB").onchange=run;run();
-}
+// The renderer moved to /static/linediff.js in #208 so the latex viewer draws the identical
+// markup from the identical code. paintDiff is kept as a one-line seam: both callers here
+// (the inline toggle and the History compare view) go through it.
+const paintDiff=(host,ta,tb)=>mdDiff.renderInto(host,ta,tb);
+
 async function renderDiff(a,b){
   const view=$("#diffview");if(!view)return;view.innerHTML='Loading...';
   try{
