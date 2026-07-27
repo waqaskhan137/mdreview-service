@@ -130,14 +130,10 @@
   /* #19: History-modal compare mode — pick any two versions, line-level source diff */
   .cmpbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:var(--muted-fg);}
   .cmpbar select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--rule);border-radius:var(--r-control);background:var(--bg);color:var(--text);max-width:min(46%,300px);}
-  .diffdoc{border:1px solid var(--rule);border-radius:var(--r-control);padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.55;max-height:44vh;overflow:auto;white-space:pre-wrap;word-break:break-word;}
-  .diffrow{display:block;padding:0 6px;border-radius:var(--r-control);}
-  .diffrow.add{background:rgba(46,160,67,.16);}
-  .diffrow.del{background:rgba(229,83,75,.15);}
-  .diffrow.add::before{content:"+ ";color:#2ea043;}
-  .diffrow.del::before{content:"- ";color:#e5534b;}
-  .diffrow.eq::before{content:"\00a0\00a0";color:var(--muted-fg);}
-  .diffempty{color:var(--muted-fg);padding:8px 4px;}
+  /* Compare mode is now just a scroll container: the rows, gutter and folds come from the shared
+     renderer below, so this no longer restyles them. The old .diffrow rules went with it (#207). */
+  .diffdoc{border:1px solid var(--rule);border-radius:var(--r-control);max-height:44vh;overflow:auto;}
+  .diffempty{color:var(--muted-fg);padding:8px 4px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;}
   /* MR-036: a block carrying an open comment gets the margin bar + dot */
   .blk.has-comment{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
   .blk.has-comment .num::after{content:" \25CF";color:var(--noteline);}
@@ -240,18 +236,63 @@
   .share-invite button{font:inherit;font-size:12.5px;font-weight:600;padding:8px 12px;border:none;
     border-radius:var(--r-control);background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
   .share-err{color:#c0392b;font-size:12px;margin:8px 0 0;}
+
+  /* ---- #207 diff toggle + hunked unified diff ------------------------------------------------
+     Colours are the EXISTING --good/--danger status pairs, not new tokens: an add is "good" and a
+     removal is "danger" in exactly the sense theme.css already means. The sign column carries the
+     add/remove distinction independently of colour, so the diff survives greyscale and a
+     colourblind reader. */
+  #difftoggle{display:inline-flex;align-items:center;gap:7px;}
+  #difftoggle .dglyph{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;letter-spacing:-1px;color:var(--muted2);}
+  #difftoggle[aria-pressed="true"]{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);}
+  #difftoggle[aria-pressed="true"] .dglyph{color:var(--accent);}
+  #difftoggle .dcount{font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:700;
+    border-radius:999px;padding:1px 7px;background:var(--good-bg);border:1px solid var(--good-rule);color:var(--good);}
+  #difftoggle .dcount .dm{color:var(--danger);}
+  /* The hint after an agent push: the button advertises, it never opens the diff itself. */
+  #difftoggle.hinted{border-color:var(--accent);}
+
+  #diffpane{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.6;
+    border:1px solid var(--rule);border-radius:var(--r-card,12px);overflow:hidden;margin:8px 0 40px;}
+  .diffhead{display:flex;align-items:center;gap:9px;padding:8px 13px;border-bottom:1px solid var(--rule);
+    background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:12px;color:var(--muted2);}
+  .diffhead .dgrow{flex:1 1 auto;}
+  .dpill{font-size:10.5px;font-weight:700;letter-spacing:.04em;border-radius:999px;padding:2px 8px;}
+  .dpill.plus{background:var(--good-bg);color:var(--good);border:1px solid var(--good-rule);}
+  .dpill.minus{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-rule);}
+  .diffbody{overflow-x:auto;background:var(--panel);}
+  .drow{display:flex;align-items:flex-start;}
+  .dnum{flex:0 0 auto;width:3.1em;text-align:right;padding:0 7px;color:var(--muted2);font-size:11.5px;
+    user-select:none;font-variant-numeric:tabular-nums;}
+  .dnum.b{border-right:1px solid var(--rule);}
+  .dsign{flex:0 0 auto;width:1.5em;text-align:center;user-select:none;color:var(--muted2);}
+  .dtxt{flex:1 1 auto;padding-right:14px;white-space:pre-wrap;word-break:break-word;}
+  .drow.add{background:var(--good-bg);}
+  .drow.add .dsign{color:var(--good);font-weight:700;}
+  .drow.del{background:var(--danger-bg);}
+  .drow.del .dsign{color:var(--danger);font-weight:700;}
+  .drow.eq{color:var(--muted-fg,var(--muted2));}
+  .dfold{display:flex;align-items:center;gap:9px;width:100%;text-align:left;font:inherit;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:11.5px;cursor:pointer;
+    background:var(--inset);color:var(--muted2);border:none;border-top:1px solid var(--rule);
+    border-bottom:1px solid var(--rule);padding:5px 13px;}
+  .dfold:hover{color:var(--accent);}
+  .dfold .dchev{font-family:ui-monospace,Menlo,monospace;font-size:11px;}
+  .dfold .dmore{margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;}
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span><span class="filename" id="filename">loading…</span></div>
-  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
+  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><button id="difftoggle" class="tb-btn" type="button" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
 </header>
 <div class="wrap">
   <nav class="breadcrumb" id="breadcrumb"></nav>
   <h1 id="doctitle"></h1>
   <div id="docmeta"></div>
   <div id="article">Loading...</div>
+  <div id="diffpane" hidden></div>
 </div>
 
 <button id="addbtn">+ comment</button>
@@ -281,6 +322,7 @@
 
 <div id="lightbox"><img alt="zoomed figure"></div>
 <div id="toast"></div>
+<script src="/static/linediff.js"></script>
 <script src="/static/marked.min.js"></script>
 <script src="/static/mermaid.min.js"></script>
 <script src="/static/katex.min.js"></script>
@@ -415,6 +457,7 @@ async function boot(){
   renderChrome();
   await fetchComments();   // the shared server-side comments are the single feedback surface
   await load();
+  await refreshDiffAvail();  // reveals the diff toggle if there is an earlier version; never opens it
   poll();
 }
 
@@ -753,7 +796,7 @@ function poll(){
     if(addbtn.style.display==='block'||$("#pop").style.display==='block'||confirming)return;
     try{
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
-      if(s.source_updated&&s.source_updated!==lastSrc){await fetchComments();await load();toast('Draft updated by AI');}
+      if(s.source_updated&&s.source_updated!==lastSrc){await fetchComments();await load();toast('Draft updated by AI');await onAgentPush();}
       else if(s.comments_updated&&s.comments_updated!==lastCmt){lastCmt=s.comments_updated;await fetchComments();renderAll();}
     }catch(e){}
   },2000);
@@ -806,24 +849,49 @@ function versionSource(n){
   if(n==='current')return fetch(API+'/source',{cache:'no-store'}).then(r=>r.text());
   return fetch(API+'/history/'+n).then(r=>r.json()).then(d=>d.source||'');
 }
-// Pure LCS line diff: returns [{tag,text}] where tag is ' ' (unchanged), '-' (only in A), '+' (only in B).
-// No DOM/global access, so tests/diff_selfcheck.js can extract and exercise it directly.
-function lineDiff(aText,bText){
-  const a=String(aText).split('\n'),b=String(bText).split('\n');
-  const n=a.length,m=b.length;
-  const dp=[];                                 // dp[i][j] = LCS length of a[i:] vs b[j:]
-  for(let i=0;i<=n;i++)dp.push(new Int32Array(m+1));
-  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)
-    dp[i][j]=a[i]===b[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);
-  const out=[];let i=0,j=0;
-  while(i<n&&j<m){
-    if(a[i]===b[j]){out.push({tag:' ',text:a[i]});i++;j++;}
-    else if(dp[i+1][j]>=dp[i][j+1]){out.push({tag:'-',text:a[i]});i++;}
-    else{out.push({tag:'+',text:b[j]});j++;}
-  }
-  while(i<n)out.push({tag:'-',text:a[i++]});
-  while(j<m)out.push({tag:'+',text:b[j++]});
-  return out;
+// lineDiff + hunkify now live in /static/linediff.js so the latex viewer can share them (#207/#208).
+// One implementation, required directly by tests/diff_selfcheck.js — see that file's header.
+
+// Render a hunked unified diff into `host`. Only changed lines plus mdDiff.CONTEXT lines either
+// side are shown; the rest collapse into folds that reveal mdDiff.REVEAL lines per click, so a long
+// document with a small edit does not render in full. Returns the {add,del} counts.
+function paintDiff(host,ta,tb){
+  const rows=mdDiff.numberRows(mdDiff.lineDiff(ta,tb));
+  const c=mdDiff.counts(rows);
+  if(!c.changed){host.innerHTML='<div class="diffempty">No changes between these versions.</div>';return c;}
+  const segs=mdDiff.hunkify(rows);
+  segs.forEach(s=>{s.shown=0;});                // each fold keeps its own reveal cursor
+  const hidden=segs.filter(s=>!s.vis).reduce((n,s)=>n+s.rows.length,0);
+  const hunks=segs.filter(s=>s.vis).length;
+  const row=r=>{
+    const cls=r.tag==='+'?'add':r.tag==='-'?'del':'eq';
+    const sign=r.tag==='+'?'+':r.tag==='-'?'−':' ';
+    return '<div class="drow '+cls+'"><span class="dnum">'+(r.a==null?'':r.a)+'</span>'
+      +'<span class="dnum b">'+(r.b==null?'':r.b)+'</span>'
+      +'<span class="dsign" aria-hidden="true">'+sign+'</span>'
+      +'<span class="dtxt">'+(escapeHtml(r.text)||'&nbsp;')+'</span></div>';
+  };
+  const head='<div class="diffhead"><span class="dpill plus">+'+c.add+'</span>'
+    +'<span class="dpill minus">−'+c.del+'</span><span class="dgrow"></span><span>'
+    +hunks+' hunk'+(hunks===1?'':'s')+(hidden?' · '+hidden+' unchanged lines hidden':'')+'</span></div>';
+  host.innerHTML=head+'<div class="diffbody"></div>';
+  const body=host.querySelector('.diffbody');
+  const paint=()=>{
+    body.innerHTML=segs.map((s,idx)=>{
+      if(s.vis)return s.rows.map(row).join('');
+      const left=s.rows.length-s.shown;
+      const shown=s.rows.slice(0,s.shown).map(row).join('');
+      if(left<=0)return shown;
+      return shown+'<button type="button" class="dfold" data-seg="'+idx+'">'
+        +'<span class="dchev" aria-hidden="true">▾</span><span>'+left+' unchanged line'
+        +(left===1?'':'s')+'</span><span class="dmore">+'+Math.min(mdDiff.REVEAL,left)+'</span></button>';
+    }).join('');
+    body.querySelectorAll('.dfold').forEach(b=>{
+      b.onclick=()=>{const s=segs[+b.dataset.seg];s.shown=Math.min(s.rows.length,s.shown+mdDiff.REVEAL);paint();};
+    });
+  };
+  paint();
+  return c;
 }
 function renderCompare(){
   const body=$("#histbody");
@@ -843,12 +911,75 @@ async function renderDiff(a,b){
   const view=$("#diffview");if(!view)return;view.innerHTML='Loading...';
   try{
     const [ta,tb]=await Promise.all([versionSource(a),versionSource(b)]);
-    const rows=lineDiff(ta,tb);
-    if(!rows.some(r=>r.tag!==' ')){view.innerHTML='<div class="diffempty">No changes between these versions.</div>';return;}
-    const cls={' ':'eq','+':'add','-':'del'};
-    view.innerHTML=rows.map(r=>'<span class="diffrow '+cls[r.tag]+'">'+escapeHtml(r.text)+'</span>').join('');
+    paintDiff(view,ta,tb);                      // same renderer as the inline toggle (#207)
   }catch(e){view.innerHTML='<div class="diffempty">Could not load the diff.</div>';}
 }
+// --- #207: inline "what changed" toggle -------------------------------------------------------
+// OFF on load and STICKY once the reviewer turns it on. Sticky matters: a push while the diff is
+// open must show the newer change, not close the pane at the moment it becomes most useful.
+let DIFFON=false;
+let PREVROUND=null;      // newest archived round, or null when there is nothing to compare against
+
+function setDiffCount(c){
+  const el=$("#diffcount");
+  if(!c||!c.changed){el.hidden=true;return;}
+  el.innerHTML='+'+c.add+' <span class="dm">&minus;'+c.del+'</span>';
+  el.hidden=false;
+}
+// The button only exists once there IS a previous version; before the first agent push there is
+// nothing to diff and an inert control would just raise a question it cannot answer.
+async function refreshDiffAvail(){
+  try{
+    const d=await fetch(API+'/history').then(r=>r.json());
+    const rounds=(d&&d.rounds)||[];
+    PREVROUND=rounds.length?String(rounds[0].round):null;
+  }catch(e){PREVROUND=null;}
+  $("#difftoggle").hidden=!PREVROUND;
+}
+async function paintInlineDiff(){
+  const pane=$("#diffpane");
+  if(!PREVROUND){pane.innerHTML='<div class="diffempty">No earlier version yet — a version is saved each time the AI pushes a revised draft.</div>';return;}
+  pane.innerHTML='<div class="diffempty">Loading…</div>';
+  try{
+    const [ta,tb]=await Promise.all([versionSource(PREVROUND),versionSource('current')]);
+    setDiffCount(paintDiff(pane,ta,tb));
+  }catch(e){pane.innerHTML='<div class="diffempty">Could not load the diff.</div>';}
+}
+// DIFFON is the single source of truth for which pane is showing. Kept separate from
+// applyDiffMode so a push can RE-ASSERT the invariant without also re-triggering a repaint.
+function syncDiffVisibility(){
+  $("#article").hidden=DIFFON;
+  $("#diffpane").hidden=!DIFFON;
+  $("#difftoggle").setAttribute("aria-pressed",DIFFON?"true":"false");
+}
+function applyDiffMode(){
+  syncDiffVisibility();
+  if(DIFFON)paintInlineDiff();
+}
+$("#difftoggle").onclick=()=>{
+  DIFFON=!DIFFON;
+  $("#difftoggle").classList.remove('hinted');   // acted on; stop advertising
+  applyDiffMode();
+};
+// Called after the live-reload branch has already swapped the document in. HINTS ONLY when the
+// diff is closed — putting the changed-line count on the button is an invitation, not a decision.
+async function onAgentPush(){
+  await refreshDiffAvail();
+  if(DIFFON){await paintInlineDiff();syncDiffVisibility();return;}
+  try{
+    if(PREVROUND){
+      const [ta,tb]=await Promise.all([versionSource(PREVROUND),versionSource('current')]);
+      const c=mdDiff.counts(mdDiff.lineDiff(ta,tb));
+      setDiffCount(c);
+      if(c.changed)$("#difftoggle").classList.add('hinted');
+    }
+  }catch(e){}
+  // Re-assert from DIFFON, ALWAYS and last. load() rebuilt #article and several awaits have gone by;
+  // this guarantees a push can never leave the reviewer looking at a pane they did not open. Cheap
+  // insurance for the one invariant of this feature.
+  syncDiffVisibility();
+}
+
 $("#histbtn").onclick=openHistory;
 $("#histcmp").onclick=()=>{
   if(!HISTVERS.length)return;                   // history not loaded yet
