@@ -137,7 +137,12 @@ if r.returncode != 0:
 
 # 4. #188: the latex write guard rejects a body that cannot compile, and — the part that would
 #    break the product if wrong — leaves markdown reviews alone.
-r = run({"MDREVIEW_ENABLE_LATEX": "1", "MDREVIEW_DATA": DATA + "_latex"}, script=GUARD)
+r = run({"MDREVIEW_ENABLE_LATEX": "1", "MDREVIEW_DATA": DATA + "_latex",
+         # Creating latex reviews enqueues compiles, and the worker mkdtemps a latexjob-* dir under
+         # MDREVIEW_LATEX_WORKDIR, which defaults to the OS temp dir. Keep those inside the project's
+         # gitignored .scratch/, per CLAUDE.md's rule that nothing lands outside the repo.
+         "MDREVIEW_LATEX_WORKDIR": os.path.join(REPO, ".scratch", "boot_smoke_latexjobs")},
+        script=GUARD)
 check("#188 latex source guard rejects non-TeX writes and spares markdown reviews",
       r.returncode == 0 and "GUARD_OK" in r.stdout)
 if r.returncode != 0:

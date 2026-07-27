@@ -142,6 +142,12 @@ def main():
     ast = _wait(arid)
     pdf = b""
     code, body, _ = _req("GET", "/api/latex/%s/pdf" % arid)
+    # code 0 = no response at all. An empty pdf would make `leaked` False below and print OK, which
+    # would be a false pass: absence of the marker has to come from a body we actually read.
+    if code == 0:
+        print("FAIL 2/3: no response from /pdf (%s); cannot conclude the read was blocked"
+              % body[:120].decode("utf-8", "replace"))
+        return 1
     if code == 200:
         pdf = body
     # PDFs compress streams, so grep the log too; the strong signal is simply: the marker never
@@ -164,6 +170,10 @@ def main():
         erid = _create(etex, "environ")
         est = _wait(erid)
         code, body, _ = _req("GET", "/api/latex/%s/pdf" % erid)
+        if code == 0:  # same false-pass trap as step 2
+            print("FAIL 3/3: no response from /pdf (%s); cannot conclude the env was scrubbed"
+                  % body[:120].decode("utf-8", "replace"))
+            return 1
         epdf = body if code == 200 else b""
         eleak = SECRET.encode() in epdf or SECRET in (est.get("log_tail") or "")
         if eleak and REQUIRE_HARDENED:
