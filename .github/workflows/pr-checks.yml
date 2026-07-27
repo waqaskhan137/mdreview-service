@@ -1,0 +1,45 @@
+name: pr-checks
+
+# Pre-merge gate for `dev`. Agents self-merge their own PRs (docs/process/README.md, Branching),
+# so this is the check standing where the second-party look used to. Deliberately a SEPARATE
+# workflow from staging-image.yml rather than a trigger added to it: `on:` is workflow-level, so
+# a pull_request trigger there would also run that workflow's `image` job (`needs:` is a
+# dependency, not a filter) and publish the PR head as `:dev` — which the staging timer adopts
+# within 15 minutes. It would also join that workflow's static `cancel-in-progress` group and
+# cancel in-flight `dev` builds.
+#
+# Both smokes are stdlib-only and build their env inline: no repo secret, no Docker, no host.
+on:
+  pull_request:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Job KEY is the status-check context name (not the workflow name), so this is what to list
+  # if `pr-checks` is ever made a required status check on `dev`.
+  pr-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Guards this file's own safety invariants: no packages scope, no image push, job key
+      # unchanged. It runs on the PR head, so a PR that breaks them fails before it can merge.
+      - name: pr-checks guard
+        run: python3 tests/pr_checks_guard.py
+
+      - name: Hosted boot smoke
+        run: python3 tests/hosted_boot_smoke.py
+
+      - name: Custody regression smoke
+        run: python3 tests/custody_regression_smoke.py
