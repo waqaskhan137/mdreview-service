@@ -17,8 +17,12 @@ dir, so `\\input{preamble}` plus a `preamble.tex` asset is a preamble-less body 
 compile. Erring toward acceptance there merely preserves today's behavior.
 
 Both share the fence exclusion: a markdown doc quoting `\\documentclass` inside a ``` (or ~~~) fence
-must NOT trip either one. Note it does NOT strip inline `code spans`, so prose *about* LaTeX can
-still trip `looks_like_latex`; that is a known false positive, tracked separately.
+must NOT trip either one. It does NOT strip inline `code spans`, which cuts both ways and is known:
+prose *about* LaTeX can trip `looks_like_latex` (a false REJECT of a markdown create, tracked
+separately), and a markdown body mentioning `\\input{...}` in backticks passes `is_tex_source` (a
+false ACCEPT into a latex review). The second is the likelier shape — a markdown "reading copy" of a
+paper may well mention \\input in backticks — but it lands on the safe side: accepting merely
+preserves the pre-#188 behavior for that one body, while rejecting would refuse to save real work.
 
 This module is imported by the request layer and by latex_review's write decorator, and is only
 *called* under ENABLE_LATEX, so the flag-off import graph is unchanged.
