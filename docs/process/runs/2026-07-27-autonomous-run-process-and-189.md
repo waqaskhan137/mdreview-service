@@ -75,3 +75,67 @@ drift from the working agreement silently and did exactly that before this run: 
 "self-merge OK" while `AGENTS.md` said "do NOT merge it".
 
 **Falsifiable by:** finding `CLAUDE.md` tracked in git, which would make this a real omission.
+
+---
+
+## D6 · #189 shipped, and the ticket's own premise was wrong
+
+#189 said the source pane offered "only a download link". `#dlbtn` is **Download PDF** and lives
+in the PDF pane; there is no source download in the file at all. So the work was "add the first
+control of its kind to the source header", not "add a sibling". Correction posted on the issue
+before implementation, so the ticket and the AC do not disagree in the record.
+
+**Falsifiable by:** a source-download control anywhere in `latex-viewer.html` before this change.
+
+## D7 · The check asserts the clipboard, and was verified against the wrong implementation
+
+The AC is "the raw `.tex` reaches the clipboard". A render smoke asserting `#copysrc` exists
+would not test that, so `tests/latex_copy_source_smoke.sh` clicks the control, reads the
+clipboard back and compares byte-for-byte to `GET /source`.
+
+Verified by breaking it: swapping the handler to copy `#codecol.textContent` — the plausible
+wrong implementation, since the rendered column interleaves gutter line numbers — makes the
+smoke fail with `CLIP_MISMATCH`. A check never seen to fail is decoration.
+
+This needed `--clipboard` on `cdp-shot.mjs`: headless Chrome rejects even `writeText` with
+`NotAllowedError: Document is not focused` without both `Browser.grantPermissions` and
+`Emulation.setFocusEmulationEnabled`. Pre-flight established that *before* the AC was written,
+per the plan's pre-registration.
+
+**Falsifiable by:** the smoke passing against the `#codecol.textContent` implementation.
+
+## D8 · Stage 8 could not exercise the success path on staging, and this is not a workaround
+
+Chrome-MCP drives the browser through CDP, and `document.hasFocus()` is **false** at the moment
+any scripted click lands — measured, not assumed (`focusedAtClick: false`). `navigator.clipboard`
+requires a focused document, so on staging every click took the failure branch. Four attempts,
+including a real mouse click to focus first; the focus does not survive to the next tool call.
+This is the same family as the recorded "backgrounded MCP tabs freeze CSS animations".
+
+What stage 8 **did** establish on the deployed staging build (`ea4b0df`): the control renders in
+the source pane header, is labelled `Copy the LaTeX source to the clipboard`, and — with the
+clipboard genuinely unavailable — the UI says **"Copy failed — NotAllowedError"**. That is direct
+evidence the handler does not share `viewer.html`'s `#pubcopy` defect, which would have said
+"Copied". The honest-failure half of the AC was verified *better* by the constraint than it would
+have been by a working clipboard.
+
+What stage 8 did **not** establish: the success path on staging. That is verified locally, by the
+smoke above, and reported as local-only rather than implied to be staging-verified.
+
+**Falsifiable by:** a Chrome-MCP invocation that lands a click with `document.hasFocus() === true`.
+
+## D9 · The stage-6 digest read came back empty, and the gate survived by luck
+
+Stage 6 requires recording `.deployed-digest` **before** merging. For #189 that `ssh` read
+returned an empty string (transient; the same command worked before and after). The merge went
+ahead, so the gate briefly had no before-value — the exact "a gate with no before-value is not a
+gate" failure the process warns about.
+
+Recovered because the marker was re-read after the merge and **before** adoption and still held
+`096c790…`, so the before-value was recoverable. That is luck, not design: had the timer fired
+first, stage 7 would have had nothing to compare against.
+
+**Fix owed to the process doc:** stage 6 should treat an empty or failed digest read as a *failed
+precondition* and stop before merging, rather than proceeding. Not amended in this run; filed.
+
+**Falsifiable by:** a stage-6 implementation that proceeds to merge on an empty read.
