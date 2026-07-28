@@ -21,6 +21,10 @@ import tempfile
 import threading
 import time
 
+# #205: distinguishes "caller did not say" from "explicitly None". A failure must PRESERVE the
+# recorded pdf_revision, not silently clear it, or the surviving PDF becomes unnameable again.
+_KEEP = object()
+
 # The compile subprocess identity + limits. COMPILE_USER matches the useradd in Dockerfile.latex;
 # WORKDIR is set to an image path the compile user can traverse (never under /data). Both are env
 # overridable so the image can point them without code change.
@@ -125,7 +129,8 @@ class CompileWorker:
                 tmp = self.pdf_path(rid) + ".tmp"
                 shutil.copyfile(produced, tmp)
                 os.replace(tmp, self.pdf_path(rid))
-                self._write_status(rid, "ok", rev, log=log)
+                # #205: record which revision produced THIS pdf. A later failure preserves it.
+                self._write_status(rid, "ok", rev, log=log, pdf_revision=rev)
             else:
                 # keep any previous PDF; record the failure + log so the viewer can show it
                 self._write_status(rid, "failed", rev, log=log)
@@ -247,13 +252,29 @@ class CompileWorker:
         print("AUDIT " + json.dumps({"event": "latex_compile_unhardened", "rid": rid}), flush=True)
 
     # ---- status persistence ----
-    def _write_status(self, rid, state, revision, log=""):
+    def _write_status(self, rid, state, revision, log="", pdf_revision=_KEEP):
+        """Persist compile state. `revision` is the ATTEMPTED revision.
+
+        #205: `pdf_revision` is which revision actually produced `paper.pdf` on disk, which is a
+        different thing and the one a reader needs. Without it, a failed compile left the previous
+        PDF on disk with no way to name it: on a cold load the viewer had no prior `ok` in session
+        memory, so it announced "No PDF yet" while a perfectly good document sat next to it.
+
+        Reading `revision` as the served PDF's revision would be worse than saying nothing — it is
+        the attempt that just FAILED, so it would name a revision whose PDF was never written.
+
+        Default `_KEEP` preserves whatever was recorded before, so a failure never forgets which
+        revision the surviving PDF came from. Pass it explicitly on success.
+        """
         d = self._latex_dir(rid)
         try:
             os.makedirs(d, exist_ok=True)
         except OSError:
             return                                # review dir vanished; nothing to record
+        if pdf_revision is _KEEP:
+            pdf_revision = (self.status(rid) or {}).get("pdf_revision")
         payload = {"state": state, "revision": revision,
+                   "pdf_revision": pdf_revision,
                    "finished_at": time.time() if state in ("ok", "failed") else None,
                    "log_tail": (log or "")[-4000:]}
         self.store.write_text(os.path.join(d, "status.json"), json.dumps(payload))

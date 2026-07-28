@@ -562,15 +562,41 @@ async function refreshPdf(){
   if(st.state==='ok'){
     bar.textContent='PDF · v'+rev+' · compiled';
     document.body.classList.remove('compile-failed');
-    dl.href=LATEX+'/pdf';msg.style.display='none';
+    // #205: a return to ok must CLEAR the staleness dressing the failed branch applied, or the
+    // Download button keeps advertising an old revision after the compile recovered.
+    dl.href=LATEX+'/pdf'; dl.textContent='Download PDF'; dl.removeAttribute('title');
+    msg.style.display='none';
     if(pdfRev!==rev){pdfRev=rev;frame.src=LATEX+'/pdf?v='+rev;}   // reload only on a new build
   }else if(st.state==='failed'){
+    // #205. Two bugs lived here. On a COLD load (fresh page, no prior 'ok' this session) pdfRev was
+    // null, so the viewer announced "No PDF yet" and never set frame.src — while a perfectly good
+    // PDF sat on disk. And #dlbtn kept whatever href the 'ok' branch last gave it, so Download
+    // handed over a previous revision's document with no indication it was stale.
+    // Both are answered by the SERVER now (has_pdf / pdf_revision) rather than by session memory.
     bar.textContent='PDF · v'+rev+' · compile failed';
     document.body.classList.add('compile-failed');
-    $('#errsum').textContent='Compile failed at v'+rev+(pdfRev!=null?' — showing v'+pdfRev:'');
     $('#errlog').textContent=st.log_tail||'(no log)';
-    if(pdfRev==null)msg.textContent='No PDF yet — the compile failed. See the log above.';
-    msg.style.display=(pdfRev==null)?'flex':'none';
+    // "unknown" is deliberate for status files written before pdf_revision existed. st.revision is
+    // the ATTEMPTED revision — displaying it here would name a revision whose PDF was never built.
+    const shownRev = (st.pdf_revision!=null) ? ('v'+st.pdf_revision)
+                   : (pdfRev!=null ? ('v'+pdfRev) : 'an earlier revision (unknown)');
+    if(st.has_pdf){
+      $('#errsum').textContent='Compile failed at v'+rev+' — showing '+shownRev;
+      // Render the surviving PDF on a cold load too; the ok-branch guard never ran.
+      if(frame.src.indexOf(LATEX+'/pdf')===-1) frame.src=LATEX+'/pdf?stale='+rev;
+      msg.style.display='none';
+      // Say what it is, rather than silently handing over a document the reader thinks is current.
+      dl.href=LATEX+'/pdf';
+      dl.textContent='Download '+shownRev;
+      dl.title='The current compile (v'+rev+') failed. This downloads '+shownRev+'.';
+    }else{
+      $('#errsum').textContent='Compile failed at v'+rev;
+      msg.textContent='No PDF yet — the compile failed. See the log above.';
+      msg.style.display='flex';
+      dl.removeAttribute('href');            // nothing to download; do not offer a dead link
+      dl.textContent='Download PDF';
+      dl.title='No PDF has been produced yet.';
+    }
   }else{
     bar.textContent='PDF · '+st.state+'…';
     if(pdfRev==null){msg.textContent='Compiling…';msg.style.display='flex';}

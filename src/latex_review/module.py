@@ -87,6 +87,15 @@ class LatexModule:
         st = self.worker.status(rid) or {"state": "queued",
                                          "revision": int(self.reviews.meta(rid).get("revision", 0) or 0),
                                          "finished_at": None, "log_tail": ""}
+        # #205: two facts the client cannot derive on a COLD load, where it has no prior `ok` in
+        # session memory. `has_pdf` says a document exists at all; `pdf_revision` names which
+        # revision produced it, or is null for status files written before this field existed.
+        # Deliberately NOT defaulting pdf_revision to `revision`: that is the ATTEMPTED revision,
+        # so on a failure it names a revision whose PDF was never written. Null means "unknown",
+        # which the viewer must render as unknown rather than guessing.
+        st = dict(st)
+        st["has_pdf"] = os.path.isfile(self.worker.pdf_path(rid))
+        st.setdefault("pdf_revision", None)
         h._json(200, st)
 
     def _serve_pdf(self, h, rid):
@@ -96,4 +105,15 @@ class LatexModule:
             # so the viewer can show "compiling..." or the error log instead of a blank frame.
             h._json(404, {"error": "no pdf yet", "compile": self.worker.status(rid)})
             return
-        h._send(200, self.store.read_bytes(p), "application/pdf")
+        # #205: name the revision this PDF came from, on the response itself. A machine caller (and
+        # the viewer on a COLD load, with no prior `ok` in session memory) otherwise has no way to
+        # tell a current PDF from one left behind by a failed recompile.
+        # `status.json`'s `revision` is deliberately NOT used as a fallback: that is the ATTEMPTED
+        # revision, so on a failed compile it names a revision whose PDF was never written. Absent
+        # is honest; wrong is not. Legacy status files predate the field and correctly report absent.
+        st = self.worker.status(rid) or {}
+        headers = [("X-Compile-State", str(st.get("state") or "unknown"))]
+        pdf_rev = st.get("pdf_revision")
+        if pdf_rev is not None:
+            headers.append(("X-PDF-Revision", str(pdf_rev)))
+        h._send(200, self.store.read_bytes(p), "application/pdf", extra_headers=headers)
