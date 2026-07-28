@@ -37,6 +37,12 @@ services:
       # is also required by the future hosted build (python -m mdreview.hosted). Generate once:
       # `openssl rand -hex 32`, then keep it stable (rotating it invalidates every live session).
       MDREVIEW_SESSION_SECRET: "${MDREVIEW_SESSION_SECRET:?set MDREVIEW_SESSION_SECRET in infra/deploy/.env}"
+      # Session lifetime (#221). MUST be declared here: this service has no `env_file:`, so a key
+      # sitting in .env is only available for ${...} substitution and never reaches the container.
+      # Declaring it does NOT change prod on its own: the host runs its own copy of this file, and
+      # prod serves the :latest image built from main. It takes effect when the owner syncs this
+      # file and recreates the container (owner decision D1). Overrides the 43200 (12h) code default.
+      MDREVIEW_SESSION_TTL_S: "${MDREVIEW_SESSION_TTL_S:-2592000}"
     networks:
       - mdrnet
 
