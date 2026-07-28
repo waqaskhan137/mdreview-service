@@ -9,15 +9,19 @@ Every `/loop` firing is a fresh context. This block is the only handoff between 
 
 ```
 ticket:    #221
-stage:     3 done (groomed, claimed, worktree + branch cut, contended-file check clean)
-next:      stage 4 — implement + write the check
+stage:     4 done (implemented + check written; 8278deb, 42c3baa)
+next:      stage 5 — validate locally: node tests/session_selfcheck.js, then
+           tests/render-smoke.sh against a throwaway container for the dashboard + admin surfaces
 branch:    fix/221-session-lifetime  (cut from origin/dev @ 8498542)
 worktree:  .scratch/wt-221
 pre-merge .deployed-digest: (not yet recorded — record at stage 6, BEFORE merging)
-notes:     dashboard.html boot() is at :442 on dev, not :422. account.js mount() unchanged.
-           Files to touch: web/app/dashboard.html, web/app/static/account.js,
-           infra/deploy/.env.staging.example, infra/deploy/RUNBOOK-phase1.md, + one check.
+notes:     Shipped: web/app/static/session.js (new, dual browser/node export like linediff.js),
+           callers rewired in dashboard.html boot(), account.js mount(), admin.html boot().
+           session.js loads BEFORE the inline block on dashboard + admin (parse-time boot()).
+           tests/session_selfcheck.js: 10 cases, verified to fail (exit 1) when the bug returns.
            Host-side .env.staging edit happens AFTER stage 7, not in the PR.
+           NOT touched: viewer.html:937 also swallows /auth/session, but only to read a CSRF
+           token for the share button. Different failure, not a false logout. Left alone.
 ```
 
 Wakeup protocol: read this block, do the next stage, rewrite this block, commit. The **first**
@@ -169,6 +173,34 @@ here: the issue body and the plan were both written from the same stale tree.
 **Standing consequence:** #221's body cites symbols, not line numbers. #222 and #223 must get the
 same treatment at their stage 3, and their issue bodies still carry line numbers from the stale
 tree. Re-verify before implementing, do not trust those citations.
+
+### D7 — a shared `session.js` rather than the helper duplicated per caller
+**Decided by:** agent, stage 4.
+**Why:** the ladder says fewest files and shortest diff, which argued for duplicating eight lines.
+Two things overruled it. The repo already has this exact precedent: `linediff.js` was extracted out
+of the viewers specifically so the self-check could `require()` the bytes the browser runs, and its
+header says the old scrape-and-eval approach made "the test drifted from the shipped function"
+possible. And there turned out to be three callers, not two. Duplicating auth logic three ways is
+how the admin console ended up with the correct pattern and the broken one seven lines apart.
+**Cost, paid knowingly:** a `<script src>` line on five pages.
+**Falsified if:** a second module wants a different retry policy, at which point the shared default
+is wrong for someone.
+
+### D8 — admin.html's boot() was fixed too, though #221's AC named only two call sites
+**Decided by:** agent, stage 4.
+**Why:** it is the same defect, same fix, three lines, and the file already contained the correct
+treatment in `loadUsers()` immediately below it. This widens the fix, it does not weaken an AC
+(hard rule 6 guards against the latter), and leaving one caller broken while touching its
+neighbours would have been the odd choice to defend.
+**Falsified if:** the owner wanted #221 kept strictly to the two named sites for review size.
+
+### D9 — viewer.html's /auth/session call was deliberately left alone
+**Decided by:** agent, stage 4.
+**Why:** it reads a CSRF token for the share button. A failure there degrades sharing, it does not
+render a false sign-in screen, so it is not this ticket's defect class. Recorded rather than
+silently skipped.
+**Falsified if:** a failed CSRF read turns out to break the share button in a way that reads as a
+session problem to the user.
 
 <!-- Entries below are added during the run. -->
 
