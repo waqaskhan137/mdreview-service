@@ -66,6 +66,7 @@ flowchart TD
   S8 --> S9["9 · Report + run log + swap to status:review"]
   S3 -.file contended.-> PARK["PARK · status:blocked, diff in a comment"]
   S5 -.fails.-> STOP["STOP · report; never weaken the criterion"]
+  S6 -.digest read empty or failed.-> NODIGEST["STOP before merging · a gate<br/>with no before-value is not a gate"]
   S7 -.deadline.-> DEVNOTE["STOP · say on the PR and issue<br/>that dev carries unverified code"]
   S8 -.no session.-> PARTIAL["STOP at 8, plainly"]
 ```
@@ -77,7 +78,7 @@ flowchart TD
 | 3 Branch | Worktree created; branch `<kind>/<issue>-slug` cut from **current** `dev`; every file to be touched diffed against `origin/dev` first |
 | 4 Implement | The change, **plus one runnable check** that fails if the logic breaks |
 | 5 Validate | `py_compile` for svc; `tests/render-smoke.sh <url> <selector>` for ui — a 200 is not a render; the new check passes |
-| 6 PR + merge | PR references `(#N)`, no auto-close keywords; `pr-checks` green; the host's `.deployed-digest` **recorded before merging**; then merge |
+| 6 PR + merge | PR references `(#N)`, no auto-close keywords; `pr-checks` green; the host's `.deployed-digest` **recorded before merging**; then merge. An **empty or failed** digest read is a failed precondition, not a zero: **stop before merging** |
 | 7 Deploy | The CI run for **your** merge SHA concluded successfully, **and** `.deployed-digest` differs from the recorded pre-merge value |
 | 8 Visual | A screenshot of the changed surface on staging **with the interaction exercised**, signed in as the identity that owns the fixture |
 | 9 Report | Issue comment (what changed, what was validated, what was **not**), **swap** to `status:review`, run log committed |
@@ -120,6 +121,22 @@ instead**, because a poll with no bound never reaches this section at all. Stage
 starts when the CI run for your merge SHA concludes — not at merge — and expires after two
 timer cycles (~30 min) with no digest change. Baseline observed 2026-07-27: 67-second image
 build, ~11 minutes from merge to adoption.
+
+**An empty or failed `.deployed-digest` read at stage 6 stops the run BEFORE the merge.** The
+observable is exact: the read produced an **empty string**, or the command exited **non-zero**.
+Neither is a value. Do not treat an empty read as "unchanged", do not merge and re-read afterwards,
+and do not substitute a value read after the merge — by then the timer may already have moved the
+marker, and stage 7 would be comparing your deploy against itself.
+
+This is the **Preconditions** rule applied to a stage: *"A precondition that **fails** stops the
+run. A precondition that **cannot be evaluated** also stops the run: unevaluable is not the same as
+true, and assuming it is, is own-goal 4."* A gate with no before-value is not a gate.
+
+It has already happened once. On the 2026-07-27 run (#189, D9) the `ssh` read returned an empty
+string and the merge proceeded anyway. It was recoverable only by luck: the marker was re-read
+after merging but before the timer fired, and had not moved yet. Had the cycle landed first, stage
+7 would have had nothing to compare against and the deploy would have been declared verified on no
+evidence.
 
 **If a run stops after stage 6 and before stage 7 completes, `dev` carries code that never
 reached staging.** The stopping agent owes the next one a note on both the PR and the issue
