@@ -174,6 +174,7 @@
   </div>
 </div>
 <!-- Before the inline block, not after it: boot() runs at parse time and needs window.mdSession. -->
+<script src="/static/keys.js"></script>
 <script src="/static/session.js"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -464,6 +465,28 @@ async function boot(){
     initSignin();
   }
 }
+// #222. Bindings re-derived against the current dashboard: #182's rebuild removed the old
+// "show more" control entirely and renamed .nav-item to .filt, so the shortcuts follow the UI that
+// exists rather than the one the ticket was written against.
+// Every binding is guarded on the app actually being visible: while the sign-in or connection
+// screen is up, "1" must not silently toggle a filter behind it, and the help sheet must not
+// advertise shortcuts for a UI the visitor cannot see.
+const appUp=()=>{const a=$("#app");return !!a && a.style.display!=='none';};
+mdKeys.register([
+  {keys:"/", label:"Search reviews", when:appUp, run:()=>mdKeys.focus("#search")},
+  {keys:"p", label:"Filter by project", when:appUp, run:()=>mdKeys.focus("#projsel")},
+  {keys:"1", label:"Filter: Yours",    when:appUp, run:()=>mdKeys.click('.filt[data-filter="needs"]')},
+  {keys:"2", label:"Filter: Working",  when:appUp, run:()=>mdKeys.click('.filt[data-filter="working"]')},
+  {keys:"3", label:"Filter: Resolved", when:appUp, run:()=>mdKeys.click('.filt[data-filter="resolved"]')},
+]);
+// Escape inside the search box clears it. Registered as an Escape layer, not a binding, because
+// bindings are suppressed in text fields and this one must fire precisely while typing in one.
+mdKeys.pushEscape(()=>{
+  const s=$("#search");
+  if(!s || document.activeElement!==s || !s.value) return false;
+  s.value=""; s.dispatchEvent(new Event('input',{bubbles:true})); s.blur(); return true;
+});
+
 boot();
 </script>
 <script src="/static/account.js"></script>

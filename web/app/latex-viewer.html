@@ -263,6 +263,8 @@
 
 <script src="/static/linediff.js"></script>
 <script src="/static/marked.min.js"></script>
+<!-- Before the inline block: it registers bindings at parse time and needs window.mdKeys. -->
+<script src="/static/keys.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const ID=location.pathname.split('/').pop();
@@ -718,6 +720,21 @@ function renderShare(){
   }));
 }
 initShare();
+
+// #222: same dispatcher as the markdown viewer, so the marginal cost here is the table itself.
+mdKeys.pushEscape(()=>{const p=$('#pop');if(!p||p.style.display!=='block')return false;p.style.display='none';return true;});
+mdKeys.register([
+  {keys:"1", label:"Show the LaTeX source",   run:()=>mdKeys.click("#tab-src")},
+  {keys:"2", label:"Show the compiled PDF",   run:()=>mdKeys.click("#tab-pdf")},
+  {keys:"c", label:"Toggle the comments dock", run:()=>mdKeys.click("#cmtbtn")},
+  {keys:"a", label:"Add a comment",            run:()=>mdKeys.click("#addbtn")},
+  {keys:"mod+Enter", label:"Save the comment you are writing", keepInField:true, run:()=>{
+    const pop=$('#pop');
+    if(pop && pop.style.display==='block') return mdKeys.click("#popsave");
+    return false;
+  }},
+]);
+// #dlbtn is deliberately unbound: it downloads a file, and a stray keystroke must not write to disk.
 </script>
 <script src="/static/session.js"></script>
 <script src="/static/account.js"></script>

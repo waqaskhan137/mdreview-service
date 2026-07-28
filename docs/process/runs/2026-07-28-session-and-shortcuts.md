@@ -8,10 +8,31 @@ Owner reviews everything at the end; no check-ins between tickets.
 Every `/loop` firing is a fresh context. This block is the only handoff between wakeups.
 
 ```
-ticket:    #221
-stage:     8 done. Unblocked by the owner (E5): they authorised reading the magic link from their
-           Gmail. Both halves are now verified on staging, in a browser, with evidence committed.
-next:      stage 9 for #221 (issue comment + swap to status:review), then #222 stage 1.
+ticket:    #222   (#221 is DONE through G4, at status:review — see its stage 9 issue comment)
+stage:     5 done (implemented, checked, validated on a served instance)
+next:      stage 6 — PR, pr-checks, RECORD the digest BEFORE merging, merge
+
+stage 5 evidence (#222):
+  - node tests/keys_selfcheck.js: 18 cases pass. Verified to FAIL (exit 1, 2 cases) when the
+    "/" vs "?" trap is reintroduced by making keyOf() fold "?" back to "/".
+  - served instance + CDP, real KeyboardEvents, not just registration checks:
+      * "c" toggles #gutter.docked, i.e. it drives the REAL control rather than a copy of it
+      * "c" dispatched inside a textarea does NOT toggle it (field suppression works)
+      * "?" dispatched inside a textarea DOES open the sheet (the keepInField exception works)
+      * "?" opens the sheet and Escape closes it; the sheet lists the live bindings
+  - evidence/222/help-sheet-viewer.png
+  - the "s" (share) row is correctly ABSENT on a local build: the share button is hidden without
+    auth and the `when` guard hides the row rather than advertising a dead shortcut.
+  - NOT verified locally: latex-viewer bindings (the local build does not serve latex reviews);
+    deferred to stage 8 on staging.
+branch:    feat/222-keyboard-shortcuts  (cut from origin/dev @ 74dfa5f)
+worktree:  .scratch/wt-222
+pre-merge .deployed-digest: (record at stage 6, BEFORE merging)
+notes:     E2's standing warning was right: EVERY line number in #222's body was stale, and two
+           dashboard controls no longer exist at all. Re-derived and the issue body is updated.
+           Current, verified: viewer #cmtbtn/#resbtn/#histbtn/#addbtn/#sharebtn/#popsave;
+           latex #tab-src/#tab-pdf/#cmtbtn/#addbtn; dashboard #search/#projsel/.filt[data-filter].
+           dashboard.html also changed under #221 (session.js tag) — read it fresh, not from memory.
            A final PR is needed for evidence/221/, the cdp-shot --cookie/--block steps, and the
            run-log commits sitting on fix/221-session-ttl-compose.
 branch:    fix/221-session-ttl-compose  (merged as 9644ad0; still carries later log commits)
@@ -371,6 +392,47 @@ new standard route: it depends on the run having access to the owner's mailbox.
 whatever channel staging currently uses, before stage 1." The current wording names a mechanism
 (`MDREVIEW_ALLOW_STUB_EMAIL=1` -> logged links) that silently stopped being true when SMTP was
 configured, and the flag it names is still set, so it still looks true.
+
+### D13 — #222's dashboard bindings were re-derived, and two were dropped as non-existent
+**Decided by:** agent, #222 stage 1 (grooming is inside the run, per P1).
+**What was found:** the ticket bound `m` to `#showmore` and `1..n` to `.nav-item`. Neither exists on
+current `dev`. #182's dashboard rebuild removed the "show more" affordance outright and renamed the
+filter buttons to `.filt[data-filter]`. Every other cited line number in the ticket was also stale
+(viewer `#cmtbtn` was `:301`, is `:274`), though those elements do still exist.
+**Decision:** re-derive from the current UI. `/` and `Escape` keep their targets, `1`/`2`/`3` bind
+the three real filter buttons, `p` focuses the project selector `#projsel`, and the `m` binding is
+dropped because there is nothing to bind it to.
+**This is not hard rule 6.** Dropping a binding whose control was deleted from the product is not
+weakening an acceptance criterion to make a ticket pass; the criterion referred to something that no
+longer exists. It is recorded here and in the issue body rather than quietly omitted.
+**Falsified if:** the "show more" affordance returns, or `#projsel` is itself absorbed by #183's
+command palette, which the palette ticket explicitly contemplates ("only project switching genuinely
+depends on ⌘K").
+**Note for #223:** its issue body carries line numbers from the same stale tree. Re-verify at its
+stage 3 rather than trusting them.
+
+### E6 — the assertions passed while the help sheet was unreadable
+**What happened:** every stage-5 assertion for the help sheet was green: the dialog existed, it had
+six or more `<kbd>` elements, and it contained the right label text. Looking at the screenshot showed
+the keycaps were near-invisible: dark grey glyphs on a dark card.
+**Cause:** the dark-mode block restated the keycap background and border but not its `color`, so it
+kept the light-mode `var(--fg,#111)`. Both viewers define `--text`/`--rule`, not `--fg`/`--border`,
+so every var() in the sheet falls through to its literal and #111 won.
+**Why it matters beyond one CSS line:** the assertions were not wrong, they were measuring
+existence. "A `<kbd>` is in the DOM" and "a user can read the keycap" are different claims, and only
+the first is cheap to assert. Hard rule 4's "a 200 is not a render" has a sibling: **a node is not a
+legible node.** The screenshot is not decoration in the evidence, it is the only thing that caught
+this.
+**Falsified if:** a page appears that defines `--fg`, in which case the literals stop applying and
+the sheet inherits properly.
+
+### E7 — a stage-5 assertion failed because I guessed the observable, not because the code was wrong
+**What happened:** the first "does `c` toggle comments?" assertion watched `body.norail` and
+returned false. The binding was fine; `#cmtbtn`'s handler toggles `#gutter.docked`, which I had not
+read before asserting on it.
+**Lesson, small but real:** a failing assertion is a claim about two things, the code and the
+assertion. Reading the handler first would have cost one grep. This is the same shape as E4 and E5
+at a smaller scale: asserting from memory of a mechanism instead of from the mechanism.
 
 <!-- Entries below are added during the run. -->
 
