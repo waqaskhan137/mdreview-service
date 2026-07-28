@@ -9,11 +9,11 @@ Every `/loop` firing is a fresh context. This block is the only handoff between 
 
 ```
 ticket:    #221
-stage:     STOPPED AT 8. P5 is false: staging sends real email, so there is no magic link to read
-           from the container log and the run has no route to a signed-in staging session.
-           The TTL half of #221 is verified and live on staging. The UI half is not browser-verified.
-next:      OWNER INPUT NEEDED (see E5). Then stage 8, then stage 9.
-           Un-pushed run-log commits sit on fix/221-session-ttl-compose and need a docs PR.
+stage:     8 done. Unblocked by the owner (E5): they authorised reading the magic link from their
+           Gmail. Both halves are now verified on staging, in a browser, with evidence committed.
+next:      stage 9 for #221 (issue comment + swap to status:review), then #222 stage 1.
+           A final PR is needed for evidence/221/, the cdp-shot --cookie/--block steps, and the
+           run-log commits sitting on fix/221-session-ttl-compose.
 branch:    fix/221-session-ttl-compose  (merged as 9644ad0; still carries later log commits)
 worktree:  .scratch/wt-221
 pre-merge .deployed-digest for the NEXT merge: RE-RECORD IT, the value below is spent.
@@ -31,9 +31,16 @@ TTL half: VERIFIED LIVE ON STAGING
     obtained by logging in through a browser. It proves the configuration is live. It does not
     exercise the login flow.
 
-UI half: NOT browser-verified anywhere yet
-  - admin.html's changed boot() has still never run in a browser (no /admin on the local build).
-  - the connection-state card has been seen only on a local instance, not on staging.
+UI half: VERIFIED ON STAGING IN A BROWSER (evidence/221/)
+  - signed in via the REAL redeem flow, not a synthesised cookie. That cookie decodes to
+    exp - iat = 2592000, so the TTL AC is met through the browser path, not only server-side.
+  - /admin renders the console: admin.html's changed boot() has now run in a browser for the
+    first time. It could not be checked earlier because /admin 404s on the local build.
+  - THE DECISIVE ONE: with a VALID session cookie and /auth/session blocked, the dashboard shows
+    "Can't reach mdreview" with NO email input, and the account menu shows "Reconnecting...".
+    Those are exactly the conditions that used to render the sign-in form at a signed-in user.
+  - /admin under the same block shows "Could not reach the service." not "Sign in to continue".
+  - NOT captured: account.html separately (same account.js path as the two shots that were).
 
 stage 7 evidence for PR #225 (PASSED, both halves):
   - CI run for merge SHA 31d525a (staging-image): completed/success.
@@ -341,6 +348,29 @@ local check for a staging check, which hard rule 7 names as a form of faking a v
 from the owner's inbox, or turning staging's real delivery off. The first uses the owner's mailbox
 and the second changes staging behaviour beyond this ticket. Both are the owner's call, and "if a
 stage needs a judgement the plan did not anticipate, the run stops and reports; it does not decide."
+
+### D12 — cdp-shot gained `--cookie` and `--block` rather than a throwaway script
+**Decided by:** agent, stage 8.
+**Why:** the connection state is by definition unreachable while the endpoint is healthy, so it
+cannot be screenshotted by navigating to a URL, and authenticated surfaces cannot be reached
+headlessly at all when magic links arrive by email. A one-off script in `.scratch/` would have
+worked once and been deleted. #223's stage 8 needs the same capability twice over: proving
+per-device revoke requires TWO concurrent signed-in sessions.
+**Cost:** ~20 lines in a checked-in tool that belongs to #78.
+**Care taken:** the cookie value is never printed. A session cookie in a log or CI transcript is a
+live credential, and this tool's whole purpose is producing transcripts.
+**Falsified if:** `Network.setBlockedURLs` stops matching the pattern shape used here, which would
+make the failure shots silently pass against a healthy endpoint. The evals guard that: they assert
+the connection text is PRESENT, so a non-blocked request fails the step rather than passing it.
+
+### E5 resolution — the owner unblocked it, and the fix is a process change not a workaround
+The owner authorised reading the magic link from their Gmail, which produced a real session through
+the real redeem flow. Worth recording that this is a **workaround for a stale precondition**, not a
+new standard route: it depends on the run having access to the owner's mailbox.
+**The durable fix is to P5 itself**, which should read: "request a link and read it back through
+whatever channel staging currently uses, before stage 1." The current wording names a mechanism
+(`MDREVIEW_ALLOW_STUB_EMAIL=1` -> logged links) that silently stopped being true when SMTP was
+configured, and the flag it names is still set, so it still looks true.
 
 <!-- Entries below are added during the run. -->
 
