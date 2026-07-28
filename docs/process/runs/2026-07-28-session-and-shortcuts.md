@@ -9,12 +9,25 @@ Every `/loop` firing is a fresh context. This block is the only handoff between 
 
 ```
 ticket:    #221
-stage:     5 done (validated locally; found + filed #224)
-next:      stage 6 — open the PR, wait for pr-checks green, RECORD the host's
-           .deployed-digest BEFORE merging, then merge
-branch:    fix/221-session-lifetime  (cut from origin/dev @ 8498542)
+stage:     7 PASSED for PR #225, then E4 forced a second cycle. Now at stage 5/6 for the fix.
+next:      push fix/221-session-ttl-compose, PR -> dev, pr-checks, RECORD the digest again
+           (it has MOVED, see below), merge, stage 7 again, THEN stage 8.
+branch:    fix/221-session-ttl-compose  (cut from origin/dev @ 31d525a; carries d308686)
 worktree:  .scratch/wt-221
-pre-merge .deployed-digest: (not yet recorded — record at stage 6, BEFORE merging)
+pre-merge .deployed-digest for the NEXT merge:
+           sha256:b6efa5201b9f4fe44f99e88fdeb83102696142ec63b46c8a5df9cf5c9cda749b
+           (the value adopted at 16:46:47 from PR #225; re-record before merging the next PR)
+
+stage 7 evidence for PR #225 (PASSED, both halves):
+  - CI run for merge SHA 31d525a (staging-image): completed/success.
+  - digest moved 5f368a0f -> b6efa520 at 16:46:47, on the 16:45:32 timer cycle. Container
+    "Up About a minute (healthy)".
+  - ATTRIBUTION IS WEAKER THAN IT SHOULD BE: the image carries no
+    org.opencontainers.image.revision label, so the adopted digest cannot be tied to 31d525a
+    directly. The claim rests on 31d525a being the tip of dev with no sibling merge after it, plus
+    its CI concluding before adoption. That is precisely the "a sibling agent's merge moves the
+    same marker" assumption hard rule 4 warns about; here it happens to hold because this run is
+    the only writer. Worth a label in CI so a future run does not have to reason this way.
 notes:     Shipped: web/app/static/session.js (new, dual browser/node export like linediff.js),
            callers rewired in dashboard.html boot(), account.js mount(), admin.html boot().
            session.js loads BEFORE the inline block on dashboard + admin (parse-time boot()).
@@ -230,6 +243,61 @@ a change, and it is recorded here rather than discovered later.
 **Falsified if:** local users depend on that dashboard today, which would make this a regression
 rather than a neutral change. Nothing observed suggests they do: the viewer renders fine locally and
 local use goes through MCP tools and direct /review/<id> URLs.
+
+### D11 — merged on a green `pr-checks` that proves nothing about this PR
+**Decided by:** agent, stage 6.
+**The fact:** `pr-checks` passed in 9 seconds. The process doc already says why: "both its smokes
+are server-side and neither reads `web/app/**`". #221 is almost entirely `web/app/**`, so the gate
+that authorised this merge did not execute a single line of the change.
+**Why merged anyway:** the working agreement makes a green `pr-checks` the merge condition for
+`dev`, `dev` deploys only to staging, and stage 8 is the gate that actually reads this code. Holding
+the merge would not have produced more evidence, because the evidence lives on staging.
+**What this means for the run:** stage 8 is not a formality for this ticket, it is the first time
+`admin.html`'s changed `boot()` runs in a browser at all. If stage 8 cannot be completed, this
+ticket has no browser-level verification of one of its three call sites and must say so.
+**Falsified if:** `pr-checks` is ever extended to render `web/app/**`, at which point green would
+start meaning something here.
+
+### E3 — the background poll for `pr-checks` failed, and the failure was silent-ish
+**What happened:** a backgrounded `until` loop polling `gh pr checks` exited 8 rather than waiting.
+`gh pr checks` uses a non-zero exit for "pending", which the loop's condition did not account for.
+**Impact:** none on the work. The notification reported failure, a direct re-check showed green.
+**Lesson worth keeping:** a waiting construct that exits on the very condition it is waiting for
+looks like a completed wait. Had the run trusted the notification's "failed" without re-checking, it
+would have concluded the checks failed when they had passed.
+
+### E4 — own-goal: I shipped a config knob that could never work, and documented it confidently
+**What happened:** commit 42c3baa (merged in PR #225) documented `MDREVIEW_SESSION_TTL_S` in
+`.env.staging.example` and told the operator, in the prod runbook, to append it to
+`infra/deploy/.env` and recreate the container. Neither compose service has an `env_file:`
+directive, so keys in those files are only available for `${...}` substitution. **The variable
+never reaches the container.**
+
+**How it was caught:** stage 7 had just passed and the next step was applying the value on the
+staging host. Reading the host's compose to find where `.env.staging` was consumed showed an
+explicit `environment:` block with no `MDREVIEW_SESSION_TTL_S` in it and no `env_file:` anywhere.
+
+**Why it is the dangerous kind of wrong:** it fails silently and looks like success. The owner would
+have run the runbook command on prod, seen the container recreate cleanly with no error, and still
+been logged out every 12 hours, with the run's own documentation asserting the fix was applied.
+
+**The rule I broke:** hard rule 8, verbatim: "a mechanism claimed in a plan, brief or process doc is
+a hypothesis. Check it before reasoning from it, **including the schema of a config file you are
+proposing to edit**." I wrote a runbook instruction for a file I had not read. The process document
+warns about this specific mistake in its own preamble, as a thing a previous run did.
+
+**Compounding factor worth naming:** the plan (line "It persists across auto-updates because compose
+reads the env file") asserted the mechanism, and every later step inherited that assumption without
+rechecking. A plan's confident sentence is not evidence.
+
+**Fix:** d308686 declares the variable in both compose files with a 2592000 default, corrects the
+runbook and the env example, adds a verification step (`docker exec ... printenv`) because a
+recreate with the variable undeclared is indistinguishable from a successful one, and adds
+`tests/env_wiring_selfcheck.py` guarding the class: a knob the deploy docs present as settable must
+be declared in the compose file. Verified the check exits 1 without the declaration.
+
+**Cost:** one extra PR and deploy cycle. Cheap relative to the owner applying an inert change to
+prod and concluding the diagnosis in #221 was wrong.
 
 <!-- Entries below are added during the run. -->
 
