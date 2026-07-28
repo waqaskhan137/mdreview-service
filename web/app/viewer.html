@@ -296,6 +296,8 @@
 <script src="/static/marked-footnote.umd.js"></script>
 <script src="/static/highlight.min.js"></script>
 <script src="/static/marked-highlight.umd.js"></script>
+<!-- Before the inline block: it registers bindings at parse time and needs window.mdKeys. -->
+<script src="/static/keys.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 let META={name:"file.md",path:""};
@@ -914,7 +916,37 @@ document.addEventListener('click',e=>{
   if(img){lb.querySelector('img').src=img.currentSrc||img.src;lb.style.display='flex';}
   else if(e.target.closest('#lightbox')){lb.style.display='none';}
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape')$("#lightbox").style.display='none';});
+// #222: Escape has ONE owner now. Each layer registers a closer that reports whether it was
+// actually open, so Escape shuts the topmost open thing and nothing underneath it. Registration
+// order is outermost-first: the lightbox was the only Escape handler before, and it stays last
+// resort. Behaviour when the lightbox is the only thing open is unchanged.
+mdKeys.pushEscape(()=>{const l=$("#lightbox");if(!l||l.style.display!=='flex')return false;l.style.display='none';return true;});
+mdKeys.pushEscape(()=>{const h=$("#histmodal");if(!h||h.style.display!=='flex')return false;h.style.display='none';return true;});
+mdKeys.pushEscape(()=>{const p=$("#pop");if(!p||p.style.display!=='block')return false;p.style.display='none';return true;});
+mdKeys.pushEscape(()=>{const s=$("#sharepop");if(!s||s.hidden)return false;s.hidden=true;return true;});
+
+mdKeys.register([
+  {keys:"c", label:"Toggle the comments panel",  run:()=>mdKeys.click("#cmtbtn")},
+  {keys:"r", label:"Toggle resolved comments",   run:()=>mdKeys.click("#resbtn")},
+  {keys:"h", label:"Open the revision history",  run:()=>mdKeys.click("#histbtn")},
+  {keys:"a", label:"Add a comment",              run:()=>mdKeys.click("#addbtn")},
+  // Share is hidden until the viewer knows you own the doc, so guard it: an inert row in the help
+  // sheet is worse than no row.
+  {keys:"s", label:"Share this document",        when:()=>{const b=$("#sharebtn");return !!b&&b.style.display!=='none';}, run:()=>mdKeys.click("#sharebtn")},
+  // The composer's own submit. keepInField because you are, by definition, typing in it.
+  {keys:"mod+Enter", label:"Save the comment you are writing", keepInField:true, run:()=>{
+    const pop=$("#pop");
+    if(pop && pop.style.display==='block') return mdKeys.click("#popsave");
+    // a reply textarea: submit the Reply button inside the same card
+    const ta=document.activeElement;
+    if(ta && ta.tagName==='TEXTAREA'){
+      const card=ta.closest('.rcard');
+      const btn=card && card.querySelector('[data-act="reply"], .rbtn');
+      if(btn){ btn.click(); return true; }
+    }
+    return false;
+  }},
+]);
 
 // catch the first paint regardless of async load timing
 [250,800,1600].forEach(t=>setTimeout(()=>{try{renderAll();}catch(e){}},t));
