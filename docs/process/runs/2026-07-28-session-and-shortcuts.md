@@ -9,12 +9,14 @@ Every `/loop` firing is a fresh context. This block is the only handoff between 
 
 ```
 ticket:    #221
-stage:     5 done (validated locally; found + filed #224)
-next:      stage 6 — open the PR, wait for pr-checks green, RECORD the host's
-           .deployed-digest BEFORE merging, then merge
-branch:    fix/221-session-lifetime  (cut from origin/dev @ 8498542)
+stage:     6 done (PR #225 merged to dev as 31d525a)
+next:      stage 7 — BOTH halves: the CI run for 31d525a concluded successfully, AND
+           ~/mdreview-staging/.deployed-digest differs from the pre-merge value below.
+           Clock starts when CI for 31d525a concludes; expires after ~30 min with no digest change.
+branch:    fix/221-session-lifetime  (cut from origin/dev @ 8498542, merged)
 worktree:  .scratch/wt-221
-pre-merge .deployed-digest: (not yet recorded — record at stage 6, BEFORE merging)
+pre-merge .deployed-digest: sha256:5f368a0f79cf8f87829f337a1b62a948f1d6474ef5ea9bccc559741c958b01d7
+           (recorded BEFORE the push, not just before the merge)
 notes:     Shipped: web/app/static/session.js (new, dual browser/node export like linediff.js),
            callers rewired in dashboard.html boot(), account.js mount(), admin.html boot().
            session.js loads BEFORE the inline block on dashboard + admin (parse-time boot()).
@@ -230,6 +232,28 @@ a change, and it is recorded here rather than discovered later.
 **Falsified if:** local users depend on that dashboard today, which would make this a regression
 rather than a neutral change. Nothing observed suggests they do: the viewer renders fine locally and
 local use goes through MCP tools and direct /review/<id> URLs.
+
+### D11 — merged on a green `pr-checks` that proves nothing about this PR
+**Decided by:** agent, stage 6.
+**The fact:** `pr-checks` passed in 9 seconds. The process doc already says why: "both its smokes
+are server-side and neither reads `web/app/**`". #221 is almost entirely `web/app/**`, so the gate
+that authorised this merge did not execute a single line of the change.
+**Why merged anyway:** the working agreement makes a green `pr-checks` the merge condition for
+`dev`, `dev` deploys only to staging, and stage 8 is the gate that actually reads this code. Holding
+the merge would not have produced more evidence, because the evidence lives on staging.
+**What this means for the run:** stage 8 is not a formality for this ticket, it is the first time
+`admin.html`'s changed `boot()` runs in a browser at all. If stage 8 cannot be completed, this
+ticket has no browser-level verification of one of its three call sites and must say so.
+**Falsified if:** `pr-checks` is ever extended to render `web/app/**`, at which point green would
+start meaning something here.
+
+### E3 — the background poll for `pr-checks` failed, and the failure was silent-ish
+**What happened:** a backgrounded `until` loop polling `gh pr checks` exited 8 rather than waiting.
+`gh pr checks` uses a non-zero exit for "pending", which the loop's condition did not account for.
+**Impact:** none on the work. The notification reported failure, a direct re-check showed green.
+**Lesson worth keeping:** a waiting construct that exits on the very condition it is waiting for
+looks like a completed wait. Had the run trusted the notification's "failed" without re-checking, it
+would have concluded the checks failed when they had passed.
 
 <!-- Entries below are added during the run. -->
 
