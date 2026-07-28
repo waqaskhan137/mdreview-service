@@ -9,14 +9,31 @@ Every `/loop` firing is a fresh context. This block is the only handoff between 
 
 ```
 ticket:    #221
-stage:     7 PASSED for PR #225, then E4 forced a second cycle. Now at stage 5/6 for the fix.
-next:      push fix/221-session-ttl-compose, PR -> dev, pr-checks, RECORD the digest again
-           (it has MOVED, see below), merge, stage 7 again, THEN stage 8.
-branch:    fix/221-session-ttl-compose  (cut from origin/dev @ 31d525a; carries d308686)
+stage:     STOPPED AT 8. P5 is false: staging sends real email, so there is no magic link to read
+           from the container log and the run has no route to a signed-in staging session.
+           The TTL half of #221 is verified and live on staging. The UI half is not browser-verified.
+next:      OWNER INPUT NEEDED (see E5). Then stage 8, then stage 9.
+           Un-pushed run-log commits sit on fix/221-session-ttl-compose and need a docs PR.
+branch:    fix/221-session-ttl-compose  (merged as 9644ad0; still carries later log commits)
 worktree:  .scratch/wt-221
-pre-merge .deployed-digest for the NEXT merge:
-           sha256:b6efa5201b9f4fe44f99e88fdeb83102696142ec63b46c8a5df9cf5c9cda749b
-           (the value adopted at 16:46:47 from PR #225; re-record before merging the next PR)
+pre-merge .deployed-digest for the NEXT merge: RE-RECORD IT, the value below is spent.
+           sha256:b6efa5201b9f4fe44f99e88fdeb83102696142ec63b46c8a5df9cf5c9cda749b (pre-#226)
+
+TTL half: VERIFIED LIVE ON STAGING
+  - host compose now declares MDREVIEW_SESSION_TTL_S (surgical insert, backup taken as
+    docker-compose.staging.yml.bak-221-<ts>); auto-update.sh never syncs compose from git, so the
+    repo change alone would not have taken effect. Checked before acting, not after.
+  - docker exec mdreview-staging printenv MDREVIEW_SESSION_TTL_S -> 2592000. This is the check E4
+    exists to force: a recreate with the var undeclared looks identical to a successful one.
+  - a mint through the container's own SessionService with its real config gives
+    exp - iat = 2592000 (30 days), refresh_after_s = 1296000 (15 days).
+  - HONEST SCOPE: that is a server-side mint via the same code path /auth/redeem uses, NOT a cookie
+    obtained by logging in through a browser. It proves the configuration is live. It does not
+    exercise the login flow.
+
+UI half: NOT browser-verified anywhere yet
+  - admin.html's changed boot() has still never run in a browser (no /admin on the local build).
+  - the connection-state card has been seen only on a local instance, not on staging.
 
 stage 7 evidence for PR #225 (PASSED, both halves):
   - CI run for merge SHA 31d525a (staging-image): completed/success.
@@ -298,6 +315,32 @@ be declared in the compose file. Verified the check exits 1 without the declarat
 
 **Cost:** one extra PR and deploy cycle. Cheap relative to the owner applying an inert change to
 prod and concluding the diagnosis in #221 was wrong.
+
+### E5 — P5 was false, and the run recorded it as PASS without testing it
+**What happened:** the preconditions table says P5 PASS, "Staging sets `MDREVIEW_ALLOW_STUB_EMAIL=1`:
+magic links are logged, not delivered. Read the link from `docker logs mdreview-staging`." At stage
+8 that turned out to be wrong. `MDREVIEW_SMTP_HOST=smtp.azurecomm.net` is set on staging, and the
+compose file's own comment says a non-empty host switches the app to real delivery. Staging emails
+the link. Nothing is logged: the container's entire log is one startup line.
+
+**Why it was recorded as PASS:** the flag `MDREVIEW_ALLOW_STUB_EMAIL=1` *is* set, so the claim looked
+verified. It is dead config, overridden by the SMTP host that was added later. Confirming the flag
+is not the same as confirming the behaviour, and the run confirmed the flag.
+
+**Same family as E4.** Both are a mechanism asserted in the plan and inherited by every later step
+without being exercised. Hard rule 8 covers exactly this, and this run has now broken it twice.
+The lesson that generalises: **a precondition should be checked by performing the thing it
+promises**, not by confirming a setting that implies it. P5 should have been "request a link and
+read it back" before stage 1, which takes a minute and would have caught this at the start.
+
+**Consequence:** the run has no route to a signed-in staging session, so stage 8 cannot proceed.
+Per the process flowchart, "no session -> STOP at 8, plainly." Stopping rather than substituting a
+local check for a staging check, which hard rule 7 names as a form of faking a verification.
+
+**Not decided by the agent:** restoring the documented route means either reading the delivered mail
+from the owner's inbox, or turning staging's real delivery off. The first uses the owner's mailbox
+and the second changes staging behaviour beyond this ticket. Both are the owner's call, and "if a
+stage needs a judgement the plan did not anticipate, the run stops and reports; it does not decide."
 
 <!-- Entries below are added during the run. -->
 
