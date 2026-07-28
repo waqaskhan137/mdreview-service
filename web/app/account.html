@@ -87,8 +87,8 @@
         <div id="sess-note" class="text-muted-foreground" style="margin:0 0 10px;display:none"></div>
         <div class="table-container">
           <table class="table">
-            <thead><tr><th>device</th><th>ip</th><th>first seen</th><th>last seen</th><th></th></tr></thead>
-            <tbody id="sessrows"><tr><td class="text-muted-foreground" colspan="5">loading…</td></tr></tbody>
+            <thead><tr><th>device</th><th>ip</th><th>last seen</th><th></th></tr></thead>
+            <tbody id="sessrows"><tr><td class="text-muted-foreground" colspan="4">loading…</td></tr></tbody>
           </table>
         </div>
         <button class="btn" data-variant="outline" data-size="sm" id="revokeothers"
@@ -188,19 +188,18 @@ async function loadSessions(){
   // A failed fetch is NOT "no sessions" (#221's lesson applied here): rendering an empty table
   // would tell the user nothing is signed in, which is the opposite of unknown.
   try { r = await fetch("/auth/sessions", {cache:"no-store"}); }
-  catch(e){ $("#sessrows").innerHTML = '<tr><td class="text-muted-foreground" colspan="5">could not reach the server</td></tr>'; return; }
-  if(!r.ok){ $("#sessrows").innerHTML = '<tr><td class="text-muted-foreground" colspan="5">could not load</td></tr>'; return; }
+  catch(e){ $("#sessrows").innerHTML = '<tr><td class="text-muted-foreground" colspan="4">could not reach the server</td></tr>'; return; }
+  if(!r.ok){ $("#sessrows").innerHTML = '<tr><td class="text-muted-foreground" colspan="4">could not load</td></tr>'; return; }
   const d = await r.json();
   const list = d.sessions || [];
   $("#sessrows").innerHTML = list.length
     ? list.map(s =>
         `<tr><td>${esc(device(s.user_agent))}${s.current?' <strong>(this device)</strong>':''}</td>`+
         `<td class="text-muted-foreground">${esc(s.ip||"-")}</td>`+
-        `<td class="text-muted-foreground">${fmt(s.created)}</td>`+
         `<td class="text-muted-foreground">${esc(ago(s.last_seen))}</td>`+
         `<td><button class="btn" data-variant="outline" data-size="sm" data-jti="${esc(s.jti)}" data-cur="${s.current?1:0}">`+
         `${s.current?"Sign out":"End session"}</button></td></tr>`).join("")
-    : '<tr><td class="text-muted-foreground" colspan="5">no sessions recorded</td></tr>';
+    : '<tr><td class="text-muted-foreground" colspan="4">no sessions recorded</td></tr>';
   $("#revokeothers").style.display = list.filter(s=>!s.current).length ? "" : "none";
   // Say it plainly when the list cannot be complete, rather than showing a short list as if it
   // were the whole truth (owner decision D3: pre-#223 cookies keep working but have no record).
@@ -238,7 +237,7 @@ document.addEventListener("click", async e => {
 (async () => {
   const s = await window.mdSession.read();
   if(s.reachable && s.sess.authenticated){ CSRF = s.sess.csrf || ""; loadSessions(); }
-  else $("#sessrows").innerHTML = '<tr><td class="text-muted-foreground" colspan="5">not signed in</td></tr>';
+  else $("#sessrows").innerHTML = '<tr><td class="text-muted-foreground" colspan="4">not signed in</td></tr>';
 })();
 
 load();
