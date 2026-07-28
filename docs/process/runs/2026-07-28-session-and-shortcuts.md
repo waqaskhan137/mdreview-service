@@ -9,14 +9,38 @@ Every `/loop` firing is a fresh context. This block is the only handoff between 
 
 ```
 ticket:    #221
-stage:     7 PASSED for PR #225, then E4 forced a second cycle. Now at stage 5/6 for the fix.
-next:      push fix/221-session-ttl-compose, PR -> dev, pr-checks, RECORD the digest again
-           (it has MOVED, see below), merge, stage 7 again, THEN stage 8.
-branch:    fix/221-session-ttl-compose  (cut from origin/dev @ 31d525a; carries d308686)
+stage:     8 done. Unblocked by the owner (E5): they authorised reading the magic link from their
+           Gmail. Both halves are now verified on staging, in a browser, with evidence committed.
+next:      stage 9 for #221 (issue comment + swap to status:review), then #222 stage 1.
+           A final PR is needed for evidence/221/, the cdp-shot --cookie/--block steps, and the
+           run-log commits sitting on fix/221-session-ttl-compose.
+branch:    fix/221-session-ttl-compose  (merged as 9644ad0; still carries later log commits)
 worktree:  .scratch/wt-221
-pre-merge .deployed-digest for the NEXT merge:
-           sha256:b6efa5201b9f4fe44f99e88fdeb83102696142ec63b46c8a5df9cf5c9cda749b
-           (the value adopted at 16:46:47 from PR #225; re-record before merging the next PR)
+pre-merge .deployed-digest for the NEXT merge: RE-RECORD IT, the value below is spent.
+           sha256:b6efa5201b9f4fe44f99e88fdeb83102696142ec63b46c8a5df9cf5c9cda749b (pre-#226)
+
+TTL half: VERIFIED LIVE ON STAGING
+  - host compose now declares MDREVIEW_SESSION_TTL_S (surgical insert, backup taken as
+    docker-compose.staging.yml.bak-221-<ts>); auto-update.sh never syncs compose from git, so the
+    repo change alone would not have taken effect. Checked before acting, not after.
+  - docker exec mdreview-staging printenv MDREVIEW_SESSION_TTL_S -> 2592000. This is the check E4
+    exists to force: a recreate with the var undeclared looks identical to a successful one.
+  - a mint through the container's own SessionService with its real config gives
+    exp - iat = 2592000 (30 days), refresh_after_s = 1296000 (15 days).
+  - HONEST SCOPE: that is a server-side mint via the same code path /auth/redeem uses, NOT a cookie
+    obtained by logging in through a browser. It proves the configuration is live. It does not
+    exercise the login flow.
+
+UI half: VERIFIED ON STAGING IN A BROWSER (evidence/221/)
+  - signed in via the REAL redeem flow, not a synthesised cookie. That cookie decodes to
+    exp - iat = 2592000, so the TTL AC is met through the browser path, not only server-side.
+  - /admin renders the console: admin.html's changed boot() has now run in a browser for the
+    first time. It could not be checked earlier because /admin 404s on the local build.
+  - THE DECISIVE ONE: with a VALID session cookie and /auth/session blocked, the dashboard shows
+    "Can't reach mdreview" with NO email input, and the account menu shows "Reconnecting...".
+    Those are exactly the conditions that used to render the sign-in form at a signed-in user.
+  - /admin under the same block shows "Could not reach the service." not "Sign in to continue".
+  - NOT captured: account.html separately (same account.js path as the two shots that were).
 
 stage 7 evidence for PR #225 (PASSED, both halves):
   - CI run for merge SHA 31d525a (staging-image): completed/success.
@@ -298,6 +322,55 @@ be declared in the compose file. Verified the check exits 1 without the declarat
 
 **Cost:** one extra PR and deploy cycle. Cheap relative to the owner applying an inert change to
 prod and concluding the diagnosis in #221 was wrong.
+
+### E5 — P5 was false, and the run recorded it as PASS without testing it
+**What happened:** the preconditions table says P5 PASS, "Staging sets `MDREVIEW_ALLOW_STUB_EMAIL=1`:
+magic links are logged, not delivered. Read the link from `docker logs mdreview-staging`." At stage
+8 that turned out to be wrong. `MDREVIEW_SMTP_HOST=smtp.azurecomm.net` is set on staging, and the
+compose file's own comment says a non-empty host switches the app to real delivery. Staging emails
+the link. Nothing is logged: the container's entire log is one startup line.
+
+**Why it was recorded as PASS:** the flag `MDREVIEW_ALLOW_STUB_EMAIL=1` *is* set, so the claim looked
+verified. It is dead config, overridden by the SMTP host that was added later. Confirming the flag
+is not the same as confirming the behaviour, and the run confirmed the flag.
+
+**Same family as E4.** Both are a mechanism asserted in the plan and inherited by every later step
+without being exercised. Hard rule 8 covers exactly this, and this run has now broken it twice.
+The lesson that generalises: **a precondition should be checked by performing the thing it
+promises**, not by confirming a setting that implies it. P5 should have been "request a link and
+read it back" before stage 1, which takes a minute and would have caught this at the start.
+
+**Consequence:** the run has no route to a signed-in staging session, so stage 8 cannot proceed.
+Per the process flowchart, "no session -> STOP at 8, plainly." Stopping rather than substituting a
+local check for a staging check, which hard rule 7 names as a form of faking a verification.
+
+**Not decided by the agent:** restoring the documented route means either reading the delivered mail
+from the owner's inbox, or turning staging's real delivery off. The first uses the owner's mailbox
+and the second changes staging behaviour beyond this ticket. Both are the owner's call, and "if a
+stage needs a judgement the plan did not anticipate, the run stops and reports; it does not decide."
+
+### D12 — cdp-shot gained `--cookie` and `--block` rather than a throwaway script
+**Decided by:** agent, stage 8.
+**Why:** the connection state is by definition unreachable while the endpoint is healthy, so it
+cannot be screenshotted by navigating to a URL, and authenticated surfaces cannot be reached
+headlessly at all when magic links arrive by email. A one-off script in `.scratch/` would have
+worked once and been deleted. #223's stage 8 needs the same capability twice over: proving
+per-device revoke requires TWO concurrent signed-in sessions.
+**Cost:** ~20 lines in a checked-in tool that belongs to #78.
+**Care taken:** the cookie value is never printed. A session cookie in a log or CI transcript is a
+live credential, and this tool's whole purpose is producing transcripts.
+**Falsified if:** `Network.setBlockedURLs` stops matching the pattern shape used here, which would
+make the failure shots silently pass against a healthy endpoint. The evals guard that: they assert
+the connection text is PRESENT, so a non-blocked request fails the step rather than passing it.
+
+### E5 resolution — the owner unblocked it, and the fix is a process change not a workaround
+The owner authorised reading the magic link from their Gmail, which produced a real session through
+the real redeem flow. Worth recording that this is a **workaround for a stale precondition**, not a
+new standard route: it depends on the run having access to the owner's mailbox.
+**The durable fix is to P5 itself**, which should read: "request a link and read it back through
+whatever channel staging currently uses, before stage 1." The current wording names a mechanism
+(`MDREVIEW_ALLOW_STUB_EMAIL=1` -> logged links) that silently stopped being true when SMTP was
+configured, and the flag it names is still set, so it still looks true.
 
 <!-- Entries below are added during the run. -->
 
