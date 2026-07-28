@@ -19,7 +19,15 @@
      bar (violet, was amber). */
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:Charter,Georgia,Cambria,"Times New Roman",serif;font-size:20px;line-height:1.7;}
-  .wrap{max-width:720px;margin:0 auto;padding:40px 24px 160px 64px;}
+  /* #199: the reading column yields so the comment rail can sit beside the text.
+     The rail needs `#article.right + 320 <= innerWidth`. With .wrap centred that reduces to
+     `column <= W - 592` (rail 284 + gap 24 + the 24/64 padding either side). Reserving 620
+     leaves ~28px of headroom rather than sitting on the exact fit, so a scrollbar, a rounding
+     change or a later font-metric shift does not flip the layout back and forth.
+     Above ~1340px the min() yields 720px, so WIDE LAYOUTS ARE UNCHANGED — the column only
+     narrows in the band where the alternative was docking the rail on top of the text.
+     The 320px floor keeps genuinely narrow viewports readable; there the rail docks, as before. */
+  .wrap{max-width:clamp(320px, calc(100vw - 620px), 720px);margin:0 auto;padding:40px 24px 160px 64px;}
   /* full-width sticky top bar (mockup): ← Reviews + filename (left), vN · turn-state (right) */
   .topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 26px;border-bottom:1px solid var(--rule);background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;}
   .topbar .tb-left{display:flex;align-items:center;gap:10px;min-width:0;}
@@ -662,10 +670,17 @@ function renderAll(){
   A.querySelectorAll('mark.cmt').forEach(m=>m.onclick=()=>focusPair(m.dataset.id));
   layoutComments();
 }
+// #199: ONE definition of "does the comment rail fit beside the text", consumed by both
+// layoutComments() and positionPop(). They carried the identical literal before, so a fix applied
+// to one shipped a viewer whose rail sat beside the text while its composer was docked. The CSS
+// (.wrap clamp) is what makes this true in the ~1100-1340 band; this is the gate that reads it.
+// RAIL_W + GAP must match the 284px width and 24px offset used below.
+const RAIL_W=284, RAIL_GAP=36;
+function railFits(rect){ return window.innerWidth >= rect.right + RAIL_W + RAIL_GAP; }
 function layoutComments(){
   const A=$("#article"),G=$("#gutter");if(!A||!G)return;
   const rect=A.getBoundingClientRect();
-  const wide=window.innerWidth>=rect.right+320;          // only when the gutter fits beside the doc
+  const wide=railFits(rect);                              // #199: shared gate, see railFits()
   document.body.classList.toggle('gutter-on',wide);
   if(wide){
     G.classList.remove('docked');G.style.display='block';G.style.top='0px';G.style.width='284px';
@@ -688,7 +703,7 @@ function positionPop(){
   const A=$("#article");if(!A)return;
   const rect=A.getBoundingClientRect();
   const blk=cur&&document.querySelector('.blk[data-num="'+cur.block_num+'"]');   // graft: null-safe if the block's gone
-  if(window.innerWidth>=rect.right+320){                       // wide: float beside the gutter-card column
+  if(railFits(rect)){                                          // #199: same gate as layoutComments()
     pop.classList.remove('docked');
     const popH=pop.offsetHeight;                               // measured after display:block, before positioning
     pop.style.left=(rect.right+24)+'px';                       // layoutComments' x (line 740) minus scrollX (fixed)
