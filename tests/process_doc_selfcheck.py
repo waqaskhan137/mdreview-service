@@ -84,8 +84,15 @@ check("stage-6 row says an empty or failed read stops the run before merging",
 
 # 2. The Failure protocol prose, with the OBSERVABLE named. "handle failures gracefully" would
 #    pass a laxer check and tell an implementer nothing.
-check("Failure protocol covers the empty/failed digest read",
-      bool(re.search(r"empty or failed .*digest|digest.*empty", flat(failure), re.I)))
+# The rule must be stated as an IMPERATIVE tied to the merge, not merely as a topic that gets
+# discussed. An earlier version of this check asserted only that the words "empty" and "digest"
+# appeared somewhere in the section — and passed when the load-bearing sentence was replaced with
+# "Handle digest failures gracefully", because the surrounding paragraphs still mentioned both.
+# A check that survives the rule being gutted is not a check.
+check("Failure protocol states the STOP rule, not just the topic",
+      bool(re.search(r"empty or failed [^.]*digest[^.]*read[^.]*stops? the run", flat(failure), re.I))
+      or bool(re.search(r"digest[^.]*read[^.]*stops? the run BEFORE the merge", flat(failure), re.I)),
+      "must say an empty/failed read STOPS the run before merging, in one sentence")
 check("Failure protocol names the observable (empty string AND non-zero exit)",
       "empty string" in flat(failure) and bool(re.search(r"non-?zero", flat(failure), re.I)),
       "a rule you cannot observe is not enforceable")
