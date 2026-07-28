@@ -40,6 +40,11 @@ def _req(method, path, body=None):
             return resp.status, resp.read(), resp.headers.get("Content-Type", "")
     except urllib.error.HTTPError as e:
         return e.code, e.read(), e.headers.get("Content-Type", "")
+    except (urllib.error.URLError, OSError) as e:
+        # An unhandled exception inside a request arm does not produce a 500 here: BaseHTTPRequestHandler
+        # drops the connection with no response at all, and urllib raises rather than returning a status.
+        # Report it as code 0 so a caller's status assertion FAILS legibly instead of dying in a traceback.
+        return 0, ("no response: %s" % (e,)).encode(), ""
 
 
 def _create(tex, title="smoke"):
@@ -78,6 +83,39 @@ def main():
         sys.exit("usage: latex_smoke.py BASE_URL [--require-hardened] [--secret VALUE]")
     BASE = args[0].rstrip("/")
 
+    # 0. #188 write guard, over HTTP ------------------------------------------
+    # Deliberately BEFORE step 1, because step 1 returns 3 when tectonic is absent and everything
+    # after it would never run. This step needs no tectonic: the guard rejects before any compile is
+    # enqueued. What only an HTTP surface can prove is the STATUS — the decorator raises, and the
+    # PUT arm has to render that as 400. Without the arm's try/except it is a 500, which is the same
+    # "the write failed" to a human and a completely different thing to a client.
+    rid0 = _create(PAPER, "188-guard")
+    before = json.loads(_req("GET", "/api/reviews/%s" % rid0)[1])
+    for label, body in (("markdown", {"markdown": "# Reading copy\n\n- a list item\n"}),
+                        ("empty", {"markdown": ""})):
+        code, raw, _ = _req("PUT", "/api/reviews/%s/source" % rid0, body)
+        if code != 400:
+            # 200 = no guard at all (the #188 bug). 0 = the guard raised but the PUT arm did not
+            # catch, so the connection was dropped with no response. Both are failures, and the
+            # distinction is the fastest way to know which half regressed.
+            print("FAIL 0/3: PUT %s body returned %d, want 400\n%s" % (label, code, raw[:300]))
+            return 1
+        if b"must be a LaTeX document" not in raw:
+            print("FAIL 0/3: PUT %s rejected but not by the #188 guard: %s" % (label, raw[:300]))
+            return 1
+    after = json.loads(_req("GET", "/api/reviews/%s" % rid0)[1])
+    # A guard that rejected AFTER writing would satisfy every assertion above and still lose the paper.
+    if (after.get("revision"), after.get("source_updated")) != (before.get("revision"),
+                                                                before.get("source_updated")):
+        print("FAIL 0/3: rejected PUT still mutated the review: %r -> %r" % (before, after))
+        return 1
+    code, raw, _ = _req("POST", "/api/reviews",
+                        {"markdown": "# not tex\n", "kind": "latex", "title": "188-create"})
+    if code != 400 or b"must be a LaTeX document" not in raw:
+        print("FAIL 0/3: create kind=latex with a markdown body returned %d: %s" % (code, raw[:300]))
+        return 1
+    print("OK 0/3: #188 guard returns 400 on both write paths and leaves the source untouched")
+
     # 1. baseline compile -----------------------------------------------------
     rid = _create(PAPER)
     st = _wait(rid)
@@ -104,6 +142,12 @@ def main():
     ast = _wait(arid)
     pdf = b""
     code, body, _ = _req("GET", "/api/latex/%s/pdf" % arid)
+    # code 0 = no response at all. An empty pdf would make `leaked` False below and print OK, which
+    # would be a false pass: absence of the marker has to come from a body we actually read.
+    if code == 0:
+        print("FAIL 2/3: no response from /pdf (%s); cannot conclude the read was blocked"
+              % body[:120].decode("utf-8", "replace"))
+        return 1
     if code == 200:
         pdf = body
     # PDFs compress streams, so grep the log too; the strong signal is simply: the marker never
@@ -126,6 +170,10 @@ def main():
         erid = _create(etex, "environ")
         est = _wait(erid)
         code, body, _ = _req("GET", "/api/latex/%s/pdf" % erid)
+        if code == 0:  # same false-pass trap as step 2
+            print("FAIL 3/3: no response from /pdf (%s); cannot conclude the env was scrubbed"
+                  % body[:120].decode("utf-8", "replace"))
+            return 1
         epdf = body if code == 200 else b""
         eleak = SECRET.encode() in epdf or SECRET in (est.get("log_tail") or "")
         if eleak and REQUIRE_HARDENED:

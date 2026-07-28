@@ -40,7 +40,7 @@
   #article ul,#article ol{margin:0;padding-left:1.4em;}
   #article li{margin:.2em 0;}
   #article blockquote{margin:0;padding-left:1em;border-left:3px solid var(--brand);color:var(--muted-fg);font-style:italic;}
-  #article pre{background:rgba(127,127,127,.1);padding:14px;border-radius:8px;overflow:auto;font-size:14px;}
+  #article pre{background:rgba(127,127,127,.1);padding:14px;border-radius:var(--r-control);overflow:auto;font-size:14px;}
   #article code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em;}
   #article a{color:var(--blue);}
   #article table{border-collapse:collapse;width:100%;margin:8px 0;font-size:15px;line-height:1.45;display:block;overflow-x:auto;}
@@ -54,10 +54,10 @@
      pane's color-scheme can't reach an <img>-loaded SVG. .histdoc img covers the history-modal
      drafts. Supported direction: light-authored figures; a dark/transparent figure on the mat is a
      known non-goal (it can go invisible) — see epics/theme-awareness-plan.md. */
-  #article img, .histdoc img{max-width:100%;background:#fafaf9;padding:8px;border-radius:8px;}
+  #article img, .histdoc img{max-width:100%;background:#fafaf9;padding:8px;border-radius:var(--r-control);}
   #article img{cursor:zoom-in;}
   #lightbox{display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);align-items:center;justify-content:center;cursor:zoom-out;padding:16px;}
-  #lightbox img{max-width:96vw;max-height:96vh;background:#fff;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.5);}
+  #lightbox img{max-width:96vw;max-height:96vh;background:#fff;border-radius:var(--r-control);box-shadow:0 8px 40px rgba(0,0,0,.5);}
   /* GFM footnotes: marked-footnote appends a footnotes section at the end of the article, led by a
      screen-reader-only heading. The viewer has no .sr-only rule otherwise, so without the clip rule
      below that heading renders as a full-size accent banner. */
@@ -72,26 +72,26 @@
   #article .mermaid{margin:10px 0;text-align:center;}
   #article .mermaid svg{max-width:100%;height:auto;}
   /* block wrapper + margin number */
-  .blk{position:relative;padding:6px 0;margin:16px 0;border-radius:6px;transition:background .15s;}
+  .blk{position:relative;padding:6px 0;margin:16px 0;border-radius:var(--r-control);transition:background .15s;}
   .blk:hover{background:rgba(127,127,127,.06);}
   .blk .num{position:absolute;left:-46px;top:9px;width:32px;text-align:right;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:11.5px;color:var(--muted2);cursor:pointer;user-select:none;opacity:.5;font-variant-numeric:tabular-nums;}
   .blk .num:hover{opacity:1;color:var(--brand);}
   .blk.has-note{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
   .blk.has-note .num::after{content:" \25CF";color:var(--noteline);}
   @media (max-width:820px){.blk .num{left:-30px;width:22px;font-size:11px;}.wrap{padding-left:40px;}}
-  #addbtn{position:absolute;z-index:50;display:none;background:var(--brand);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-family:-apple-system,sans-serif;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+  #addbtn{position:absolute;z-index:50;display:none;background:var(--brand);color:#fff;border:none;border-radius:var(--r-control);padding:6px 12px;font-family:-apple-system,sans-serif;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);}
   /* Issue #44: composer floats beside the article (positionPop), where the gutter cards live. width
      284px (was 330) = the .gcard width, so it fits inside the wide gate's envelope — left is rect.right+24
      and the gate needs innerWidth >= rect.right+320, so 24+284=308 < 320 — instead of overflowing the edge. */
-  #pop{position:fixed;z-index:60;display:none;width:284px;background:var(--bg);border:1px solid var(--rule);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.3);padding:14px;}
+  #pop{position:fixed;z-index:60;display:none;width:284px;background:var(--bg);border:1px solid var(--rule);border-radius:var(--r-card);box-shadow:0 8px 30px rgba(0,0,0,.3);padding:14px;}
   /* narrow fallback: dock (mirrors #gutter.docked); auto!important beats the wide branch's inline left/top.
      .top docks upper-right instead, chosen opposite the anchor so the composer never covers it (issue #44 AC3). */
   #pop.docked{right:18px;bottom:70px;top:auto!important;left:auto!important;width:360px;}
   #pop.docked.top{top:18px!important;bottom:auto;}
   #pop .q{font-size:13px;color:var(--muted-fg);font-style:italic;margin:0 0 8px;max-height:64px;overflow:auto;font-family:-apple-system,sans-serif;}
-  #pop textarea{width:100%;min-height:74px;font-family:-apple-system,sans-serif;font-size:14px;border:1px solid var(--rule);border-radius:6px;padding:8px;background:var(--bg);color:var(--text);resize:vertical;}
+  #pop textarea{width:100%;min-height:74px;font-family:-apple-system,sans-serif;font-size:14px;border:1px solid var(--rule);border-radius:var(--r-control);padding:8px;background:var(--bg);color:var(--text);resize:vertical;}
   #pop .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;}
-  .btn{font-family:-apple-system,sans-serif;font-size:13px;border-radius:8px;padding:7px 14px;cursor:pointer;border:1px solid var(--rule);background:var(--panel);color:var(--text);}
+  .btn{font-family:-apple-system,sans-serif;font-size:13px;border-radius:var(--r-control);padding:7px 14px;cursor:pointer;border:1px solid var(--rule);background:var(--panel);color:var(--text);}
   .btn:hover{border-color:var(--muted2);}
   /* #152 slice B: primary buttons use the app-wide brand violet (--brand) with --bg text, matching
      Basecoat's --primary/--primary-foreground on the other pages (and the viewer's own #addbtn/#toast,
@@ -101,13 +101,13 @@
   .btn.primary{background:var(--brand);color:var(--bg);border-color:var(--brand);}
   .btn.primary:hover{filter:brightness(1.06);border-color:var(--brand);}
   #dock{position:fixed;right:18px;bottom:18px;z-index:55;font-family:-apple-system,sans-serif;}
-  #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--rule);border-radius:30px;padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
+  #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--rule);border-radius:var(--r-pill);padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
   #count{font-size:13px;color:var(--muted-fg);}
-  #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--brand);color:#fff;font-family:-apple-system,sans-serif;font-size:13px;padding:8px 16px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
+  #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--brand);color:#fff;font-family:-apple-system,sans-serif;font-size:13px;padding:8px 16px;border-radius:var(--r-card);box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
   /* MR-006/MR-036: Google-Docs style margin comments (threaded) */
   #gutter{position:absolute;top:0;width:284px;z-index:5;display:none;}
   body.gutter-on #cmtbtn{display:none;}
-  .gcard{position:absolute;width:284px;background:var(--bg);border:1px solid var(--rule);border-left:3px solid var(--noteline);border-radius:8px;padding:10px 28px 10px 12px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;line-height:1.4;box-shadow:0 1px 6px rgba(0,0,0,.06);transition:top .18s ease,box-shadow .15s,border-color .15s;cursor:pointer;}
+  .gcard{position:absolute;width:284px;background:var(--bg);border:1px solid var(--rule);border-left:3px solid var(--noteline);border-radius:var(--r-control);padding:10px 28px 10px 12px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;line-height:1.4;box-shadow:0 1px 6px rgba(0,0,0,.06);transition:top .18s ease,box-shadow .15s,border-color .15s;cursor:pointer;}
   .gcard:hover,.gcard.active{box-shadow:0 5px 18px rgba(0,0,0,.18);border-left-color:var(--brand);}
   .gcard .gref{color:var(--brand);font-weight:700;}
   .gcard .gq{color:var(--muted-fg);font-style:italic;display:block;margin:2px 0 5px;font-size:12px;max-height:48px;overflow:hidden;}
@@ -115,29 +115,25 @@
   .gcard .gx{position:absolute;top:5px;right:8px;border:none;background:none;color:var(--muted-fg);font-size:16px;cursor:pointer;line-height:1;}
   .gcard.addressed{opacity:.55;border-left-color:var(--muted-fg);}
   .gcard.addressed .gnote{text-decoration:line-through;}
-  mark.cmt{background:rgba(91,48,214,.18);color:inherit;border-radius:2px;padding:.5px 0;cursor:pointer;transition:background .15s;}
+  mark.cmt{background:rgba(91,48,214,.18);color:inherit;border-radius:var(--r-control);padding:.5px 0;cursor:pointer;transition:background .15s;}
   mark.cmt.active{background:rgba(91,48,214,.40);}
   #histmodal{display:none;position:fixed;inset:0;z-index:85;background:rgba(0,0,0,.45);align-items:center;justify-content:center;}
-  #histbox{width:min(720px,92vw);max-height:82vh;overflow:auto;background:var(--bg);border-radius:12px;padding:18px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13.5px;}
+  #histbox{width:min(720px,92vw);max-height:82vh;overflow:auto;background:var(--bg);border-radius:var(--r-card);padding:18px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13.5px;}
   #histbox h3{margin:0 0 12px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-fg);}
   .histlist{display:flex;flex-direction:column;gap:6px;}
-  .histitem{text-align:left;font:inherit;font-size:13px;border:1px solid var(--rule);background:var(--bg);color:var(--text);border-radius:7px;padding:8px 10px;cursor:pointer;}
+  .histitem{text-align:left;font:inherit;font-size:13px;border:1px solid var(--rule);background:var(--bg);color:var(--text);border-radius:var(--r-control);padding:8px 10px;cursor:pointer;}
   .histitem:hover{border-color:var(--brand);}
   #histview h4{margin:16px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--brand);}
   #histview ul{margin:4px 0;padding-left:1.2em;}
-  .histdoc{border:1px solid var(--rule);border-radius:8px;padding:12px 14px;font-family:Charter,Georgia,serif;font-size:15px;line-height:1.5;max-height:38vh;overflow:auto;}
+  .histdoc{border:1px solid var(--rule);border-radius:var(--r-control);padding:12px 14px;font-family:Charter,Georgia,serif;font-size:15px;line-height:1.5;max-height:38vh;overflow:auto;}
   .histbtnrow{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
   /* #19: History-modal compare mode — pick any two versions, line-level source diff */
   .cmpbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:var(--muted-fg);}
-  .cmpbar select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);color:var(--text);max-width:min(46%,300px);}
-  .diffdoc{border:1px solid var(--rule);border-radius:8px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.55;max-height:44vh;overflow:auto;white-space:pre-wrap;word-break:break-word;}
-  .diffrow{display:block;padding:0 6px;border-radius:3px;}
-  .diffrow.add{background:rgba(46,160,67,.16);}
-  .diffrow.del{background:rgba(229,83,75,.15);}
-  .diffrow.add::before{content:"+ ";color:#2ea043;}
-  .diffrow.del::before{content:"- ";color:#e5534b;}
-  .diffrow.eq::before{content:"\00a0\00a0";color:var(--muted-fg);}
-  .diffempty{color:var(--muted-fg);padding:8px 4px;}
+  .cmpbar select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--rule);border-radius:var(--r-control);background:var(--bg);color:var(--text);max-width:min(46%,300px);}
+  /* Compare mode is now just a scroll container: the rows, gutter and folds come from the shared
+     renderer below, so this no longer restyles them. The old .diffrow rules went with it (#207). */
+  .diffdoc{border:1px solid var(--rule);border-radius:var(--r-control);max-height:44vh;overflow:auto;}
+  .diffempty{color:var(--muted-fg);padding:8px 4px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;}
   /* MR-036: a block carrying an open comment gets the margin bar + dot */
   .blk.has-comment{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
   .blk.has-comment .num::after{content:" \25CF";color:var(--noteline);}
@@ -145,11 +141,11 @@
   .gcard{cursor:default;padding:9px 11px;}
   .gcard .ghead,.rcard .ghead{display:flex;gap:6px;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;}
   /* MR-050: secondary, muted Delete affordance — only on the reviewer's own un-engaged comment */
-  .gcard .ghead .gdel{margin-left:auto;align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--muted-fg);padding:1px 5px;border-radius:4px;}
+  .gcard .ghead .gdel{margin-left:auto;align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--muted-fg);padding:1px 5px;border-radius:var(--r-control);}
   .gcard .ghead .gdel:hover{color:#c0392b;background:rgba(192,57,43,.10);}
   .gcard .ghead .gdel.armed{color:#fff;background:#c0392b;font-weight:600;}
   .gthread{display:flex;flex-direction:column;gap:5px;}
-  .gentry{border-left:3px solid var(--rule);background:rgba(127,127,127,.05);border-radius:4px;padding:4px 8px;}
+  .gentry{border-left:3px solid var(--rule);background:rgba(127,127,127,.05);border-radius:var(--r-control);padding:4px 8px;}
   .gentry.reviewer{border-left-color:var(--noteline);background:rgba(91,48,214,.07);}
   .gentry.agent{border-left-color:var(--blue);background:rgba(29,79,191,.08);}
   .gentry .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted-fg);margin-right:5px;}
@@ -161,19 +157,19 @@
   .gentry .gtext p{margin:.4em 0;}
   .gentry .gtext ul,.gentry .gtext ol{margin:.4em 0;padding-left:1.3em;}
   .gentry .gtext li{margin:.15em 0;}
-  .gentry .gtext code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:rgba(127,127,127,.16);padding:.5px 4px;border-radius:4px;}
-  .gentry .gtext pre{background:rgba(127,127,127,.12);padding:7px 9px;border-radius:6px;overflow:auto;margin:.4em 0;}
+  .gentry .gtext code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:rgba(127,127,127,.16);padding:.5px 4px;border-radius:var(--r-control);}
+  .gentry .gtext pre{background:rgba(127,127,127,.12);padding:7px 9px;border-radius:var(--r-control);overflow:auto;margin:.4em 0;}
   .gentry .gtext pre code{background:none;padding:0;font-size:.86em;}
   .gentry .gtext a{color:var(--brand);}
   .gentry .gtext blockquote{margin:.4em 0;padding-left:8px;border-left:2px solid var(--rule);color:var(--muted-fg);}
   .gentry .gtext h1,.gentry .gtext h2,.gentry .gtext h3,.gentry .gtext h4,.gentry .gtext h5{font-size:13px;margin:.5em 0 .2em;}
-  .gentry .gtext img{max-width:100%;border-radius:4px;}
+  .gentry .gtext img{max-width:100%;border-radius:var(--r-control);}
   .gentry .gtext hr{border:none;border-top:1px solid var(--rule);margin:.5em 0;}
   .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
-  .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font-family:-apple-system,sans-serif;font-size:12.5px;border:1px solid var(--rule);border-radius:5px;padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
+  .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font-family:-apple-system,sans-serif;font-size:12.5px;border:1px solid var(--rule);border-radius:var(--r-control);padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
   .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
   /* Resolved history panel */
-  #resolved{display:none;position:fixed;right:18px;bottom:70px;z-index:55;width:380px;max-height:64vh;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:14px;font-family:-apple-system,sans-serif;}
+  #resolved{display:none;position:fixed;right:18px;bottom:70px;z-index:55;width:380px;max-height:64vh;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:var(--r-card);box-shadow:0 8px 30px rgba(0,0,0,.25);padding:14px;font-family:-apple-system,sans-serif;}
   #resolved h3{margin:0 0 6px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-fg);}
   .resolved-count{color:var(--brand);font-weight:700;}
   #resempty{color:var(--muted-fg);font-size:13px;}
@@ -181,17 +177,22 @@
   .rcard .gref{color:var(--brand);font-weight:700;}
   .rcard .gq{color:var(--muted-fg);font-style:italic;font-size:12px;}
   /* narrow fallback: the active-comment gutter docks bottom-right with static cards */
-  #gutter.docked{position:fixed;right:18px;bottom:70px;top:auto!important;left:auto!important;width:360px;max-height:64vh;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:12px;display:block;z-index:55;}
+  #gutter.docked{position:fixed;right:18px;bottom:70px;top:auto!important;left:auto!important;width:360px;max-height:64vh;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:var(--r-card);box-shadow:0 8px 30px rgba(0,0,0,.25);padding:12px;display:block;z-index:55;}
   #gutter.docked .gcard{position:static;width:auto;margin-bottom:8px;box-shadow:none;}
 
   /* ---- Share control (#133 public link, extended by #134 people) ---- */
   .tb-btn{font:inherit;font-size:12.5px;font-weight:600;color:var(--text);background:none;
-    border:1px solid var(--rule);border-radius:8px;padding:5px 12px;cursor:pointer;
+    border:1px solid var(--rule);border-radius:var(--r-control);padding:5px 12px;cursor:pointer;
     text-transform:none;letter-spacing:normal;}
   .tb-btn:hover{border-color:var(--muted2,var(--muted-fg));}
+  /* #181 (§08 rule 01) — the button states what is true: brand-tinted once a public link OR a
+     named grantee exists. Declared AFTER :hover on purpose — both are (0,2,0), so source order
+     is what stops the brand border reverting to grey under the pointer. */
+  .tb-btn.shared,.tb-btn.shared:hover{color:var(--brand);background:var(--accent-bg);border-color:var(--brand);}
+  .tb-btn .ct{font-weight:500;opacity:.75;}
   .share-wrap{position:relative;display:flex;}
   .sharepop{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--panel);
-    border:1px solid var(--rule);border-radius:12px;box-shadow:0 12px 40px rgba(20,22,40,.16);
+    border:1px solid var(--rule);border-radius:var(--r-panel);box-shadow:0 12px 40px rgba(20,22,40,.16);
     padding:16px;z-index:60;text-transform:none;letter-spacing:normal;text-align:left;}
   .sharepop h3{margin:0 0 12px;font-size:14px;font-weight:700;color:var(--text);}
   .share-row{display:flex;align-items:center;justify-content:space-between;gap:14px;}
@@ -199,18 +200,22 @@
   .share-lbl small{display:block;color:var(--muted-fg);font-size:11.5px;margin-top:2px;font-weight:400;}
   .switch{position:relative;width:40px;height:22px;flex:0 0 auto;display:inline-block;}
   .switch input{opacity:0;width:0;height:0;position:absolute;}
-  .switch .track{position:absolute;inset:0;background:var(--rule);border-radius:22px;transition:.15s;
+  .switch .track{position:absolute;inset:0;background:var(--rule);border-radius:var(--r-pill);transition:.15s;
     cursor:pointer;display:block;}
   .switch .track:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;
-    background:#fff;border-radius:50%;transition:.15s;}
+    background:#fff;border-radius:var(--r-pill);transition:.15s;}
   .switch input:checked + .track{background:#5b46e6;}
   .switch input:checked + .track:before{transform:translateX(18px);}
   .share-link{display:flex;gap:8px;margin-top:14px;}
   .share-link input{flex:1;min-width:0;font:inherit;font-size:12px;padding:8px 10px;
-    border:1px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--muted-fg);}
+    border:1px solid var(--rule);border-radius:var(--r-control);background:var(--bg);color:var(--muted-fg);}
   .share-copy{font:inherit;font-size:12.5px;font-weight:600;padding:8px 14px;border:none;
-    border-radius:8px;background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
+    border-radius:var(--r-control);background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
   .share-copy:hover{opacity:.92;}
+  /* Confirmed state (§08 rule 02). The ring is an inset shadow, not a border: .share-copy has
+     border:none, and adding one here would shift the row by 2px on every confirm. */
+  .share-copy.ok,.share-copy.ok:hover{background:var(--good-bg);color:var(--good);opacity:1;
+    box-shadow:inset 0 0 0 1px var(--good-rule);}
   /* #134 named-share / people section */
   .share-sep{height:1px;background:var(--rule);margin:16px 0;}
   .share-people h4{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.05em;
@@ -220,29 +225,41 @@
   .share-item .em{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
   .share-item .rt{font-size:11px;font-weight:600;color:var(--muted-fg);text-transform:capitalize;}
   .share-item .rm{background:none;border:none;color:var(--muted2,var(--muted-fg));cursor:pointer;
-    font-size:16px;line-height:1;padding:1px 5px;border-radius:6px;}
+    font-size:16px;line-height:1;padding:1px 5px;border-radius:var(--r-control);}
   .share-item .rm:hover{color:#c0392b;background:rgba(192,57,43,.1);}
   .share-empty{color:var(--muted-fg);font-size:12.5px;margin:0 0 12px;}
   .share-invite{display:flex;gap:6px;align-items:center;}
   .share-invite input{flex:1;min-width:0;font:inherit;font-size:12.5px;padding:8px 10px;
-    border:1px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--text);}
+    border:1px solid var(--rule);border-radius:var(--r-control);background:var(--bg);color:var(--text);}
   .share-invite select{font:inherit;font-size:12.5px;padding:8px 6px;border:1px solid var(--rule);
-    border-radius:8px;background:var(--bg);color:var(--text);}
+    border-radius:var(--r-control);background:var(--bg);color:var(--text);}
   .share-invite button{font:inherit;font-size:12.5px;font-weight:600;padding:8px 12px;border:none;
-    border-radius:8px;background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
+    border-radius:var(--r-control);background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
   .share-err{color:#c0392b;font-size:12px;margin:8px 0 0;}
+
+  /* ---- #207 diff toggle + hunked unified diff ------------------------------------------------
+     Colours are the EXISTING --good/--danger status pairs, not new tokens: an add is "good" and a
+     removal is "danger" in exactly the sense theme.css already means. The sign column carries the
+     add/remove distinction independently of colour, so the diff survives greyscale and a
+     colourblind reader. */
+  /* Row/gutter/fold styling and the .difftoggle shape moved to theme.css in #208, so the latex
+     viewer renders the identical markup from the identical rules. Only the pane wrapper, which is
+     this page's own layout, stays here. */
+  #diffpane{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.6;
+    border:1px solid var(--rule);border-radius:var(--r-card,12px);overflow:hidden;margin:8px 0 40px;}
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span><span class="filename" id="filename">loading…</span></div>
-  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
+  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><button id="difftoggle" class="tb-btn difftoggle" type="button" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
 </header>
 <div class="wrap">
   <nav class="breadcrumb" id="breadcrumb"></nav>
   <h1 id="doctitle"></h1>
   <div id="docmeta"></div>
   <div id="article">Loading...</div>
+  <div id="diffpane" hidden></div>
 </div>
 
 <button id="addbtn">+ comment</button>
@@ -272,12 +289,15 @@
 
 <div id="lightbox"><img alt="zoomed figure"></div>
 <div id="toast"></div>
+<script src="/static/linediff.js"></script>
 <script src="/static/marked.min.js"></script>
 <script src="/static/mermaid.min.js"></script>
 <script src="/static/katex.min.js"></script>
 <script src="/static/marked-footnote.umd.js"></script>
 <script src="/static/highlight.min.js"></script>
 <script src="/static/marked-highlight.umd.js"></script>
+<!-- Before the inline block: it registers bindings at parse time and needs window.mdKeys. -->
+<script src="/static/keys.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 let META={name:"file.md",path:""};
@@ -406,6 +426,7 @@ async function boot(){
   renderChrome();
   await fetchComments();   // the shared server-side comments are the single feedback surface
   await load();
+  await refreshDiffAvail();  // reveals the diff toggle if there is an earlier version; never opens it
   poll();
 }
 
@@ -744,7 +765,7 @@ function poll(){
     if(addbtn.style.display==='block'||$("#pop").style.display==='block'||confirming)return;
     try{
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
-      if(s.source_updated&&s.source_updated!==lastSrc){await fetchComments();await load();toast('Draft updated by AI');}
+      if(s.source_updated&&s.source_updated!==lastSrc){await fetchComments();await load();toast('Draft updated by AI');await onAgentPush();}
       else if(s.comments_updated&&s.comments_updated!==lastCmt){lastCmt=s.comments_updated;await fetchComments();renderAll();}
     }catch(e){}
   },2000);
@@ -797,49 +818,87 @@ function versionSource(n){
   if(n==='current')return fetch(API+'/source',{cache:'no-store'}).then(r=>r.text());
   return fetch(API+'/history/'+n).then(r=>r.json()).then(d=>d.source||'');
 }
-// Pure LCS line diff: returns [{tag,text}] where tag is ' ' (unchanged), '-' (only in A), '+' (only in B).
-// No DOM/global access, so tests/diff_selfcheck.js can extract and exercise it directly.
-function lineDiff(aText,bText){
-  const a=String(aText).split('\n'),b=String(bText).split('\n');
-  const n=a.length,m=b.length;
-  const dp=[];                                 // dp[i][j] = LCS length of a[i:] vs b[j:]
-  for(let i=0;i<=n;i++)dp.push(new Int32Array(m+1));
-  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)
-    dp[i][j]=a[i]===b[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);
-  const out=[];let i=0,j=0;
-  while(i<n&&j<m){
-    if(a[i]===b[j]){out.push({tag:' ',text:a[i]});i++;j++;}
-    else if(dp[i+1][j]>=dp[i][j+1]){out.push({tag:'-',text:a[i]});i++;}
-    else{out.push({tag:'+',text:b[j]});j++;}
-  }
-  while(i<n)out.push({tag:'-',text:a[i++]});
-  while(j<m)out.push({tag:'+',text:b[j++]});
-  return out;
-}
-function renderCompare(){
-  const body=$("#histbody");
-  if(HISTVERS.length<2){
-    body.innerHTML='<p class="diffempty">Need at least two versions to compare — a version is saved each time the AI pushes a revised draft.</p>';
-    return;
-  }
-  const opts=sel=>HISTVERS.map((v,idx)=>'<option value="'+escapeHtml(v.n)+'"'+(idx===sel?' selected':'')+'>'+escapeHtml(v.label)+'</option>').join('');
-  // Default A = previous round (index 1), B = current draft (index 0): the most common "what just changed".
-  body.innerHTML='<div class="cmpbar"><span>Compare</span><select id="cmpA">'+opts(1)+'</select>'
-    +'<span>&rarr;</span><select id="cmpB">'+opts(0)+'</select></div>'
-    +'<div id="diffview" class="diffdoc"></div>';
-  const run=()=>renderDiff($("#cmpA").value,$("#cmpB").value);
-  $("#cmpA").onchange=run;$("#cmpB").onchange=run;run();
-}
+// lineDiff + hunkify now live in /static/linediff.js so the latex viewer can share them (#207/#208).
+// One implementation, required directly by tests/diff_selfcheck.js — see that file's header.
+
+// The renderer moved to /static/linediff.js in #208 so the latex viewer draws the identical
+// markup from the identical code. paintDiff is kept as a one-line seam: both callers here
+// (the inline toggle and the History compare view) go through it.
+const paintDiff=(host,ta,tb)=>mdDiff.renderInto(host,ta,tb);
+
 async function renderDiff(a,b){
   const view=$("#diffview");if(!view)return;view.innerHTML='Loading...';
   try{
     const [ta,tb]=await Promise.all([versionSource(a),versionSource(b)]);
-    const rows=lineDiff(ta,tb);
-    if(!rows.some(r=>r.tag!==' ')){view.innerHTML='<div class="diffempty">No changes between these versions.</div>';return;}
-    const cls={' ':'eq','+':'add','-':'del'};
-    view.innerHTML=rows.map(r=>'<span class="diffrow '+cls[r.tag]+'">'+escapeHtml(r.text)+'</span>').join('');
+    paintDiff(view,ta,tb);                      // same renderer as the inline toggle (#207)
   }catch(e){view.innerHTML='<div class="diffempty">Could not load the diff.</div>';}
 }
+// --- #207: inline "what changed" toggle -------------------------------------------------------
+// OFF on load and STICKY once the reviewer turns it on. Sticky matters: a push while the diff is
+// open must show the newer change, not close the pane at the moment it becomes most useful.
+let DIFFON=false;
+let PREVROUND=null;      // newest archived round, or null when there is nothing to compare against
+
+function setDiffCount(c){
+  const el=$("#diffcount");
+  if(!c||!c.changed){el.hidden=true;return;}
+  el.innerHTML='+'+c.add+' <span class="dm">&minus;'+c.del+'</span>';
+  el.hidden=false;
+}
+// The button only exists once there IS a previous version; before the first agent push there is
+// nothing to diff and an inert control would just raise a question it cannot answer.
+async function refreshDiffAvail(){
+  try{
+    const d=await fetch(API+'/history').then(r=>r.json());
+    const rounds=(d&&d.rounds)||[];
+    PREVROUND=rounds.length?String(rounds[0].round):null;
+  }catch(e){PREVROUND=null;}
+  $("#difftoggle").hidden=!PREVROUND;
+}
+async function paintInlineDiff(){
+  const pane=$("#diffpane");
+  if(!PREVROUND){pane.innerHTML='<div class="diffempty">No earlier version yet — a version is saved each time the AI pushes a revised draft.</div>';return;}
+  pane.innerHTML='<div class="diffempty">Loading…</div>';
+  try{
+    const [ta,tb]=await Promise.all([versionSource(PREVROUND),versionSource('current')]);
+    setDiffCount(paintDiff(pane,ta,tb));
+  }catch(e){pane.innerHTML='<div class="diffempty">Could not load the diff.</div>';}
+}
+// DIFFON is the single source of truth for which pane is showing. Kept separate from
+// applyDiffMode so a push can RE-ASSERT the invariant without also re-triggering a repaint.
+function syncDiffVisibility(){
+  $("#article").hidden=DIFFON;
+  $("#diffpane").hidden=!DIFFON;
+  $("#difftoggle").setAttribute("aria-pressed",DIFFON?"true":"false");
+}
+function applyDiffMode(){
+  syncDiffVisibility();
+  if(DIFFON)paintInlineDiff();
+}
+$("#difftoggle").onclick=()=>{
+  DIFFON=!DIFFON;
+  $("#difftoggle").classList.remove('hinted');   // acted on; stop advertising
+  applyDiffMode();
+};
+// Called after the live-reload branch has already swapped the document in. HINTS ONLY when the
+// diff is closed — putting the changed-line count on the button is an invitation, not a decision.
+async function onAgentPush(){
+  await refreshDiffAvail();
+  if(DIFFON){await paintInlineDiff();syncDiffVisibility();return;}
+  try{
+    if(PREVROUND){
+      const [ta,tb]=await Promise.all([versionSource(PREVROUND),versionSource('current')]);
+      const c=mdDiff.counts(mdDiff.lineDiff(ta,tb));
+      setDiffCount(c);
+      if(c.changed)$("#difftoggle").classList.add('hinted');
+    }
+  }catch(e){}
+  // Re-assert from DIFFON, ALWAYS and last. load() rebuilt #article and several awaits have gone by;
+  // this guarantees a push can never leave the reviewer looking at a pane they did not open. Cheap
+  // insurance for the one invariant of this feature.
+  syncDiffVisibility();
+}
+
 $("#histbtn").onclick=openHistory;
 $("#histcmp").onclick=()=>{
   if(!HISTVERS.length)return;                   // history not loaded yet
@@ -857,7 +916,37 @@ document.addEventListener('click',e=>{
   if(img){lb.querySelector('img').src=img.currentSrc||img.src;lb.style.display='flex';}
   else if(e.target.closest('#lightbox')){lb.style.display='none';}
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape')$("#lightbox").style.display='none';});
+// #222: Escape has ONE owner now. Each layer registers a closer that reports whether it was
+// actually open, so Escape shuts the topmost open thing and nothing underneath it. Registration
+// order is outermost-first: the lightbox was the only Escape handler before, and it stays last
+// resort. Behaviour when the lightbox is the only thing open is unchanged.
+mdKeys.pushEscape(()=>{const l=$("#lightbox");if(!l||l.style.display!=='flex')return false;l.style.display='none';return true;});
+mdKeys.pushEscape(()=>{const h=$("#histmodal");if(!h||h.style.display!=='flex')return false;h.style.display='none';return true;});
+mdKeys.pushEscape(()=>{const p=$("#pop");if(!p||p.style.display!=='block')return false;p.style.display='none';return true;});
+mdKeys.pushEscape(()=>{const s=$("#sharepop");if(!s||s.hidden)return false;s.hidden=true;return true;});
+
+mdKeys.register([
+  {keys:"c", label:"Toggle the comments panel",  run:()=>mdKeys.click("#cmtbtn")},
+  {keys:"r", label:"Toggle resolved comments",   run:()=>mdKeys.click("#resbtn")},
+  {keys:"h", label:"Open the revision history",  run:()=>mdKeys.click("#histbtn")},
+  {keys:"a", label:"Add a comment",              run:()=>mdKeys.click("#addbtn")},
+  // Share is hidden until the viewer knows you own the doc, so guard it: an inert row in the help
+  // sheet is worse than no row.
+  {keys:"s", label:"Share this document",        when:()=>{const b=$("#sharebtn");return !!b&&b.style.display!=='none';}, run:()=>mdKeys.click("#sharebtn")},
+  // The composer's own submit. keepInField because you are, by definition, typing in it.
+  {keys:"mod+Enter", label:"Save the comment you are writing", keepInField:true, run:()=>{
+    const pop=$("#pop");
+    if(pop && pop.style.display==='block') return mdKeys.click("#popsave");
+    // a reply textarea: submit the Reply button inside the same card
+    const ta=document.activeElement;
+    if(ta && ta.tagName==='TEXTAREA'){
+      const card=ta.closest('.rcard');
+      const btn=card && card.querySelector('[data-act="reply"], .rbtn');
+      if(btn){ btn.click(); return true; }
+    }
+    return false;
+  }},
+]);
 
 // catch the first paint regardless of async load timing
 [250,800,1600].forEach(t=>setTimeout(()=>{try{renderAll();}catch(e){}},t));
@@ -878,16 +967,41 @@ async function initShare(){
   _pubRight = d.public || null;                        // "view" or null
   _shares = d.shares || [];
   try{ _shareCsrf = ((await fetch("/auth/session",{cache:"no-store"}).then(x=>x.json())) || {}).csrf || ""; }catch(e){}
+  updateShareBtn();                                    // state before first paint, not on first open
   btn.style.display = "";
   btn.addEventListener("click", e=>{ e.stopPropagation(); pop.hidden = !pop.hidden; if(!pop.hidden) renderShare(); });
   document.addEventListener("click", e=>{ if(!pop.hidden && !pop.contains(e.target) && e.target!==btn) pop.hidden = true; });
 }
 function shareUrl(){ return location.origin + "/review/" + encodeURIComponent(ID); }
+// #181 (§08 rule 01): "Share" while private, "Shared" in --brand once a public link OR a named
+// grantee exists, carrying the people count. The count is grantees (_shares), not the owner.
+function updateShareBtn(){
+  const btn = document.getElementById("sharebtn"); if(!btn) return;
+  const n = _shares.length, shared = !!_pubRight || n > 0;
+  btn.classList.toggle("shared", shared);
+  btn.innerHTML = (shared ? "Shared" : "Share") + (n ? ' <span class="ct">&middot; ' + n + '</span>' : "");
+}
+// Clipboard write, best effort. navigator.clipboard needs a secure context and live user
+// activation; where it is refused, the selected input still leaves ⌘C one keystroke away.
+async function copyShareLink(input){
+  try{ if(input){ input.focus(); input.select(); } }catch(e){}
+  try{ await navigator.clipboard.writeText(shareUrl()); return true; }
+  catch(e){ try{ return !!(input && document.execCommand("copy")); }catch(e2){ return false; } }
+}
+// The button CONFIRMS (§08 rule 02) — and only when the write actually landed; a refused write
+// leaves it reading "Copy" rather than claiming a clipboard the user does not have.
+function markCopied(done){
+  const cp = document.querySelector("#sharepop #pubcopy");
+  if(!cp || !done) return;
+  cp.textContent = "Copied"; cp.classList.add("ok");
+  setTimeout(()=>{ if(cp.isConnected){ cp.textContent = "Copy"; cp.classList.remove("ok"); } }, 2000);
+}
 async function refreshShares(){
   try{ const d = await fetch(API + "/shares",{cache:"no-store"}).then(r=>r.json()); _pubRight = d.public||null; _shares = d.shares||[]; }catch(e){}
 }
 function renderShare(){
   const pop = document.getElementById("sharepop"), on = !!_pubRight;
+  updateShareBtn();
   const rows = _shares.length
     ? _shares.map(s=>'<div class="share-item"><span class="em" title="'+_esc(_shareLabel(s.subject))+'">'+_esc(_shareLabel(s.subject))+'</span><span class="rt">'+_esc(s.right)+'</span><button class="rm" type="button" data-subject="'+_esc(s.subject)+'" title="Remove access">&times;</button></div>').join("")
     : '<div class="share-empty">No one yet.</div>';
@@ -903,20 +1017,20 @@ function renderShare(){
     '<select id="invright"><option value="comment">Can comment</option><option value="view">Can view</option></select>' +
     '<button id="invbtn" type="button">Invite</button></div>' +
     '<div class="share-err" id="inverr" style="display:none"></div></div>';
+  // Turning the link OFF is instant and needs no confirm (§08 rule 05) — it is reversible.
   pop.querySelector("#pubtoggle").addEventListener("change", async e=>{
     const t = e.target; t.disabled = true;
+    let enabled = false;
     try{
       const rr = await fetch(API + "/public", {method: t.checked?"POST":"DELETE", headers:{"X-CSRF-Token":_shareCsrf}});
-      if(rr.ok) _pubRight = t.checked ? "view" : null;
+      if(rr.ok){ _pubRight = t.checked ? "view" : null; enabled = t.checked; }
     }catch(e){}
     renderShare();
+    // §08 rule 02 — enabling puts the link on the clipboard itself; nothing asks for a second click.
+    if(enabled) markCopied(await copyShareLink(document.querySelector("#sharepop #publink")));
   });
   const cp = pop.querySelector("#pubcopy");
-  if(cp) cp.addEventListener("click", ()=>{
-    const i = pop.querySelector("#publink"); i.select();
-    try{ navigator.clipboard.writeText(i.value); }catch(e){}
-    cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy"; }, 1400);
-  });
+  if(cp) cp.addEventListener("click", async ()=>{ markCopied(await copyShareLink(pop.querySelector("#publink"))); });
   pop.querySelector("#invbtn").addEventListener("click", async ()=>{
     const email = (pop.querySelector("#invemail").value||"").trim();
     const right = pop.querySelector("#invright").value;
@@ -936,6 +1050,7 @@ function renderShare(){
 }
 initShare();
 </script>
+<script src="/static/session.js"></script>
 <script src="/static/account.js"></script>
 </body>
 </html>

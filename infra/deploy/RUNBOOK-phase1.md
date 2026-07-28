@@ -22,6 +22,27 @@ python3 -c "import secrets; print('MDREVIEW_TOKEN_PEPPER=' + secrets.token_urlsa
 python3 -c "import secrets; print('MDREVIEW_SESSION_SECRET=' + secrets.token_urlsafe(32))"
 #   -> append all three to infra/deploy/.env
 
+# 1b. Session lifetime (#221). The code default is 43200 (12h), which logs an active user out about
+# once a day. 2592000 = 30 days. The re-issue point is derived (ttl // 2), so a 30-day TTL re-mints
+# on the first page load past day 15 and an in-use session never expires.
+#
+# The value now lives in docker-compose.prod.yml's `environment:` block, defaulting to 2592000.
+# DO NOT just add it to .env: this service has no `env_file:` directive, so keys in .env are only
+# available for ${...} substitution and NEVER reach the container. An .env-only change looks like it
+# worked (no error, container recreates) and changes nothing. That mistake was made and caught during
+# the #221 run; see E4 in docs/process/runs/2026-07-28-session-and-shortcuts.md.
+#
+# To apply on prod: sync this repo's docker-compose.prod.yml to ~/mdreview-deploy/, then
+#   docker compose -f ~/mdreview-deploy/docker-compose.prod.yml up -d mdreview
+# Existing sessions SURVIVE the recreate: the cookie is signed with MDREVIEW_SESSION_SECRET, which
+# persists in .env, so nobody is logged out by applying this.
+#
+# VERIFY, do not assume. A recreate with the var undeclared is indistinguishable from success:
+#   docker exec mdreview printenv MDREVIEW_SESSION_TTL_S      # must print 2592000
+# then decode a fresh cookie's payload and confirm exp - iat == 2592000.
+#
+# NOT applied by the #221 run (owner decision D1): prod is owner-applied after review.
+
 # 2. nginx host-only proxy-secret snippet: MUST equal MDREVIEW_PROXY_SECRET from .env.
 sudo cp infra/deploy/nginx/mdreview-proxy-secret.conf.example /etc/nginx/snippets/mdreview-proxy-secret.conf
 sudo sed -i "s#REPLACE_WITH_MDREVIEW_PROXY_SECRET#$(grep '^MDREVIEW_PROXY_SECRET=' infra/deploy/.env | cut -d= -f2-)#" /etc/nginx/snippets/mdreview-proxy-secret.conf

@@ -87,6 +87,25 @@ class IdentityStore:
                 -- Admin-managed abuse blocklist (#67 D3 / #102): a blocked email or IP is refused at
                 -- the magic-link send path outright, the moderation lever open membership lacked. PK
                 -- on the value makes add idempotent; kind narrows the match ('email' | 'ip').
+                -- Per-session records (#223). The session cookie is self-signed, so before this
+                -- table nothing on the server represented "this session": there was no way to tell
+                -- one device from another and no way to end one without ending all of them (the
+                -- account-wide sessions_invalid_before cutoff was the only lever).
+                -- revoked is a flag rather than a DELETE so a revoked jti stays REJECTED for the
+                -- life of the cookie; deleting the row would make it indistinguishable from a
+                -- grandfathered pre-#223 cookie, which is accepted.
+                CREATE TABLE IF NOT EXISTS sessions (
+                    jti        TEXT PRIMARY KEY,
+                    uid        TEXT NOT NULL,
+                    created    REAL NOT NULL,
+                    last_seen  REAL NOT NULL,
+                    expires_at REAL NOT NULL,
+                    ip         TEXT,
+                    user_agent TEXT,
+                    revoked    INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE INDEX IF NOT EXISTS idx_sessions_uid ON sessions(uid);
+
                 CREATE TABLE IF NOT EXISTS blocklist (
                     value TEXT PRIMARY KEY,
                     kind  TEXT NOT NULL,
@@ -183,6 +202,86 @@ class IdentityStore:
             rows = conn.execute("SELECT * FROM auth_audit ORDER BY id DESC LIMIT ?",
                                 (limit,)).fetchall()
             return [dict(r) for r in rows]
+
+    # ---- per-session records (#223) ----
+    # Two invariants shape every method here:
+    #   1. An UNKNOWN jti is REJECTED, but a cookie carrying NO jti is accepted (grandfathering,
+    #      owner decision D3). Those are different states and session_live() keeps them apart.
+    #   2. `revoked` is set, never deleted. A deleted row reads as "unknown jti", which is also
+    #      rejection, but pruning would then silently revoke live sessions at their prune time.
+    #      Pruning is therefore bounded by expires_at, never by revoked.
+    LAST_SEEN_THROTTLE_S = 300
+
+    def session_create(self, jti, uid, expires_at, ip=None, user_agent=None, now=None):
+        now = time.time() if now is None else now
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO sessions "
+                "(jti, uid, created, last_seen, expires_at, ip, user_agent, revoked) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
+                (jti, uid, now, now, expires_at, ip or None, (user_agent or None)))
+
+    def session_live(self, jti, now=None):
+        """True iff this jti may still authenticate. Called on EVERY authenticated request, so it
+        does one indexed primary-key lookup and nothing else."""
+        if not jti:
+            return False
+        now = time.time() if now is None else now
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT revoked, expires_at FROM sessions WHERE jti=?", (jti,)).fetchone()
+        return bool(row) and not row["revoked"] and row["expires_at"] > now
+
+    def session_touch(self, jti, now=None):
+        """Update last_seen, THROTTLED. Without the throttle this is a write on every request, which
+        on a threaded stdlib server turns a read path into a write-lock queue."""
+        now = time.time() if now is None else now
+        with self._connect() as conn:
+            row = conn.execute("SELECT last_seen FROM sessions WHERE jti=?", (jti,)).fetchone()
+            if not row or (now - row["last_seen"]) < self.LAST_SEEN_THROTTLE_S:
+                return False
+            conn.execute("UPDATE sessions SET last_seen=? WHERE jti=?", (now, jti))
+            return True
+
+    def session_revoke(self, jti, uid=None):
+        """Revoke ONE session. `uid`, when given, scopes the write so a caller can never revoke
+        another account's session by guessing a jti."""
+        with self._connect() as conn:
+            if uid is None:
+                cur = conn.execute("UPDATE sessions SET revoked=1 WHERE jti=?", (jti,))
+            else:
+                cur = conn.execute("UPDATE sessions SET revoked=1 WHERE jti=? AND uid=?", (jti, uid))
+            return cur.rowcount > 0
+
+    def session_revoke_all(self, uid, except_jti=None):
+        """Sign out everywhere (optionally except the caller's own session)."""
+        with self._connect() as conn:
+            if except_jti:
+                cur = conn.execute(
+                    "UPDATE sessions SET revoked=1 WHERE uid=? AND jti<>? AND revoked=0",
+                    (uid, except_jti))
+            else:
+                cur = conn.execute(
+                    "UPDATE sessions SET revoked=1 WHERE uid=? AND revoked=0", (uid,))
+            return cur.rowcount
+
+    def sessions_for(self, uid, now=None):
+        """The caller's own live sessions, newest first. Revoked and expired rows are filtered out
+        rather than shown greyed: a list of things that are not sessions is not a session list."""
+        now = time.time() if now is None else now
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT jti, created, last_seen, ip, user_agent FROM sessions "
+                "WHERE uid=? AND revoked=0 AND expires_at>? ORDER BY created DESC",
+                (uid, now)).fetchall()
+            return [dict(r) for r in rows]
+
+    def sessions_prune(self, now=None):
+        """Drop EXPIRED rows only, same pattern as magic_nonces. Never prunes on `revoked`: see the
+        invariant note above."""
+        now = time.time() if now is None else now
+        with self._connect() as conn:
+            return conn.execute("DELETE FROM sessions WHERE expires_at<=?", (now,)).rowcount
 
     # ---- admin-managed abuse blocklist (#67 D3 / #102) ----
     def is_blocked(self, email=None, ip=None):

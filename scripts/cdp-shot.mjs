@@ -53,10 +53,11 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const STEP_VERBS = ['url', 'wait', 'wait-for', 'click', 'type', 'resize', 'eval', 'shot'];
+const STEP_VERBS = ['url', 'wait', 'wait-for', 'click', 'type', 'resize', 'eval', 'shot', 'clipboard',
+  'cookie', 'block'];
 const argv = process.argv.slice(2);
 if (argv.length === 0 || argv.includes('-h') || argv.includes('--help')) {
-  console.error('usage: node scripts/cdp-shot.mjs --url <URL> [--click sel | --wait ms | --wait-for sel | --type sel=text | --resize WxH | --eval expr | --shot path]...');
+  console.error('usage: node scripts/cdp-shot.mjs --url <URL> [--click sel | --wait ms | --wait-for sel | --type sel=text | --resize WxH | --eval expr | --shot path | --clipboard origin]...');
   process.exit(argv.length === 0 ? 2 : 0);
 }
 
@@ -153,6 +154,42 @@ await check('Runtime.enable');
 await check('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }); // sane default; --resize overrides
 
 for (const [verb, val] of steps) {
+  if (verb === 'clipboard') {
+    // #189: navigator.clipboard needs BOTH, and the two failures look nothing alike. Without the
+    // grant, reads reject NotAllowedError "Read permission denied"; without focus emulation, even
+    // writeText rejects NotAllowedError "Document is not focused" — headless has no focused window.
+    // Put this step BEFORE --url: grantPermissions is per-origin and survives the navigation.
+    await check('Browser.grantPermissions', { origin: val, permissions: ['clipboardReadWrite', 'clipboardSanitizedWrite'] });
+    await check('Emulation.setFocusEmulationEnabled', { enabled: true });
+    console.log('ok  clipboard: granted read/write + focus emulation for ' + val);
+    continue;
+  }
+  if (verb === 'cookie') {
+    // #221 stage 8: authenticated surfaces (/admin, the account menu) cannot be reached at all
+    // without a session, and there is no login UI to drive headlessly when links arrive by email.
+    // Put this step BEFORE --url; a cookie set after navigation does not apply to the page already
+    // loaded. Format: --cookie "name=value@https://host".
+    const at = val.lastIndexOf('@'); if (at < 0) die('--cookie needs name=value@origin, got: ' + val);
+    const nv = val.slice(0, at), origin = val.slice(at + 1);
+    const eq = nv.indexOf('='); if (eq < 0) die('--cookie needs name=value@origin, got: ' + val);
+    await check('Network.enable');
+    const r = await cmd('Network.setCookie', {
+      name: nv.slice(0, eq), value: nv.slice(eq + 1), url: origin, path: '/', httpOnly: true, secure: origin.startsWith('https'),
+    });
+    if (r.error || r.result?.success === false) die('could not set cookie: ' + JSON.stringify(r.error || r.result));
+    // Never print the value: a session cookie in a log or a CI transcript is a live credential.
+    console.log('ok  cookie: ' + nv.slice(0, eq) + ' set for ' + origin);
+    continue;
+  }
+  if (verb === 'block') {
+    // Prove a FAILURE path without breaking the server for everyone: block one URL pattern so the
+    // page's fetch really fails. #221 needs this to show the connection state, which by definition
+    // cannot be reached while the endpoint is healthy.
+    await check('Network.enable');
+    await check('Network.setBlockedURLs', { urls: val.split(',') });
+    console.log('ok  block: ' + val);
+    continue;
+  }
   if (verb === 'url') {
     const loaded = new Promise(r => loadWaiters.push(r));
     await check('Page.navigate', { url: val });

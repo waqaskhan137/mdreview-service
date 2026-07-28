@@ -129,6 +129,9 @@ def build_hosted(store):
     sessions = SessionService(
         config.SESSION_SECRET,
         ttl_s=_env_int("MDREVIEW_SESSION_TTL_S", 43200),
+        # #223: wiring the identity store is what makes a session individually revocable. Without
+        # it SessionService stays pure-crypto and every cookie is unrevocable-but-valid.
+        records=id_store,
         secure=True)
     magic = MagicLinkService(
         config.SESSION_SECRET, id_store, email_sender, link_base,

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# agent-drift — root-owned wrapper: runs the native-plane drift check, read-only.
+# Invoked as: sudo -n /usr/local/agent/agent-drift   (no agent-supplied arguments at all)
+#
+# It execs check-drift.sh by PINNED ABSOLUTE PATH with HOST= (local mode, no ssh hop) so the agent
+# cannot influence which script or paths run. check-drift.sh only inspects (`docker inspect`, file
+# stat/sha) and compares to the repo; it mutates nothing. It lives under the rana-owned deploy dir,
+# which the agent cannot write, so the pinned path can't be swapped.
+#
+# NOTE: this wrapper is inert until the native-plane rewrite of check-drift.sh lands (plan §7.2). Until
+# then the `drift-check` verb should stay OUT of the sudoers/dispatch allowlist (see agent-user-setup.sh
+# ENABLE_DRIFT gate) so it can't run the stale oauth2-era script.
+set -euo pipefail
+
+DRIFT=/home/rana/mdreview-deploy/check-drift.sh
+[[ -x "$DRIFT" ]] || { echo "agent-drift: $DRIFT not present/executable" >&2; exit 2; }
+
+# HOST='' => check-drift runs against the local host (no ssh). Scrubbed, fixed invocation.
+exec env -i HOST='' PATH=/usr/sbin:/usr/bin:/sbin:/bin "$DRIFT"

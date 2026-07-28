@@ -1,21 +1,37 @@
-"""Creation-time LaTeX-intent detection (MR-100).
+"""LaTeX content detection, in both directions (MR-100 create guard, #188 write guard).
 
-A pure, stdlib-only heuristic the POST /api/reviews arm uses to catch LaTeX content that a remote
-agent submitted as a default (markdown) review — the silent-acceptance defect where a `.tex` paper
-renders as broken markdown and never compiles. The guard only runs when latex mode is enabled and
+Pure, stdlib-only. Two predicates that answer opposite questions and therefore want opposite error
+biases; do not merge them.
+
+`looks_like_latex` (MR-100) asks "did a remote agent submit a .tex paper as a *markdown* review?" It
+gates a REJECTION OF A CREATE, so a false positive refuses a legitimate markdown doc. It stays
+narrow: preamble or a `.tex` source_path, nothing more. It only runs when latex mode is enabled and
 the caller did NOT pass `kind` explicitly; an explicit `kind="markdown"` is always honored (the
-escape hatch for prose that legitimately quotes LaTeX). This module is only *imported* by the
-request layer and only *called* under ENABLE_LATEX, so the flag-off import graph is unchanged.
+escape hatch for prose that legitimately quotes LaTeX).
 
-Detection (either signal is sufficient):
-  - source_path ends `.tex` (a strong, unambiguous signal), OR
-  - the body has a document preamble (`\\documentclass` / `\\begin{document}`) OUTSIDE any fenced
-    code block. The fence exclusion is the false-positive guard: a markdown doc quoting
-    `\\documentclass` inside a ``` (or ~~~) fence must NOT trip.
+`is_tex_source` (#188) asks the reverse: "could this body compile as paper.tex at all?" It gates a
+REJECTION OF A WRITE to a review that is ALREADY kind=latex, so a false positive refuses to save a
+user's work — the costlier error. It is therefore deliberately WIDER than a preamble test: it also
+accepts `\\input`/`\\include`, because `compiler._prepare_job` copies attached assets into the job
+dir, so `\\input{preamble}` plus a `preamble.tex` asset is a preamble-less body that really does
+compile. Erring toward acceptance there merely preserves today's behavior.
+
+Both share the fence exclusion: a markdown doc quoting `\\documentclass` inside a ``` (or ~~~) fence
+must NOT trip either one. It does NOT strip inline `code spans`, which cuts both ways and is known:
+prose *about* LaTeX can trip `looks_like_latex` (a false REJECT of a markdown create, tracked
+separately), and a markdown body mentioning `\\input{...}` in backticks passes `is_tex_source` (a
+false ACCEPT into a latex review). The second is the likelier shape — a markdown "reading copy" of a
+paper may well mention \\input in backticks — but it lands on the safe side: accepting merely
+preserves the pre-#188 behavior for that one body, while rejecting would refuse to save real work.
+
+This module is imported by the request layer and by latex_review's write decorator, and is only
+*called* under ENABLE_LATEX, so the flag-off import graph is unchanged.
 """
 import re
 
 _PREAMBLE_RE = re.compile(r"\\documentclass|\\begin\{document\}")
+# `\input foo` (bare, space-delimited) is as valid as `\input{foo}`, hence the [{ ] class.
+_INPUT_RE = re.compile(r"\\(?:input|include)\s*[{ ]")
 _FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
 
 
@@ -38,13 +54,22 @@ def _strip_code_fences(text):
     return "\n".join(out)
 
 
+def has_preamble(body):
+    """True when body carries a document preamble outside any fenced code block."""
+    return bool(body and _PREAMBLE_RE.search(_strip_code_fences(body)))
+
+
+def is_tex_source(body):
+    """True when body could compile as paper.tex: a preamble, or an \\input/\\include that can pull
+    one in from an attached asset. See the module docstring for why this is wider than has_preamble."""
+    return has_preamble(body) or bool(body and _INPUT_RE.search(_strip_code_fences(body)))
+
+
 def looks_like_latex(source_path, body):
     """True when the create looks like a LaTeX paper submitted as a markdown review."""
     if (source_path or "").strip().lower().endswith(".tex"):
         return True
-    if body and _PREAMBLE_RE.search(_strip_code_fences(body)):
-        return True
-    return False
+    return has_preamble(body)
 
 
 if __name__ == "__main__":
@@ -61,4 +86,20 @@ if __name__ == "__main__":
     fenced = "# LaTeX tips\n\nUse this preamble:\n\n```latex\n\\documentclass{article}\n\\begin{document}\n```\n\nThat's it."
     assert looks_like_latex("guide.md", fenced) is False
     assert looks_like_latex("", "~~~\n\\documentclass{article}\n~~~") is False
+
+    # #188 write guard. is_tex_source accepts everything has_preamble does...
+    assert is_tex_source(r"\documentclass{article}") is True
+    assert is_tex_source("intro\n\\begin{document}\nbody") is True
+    # ...plus the multi-file project that \input's a preamble from an attached asset, which
+    # has_preamble alone would reject even though it compiles today.
+    assert has_preamble(r"\input{preamble}") is False
+    assert is_tex_source(r"\input{preamble}") is True
+    assert is_tex_source(r"\include{chapter1}") is True
+    assert is_tex_source("\\input preamble\n") is True      # bare form, no braces
+    # A markdown body is TeX by neither test — this is the #188 rejection.
+    assert is_tex_source("# Reading copy\n\n- a list item\n") is False
+    assert is_tex_source("") is False
+    assert is_tex_source(None) is False
+    # The fence exclusion applies to both, so prose that only QUOTES a preamble is not tex source.
+    assert is_tex_source(fenced) is False
     print("latexguard self-check OK")

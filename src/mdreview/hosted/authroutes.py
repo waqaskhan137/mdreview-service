@@ -15,6 +15,7 @@ Routes:
 """
 import html
 import json
+import re
 from urllib.parse import parse_qs, urlparse
 
 _SEC_HEADERS = (("Cache-Control", "no-store"), ("X-Content-Type-Options", "nosniff"))
@@ -104,6 +105,16 @@ class AuthModule:
             return self._session(h)
         if path == "/auth/logout" and m == "POST":
             return self._logout(h)
+        # #223 per-device session management. Owner-scoped: every handler resolves the caller's own
+        # session first and passes its uid into the store, so a jti belonging to another account
+        # cannot be read or revoked even if guessed.
+        if path == "/auth/sessions" and m == "GET":
+            return self._sessions_list(h)
+        if path == "/auth/sessions" and m == "DELETE":
+            return self._sessions_revoke_others(h)
+        m_sess = re.match(r"^/auth/sessions/([A-Za-z0-9_-]+)$", path)
+        if m_sess and m == "DELETE":
+            return self._sessions_revoke_one(h, m_sess.group(1))
         return False
 
     # ---- POST /auth/magic-link ----
@@ -148,7 +159,8 @@ class AuthModule:
             uid, created = self.accounts.resolve_verified_email(email)
             if created:
                 self.id_store.audit("account_created", uid=uid, email=email, ip=self._client_ip(h))
-        cookie_value, _csrf = self.sessions.mint(uid, email)
+        cookie_value, _csrf = self.sessions.mint(
+            uid, email, ip=self._client_ip(h), user_agent=h.headers.get("User-Agent", ""))
         self.id_store.audit("login", uid=uid, email=email, ip=self._client_ip(h), detail="magic-link")
         self._respond(h, 303, b"", "text/plain",
                       cookies=[self.sessions.set_cookie_header(cookie_value)], location="/")
@@ -163,13 +175,77 @@ class AuthModule:
             return True
         cookies = None
         if sess.should_refresh(self.sessions.refresh_after_s):
-            fresh_value, fresh_csrf = self.sessions.mint(sess.uid, sess.email)
+            fresh_value, fresh_csrf = self.sessions.mint(
+                sess.uid, sess.email, ip=self._client_ip(h),
+                user_agent=h.headers.get("User-Agent", ""))
+            # The superseded row is revoked, not left live. A sliding re-issue must not double the
+            # device count every 15 days, and the old cookie is being replaced in the browser
+            # anyway, so keeping it valid would only widen the window on a stolen copy.
+            if sess.jti:
+                self.id_store.session_revoke(sess.jti, uid=sess.uid)
             cookies = [self.sessions.set_cookie_header(fresh_value)]
             csrf = fresh_csrf
         else:
             csrf = sess.csrf
+            # Cheap liveness bookkeeping for the device list, throttled inside the store.
+            if sess.jti:
+                self.id_store.session_touch(sess.jti)
         self._json(h, 200, {"authenticated": True, "uid": sess.uid, "email": sess.email,
                             "is_admin": self.users.is_admin(sess.uid), "csrf": csrf}, cookies=cookies)
+        return True
+
+    # ---- #223 per-device sessions ----
+    def _require_session(self, h, csrf_required):
+        """The caller's own verified session, or None (having already answered 401/403).
+        Every /auth/sessions handler goes through this, so 'owner-scoped' is one code path rather
+        than a rule each handler has to remember."""
+        cookie = self.sessions.read_cookie(h)
+        sess = self.sessions.verify(cookie) if cookie else None
+        if not sess or not self.users.is_active(sess.uid):
+            self._json(h, 401, {"error": "not signed in"})
+            return None
+        if csrf_required and not self.sessions.check_csrf(sess, h.headers.get("X-CSRF-Token", "")):
+            self._json(h, 403, {"error": "missing or invalid CSRF token"})
+            return None
+        return sess
+
+    def _sessions_list(self, h):
+        sess = self._require_session(h, csrf_required=False)
+        if not sess:
+            return True
+        rows = self.id_store.sessions_for(sess.uid)
+        out = []
+        for r in rows:
+            out.append({"jti": r["jti"], "created": r["created"], "last_seen": r["last_seen"],
+                        "ip": r["ip"] or "", "user_agent": r["user_agent"] or "",
+                        "current": r["jti"] == sess.jti})
+        # `grandfathered` tells the UI to say the list may be incomplete rather than silently
+        # showing a short list. A session minted before #223 has no row and cannot appear here.
+        self._json(h, 200, {"sessions": out, "grandfathered": not sess.jti})
+        return True
+
+    def _sessions_revoke_one(self, h, jti):
+        sess = self._require_session(h, csrf_required=True)
+        if not sess:
+            return True
+        # uid-scoped: revoking another account's session is not possible even with a valid jti.
+        ok = self.id_store.session_revoke(jti, uid=sess.uid)
+        if ok:
+            self.id_store.audit("session_revoked", uid=sess.uid, email=sess.email,
+                                ip=self._client_ip(h),
+                                detail="self" if jti == sess.jti else "other-device")
+        self._json(h, 200 if ok else 404,
+                   {"ok": ok, "current": jti == sess.jti} if ok else {"error": "no such session"})
+        return True
+
+    def _sessions_revoke_others(self, h):
+        sess = self._require_session(h, csrf_required=True)
+        if not sess:
+            return True
+        n = self.id_store.session_revoke_all(sess.uid, except_jti=sess.jti or None)
+        self.id_store.audit("sessions_revoked_others", uid=sess.uid, email=sess.email,
+                            ip=self._client_ip(h), detail="count=%d" % n)
+        self._json(h, 200, {"ok": True, "revoked": n})
         return True
 
     # ---- POST /auth/logout (CSRF-checked) ----
@@ -182,6 +258,10 @@ class AuthModule:
             self._json(h, 403, {"error": "missing or invalid CSRF token"})
             return True
         if sess:
+            # #223: actually END the session, do not merely clear the cookie. Before this, a signed
+            # cookie stayed cryptographically valid after "sign out", so a captured copy kept working.
+            if sess.jti:
+                self.id_store.session_revoke(sess.jti, uid=sess.uid)
             self.id_store.audit("logout", uid=sess.uid, email=sess.email, ip=self._client_ip(h))
         self._respond(h, 200, json.dumps({"ok": True}), "application/json",
                       cookies=[self.sessions.clear_cookie_header()])

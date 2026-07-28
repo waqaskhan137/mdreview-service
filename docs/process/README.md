@@ -11,9 +11,11 @@ review `79fb2c6f6e`; staff-critic gate passed in 2 rounds).
 **Live** (authoritative):
 
 ```
-README.md        this working agreement
-product.md       the product goal + principles: the value yardstick for prioritization
-evidence/        committed gate evidence: render/binary artifacts per sprint (evidence/sprint-NN/)
+README.md          this working agreement
+autonomous-run.md  how an agent executes scoped work unattended (stages, gates, hard rules)
+product.md         the product goal + principles: the value yardstick for prioritization
+evidence/          committed gate evidence: render/binary artifacts per sprint (evidence/sprint-NN/)
+runs/              autonomous-run decision logs (runs/<YYYY-MM-DD>-<slug>.md)
 ```
 
 The **roadmap** is NOT a file: it is the GitHub Project
@@ -100,7 +102,7 @@ grab-bag sprint mints a lightweight epic issue for the same purpose.
    clarification) before touching code.
 3. Implement on a branch cut from current `dev`, named `<kind>/<issue>-slug` (e.g.
    `fix/15-comment-anchor`). `dev` accepts changes only via PR, so even a small change rides
-   a branch + PR (self-merge is fine, see Branching).
+   a branch + PR. Self-merge once `pr-checks` is green (see Branching).
 4. Validate locally: `python3 -m py_compile src/mdreview/*.py src/mcp/*.py src/watcher/*.py src/latex_review/*.py src/mcp_server.py src/watch.py`;
    for `layer:infra`, `docker build -f infra/Dockerfile`; for `layer:ui`, rebuild from the
    image and assert rendered DOM nodes with `tests/render-smoke.sh <url> <selector>...` (a 200
@@ -113,18 +115,46 @@ grab-bag sprint mints a lightweight epic issue for the same purpose.
 
 ### Branching (enforced by branch protection, not just convention)
 
-- Cut every branch from current `dev`; open its PR **against `dev`** and leave it open:
-  **PRs collect until the owner calls a merge gate.** No agent self-merges outside a gate.
-  At a gate, the product-owner agent prepares the queue (mergeability, overlapping files,
-  dependency-aware order) and the owner gives the go; merges then execute in that order,
-  re-checking mergeability after each. `dev` is protected (PR required, 0 approving reviews,
-  force-pushes and deletions blocked); the 0-approvals setting exists because authors cannot
-  approve their own PRs on a solo repo, and the no-self-merge rule is this agreement's
-  convention on top of it. Direct pushes to `dev` are rejected either way.
+- Cut every branch from current `dev` and open its PR **against `dev`**. **An agent may
+  self-merge its own PR once `pr-checks` is green** (owner decision 2026-07-27, superseding the
+  earlier "PRs collect until the owner calls a merge gate"). `dev` is protected (PR required,
+  0 approving reviews, force-pushes and deletions blocked); direct pushes are rejected either
+  way. The 0-approvals setting exists because authors cannot approve their own PRs on a solo
+  repo.
+- **What replaced the human gate.** The no-self-merge convention was the last second-party look
+  before code reached a publicly reachable host, so it was traded for a machine one:
+  `.github/workflows/pr-checks.yml` runs the hosted-boot and custody-regression smokes on every
+  PR into `dev`. Two limits, both deliberate and both stated rather than implied. It is a
+  **floor, not a substitute**: both smokes are server-side and neither reads `web/app/**`, so a
+  green run says nothing about a UI diff. And it is **honour-system** until `pr-checks` is made
+  a *required status check* on `dev` — as of 2026-07-27 neither classic protection nor rulesets
+  require any check, so nothing stops a merge while it is red or still queued.
+- The **batch merge gate remains available** when the owner wants one: the product-owner agent
+  prepares the queue (mergeability, overlapping files, dependency-aware order), the owner gives
+  the go, and merges execute in that order, re-checking mergeability after each. It is now an
+  option for queues, not a precondition for every merge.
 - **Never open a PR against `main`** except the single standing `dev -> main` PR (G8), which
   accumulates each cycle and is updated, never duplicated. `main` requires 1 approving review
   plus **signed commits**: merge the standing PR by **squash** in the GitHub UI (GitHub signs
   the squash commit); a merge-commit or rebase-merge fails on unsigned agent commits.
+  Note the review requirement cannot be satisfied normally on a solo repo (GitHub forbids
+  approving your own PR), so the squash lands via the owner's **admin override** ("merge without
+  waiting for requirements", or `gh pr merge --squash --admin`). `enforce_admins` is off for
+  exactly this reason; `required_signatures` still applies and the squash commit is signed.
+- **After every G8 squash, merge `main` back into `dev`.** Squashing means `dev` never becomes an
+  ancestor of `main`, so the merge base stops advancing. Files legitimately changed on both sides
+  then collide and the NEXT `dev -> main` PR fails on phantom conflicts, even when the real content
+  difference is one commit. (Hit for real on 2026-07-24: `dev -> main` conflicted on
+  `web/app/dashboard.html` with a merge base three days stale.) The fix restores shared ancestry:
+
+      git switch -c sync-main-into-dev origin/dev
+      git merge origin/main          # resolve any conflict by taking dev's side
+      # verify it is ancestry-only: `git diff origin/dev` MUST be empty
+      # open a PR into dev and merge it with a MERGE COMMIT
+
+  Merge that sync PR with a **merge commit, never squash** — squashing flattens the merge and
+  destroys the very ancestry it exists to create. Confirm with
+  `git merge-base --is-ancestor origin/main origin/dev` before cutting the next release.
 - `main` advances only on the owner's explicit G8 go-ahead. Nothing merges around the flow;
   if `dev` ever trails `main`, something did, reconcile before cutting new branches.
 

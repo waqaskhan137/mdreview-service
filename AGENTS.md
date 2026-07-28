@@ -3,10 +3,12 @@
 Work tracking is GitHub-only. The working agreement is `docs/process/README.md`; read it
 before touching process state (labels, milestones, epic issues, gates). Non-negotiables:
 
-1. **Branch from current `dev`; PR into `dev`; do NOT merge it.** Enforced: `dev` only
-   accepts PRs (0 approvals). PRs collect until the owner calls a **merge gate**, where the
-   batch merges in an ordered, conflict-checked pass. Branch names: `<kind>/<issue>-slug`,
-   e.g. `fix/15-comment-anchor`.
+1. **Branch from current `dev`; PR into `dev`; self-merge once `pr-checks` is green.**
+   Enforced: `dev` only accepts PRs (0 approvals); direct pushes are rejected. `pr-checks`
+   is the pre-merge gate that replaced the owner's merge gate (owner decision 2026-07-27) —
+   it is a floor, not a substitute: both its smokes are server-side and neither reads
+   `web/app/**`. The owner can still call a **batch merge gate** for a queue. Branch names:
+   `<kind>/<issue>-slug`, e.g. `fix/15-comment-anchor`.
 2. **Never open or merge a PR against `main`**, except the single standing `dev -> main` PR,
    which merges only on the owner's explicit go-ahead (G8), squash-merged in the GitHub UI
    (main requires signed commits; squash is the only strategy that passes with unsigned

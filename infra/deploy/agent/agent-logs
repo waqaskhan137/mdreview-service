@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# agent-logs — root-owned wrapper: `docker logs` for an ALLOWLISTED container only. Read-only.
+# Invoked solely as: sudo -n /usr/local/agent/agent-logs <container> [n]   (from dispatch.sh)
+# The agent cannot reach docker directly (not in the docker group); this fixed command is the only
+# docker-logs path it has, and it validates both arguments before touching docker.
+set -euo pipefail
+
+# Exact-match allowlist — NOT substring/regex. Add a container here only deliberately.
+case "${1:-}" in
+  mdreview|mdreview-staging) container="$1" ;;
+  *) echo "agent-logs: container not allowed" >&2; exit 2 ;;
+esac
+
+# Tail count: integer only, clamped 1..2000, default 200.
+n="${2:-200}"
+[[ "$n" =~ ^[0-9]+$ ]] || { echo "agent-logs: n must be an integer" >&2; exit 2; }
+(( n >= 1 ))    || n=1
+(( n <= 2000 )) || n=2000
+
+exec docker logs --tail "$n" "$container"

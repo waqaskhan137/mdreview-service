@@ -4,118 +4,114 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · reviews</title>
-<!-- #152 Basecoat: vendored (self-hosted, no runtime CDN). Basecoat skins the generic chrome (sign-in
-     form, search, buttons); the signature inbox grid + sidebar stay bespoke. -->
+<!-- #152 Basecoat: vendored (self-hosted, no runtime CDN). Basecoat skins the generic chrome (the
+     sign-in form, the search box, buttons). The inbox itself is hand CSS: design doc §05 rule 02 is
+     "no cards, no pills", which rules out the two Basecoat primitives this page used to lean on. -->
 <link rel="stylesheet" href="/static/basecoat.cdn.min.css">
 <link rel="stylesheet" href="/static/theme.css">
 <link rel="stylesheet" href="/static/basecoat-theme.css">
 <script src="/static/basecoat.all.min.js" defer></script>
 <style>
-  /* Colour tokens live in /static/theme.css (#153) — never redefine them per page. */
-  /* Light palette = the mockup; dark derived via the existing token swap (no STALE_S here — the
-     viewer is the authoritative staleness surface; a dashboard card never tests lease freshness). */
+  /* Colour tokens, the radius/space/type scales, the .app-top/.app-col shell and the .flash bar all
+     live in /static/theme.css (#153, #177, #178). This page CONSUMES them and re-declares none of
+     them: that is the whole point of putting the shell there rather than per page.
+     No STALE_S here: the viewer is the authoritative staleness surface (epic D2/R1); a dashboard
+     row never tests lease freshness. */
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;}
+    font-size:var(--t-body);line-height:1.45;-webkit-font-smoothing:antialiased;}
 
-  .app{display:flex;min-height:100vh;}
+  /* ---- the top line ----------------------------------------------------------------------
+     .app-top is theme.css's. Everything below is either one of THIS page's occupants of it, or
+     the one page-local guard noted inline. */
+  /* Overflow guard, not a narrow-width pass: the dashboard puts five things on a line that
+     account puts two on, so it wraps instead of scrolling the body sideways. §10's real narrow
+     treatment (44px targets, headline ramp) is #184. */
+  #app .app-top{flex-wrap:wrap;row-gap:var(--s-2);}
 
-  /* ---- sidebar ---- */
-  .side{flex:0 0 256px;width:256px;padding:24px 18px;display:flex;flex-direction:column;gap:24px;
-    border-right:1px solid var(--rule);position:sticky;top:0;height:100vh;overflow-y:auto;}
-  .brand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:600;letter-spacing:-.15px;}
-  .brand .logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#2f6fed,#7c4dff);
-    color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
-  .nav-section{display:flex;flex-direction:column;gap:2px;}
-  .nav-label{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
-    color:var(--muted2);padding:0 10px 6px;}
-  .nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;
-    color:var(--muted-fg);font-size:13.5px;font-weight:500;border:none;background:none;width:100%;text-align:left;
-    font-family:inherit;}
-  .nav-item:hover{background:var(--nav-hover);}
-  .nav-item.active{background:var(--nav-active);color:var(--text);font-weight:600;}
-  .nav-item .dot{flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.55;}
-  .nav-item.active .dot{opacity:1;}
-  .nav-item .nm{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .nav-item .ct{flex:0 0 auto;font-size:11.5px;font-weight:600;color:var(--muted2);}
-  .nav-item.active .ct{color:var(--text);}
-  .proj-empty{padding:2px 10px;color:var(--muted2);font-size:12px;}
+  .filters{display:flex;align-items:center;gap:var(--s-2);min-width:0;}
+  /* §05 rule 01/02: no violet, no pill. The active filter is carried by weight and text colour. */
+  .filt{font:inherit;font-size:var(--t-meta);background:none;border:0;padding:2px 0;cursor:pointer;
+    color:var(--muted-fg);white-space:nowrap;}
+  .filt:hover{color:var(--text);}
+  .filt.on{color:var(--text);font-weight:600;}
+  .filt .ct{font-weight:700;font-variant-numeric:tabular-nums;}
+  .fdot{color:var(--muted2);user-select:none;}
+  #search{flex:1 1 150px;min-width:0;max-width:250px;}   /* look comes from Basecoat .input */
+  #projsel{flex:0 0 auto;max-width:180px;}               /* a native select: no popover to clip */
 
-  /* ---- main ---- */
-  .main{flex:1 1 auto;min-width:0;padding:26px 32px 56px;}
-  .head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 0 18px;}
-  h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.4px;}
-  .sub{margin:6px 0 0;color:var(--muted-fg);font-size:13px;}
-  #search{flex:0 0 280px;max-width:40vw;}   /* look comes from Basecoat .input */
+  /* ---- the column ------------------------------------------------------------------------ */
+  /* The visible headline is the "next up" title (§05: "one thing to do next"), so the document
+     heading is for assistive tech only. filterTitle() still writes it, so the active view is
+     announced even though nothing draws it. */
+  .vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+    clip:rect(0 0 0 0);white-space:nowrap;border:0;}
 
-  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
-    color:var(--muted2);margin:0 0 12px;}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;}
+  /* Confirm bar: the same shape admin uses (#179), replacing confirm(). A modal confirm cannot be
+     styled, blocks the page and reads as a browser error rather than as part of the app. */
+  #confirmbar{display:none;align-items:center;gap:10px;background:var(--warn-bg);
+    border:1px solid var(--warn-rule);border-radius:var(--r-control);padding:11px 14px;
+    margin:0 0 var(--s-4);}
+  #confirmbar .msg{flex:1;}
 
-  .card{position:relative;background:var(--panel);border:1px solid var(--rule);border-radius:13px;
-    border-left:3px solid var(--rule);transition:border-color .12s,box-shadow .12s,transform .06s;}
-  .card:hover{box-shadow:0 4px 16px rgba(20,22,40,.08);transform:translateY(-1px);}
-  .card.is-hidden{display:none;}
-  .showmore{display:none;margin:18px auto 4px;}   /* look comes from Basecoat .btn */
-  .proj-more{padding:6px 10px 2px;color:var(--muted2);font-size:11.5px;}
-  .card.s-your-turn{border-left-color:var(--violet);}
-  .card.s-agent-working,.card.s-waiting{border-left-color:var(--blue);}
-  .card.s-resolved{border-left-color:var(--green);}
-  .cardlink{display:flex;flex-direction:column;gap:10px;padding:15px 18px 13px 19px;color:inherit;
-    text-decoration:none;cursor:pointer;}
-  .crumb{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted2);min-width:0;}
-  .crumb .seg{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .crumb .rev{margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;flex:0 0 auto;transition:opacity .12s;}
-  .card:hover .crumb .rev{opacity:0;}   /* hide the version on hover so the delete button isn't on top of it */
-  .card .title{font-size:16px;font-weight:600;line-height:1.3;letter-spacing:-.15px;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding-right:26px;}
-  .row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
-  .divider{height:1px;background:var(--rule);margin:1px 0 0;}
-  .badge{display:inline-flex;align-items:center;gap:6px;border-radius:20px;padding:3px 10px 3px 9px;
-    font-size:12px;font-weight:600;}
-  .badge .bdot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:0 0 auto;}
-  .badge .bdot.ring{background:none;border:1.5px solid currentColor;width:8px;height:8px;}
-  .badge.your-turn{background:var(--violet-bg);color:var(--violet);}
-  .badge.agent-working{background:var(--blue-bg);color:var(--blue);}
-  .badge.waiting{background:var(--blue-bg);color:var(--blue);}
-  .badge.resolved{background:none;color:var(--muted-fg);padding-left:0;}
-  .badge.latex{background:var(--blue-bg);color:var(--blue);}
-  .kindchip{flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--blue);
-    background:var(--blue-bg);border-radius:4px;padding:1px 5px;}
-  .date{font-size:11.5px;color:var(--muted2);flex:0 0 auto;}
-  .countline{font-size:11.5px;color:var(--muted2);display:flex;align-items:center;gap:7px;}
-  .countline .cdot{width:6px;height:6px;border-radius:50%;background:var(--muted2);flex:0 0 auto;}
-  .card.s-your-turn .cdot{background:var(--violet);}
-  .card.s-agent-working .cdot,.card.s-waiting .cdot{background:var(--blue);}
-  .card.s-resolved .cdot{background:var(--green);}
+  /* ---- next up ---- */
+  #nextup:not(:empty){margin:0 0 var(--s-8);}
+  .nu-crumb{font-size:var(--t-meta);color:var(--muted2);margin:0 0 var(--s-2);}
+  .nu-title{font-size:var(--t-display);line-height:1.15;letter-spacing:-.02em;font-weight:650;
+    margin:0 0 var(--s-3);}
+  .nu-say{color:var(--muted-fg);margin:0 0 var(--s-4);}
+  /* §05 rule 01: one violet per screen, and this is it. */
+  .nu-go{text-decoration:none;}
 
-  .del{position:absolute;top:11px;right:12px;display:inline-flex;align-items:center;justify-content:center;
-    width:26px;height:26px;padding:0;border-radius:7px;border:1px solid transparent;background:transparent;
+  /* ---- the quiet lists ---- */
+  .grp{margin:0 0 var(--s-6);}
+  .grp-h{font-size:var(--t-meta);color:var(--muted2);margin:0 0 var(--s-2);}
+  /* §05 rule 02: a 1px --rule-faint hairline SEPARATES rows. The container is the page: no card and
+     no border around the group, so the last row carries no rule. */
+  .rw{position:relative;display:flex;align-items:baseline;gap:var(--s-3);padding:9px 0;}
+  .rw+.rw{border-top:1px solid var(--rule-faint);}
+  .rw-l{display:flex;align-items:baseline;gap:var(--s-2);min-width:0;flex:1 1 auto;
+    color:inherit;text-decoration:none;}
+  .rw:hover .rw-t{text-decoration:underline;text-underline-offset:2px;}
+  .rw-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .rw-p{flex:0 0 auto;font-size:var(--t-meta);color:var(--muted2);}
+  /* the LATEX marker (MR-098) demoted from a chip to plain text (§05 rule 02) */
+  .rw-k{flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--blue);}
+  .rw-m{flex:0 0 auto;font-size:var(--t-meta);color:var(--muted2);white-space:nowrap;
+    transition:opacity .12s;}
+  .rw:hover .rw-m{opacity:0;}   /* the delete button lands here, so get the meta out from under it */
+  /* §05 rule 03, three weights of row: yours, the agent's, resolved. */
+  .w-yours .rw-t{font-weight:500;color:var(--text);}
+  .w-agent .rw-t{font-weight:400;color:var(--muted-fg);}
+  .w-resolved .rw-t{font-weight:400;color:var(--muted2);}
+
+  .del{position:absolute;top:50%;right:0;transform:translateY(-50%);
+    display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;
+    border-radius:var(--r-control);border:1px solid transparent;background:transparent;
     color:var(--muted2);cursor:pointer;opacity:0;transition:opacity .12s,color .12s,background .12s;}
-  .card:hover .del{opacity:1;}
-  .del:hover{color:#c0392b;background:rgba(192,57,43,.12);}
-  .del:focus-visible{opacity:1;outline:2px solid var(--link);outline-offset:1px;}
+  .rw:hover .del{opacity:1;}
+  .del:hover{color:var(--danger);background:var(--danger-bg);}
+  .del:focus-visible{opacity:1;}   /* the ring itself is theme.css's one focus rule (§03) */
 
-  .empty,.noresults{text-align:center;color:var(--muted-fg);padding:64px 0;}
+  .resline{font-size:var(--t-meta);color:var(--muted2);}
+  .resline .linklike{margin-top:0;font-size:var(--t-meta);}
+
+  /* Namespaced: a bare `.empty` now collides with Basecoat's own empty-state block, which is
+     display:flex/flex:1 and would fight this outright. */
+  .dash-empty,.noresults{text-align:center;color:var(--muted-fg);padding:var(--s-12) 0;}
   .noresults{display:none;}
-  .empty code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
-    background:rgba(127,127,127,.12);padding:2px 6px;border-radius:5px;}
+  .dash-empty code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-meta);
+    background:var(--inset);padding:2px 6px;border-radius:var(--r-control);}
 
-  @media (max-width:720px){
-    .app{flex-direction:column;}
-    .side{flex-basis:auto;width:auto;height:auto;position:static;flex-direction:column;
-      border-right:none;border-bottom:1px solid var(--rule);}
-    .main{padding:20px 16px 48px;}
-    h1{font-size:24px;}
-  }
+  .sub{color:var(--muted2);font-size:var(--t-meta);margin:var(--s-6) 0 0;}
 
   /* ---- sign-in screen (anonymous; #131) — Basecoat card/input/btn + layout only ---- */
   .signin-wrap{min-height:100vh;display:none;align-items:center;justify-content:center;padding:24px;}
   #signin-card{width:100%;max-width:400px;}
   .signin-brand{display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px;
     font-weight:600;letter-spacing:-.15px;margin:0 0 12px;}
-  .signin-brand .logo{width:30px;height:30px;border-radius:8px;
+  .signin-brand .logo{width:30px;height:30px;border-radius:var(--r-control);
     background:linear-gradient(135deg,#2f6fed,#7c4dff);color:#fff;display:flex;align-items:center;
     justify-content:center;font-size:12px;font-weight:700;}
   #signin-card h1{font-size:21px;font-weight:700;letter-spacing:-.3px;margin:0 0 7px;text-align:center;}
@@ -125,8 +121,8 @@
   /* the always-shown "didn't get it?" note: quieter than the lede so it reads as a footnote */
   #signin-card .lede.signin-fine{font-size:12px;color:var(--muted2,var(--muted-fg));margin:-8px 0 18px;}
   .signin-ok{text-align:center;}
-  .signin-ok .check{width:46px;height:46px;border-radius:50%;background:var(--accent-bg);color:var(--brand);
-    display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .signin-ok .check{width:46px;height:46px;border-radius:var(--r-pill);background:var(--accent-bg);
+    color:var(--brand);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
   .signin-ok .addr{color:var(--text);font-weight:600;}
   .linklike{background:none;border:none;color:var(--link);font:inherit;font-size:12.5px;cursor:pointer;
     padding:0;margin-top:16px;text-decoration:underline;}
@@ -149,36 +145,37 @@
     <p class="signin-note">New here? The same link signs you up.</p>
   </section></div>
 </div>
-<div class="app" id="app" style="display:none">
-  <aside class="side">
-    <div class="brand"><span class="logo">md</span><span>mdreview</span></div>
-    <nav class="nav-section" id="inbox">
-      <div class="nav-label">Inbox</div>
-      <button class="nav-item active" data-filter="all"><span class="dot"></span><span class="nm">All reviews</span><span class="ct" id="ct-all">0</span></button>
-      <button class="nav-item" data-filter="needs"><span class="dot" style="color:var(--violet)"></span><span class="nm">Needs you</span><span class="ct" id="ct-needs">0</span></button>
-      <button class="nav-item" data-filter="working"><span class="dot" style="color:var(--blue)"></span><span class="nm">Agent working</span><span class="ct" id="ct-working">0</span></button>
-      <button class="nav-item" data-filter="resolved"><span class="dot" style="color:var(--green)"></span><span class="nm">Resolved</span><span class="ct" id="ct-resolved">0</span></button>
+<!-- #app is INSIDE nothing and the top line is INSIDE it: the shell must not render over the
+     sign-in screen, which draws its own brand and wants no account menu. -->
+<div id="app" style="display:none">
+  <div class="app-top">
+    <a class="brand" href="/"><span class="mark">md</span><span>mdreview</span></a>
+    <nav class="filters" id="inbox" aria-label="Inbox filters">
+      <button type="button" class="filt" data-filter="needs">Yours <span class="ct" id="ct-needs">0</span></button>
+      <span class="fdot" aria-hidden="true">·</span>
+      <button type="button" class="filt" data-filter="working">Working <span class="ct" id="ct-working">0</span></button>
+      <span class="fdot" aria-hidden="true">·</span>
+      <button type="button" class="filt" data-filter="resolved">Resolved <span class="ct" id="ct-resolved">0</span></button>
     </nav>
-    <nav class="nav-section" id="projects">
-      <div class="nav-label">Projects</div>
-      <div id="projlist"></div>
-    </nav>
+    <span class="spacer"></span>
+    <input id="search" class="input" type="search" placeholder="Search reviews…" autocomplete="off"
+           aria-label="Search reviews">
+    <select id="projsel" class="input" aria-label="Filter by project"><option value="">All projects</option></select>
     <div id="acct"></div>
-  </aside>
-  <main class="main">
-    <div class="head">
-      <div>
-        <h1 id="h1">All reviews</h1>
-        <p class="sub" id="sub">Loading…</p>
-      </div>
-      <input id="search" class="input" type="search" placeholder="Search reviews, projects…" autocomplete="off">
-    </div>
-    <div class="eyebrow" id="eyebrow">Recent activity</div>
-    <div id="list" class="grid"></div>
-    <button class="showmore btn" data-variant="outline" data-size="sm" id="showmore">Show more</button>
+  </div>
+  <div class="app-col">
+    <h1 class="vh" id="h1">All reviews</h1>
+    <div id="confirmbar"><span class="msg"></span><button class="btn" data-variant="destructive" data-size="sm" id="cfy">Delete</button><button class="btn" data-variant="outline" data-size="sm" id="cfn">Cancel</button></div>
+    <div id="flash" class="flash" role="status" aria-live="polite"></div>
+    <section id="nextup"></section>
+    <div id="list"></div>
     <div class="noresults" id="noresults">No reviews match your search.</div>
-  </main>
+    <p class="sub" id="sub">Loading…</p>
+  </div>
 </div>
+<!-- Before the inline block, not after it: boot() runs at parse time and needs window.mdSession. -->
+<script src="/static/keys.js"></script>
+<script src="/static/session.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const TRASH='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
@@ -195,12 +192,12 @@ function rel(ts){
 // latest activity = newest of created / source_updated / feedback_updated
 function activity(r){return Math.max(r.created||0, r.source_updated||0, r.feedback_updated||0);}
 
-// Baton status badge — derived per row from turn + agent_status + status. NO STALE_S freshness test
-// on the dashboard (epic D2/R1): the viewer is the authoritative staleness surface.
+// Baton status, derived per row from turn + agent_status + status. NO STALE_S freshness test on
+// the dashboard (epic D2/R1): the viewer is the authoritative staleness surface.
 function statusOf(r){
   if(r.status==="resolved") return "resolved";
-  // Latex reviews have no turn baton (pull-based feedback), so the baton badge would read
-  // "Your turn" forever. Use a comment-count badge instead (label filled dynamically in card()).
+  // Latex reviews have no turn baton (pull-based feedback), so the baton state would read
+  // "Your turn" forever. Use a comment-count line instead (filled in by STATUSTEXT).
   if(r.kind==="latex") return "latex";
   const turn=r.turn||"reviewer";
   if(turn==="agent"){
@@ -209,13 +206,19 @@ function statusOf(r){
   }
   return "your-turn";   // turn==="reviewer" and not resolved
 }
-const BADGE={
-  "your-turn":   {cls:"your-turn",   label:"Your turn",         dot:"<span class='bdot'></span>"},
-  "agent-working":{cls:"agent-working",label:"Agent working",   dot:"<span class='bdot'></span>"},
-  "waiting":     {cls:"waiting",     label:"Waiting for agent", dot:"<span class='bdot ring'></span>"},
-  "resolved":    {cls:"resolved",    label:"Resolved",          dot:"<span class='bdot' style='background:var(--green)'></span>"},
-  "latex":       {cls:"latex",       label:"",                  dot:"<span class='bdot'></span>"},
+// §05 rule 02 retired the badge PILLS; the same five states now read as plain text, and the row's
+// weight (rule 03) carries the emphasis the colour used to.
+const STATUSTEXT={
+  "your-turn":    countLabel,
+  "latex":        countLabel,
+  "resolved":     countLabel,
+  "agent-working":()=>"agent working",
+  "waiting":      ()=>"waiting for agent",
 };
+// Which of the three lists a row belongs to. Derived from statusOf, so the latex carve-out keeps
+// pull-based reviews out of "With the agent" as well as off the baton.
+const GROUP_OF={"resolved":"resolved","agent-working":"agent","waiting":"agent",
+                "your-turn":"yours","latex":"yours"};
 function countLabel(r){
   const t=r.notes_total||0, a=r.notes_addressed||0;
   if(!t) return "no comments";
@@ -224,46 +227,33 @@ function countLabel(r){
   return open+" open"+(a?" · "+a+" resolved":"");
 }
 
-function card(r){
-  const st=statusOf(r);
-  const b=BADGE[st];
-  // Latex badge label is the open-comment count (no baton state to show).
-  const label=(st==="latex")?countLabel(r):b.label;
-  const t=esc(r.title||r.id), pr=esc(r.project||""), se=esc(r.session||""), pa=esc(r.source_path||"");
-  const rev=(r.revision||0)>0?`<span class="rev">v${r.revision}</span>`:"";
-  const chip=(r.kind==="latex")?`<span class="kindchip">LATEX</span>`:"";
-  // crumb = optional LATEX chip + project (or session fallback) on the left, revision on the right.
-  const lead=pr||se;
-  const crumb=(chip||lead||rev)?`<div class="crumb">${chip}${lead?`<span class="seg">${lead}</span>`:""}${rev}</div>`:"";
-  return `<div class="card s-${st}" data-id="${esc(r.id)}" data-title="${t}" data-project="${pr}" data-path="${pa}" data-status="${st}">
-    <a class="cardlink" href="/review/${encodeURIComponent(r.id)}">
-      ${crumb}
-      <div class="title">${t}</div>
-      <div class="row">
-        <span class="badge ${b.cls}">${b.dot}${esc(label)}</span>
-        <span class="date">${rel(activity(r))}</span>
-      </div>
-      <div class="divider"></div>
-      <div class="countline"><span class="cdot"></span>${countLabel(r)}</div>
-    </a>
+function row(r){
+  const st=statusOf(r), grp=GROUP_OF[st];
+  const t=esc(r.title||r.id), pr=esc(r.project||r.session||""), pa=esc(r.source_path||"");
+  const kind=(r.kind==="latex")?`<span class="rw-k">LATEX</span>`:"";
+  const meta=STATUSTEXT[st](r)+" · "+rel(activity(r));
+  return `<div class="rw w-${grp}" data-id="${esc(r.id)}" data-title="${t}" data-project="${pr}" data-path="${pa}">
+    <a class="rw-l" href="/review/${encodeURIComponent(r.id)}">${kind}<span class="rw-t">${t}</span>${pr?`<span class="rw-p">${pr}</span>`:""}</a>
+    <span class="rw-m">${esc(meta)}</span>
     <button class="del" data-id="${esc(r.id)}" data-title="${t}" aria-label="Delete ${t}">${TRASH}</button>
   </div>`;
 }
 
 let allReviews=[];
-let activeFilter="all";       // all | needs | working | resolved | project:<name>
-let shownCap=0;              // 0 ⇒ recompute to fit the viewport on the next applyFilter (no long scroll)
-const PROJ_TOP=8;            // projects shown in the sidebar; the rest are reachable via the search box
+let activeFilter="all";       // all | needs | working | resolved
+let activeProject="";         // "" = every project; otherwise an exact project name
+let showResolved=false;       // §05: resolved lives behind "browse all"
 
 async function load(){
   let data;
   try{ data=await fetch('/api/reviews',{cache:'no-store'}).then(r=>r.json()); }
-  catch(e){ $("#sub").textContent="Could not reach the service."; return; }
+  catch(e){ $("#sub").textContent="Could not reach the service."; flash("Could not reach the service.","err"); return; }
   allReviews=(data&&data.reviews)||[];
   render();
 }
 
-// inbox predicates (epic D1) — client-side over the same rows the chip filter used
+// inbox predicates (epic D1), unchanged: the sidebar that used to host them is gone, the meaning
+// is not. They now drive the three top-line counts and the top-line filter.
 const INBOX={
   all:     ()=>true,
   needs:   r=>(r.turn||"reviewer")==="reviewer" && r.status!=="resolved",
@@ -271,110 +261,125 @@ const INBOX={
   resolved:r=>r.status==="resolved",
 };
 function matchesFilter(r){
-  if(activeFilter.startsWith("project:")) return (r.project||"")===activeFilter.slice(8);
+  if(activeProject && (r.project||"")!==activeProject) return false;
   return (INBOX[activeFilter]||INBOX.all)(r);
 }
 function filterTitle(){
-  // project filters only ever carry a non-empty project name (the Projects list is built from
-  // distinct non-empty `project` values), so the slice is always the project label.
-  if(activeFilter.startsWith("project:")) return activeFilter.slice(8);
-  return {all:"All reviews",needs:"Needs you",working:"Agent working",resolved:"Resolved"}[activeFilter]||"All reviews";
+  const base={all:"All reviews",needs:"Yours",working:"With the agent",resolved:"Resolved"}[activeFilter]||"All reviews";
+  return activeProject ? base+" · "+activeProject : base;
+}
+
+// The shared flash bar comes from theme.css; the base class carries display:none, so clearing
+// className outright would leave it permanently visible and unstyled.
+function flash(msg, kind){
+  const f=$("#flash"); f.textContent=msg; f.className=kind?("flash "+kind):"flash";
+  if(kind) setTimeout(()=>{ f.className="flash"; }, 4000);
+}
+
+function askConfirm(msg, onYes){
+  const bar=$("#confirmbar"); bar.querySelector(".msg").textContent=msg; bar.style.display="flex";
+  $("#cfy").onclick=()=>{ bar.style.display="none"; onYes(); };
+  $("#cfn").onclick=()=>{ bar.style.display="none"; };
 }
 
 function render(){
-  // sidebar counts
-  $("#ct-all").textContent=allReviews.length;
+  // top-line counts
   $("#ct-needs").textContent=allReviews.filter(INBOX.needs).length;
   $("#ct-working").textContent=allReviews.filter(INBOX.working).length;
   $("#ct-resolved").textContent=allReviews.filter(INBOX.resolved).length;
+  document.querySelectorAll('.filt').forEach(b=>b.classList.toggle('on', b.dataset.filter===activeFilter));
 
-  // projects list
+  // project switcher (⌘K is #183 and out of this sprint; a native select is the plain control that
+  // covers the one thing ⌘K genuinely owned). Rebuilt each render, so re-apply the selection.
   const byProj=new Map();
   for(const r of allReviews){ const p=r.project||""; if(p) byProj.set(p,(byProj.get(p)||0)+1); }
-  // most active first, then show only the top N — the rest are found via the search box (no sidebar scroll)
   const projNames=[...byProj.keys()].sort((a,b)=>byProj.get(b)-byProj.get(a)||a.localeCompare(b));
-  if(!projNames.length){
-    $("#projlist").innerHTML = `<div class="proj-empty">No projects yet</div>`;
-  }else{
-    let h = projNames.slice(0,PROJ_TOP).map(p=>`<button class="nav-item" data-filter="project:${esc(p)}"><span class="dot"></span><span class="nm">${esc(p)}</span><span class="ct">${byProj.get(p)}</span></button>`).join("");
-    const extra = projNames.length - PROJ_TOP;
-    if(extra>0) h += `<div class="proj-more">+${extra} more · search to filter</div>`;
-    $("#projlist").innerHTML = h;
-  }
-
-  // active nav highlight
-  document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.filter===activeFilter));
+  const sel=$("#projsel");
+  sel.innerHTML=`<option value="">All projects</option>`
+    +projNames.map(p=>`<option value="${esc(p)}">${esc(p)} (${byProj.get(p)})</option>`).join("");
+  if(activeProject && !byProj.has(activeProject)) activeProject="";   // last review in it was deleted
+  sel.value=activeProject;
 
   $("#h1").textContent=filterTitle();
 
-  const list=$("#list");
   if(!allReviews.length){
+    $("#nextup").innerHTML="";
+    $("#noresults").style.display="none";
     $("#sub").textContent="No reviews yet.";
-    $("#eyebrow").style.display="none";
-    list.classList.remove('grid');
-    list.innerHTML=`<div class="empty">No reviews yet.<br><br>Docs are created by your AI agent. <a href="/account">Connect your agent</a> to get a token, then its <code>create_review</code> calls land here.</div>`;
+    $("#list").innerHTML=`<div class="dash-empty">No reviews yet.<br><br>Docs are created by your AI agent. <a href="/account">Connect your agent</a> to get a token, then its <code>create_review</code> calls land here.</div>`;
     return;
   }
-  list.classList.add('grid');
-  const sorted=allReviews.slice().sort((a,b)=>activity(b)-activity(a));
-  list.innerHTML=sorted.map(card).join("");
-  applyFilter();
-}
 
-// live filter over rendered cards: active inbox/project predicate + search text
-// how many tiles fit above the fold: grid columns × rows that fit in the remaining viewport height.
-// Keeps the first screen to a viewport-worth so "Show more" is in reach without a long scroll.
-function viewportCap(){
-  const list=$("#list");
-  const top=Math.max(0, list.getBoundingClientRect().top);
-  const gtc=getComputedStyle(list).gridTemplateColumns;
-  const cols=(gtc && gtc!=='none') ? gtc.split(' ').filter(Boolean).length : 1;
-  const vis=list.querySelector('.card:not(.is-hidden)');
-  const ch=(vis && vis.offsetHeight) || 150;          // measured card height, else estimate
-  const gap=14;
-  const rows=Math.max(1, Math.floor((window.innerHeight - top - 24 + gap)/(ch + gap)));
-  return Math.max(cols, cols*rows);
-}
-function applyFilter(){
-  if(!shownCap) shownCap=viewportCap();               // (re)fit to the viewport when reset to 0
   const q=($("#search").value||"").toLowerCase().trim();
-  const byId=new Map(allReviews.map(r=>[String(r.id),r]));
-  let matched=0, shown=0;
-  document.querySelectorAll('.card').forEach(c=>{
-    const r=byId.get(c.dataset.id); if(!r) return;
-    const hay=(c.dataset.title+" "+c.dataset.project+" "+c.dataset.path).toLowerCase();
-    const ok = matchesFilter(r) && (!q || hay.includes(q));
-    // matched = total passing the filter/search; displayed = the first `shownCap` of them (load-more)
-    let disp=false;
-    if(ok){ matched++; disp = matched<=shownCap; if(disp) shown++; }
-    c.classList.toggle('is-hidden', !disp);
-  });
+  const hay=r=>((r.title||r.id)+" "+(r.project||r.session||"")+" "+(r.source_path||"")).toLowerCase();
+  const matched=allReviews.filter(r=>matchesFilter(r) && (!q || hay(r).includes(q)))
+                          .sort((a,b)=>activity(b)-activity(a));
+  const bucket={yours:[],agent:[],resolved:[]};
+  for(const r of matched) bucket[GROUP_OF[statusOf(r)]].push(r);
+
+  // "One thing to do next" (§05). Only in the resting view: promoting a row out of a search result
+  // or an explicit filter would hide it from the list the user just asked for.
+  const resting=!q && !activeProject && (activeFilter==="all"||activeFilter==="needs");
+  const next=(resting && bucket.yours.length) ? bucket.yours.shift() : null;
+  $("#nextup").innerHTML = next ? nextUp(next) : "";
+
+  // Resolved is collapsed in the resting view and open whenever it was asked for by name.
+  const resOpen = showResolved || activeFilter==="resolved" || !!q;
+  let h="";
+  h+=group(next ? bucket.yours.length+" more for you" : "For you", bucket.yours);
+  h+=group("With the agent", bucket.agent);
+  if(bucket.resolved.length){
+    h+=`<div class="grp"><div class="grp-h resline">${bucket.resolved.length} resolved · `
+      +`<button class="linklike" id="browseall">${resOpen?"hide":"browse all"}</button></div>`
+      +(resOpen?bucket.resolved.map(row).join(""):"")+`</div>`;
+  }
+  $("#list").innerHTML=h;
+
+  const shown=matched.length;
+  // The heading that used to say which view you were in is now visually hidden, so the empty
+  // result has to say whether it was the search or the filter that emptied it.
+  const nores=$("#noresults");
+  nores.textContent=q?"No reviews match your search.":"Nothing in this view.";
+  nores.style.display=(shown?"none":"block");
   const projects=new Set(allReviews.filter(r=>r.project).map(r=>r.project)).size;
-  $("#sub").textContent = `${matched} review${matched===1?"":"s"} · ${projects} project${projects===1?"":"s"}`;
-  $("#eyebrow").style.display = matched ? "" : "none";
-  $("#noresults").style.display=(allReviews.length && !matched)?"block":"none";
-  // load-more control: visible only when matches exceed the current page cap
-  const more=$("#showmore"), rem=matched-shown;
-  if(more){ if(rem>0){ more.style.display="block"; more.textContent=`Show more (${rem})`; } else more.style.display="none"; }
+  $("#sub").textContent=`${shown} review${shown===1?"":"s"} · ${projects} project${projects===1?"":"s"}`;
+}
+function group(label, rows){
+  if(!rows.length) return "";
+  return `<div class="grp"><div class="grp-h">${esc(label)}</div>${rows.map(row).join("")}</div>`;
+}
+function nextUp(r){
+  const crumb=[r.project||r.session||"", (r.revision||0)>0?"v"+r.revision:"", rel(activity(r))].filter(Boolean);
+  const open=Math.max(0,(r.notes_total||0)-(r.notes_addressed||0));
+  return `<div class="nu-crumb">${esc(crumb.join(" · "))}</div>
+    <h2 class="nu-title">${esc(r.title||r.id)}</h2>
+    <p class="nu-say">${esc(countLabel(r))}${r.kind==="latex"?" · LaTeX paper":""}</p>
+    <a class="btn nu-go" href="/review/${encodeURIComponent(r.id)}">${open?"Read the comments":"Open review"}</a>`;
 }
 
-document.addEventListener('click', async e=>{
+document.addEventListener('click', e=>{
   const del=e.target.closest('.del');
   if(del){
     e.preventDefault();
-    if(!confirm(`Delete review "${del.dataset.title}"? This cannot be undone.`))return;
-    await fetch('/api/reviews/'+encodeURIComponent(del.dataset.id),{method:'DELETE'}).catch(()=>{});
-    load();
+    askConfirm(`Delete "${del.dataset.title}"? This cannot be undone.`, async ()=>{
+      // Report the outcome: a swallowed failure looks exactly like a success (row redraws, nothing
+      // said), and the row coming back is not a message.
+      let ok=false;
+      try{ ok=(await fetch('/api/reviews/'+encodeURIComponent(del.dataset.id),{method:'DELETE'})).ok; }
+      catch(_){}
+      if(!ok) flash("Could not delete that review. Nothing was removed.","err");
+      load();
+    });
     return;
   }
-  const sm=e.target.closest('#showmore');
-  if(sm){ shownCap+=viewportCap(); applyFilter(); return; }   // reveal one more viewport of tiles
-  if(e.target.closest('a'))return;                              // the tile is a link → opens the review
-  const nav=e.target.closest('.nav-item');
-  if(nav){ activeFilter=nav.dataset.filter; shownCap=0; render(); return; }   // new filter → refit viewport
+  if(e.target.closest('#browseall')){ showResolved=!showResolved; render(); return; }
+  if(e.target.closest('a'))return;                              // the row title is a link → opens the review
+  const filt=e.target.closest('.filt');
+  // Clicking the live filter clears it: "all" has no chip of its own (§05 draws three, not four).
+  if(filt){ activeFilter=(activeFilter===filt.dataset.filter)?"all":filt.dataset.filter; render(); return; }
 });
-$("#search").addEventListener('input', ()=>{ shownCap=0; applyFilter(); });   // new query → refit viewport
-let _rz; window.addEventListener('resize', ()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ shownCap=Math.max(shownCap, viewportCap()); applyFilter(); }, 120); });   // grow to fill on resize
+$("#search").addEventListener('input', render);
+$("#projsel").addEventListener('change', e=>{ activeProject=e.target.value; render(); });
 // ---- auth gating (#131): anonymous visitors get the sign-in screen, not the empty dashboard ----
 const MAIL='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';
 // Magic-link send limits, mirrored from MagicLink's defaults in src/mdreview/hosted/magiclink.py
@@ -435,17 +440,53 @@ function initSignin(){
       `<button class="linklike" onclick="location.reload()">Use a different email</button></div></section>`;
   });
 }
+// #221: a server we could not reach is not a server that signed us out. Showing the magic-link form
+// after a blip is what made a valid 30-day session feel like it expired every few hours.
+function showUnreachable(){
+  $("#app").style.display="none"; $("#signin").style.display="flex";
+  $("#signin-card").innerHTML=
+    `<section><div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
+    `<h1>Can't reach mdreview</h1>`+
+    `<p class="lede">The server didn't answer. You have <b>not</b> been signed out, so there's no `+
+    `need to request a new link.</p>`+
+    `<button class="linklike" onclick="location.reload()">Try again</button></section>`;
+}
 async function boot(){
-  let sess={authenticated:false};
-  try{ sess=await fetch('/auth/session',{cache:'no-store'}).then(r=>r.json()); }catch(_){}
+  const res=await window.mdSession.read();
+  if(!res.reachable){ showUnreachable(); return; }
+  const sess=res.sess;
   if(sess && sess.authenticated){
-    $("#signin").style.display="none"; $("#app").style.display="flex";
+    // "" (not "flex"): #app is a plain block wrapping the shell's top line and column; forcing a
+    // flex row here would sit them side by side.
+    $("#signin").style.display="none"; $("#app").style.display="";
     load();
   }else{
     $("#app").style.display="none"; $("#signin").style.display="flex";
     initSignin();
   }
 }
+// #222. Bindings re-derived against the current dashboard: #182's rebuild removed the old
+// "show more" control entirely and renamed .nav-item to .filt, so the shortcuts follow the UI that
+// exists rather than the one the ticket was written against.
+// Every binding is guarded on the app actually being visible: while the sign-in or connection
+// screen is up, "1" must not silently toggle a filter behind it, and the help sheet must not
+// advertise shortcuts for a UI the visitor cannot see.
+const appUp=()=>{const a=$("#app");return !!a && a.style.display!=='none';};
+mdKeys.register([
+  {keys:"/", label:"Search reviews", when:appUp, run:()=>mdKeys.focus("#search")},
+  {keys:"p", label:"Filter by project", when:appUp, run:()=>mdKeys.focus("#projsel")},
+  {keys:"1", label:"Filter: Yours",    when:appUp, run:()=>mdKeys.click('.filt[data-filter="needs"]')},
+  {keys:"2", label:"Filter: Working",  when:appUp, run:()=>mdKeys.click('.filt[data-filter="working"]')},
+  {keys:"3", label:"Filter: Resolved", when:appUp, run:()=>mdKeys.click('.filt[data-filter="resolved"]')},
+]);
+// Escape inside the search box clears it. Registered as an Escape layer, not a binding, because
+// bindings are suppressed in text fields and this one must fire precisely while typing in one.
+mdKeys.pushEscape(()=>{
+  const s=$("#search");
+  if(!s || document.activeElement!==s || !s.value) return false;
+  s.value=""; s.dispatchEvent(new Event('input',{bubbles:true})); s.blur(); return true;
+});
+
 boot();
 </script>
 <script src="/static/account.js"></script>

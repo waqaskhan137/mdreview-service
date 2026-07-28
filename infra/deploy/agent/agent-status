@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# agent-status — root-owned wrapper: read-only container/health snapshot. No arguments influence what
+# runs (the optional `health` selector just adds the probe block); nothing here mutates the host.
+# Invoked as: sudo -n /usr/local/agent/agent-status [health]
+set -euo pipefail
+
+echo "== containers =="
+docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
+
+if [[ "${1:-}" == "health" ]]; then
+  echo
+  echo "== health (loopback) =="
+  # Fixed loopback probes; :8140 prod, :8141 staging (see infra/deploy). curl only — read-only.
+  probe() { echo -n "  $1 -> "; curl -s -o /dev/null -w '%{http_code}\n' -m 5 "$2" 2>/dev/null || echo "unreachable"; }
+  probe "prod    /healthz"     "http://127.0.0.1:8140/healthz"
+  probe "prod    /api/reviews" "http://127.0.0.1:8140/api/reviews"
+  probe "staging /healthz"     "http://127.0.0.1:8141/healthz"
+  probe "staging /api/reviews" "http://127.0.0.1:8141/api/reviews"
+fi
