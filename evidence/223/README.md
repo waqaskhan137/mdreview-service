@@ -47,13 +47,17 @@ email input is present and the connection text is absent.
 Getting this backwards would have told a user with a deliberately-revoked session that the server
 was down.
 
-## Found here and fixed
+## Found here and fixed (`account-card-fixed.png`)
 
 The **End session** button was clipped at the card's right edge. Measured rather than eyeballed:
 table `scrollWidth` 617 against container `clientWidth` 584, with `overflow-x: auto`, so each row's
 primary action sat off-screen behind a horizontal scroll. The row-count and text assertions all
 passed; the screenshot is what showed it. Fixed by dropping the least actionable column (`first
 seen`), which also matches the tokens card above it.
+
+Re-verified on the redeployed staging image `sha256:a5a2792d…`: `scrollWidth` 584 against
+`clientWidth` 584, no overflow, and the button's right edge is inside its container. Both actions
+are fully visible and line up with the tokens card's revoke buttons.
 
 ## Not covered here
 
