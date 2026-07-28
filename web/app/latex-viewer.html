@@ -723,10 +723,27 @@ function renderShare(){
     renderShare();
   });
   const cp = pop.querySelector("#pubcopy");
-  if(cp) cp.addEventListener("click", ()=>{
+  // #213: this said "Copied" whether or not anything was copied. TWO defects, not one:
+  //   1. writeText returns a PROMISE, so the try/catch only ever caught a synchronous throw. A
+  //      rejected permission (the common real failure) sailed straight past it.
+  //   2. "Copied" was set unconditionally on the next line regardless.
+  // The result was a UI that confidently reported success while the clipboard was untouched, which
+  // is worse than no feedback: the reader pastes a stale buffer somewhere else and blames that.
+  // Follows the pattern #copysrc in this same file already uses: await, then say what happened.
+  // A silent no-op on failure would not satisfy this ticket either — the failure must be VISIBLE.
+  if(cp) cp.addEventListener("click", async ()=>{
     const i = pop.querySelector("#publink"); i.select();
-    try{ navigator.clipboard.writeText(i.value); }catch(e){}
-    cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy"; }, 1400);
+    try{
+      await navigator.clipboard.writeText(i.value);
+      cp.textContent = "Copied";
+      setTimeout(()=>{ cp.textContent = "Copy"; }, 1400);
+    }catch(e){
+      // Name the reason: "it didn't work" sends people to the wrong place. The link stays
+      // selected above, so manual copy is still available and worth implying.
+      cp.textContent = "Copy failed";
+      toast('Copy failed — '+((e && e.name) ? e.name : 'clipboard unavailable')+'. The link is selected; copy it manually.');
+      setTimeout(()=>{ cp.textContent = "Copy"; }, 2600);
+    }
   });
   pop.querySelector("#invbtn").addEventListener("click", async ()=>{
     const email = (pop.querySelector("#invemail").value||"").trim();
