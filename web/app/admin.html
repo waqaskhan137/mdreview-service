@@ -94,6 +94,8 @@
      renderUsers() must never see a toast button. Basecoat's MutationObserver initialises it. -->
 <div id="toaster" class="toaster" data-align="end"></div>
 
+<!-- Before the inline block: boot() runs at parse time and needs window.mdSession. -->
+<script src="/static/session.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 let ME = null, CSRF = "";
@@ -113,7 +115,11 @@ function askConfirm(msg, onYes){
 }
 
 async function boot(){
-  let s={}; try{ s=await fetch("/auth/session",{cache:"no-store"}).then(r=>r.json()); }catch(e){}
+  // #221: loadUsers() below already separates "could not reach the service" from a real answer.
+  // This did not, so a blip told an admin to sign in again while their session was alive.
+  const res=await window.mdSession.read();
+  if(!res.reachable){ $("#panel").innerHTML=notice("Could not reach the service.","You have not been signed out. Reload to retry."); return; }
+  const s=res.sess;
   if(!s.authenticated){ $("#panel").innerHTML = '<div class="notice"><b>Sign in to continue</b><a href="/">Go to sign in &rarr;</a></div>'; return; }
   ME=s.uid; CSRF=s.csrf||"";
   $("#blockbtn").onclick=addBlock;

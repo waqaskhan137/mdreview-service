@@ -173,6 +173,8 @@
     <p class="sub" id="sub">Loading…</p>
   </div>
 </div>
+<!-- Before the inline block, not after it: boot() runs at parse time and needs window.mdSession. -->
+<script src="/static/session.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const TRASH='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
@@ -437,9 +439,21 @@ function initSignin(){
       `<button class="linklike" onclick="location.reload()">Use a different email</button></div></section>`;
   });
 }
+// #221: a server we could not reach is not a server that signed us out. Showing the magic-link form
+// after a blip is what made a valid 30-day session feel like it expired every few hours.
+function showUnreachable(){
+  $("#app").style.display="none"; $("#signin").style.display="flex";
+  $("#signin-card").innerHTML=
+    `<section><div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
+    `<h1>Can't reach mdreview</h1>`+
+    `<p class="lede">The server didn't answer. You have <b>not</b> been signed out, so there's no `+
+    `need to request a new link.</p>`+
+    `<button class="linklike" onclick="location.reload()">Try again</button></section>`;
+}
 async function boot(){
-  let sess={authenticated:false};
-  try{ sess=await fetch('/auth/session',{cache:'no-store'}).then(r=>r.json()); }catch(_){}
+  const res=await window.mdSession.read();
+  if(!res.reachable){ showUnreachable(); return; }
+  const sess=res.sess;
   if(sess && sess.authenticated){
     // "" (not "flex"): #app is a plain block wrapping the shell's top line and column; forcing a
     // flex row here would sit them side by side.
