@@ -41,10 +41,16 @@
     var el = document.getElementById("acct");
     if (!el) return;
     inject();
-    var sess = { authenticated: false };
-    try {
-      sess = await fetch("/auth/session", { cache: "no-store" }).then(function (r) { return r.json(); });
-    } catch (e) { /* offline → treat as anonymous */ }
+    // #221: "could not ask" is not "signed out". Offering a Sign in link to someone whose session
+    // is alive is a lie, and it is the lie that made a server blip look like a logout.
+    var res = await window.mdSession.read();
+    if (!res.reachable) {
+      el.innerHTML =
+        '<div class="acct"><span class="acct-dot" style="background:#9aa0a6" title="Cannot reach the server"></span>' +
+        '<span class="acct-email">Reconnecting…</span></div>';
+      return;
+    }
+    var sess = res.sess;
 
     if (sess && sess.authenticated) {
       var adminLink = sess.is_admin
