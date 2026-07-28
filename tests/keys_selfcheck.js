@@ -49,6 +49,22 @@ const ev = (over) => Object.assign(
 check('"/" and "?" are distinct specs',
   keys._keyOf(ev({ key: '/' })) === '/' && keys._keyOf(ev({ key: '?', shiftKey: true })) === '?');
 
+// 1b. THE TRAP AS IT ACTUALLY ARRIVED. Cases 1 and 6 asserted the shape I ASSUMED a Shift+/ press
+//     produces ("?"), which is what a physical US keyboard sends. Verified in a real browser on
+//     staging, a Shift+/ press arrived as {key:"/", code:"Slash", shiftKey:true} — the UNSHIFTED
+//     character with the modifier flag. That resolved to "/", so Shift+/ focused the dashboard
+//     search box instead of opening the help sheet.
+//
+//     Both tests above passed the whole time, because both constructed the event themselves. A test
+//     that builds its own input can only ever confirm the author's model of that input.
+check('Shift+"/" delivered as the UNSHIFTED char still resolves to "?"',
+  keys._keyOf(ev({ key: '/', shiftKey: true })) === '?',
+  'got ' + keys._keyOf(ev({ key: '/', shiftKey: true })));
+check('bare "/" is unaffected by the normalisation',
+  keys._keyOf(ev({ key: '/' })) === '/');
+check('mod+shift+"/" still carries the modifier',
+  keys._keyOf(ev({ key: '/', shiftKey: true, metaKey: true })) === 'mod+?');
+
 // 2. mod is Cmd OR Ctrl, so one spec covers both platforms.
 check('meta -> mod+/', keys._keyOf(ev({ key: '/', metaKey: true })) === 'mod+/');
 check('ctrl -> mod+/', keys._keyOf(ev({ key: '/', ctrlKey: true })) === 'mod+/');

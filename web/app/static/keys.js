@@ -49,8 +49,17 @@
     var k = e.key;
     if (k === " ") k = "Space";
     var mod = e.metaKey || e.ctrlKey;
-    // Shift is already baked into e.key for printable characters ("?" not "/"), so adding a
-    // "shift+" prefix would double-count it and never match.
+    // Shift is normally already baked into e.key for printable characters, so a physical Shift+/
+    // arrives as "?" and adding a "shift+" prefix would double-count it and never match.
+    //
+    // "Normally" is doing real work in that sentence. Some input paths deliver the UNSHIFTED
+    // character with shiftKey set instead: observed on staging as {key:"/", code:"Slash",
+    // shift:true}. That made "/" win, so Shift+/ focused the dashboard search box instead of
+    // opening the help sheet — the exact collision this function exists to prevent.
+    //
+    // So normalise rather than trust: with Shift held, Slash means "?" whichever form arrives.
+    // On a path that already reports "?" this is a no-op.
+    if (e.shiftKey && k === "/") k = "?";
     return (mod ? "mod+" : "") + k;
   }
 
