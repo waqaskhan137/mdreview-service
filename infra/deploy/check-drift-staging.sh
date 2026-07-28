@@ -35,7 +35,26 @@ echo "$ports" | grep -q '8141' && ok "publishes loopback :8141" || drift "not on
 echo "$ports" | grep -q '8140' && drift "staging binds prod's :8140" || ok "does not bind prod's :8140"
 run "docker inspect mdreview-staging-oauth2-proxy >/dev/null 2>&1" && drift "a staging oauth2-proxy sidecar exists (native plane needs none)" || ok "no oauth2-proxy sidecar (native plane)"
 
-# 4. STALENESS: staging must be tracking dev, not latched on a bad :dev digest, nor running a stale image.
+# 4. IMAGE REFERENCE: the running container must be the image the compose file pins (#214).
+# Everything below this line checked WHEN the image was built, never WHICH image it is — so staging
+# could run mdreview-service:dev while compose pinned mdreview-service-latex:dev, stay perfectly
+# fresh, and report clean. CI pushes BOTH repositories, so the mismatch is reachable, not theoretical.
+# `.Config.Image` is the ref the container was CREATED from; `.Image` is the resolved digest ID,
+# which is what made #163 hard to see under the containerd image store. Compare the ref.
+# The expected value is READ FROM the compose file rather than hardcoded here, so the checker and
+# the deployment cannot drift apart the moment someone repoints the image.
+want_img=$(run "grep -oE '^[[:space:]]*image:[[:space:]]*\S+' $DIR/docker-compose.staging.yml | head -1 | sed 's/.*image:[[:space:]]*//'" 2>/dev/null)
+have_img=$(run "docker inspect mdreview-staging --format '{{.Config.Image}}'" 2>/dev/null)
+if [ -z "$want_img" ] || [ -z "$have_img" ]; then
+  # Unreadable is not the same as matching — the #216 rule, applied here.
+  drift "could not read the image ref (compose='${want_img:-<empty>}' running='${have_img:-<empty>}')"
+elif [ "$want_img" = "$have_img" ]; then
+  ok "image ref matches compose ($have_img)"
+else
+  drift "image ref MISMATCH: compose pins '$want_img' but the container runs '$have_img'"
+fi
+
+# 5. STALENESS: staging must be tracking dev, not latched on a bad :dev digest, nor running a stale image.
 if run "test -s $DIR/.autoupdate-bad-digest" 2>/dev/null; then
   drift "auto-update is PAUSED on a HELD bad :dev digest — staging is NOT tracking dev; 'dev is green' would be a lie. Investigate $DIR/auto-update.log"
 else ok "no held-bad digest (auto-update tracking dev)"; fi
