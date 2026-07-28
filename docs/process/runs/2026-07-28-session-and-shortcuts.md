@@ -9,9 +9,9 @@ Every `/loop` firing is a fresh context. This block is the only handoff between 
 
 ```
 ticket:    #221
-stage:     4 done (implemented + check written; 8278deb, 42c3baa)
-next:      stage 5 — validate locally: node tests/session_selfcheck.js, then
-           tests/render-smoke.sh against a throwaway container for the dashboard + admin surfaces
+stage:     5 done (validated locally; found + filed #224)
+next:      stage 6 — open the PR, wait for pr-checks green, RECORD the host's
+           .deployed-digest BEFORE merging, then merge
 branch:    fix/221-session-lifetime  (cut from origin/dev @ 8498542)
 worktree:  .scratch/wt-221
 pre-merge .deployed-digest: (not yet recorded — record at stage 6, BEFORE merging)
@@ -22,6 +22,19 @@ notes:     Shipped: web/app/static/session.js (new, dual browser/node export lik
            Host-side .env.staging edit happens AFTER stage 7, not in the PR.
            NOT touched: viewer.html:937 also swallows /auth/session, but only to read a CSRF
            token for the share button. Different failure, not a false logout. Left alone.
+
+stage 5 evidence:
+  - node tests/session_selfcheck.js: 10/10 pass. Proven to FAIL (exit 1, 2 cases) with the old
+    swallow-everything behaviour reintroduced, so the check is not vacuous.
+  - dashboard, served: #signin + #signin-card render. The unreachable branch was exercised end to
+    end in headless Chrome, not simulated: a local build 404s /auth/session, which is exactly the
+    non-2xx case, and the new card renders.
+  - viewer, served: #article + #acct + #cmtbtn render, no page JS errors. Proves session.js loads
+    ahead of account.js and mount() still works with the new two-bit return.
+  - admin.html + account.html inline scripts: node --check OK (extracted from the HTML).
+  - NOT verified locally, deferred to stage 8 on staging: /admin does not exist on the local build
+    (404), so admin.html's changed boot() has never been run in a browser. account.html serves
+    locally (200) but was not separately smoked; its account.js path was covered via the viewer.
 ```
 
 Wakeup protocol: read this block, do the next stage, rewrite this block, commit. The **first**
@@ -201,6 +214,22 @@ render a false sign-in screen, so it is not this ticket's defect class. Recorded
 silently skipped.
 **Falsified if:** a failed CSRF read turns out to break the share button in a way that reads as a
 session problem to the user.
+
+### D10 — the local-build gating bug was filed (#224), not fixed inside #221
+**Decided by:** agent, stage 5.
+**What was found:** the local non-hosted build gates its dashboard on `/auth/session`, which it does
+not serve, so it 404s. Before #221 that rendered a magic-link form that can never work locally;
+after #221 it renders "Can't reach mdreview". Both are dead ends.
+**Why filed rather than fixed:** it is pre-existing on `origin/dev` and its fix needs a decision
+this run was not given (does the local build synthesise an identity, or does `boot()` treat 404 as
+"no auth plane"). Hard rule 6 says a thing that cannot pass is a finding, and "when a stage needs a
+judgement the plan did not anticipate, the run stops and reports; it does not decide."
+**Honest note:** #221 changes what a local user sees. It is not a regression (both states are
+broken, the new one is less misleading, and it no longer offers a form that cannot work), but it is
+a change, and it is recorded here rather than discovered later.
+**Falsified if:** local users depend on that dashboard today, which would make this a regression
+rather than a neutral change. Nothing observed suggests they do: the viewer renders fine locally and
+local use goes through MCP tools and direct /review/<id> URLs.
 
 <!-- Entries below are added during the run. -->
 
