@@ -8,91 +8,28 @@ Owner reviews everything at the end; no check-ins between tickets.
 Every `/loop` firing is a fresh context. This block is the only handoff between wakeups.
 
 ```
-ticket:    #222   (#221 is DONE through G4, at status:review — see its stage 9 issue comment)
-stage:     5 done (implemented, checked, validated on a served instance)
-next:      stage 6 — PR, pr-checks, RECORD the digest BEFORE merging, merge
+ticket:    #222  (#221 DONE at status:review)
+stage:     8 done on staging. Next: stage 9 (issue comment + status:review), then #223 stages 6-9.
+branch:    feat/222-keyboard-shortcuts (merged as de7ae8a); #223 on feat/223-session-records
+deployed:  sha256:209e6199 adopted 18:03:15, AFTER CI concluded for de7ae8a
 
-stage 5 evidence (#222):
-  - node tests/keys_selfcheck.js: 18 cases pass. Verified to FAIL (exit 1, 2 cases) when the
-    "/" vs "?" trap is reintroduced by making keyOf() fold "?" back to "/".
-  - served instance + CDP, real KeyboardEvents, not just registration checks:
-      * "c" toggles #gutter.docked, i.e. it drives the REAL control rather than a copy of it
-      * "c" dispatched inside a textarea does NOT toggle it (field suppression works)
-      * "?" dispatched inside a textarea DOES open the sheet (the keepInField exception works)
-      * "?" opens the sheet and Escape closes it; the sheet lists the live bindings
-  - evidence/222/help-sheet-viewer.png
-  - the "s" (share) row is correctly ABSENT on a local build: the share button is hidden without
-    auth and the `when` guard hides the row rather than advertising a dead shortcut.
-  - NOT verified locally: latex-viewer bindings (the local build does not serve latex reviews);
-    deferred to stage 8 on staging.
-branch:    feat/222-keyboard-shortcuts  (cut from origin/dev @ 74dfa5f)
-worktree:  .scratch/wt-222
-pre-merge .deployed-digest: (record at stage 6, BEFORE merging)
-notes:     E2's standing warning was right: EVERY line number in #222's body was stale, and two
-           dashboard controls no longer exist at all. Re-derived and the issue body is updated.
-           Current, verified: viewer #cmtbtn/#resbtn/#histbtn/#addbtn/#sharebtn/#popsave;
-           latex #tab-src/#tab-pdf/#cmtbtn/#addbtn; dashboard #search/#projsel/.filt[data-filter].
-           dashboard.html also changed under #221 (session.js tag) — read it fresh, not from memory.
-           A final PR is needed for evidence/221/, the cdp-shot --cookie/--block steps, and the
-           run-log commits sitting on fix/221-session-ttl-compose.
-branch:    fix/221-session-ttl-compose  (merged as 9644ad0; still carries later log commits)
-worktree:  .scratch/wt-221
-pre-merge .deployed-digest for the NEXT merge: RE-RECORD IT, the value below is spent.
-           sha256:b6efa5201b9f4fe44f99e88fdeb83102696142ec63b46c8a5df9cf5c9cda749b (pre-#226)
+STAGE 7 NEAR-MISS WORTH KEEPING: the digest moved at 17:47 while my CI was still in_progress.
+That was #227's build landing in the same window, NOT mine. Accepting it would have sent stage 8
+to visually verify an image containing no keyboard shortcuts at all. Re-baselined on 574798f7 and
+waited for the real adoption. This is exactly the sibling-merge case hard rule 4 names, except the
+sibling was my own earlier PR.
 
-TTL half: VERIFIED LIVE ON STAGING
-  - host compose now declares MDREVIEW_SESSION_TTL_S (surgical insert, backup taken as
-    docker-compose.staging.yml.bak-221-<ts>); auto-update.sh never syncs compose from git, so the
-    repo change alone would not have taken effect. Checked before acting, not after.
-  - docker exec mdreview-staging printenv MDREVIEW_SESSION_TTL_S -> 2592000. This is the check E4
-    exists to force: a recreate with the var undeclared looks identical to a successful one.
-  - a mint through the container's own SessionService with its real config gives
-    exp - iat = 2592000 (30 days), refresh_after_s = 1296000 (15 days).
-  - HONEST SCOPE: that is a server-side mint via the same code path /auth/redeem uses, NOT a cookie
-    obtained by logging in through a browser. It proves the configuration is live. It does not
-    exercise the login flow.
+#222 stage 8 (evidence/222/): sheet opens via BOTH mod+/ and ? on dashboard, viewer and
+latex-viewer; Escape closes it; "/" focuses search WITHOUT opening the sheet (the trap, proven on
+the real deployment); "2" activates the working filter; "1"/"2" flip aria-pressed on the latex
+tabs. latex-viewer was unverifiable locally (no latex reviews on the local build) and is now done.
+Contrast MEASURED: page and card are both rgb(15,16,20); separation is border + shadow + backdrop.
 
-UI half: VERIFIED ON STAGING IN A BROWSER (evidence/221/)
-  - signed in via the REAL redeem flow, not a synthesised cookie. That cookie decodes to
-    exp - iat = 2592000, so the TTL AC is met through the browser path, not only server-side.
-  - /admin renders the console: admin.html's changed boot() has now run in a browser for the
-    first time. It could not be checked earlier because /admin 404s on the local build.
-  - THE DECISIVE ONE: with a VALID session cookie and /auth/session blocked, the dashboard shows
-    "Can't reach mdreview" with NO email input, and the account menu shows "Reconnecting...".
-    Those are exactly the conditions that used to render the sign-in form at a signed-in user.
-  - /admin under the same block shows "Could not reach the service." not "Sign in to continue".
-  - NOT captured: account.html separately (same account.js path as the two shots that were).
-
-stage 7 evidence for PR #225 (PASSED, both halves):
-  - CI run for merge SHA 31d525a (staging-image): completed/success.
-  - digest moved 5f368a0f -> b6efa520 at 16:46:47, on the 16:45:32 timer cycle. Container
-    "Up About a minute (healthy)".
-  - ATTRIBUTION IS WEAKER THAN IT SHOULD BE: the image carries no
-    org.opencontainers.image.revision label, so the adopted digest cannot be tied to 31d525a
-    directly. The claim rests on 31d525a being the tip of dev with no sibling merge after it, plus
-    its CI concluding before adoption. That is precisely the "a sibling agent's merge moves the
-    same marker" assumption hard rule 4 warns about; here it happens to hold because this run is
-    the only writer. Worth a label in CI so a future run does not have to reason this way.
-notes:     Shipped: web/app/static/session.js (new, dual browser/node export like linediff.js),
-           callers rewired in dashboard.html boot(), account.js mount(), admin.html boot().
-           session.js loads BEFORE the inline block on dashboard + admin (parse-time boot()).
-           tests/session_selfcheck.js: 10 cases, verified to fail (exit 1) when the bug returns.
-           Host-side .env.staging edit happens AFTER stage 7, not in the PR.
-           NOT touched: viewer.html:937 also swallows /auth/session, but only to read a CSRF
-           token for the share button. Different failure, not a false logout. Left alone.
-
-stage 5 evidence:
-  - node tests/session_selfcheck.js: 10/10 pass. Proven to FAIL (exit 1, 2 cases) with the old
-    swallow-everything behaviour reintroduced, so the check is not vacuous.
-  - dashboard, served: #signin + #signin-card render. The unreachable branch was exercised end to
-    end in headless Chrome, not simulated: a local build 404s /auth/session, which is exactly the
-    non-2xx case, and the new card renders.
-  - viewer, served: #article + #acct + #cmtbtn render, no page JS errors. Proves session.js loads
-    ahead of account.js and mount() still works with the new two-bit return.
-  - admin.html + account.html inline scripts: node --check OK (extracted from the HTML).
-  - NOT verified locally, deferred to stage 8 on staging: /admin does not exist on the local build
-    (404), so admin.html's changed boot() has never been run in a browser. account.html serves
-    locally (200) but was not separately smoked; its account.js path was covered via the viewer.
+#223 state: implemented and verified END TO END on a local hosted instance -
+  revoke one jti -> that jar 401s, the other two stay 200; no-CSRF revoke -> 403; cross-account
+  revoke refused; revoke-others revoked exactly 1 and kept the caller; a CAPTURED COPY of the
+  cookie 401s after logout (it used to stay valid). 20 unit cases, mutation-tested both ways.
+  Not yet: PR, merge, staging. Stage 8 there needs TWO concurrent sessions.
 ```
 
 Wakeup protocol: read this block, do the next stage, rewrite this block, commit. The **first**
