@@ -38,12 +38,15 @@ class SessionData:
     """A verified session. `should_refresh` drives the sliding-window re-issue (a live session past
     its refresh point is re-minted so an active user is not logged out at the fixed lifetime)."""
 
-    def __init__(self, uid, email, iat, exp, csrf):
+    def __init__(self, uid, email, iat, exp, csrf, jti=""):
         self.uid = uid
         self.email = email
         self.iat = iat
         self.exp = exp
         self.csrf = csrf
+        # "" for a session minted before #223. Empty means "not individually revocable", not
+        # "invalid" — see verify().
+        self.jti = jti
 
     def should_refresh(self, refresh_after_s, now=None):
         now = time.time() if now is None else now
@@ -51,7 +54,10 @@ class SessionData:
 
 
 class SessionService:
-    def __init__(self, secret, ttl_s=43200, refresh_after_s=None, secure=True):
+    # `records` is the IdentityStore (#223). It is OPTIONAL on purpose: the non-hosted tier has no
+    # identity database, and every existing caller constructs this service without one. With no
+    # records the service behaves exactly as it did before #223 (pure crypto, no I/O).
+    def __init__(self, secret, ttl_s=43200, refresh_after_s=None, secure=True, records=None):
         if not secret:
             # Defence in depth behind config's boot guard: never sign with an empty key (that would
             # make every session forgeable, since compare_digest("","") is True).
@@ -61,18 +67,27 @@ class SessionService:
         # Default: re-issue once past the halfway mark of the lifetime.
         self.refresh_after_s = int(refresh_after_s if refresh_after_s is not None else ttl_s // 2)
         self.secure = secure
+        self.records = records
 
     def _mac(self, payload_b64):
         return b64url_encode(hmac.new(self._key, payload_b64.encode("ascii"),
                                        hashlib.sha256).digest())
 
-    def mint(self, uid, email, now=None):
-        """Return (cookie_value, csrf). A fresh CSRF token is bound to each minted session."""
+    def mint(self, uid, email, now=None, ip=None, user_agent=None, jti=None):
+        """Return (cookie_value, csrf). A fresh CSRF token is bound to each minted session.
+
+        #223: also mints a `jti` and, when a records store is wired, writes the row that makes this
+        session individually revocable. The jti is inside the signed payload, so it cannot be
+        swapped for another session's without breaking the MAC."""
         now = time.time() if now is None else now
         csrf = secrets.token_urlsafe(24)
-        payload = {"uid": uid, "email": email or "", "iat": now, "exp": now + self.ttl_s,
-                   "csrf": csrf}
+        jti = jti or secrets.token_urlsafe(18)
+        exp = now + self.ttl_s
+        payload = {"uid": uid, "email": email or "", "iat": now, "exp": exp,
+                   "csrf": csrf, "jti": jti}
         payload_b64 = b64url_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+        if self.records is not None:
+            self.records.session_create(jti, uid, exp, ip=ip, user_agent=user_agent, now=now)
         return payload_b64 + "." + self._mac(payload_b64), csrf
 
     def verify(self, cookie_value, now=None):
@@ -95,8 +110,17 @@ class SessionService:
         exp = payload.get("exp", 0)
         if not uid or not isinstance(exp, (int, float)) or exp <= now:
             return None
+        # #223 revocation check. A cookie WITH a jti must have a live row: that is what makes
+        # "sign out this device" actually end the session rather than merely hide it.
+        # A cookie with NO jti is GRANDFATHERED (owner decision D3): it predates this table, so
+        # there is no row to find and rejecting it would log everyone out on deploy, which is the
+        # exact annoyance #221 exists to remove. Those sessions cannot be listed or revoked
+        # individually until they expire, and the account UI says so.
+        jti = payload.get("jti", "")
+        if jti and self.records is not None and not self.records.session_live(jti, now=now):
+            return None
         return SessionData(uid, payload.get("email", ""), payload.get("iat", 0), exp,
-                           payload.get("csrf", ""))
+                           payload.get("csrf", ""), jti)
 
     def check_csrf(self, session, provided):
         """Constant-time match of a client-supplied CSRF token against the session's bound token."""

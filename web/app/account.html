@@ -75,9 +75,32 @@
         </div>
       </section>
     </div>
+
+    <!-- #223: the same card/table/revoke shape as tokens above, because it is the same job:
+         see what has access and take it away. -->
+    <div class="card">
+      <header>
+        <h2>Active sessions</h2>
+        <p>Devices signed in to your account. Ending one signs it out immediately.</p>
+      </header>
+      <section>
+        <div id="sess-note" class="text-muted-foreground" style="margin:0 0 10px;display:none"></div>
+        <div class="table-container">
+          <table class="table">
+            <thead><tr><th>device</th><th>ip</th><th>first seen</th><th>last seen</th><th></th></tr></thead>
+            <tbody id="sessrows"><tr><td class="text-muted-foreground" colspan="5">loading…</td></tr></tbody>
+          </table>
+        </div>
+        <button class="btn" data-variant="outline" data-size="sm" id="revokeothers"
+                style="margin-top:12px;display:none">Sign out everywhere else</button>
+      </section>
+    </div>
   </div>
 </div>
 
+<!-- Before the inline block: it runs at parse time and uses window.mdSession / mdKeys. -->
+<script src="/static/keys.js"></script>
+<script src="/static/session.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 let BASE = location.origin;
@@ -136,10 +159,90 @@ async function revoke(id){
   else flash("Could not revoke " + id + " (" + r.status + "). It is still active.", "err");
 }
 
+// ---- #223 active sessions --------------------------------------------------------------------
+let CSRF = "";
+function ago(ts){
+  if(!ts) return "-";
+  const s = Math.max(0, Math.floor(Date.now()/1000 - ts));
+  if(s < 90) return "just now";
+  if(s < 5400) return Math.round(s/60) + " min ago";
+  if(s < 172800) return Math.round(s/3600) + " h ago";
+  return Math.round(s/86400) + " d ago";
+}
+// A user-agent string is not a device name. This is a deliberately shallow read: enough to tell
+// your laptop from your phone, and honest ("Unknown device") when it cannot.
+function device(ua){
+  if(!ua) return "Unknown device";
+  const os = /iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android"
+           : /Mac OS X/.test(ua) ? "macOS" : /Windows/.test(ua) ? "Windows"
+           : /Linux/.test(ua) ? "Linux" : "";
+  const br = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera"
+           : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari"
+           : /Firefox\//.test(ua) ? "Firefox" : "";
+  const s = [br, os].filter(Boolean).join(" · ");
+  return s || "Unknown device";
+}
+
+async function loadSessions(){
+  let r;
+  // A failed fetch is NOT "no sessions" (#221's lesson applied here): rendering an empty table
+  // would tell the user nothing is signed in, which is the opposite of unknown.
+  try { r = await fetch("/auth/sessions", {cache:"no-store"}); }
+  catch(e){ $("#sessrows").innerHTML = '<tr><td class="text-muted-foreground" colspan="5">could not reach the server</td></tr>'; return; }
+  if(!r.ok){ $("#sessrows").innerHTML = '<tr><td class="text-muted-foreground" colspan="5">could not load</td></tr>'; return; }
+  const d = await r.json();
+  const list = d.sessions || [];
+  $("#sessrows").innerHTML = list.length
+    ? list.map(s =>
+        `<tr><td>${esc(device(s.user_agent))}${s.current?' <strong>(this device)</strong>':''}</td>`+
+        `<td class="text-muted-foreground">${esc(s.ip||"-")}</td>`+
+        `<td class="text-muted-foreground">${fmt(s.created)}</td>`+
+        `<td class="text-muted-foreground">${esc(ago(s.last_seen))}</td>`+
+        `<td><button class="btn" data-variant="outline" data-size="sm" data-jti="${esc(s.jti)}" data-cur="${s.current?1:0}">`+
+        `${s.current?"Sign out":"End session"}</button></td></tr>`).join("")
+    : '<tr><td class="text-muted-foreground" colspan="5">no sessions recorded</td></tr>';
+  $("#revokeothers").style.display = list.filter(s=>!s.current).length ? "" : "none";
+  // Say it plainly when the list cannot be complete, rather than showing a short list as if it
+  // were the whole truth (owner decision D3: pre-#223 cookies keep working but have no record).
+  const note = $("#sess-note");
+  if(d.grandfathered){
+    note.textContent = "This browser signed in before per-device tracking existed, so it is not "
+      + "listed and cannot be ended individually. Signing out and back in adds it.";
+    note.style.display = "";
+  } else note.style.display = "none";
+}
+function esc(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+document.addEventListener("click", async e => {
+  const b = e.target.closest("#sessrows button[data-jti]");
+  if(b){
+    const cur = b.dataset.cur === "1";
+    const r = await fetch("/auth/sessions/"+encodeURIComponent(b.dataset.jti),
+                          {method:"DELETE", headers:{"X-CSRF-Token": CSRF}});
+    if(!r.ok){ flash("Could not end that session ("+r.status+"). It is still active.", "err"); return; }
+    // Ending your own session really does sign you out; go to the sign-in screen rather than
+    // leaving a dead page that 401s on its next request.
+    if(cur){ location.href = "/"; return; }
+    flash("Session ended.", "ok"); loadSessions();
+    return;
+  }
+  if(e.target.closest("#revokeothers")){
+    const r = await fetch("/auth/sessions", {method:"DELETE", headers:{"X-CSRF-Token": CSRF}});
+    if(!r.ok){ flash("Could not sign out the other devices ("+r.status+").", "err"); return; }
+    const d = await r.json();
+    flash("Signed out "+d.revoked+" other session"+(d.revoked===1?"":"s")+".", "ok");
+    loadSessions();
+  }
+});
+
+(async () => {
+  const s = await window.mdSession.read();
+  if(s.reachable && s.sess.authenticated){ CSRF = s.sess.csrf || ""; loadSessions(); }
+  else $("#sessrows").innerHTML = '<tr><td class="text-muted-foreground" colspan="5">not signed in</td></tr>';
+})();
+
 load();
 </script>
-<script src="/static/keys.js"></script>
-<script src="/static/session.js"></script>
 <script src="/static/account.js"></script>
 </body>
 </html>
