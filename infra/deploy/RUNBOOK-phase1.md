@@ -22,6 +22,16 @@ python3 -c "import secrets; print('MDREVIEW_TOKEN_PEPPER=' + secrets.token_urlsa
 python3 -c "import secrets; print('MDREVIEW_SESSION_SECRET=' + secrets.token_urlsafe(32))"
 #   -> append all three to infra/deploy/.env
 
+# 1b. Session lifetime (#221). OPTIONAL, but the code default is 43200 (12h), which logs an active
+# user out about once a day. 2592000 = 30 days. The re-issue point is derived (ttl // 2), so a 30-day
+# TTL re-mints on the first page load past day 15 and an in-use session never expires.
+#   echo 'MDREVIEW_SESSION_TTL_S=2592000' >> infra/deploy/.env
+#   docker compose -f infra/deploy/docker-compose.prod.yml up -d mdreview   # recreate to pick it up
+# Existing sessions SURVIVE the recreate: the cookie is signed with MDREVIEW_SESSION_SECRET, which
+# persists in .env, so nobody is logged out by applying this.
+# NOT applied by the #221 run (owner decision D1, docs/process/runs/2026-07-28-session-and-shortcuts.md):
+# prod is owner-applied after review. Staging carries it already.
+
 # 2. nginx host-only proxy-secret snippet: MUST equal MDREVIEW_PROXY_SECRET from .env.
 sudo cp infra/deploy/nginx/mdreview-proxy-secret.conf.example /etc/nginx/snippets/mdreview-proxy-secret.conf
 sudo sed -i "s#REPLACE_WITH_MDREVIEW_PROXY_SECRET#$(grep '^MDREVIEW_PROXY_SECRET=' infra/deploy/.env | cut -d= -f2-)#" /etc/nginx/snippets/mdreview-proxy-secret.conf
