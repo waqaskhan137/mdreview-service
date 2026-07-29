@@ -151,7 +151,10 @@ TOOLS = [
                        "timestamps. Watch comments_updated for new/changed comment threads. Also carries "
                        "revision and can_edit (#288) — but for a guarded update_source take the revision "
                        "from get_source(with_revision=true), the read that gave you the text, never from "
-                       "this poll.",
+                       "this poll. source_updated_by (#289) names who authored the current draft: "
+                       "\"reviewer\" means the human edited the document since your last write, so "
+                       "re-read the source before saving; \"agent\" (the default) means the last write "
+                       "was yours.",
         "inputSchema": {"type": "object", "properties": {"id": _ID}, "required": ["id"]},
     },
     {
