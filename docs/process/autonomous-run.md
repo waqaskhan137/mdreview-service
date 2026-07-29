@@ -174,13 +174,49 @@ still matters:
 the page ever saw it. The only evidence is a `keydown` observed *in the page*, plus the app state
 the key was supposed to change.
 
-### The unresolved half, and why it matters for viewport work
+### The route that produces a specified viewport width
 
-Key delivery succeeded only in a **default-sized** window. Every narrow window refused keys, and
-`resize_window` on an already-navigated window silently no-ops, so a window cannot be widened back
-into a working state. **A specified viewport width and real key delivery have never been obtained
-together.** A narrow-width keyboard criterion is therefore not currently verifiable by an agent;
-say so rather than verifying the two halves separately and implying one run.
+```
+1. close EVERY tab in the group   (the group auto-removes when the last one goes)
+2. tabs_context_mcp createIfEmpty  -> a fresh window
+3. resize_window                   -> BEFORE any navigation
+4. navigate
+5. read window.innerWidth IN THE PAGE and assert it
+```
+
+Demonstrated 2026-07-29: requested 1180, measured `window.innerWidth` **1180 exactly** — on the
+second attempt. Also measured this way: 606 (the narrow floor), 1280, 1400.
+
+**Attempt one landed in a maximised window and reported 1512.** That is the common failure, and the
+recovery is to close the tab, recreate the group, and repeat. Budget two attempts, not one.
+
+| Trap | What you see | Why |
+|---|---|---|
+| Maximised window | Resize "succeeds", page reads 1512 | The fresh group landed in a maximised window; close and recreate |
+| Already navigated | Resize "succeeds", width unchanged | `resize_window` silently no-ops after navigation. Resize FIRST |
+| Size inheritance | A brand-new tab is already 606 | New tabs inherit the previous window's size; it is not a fresh default |
+| Requested != actual | Asked 380, got 606 | The OS enforces a minimum window width. **606 is the floor on this display** |
+
+**The requested width is a request. The measured `innerWidth` is the fact.** Never record the
+number you asked for; record the number the page reported, and if they differ, the page wins.
+
+### The unresolved half: viewport AND keys together
+
+**A specified viewport width and real key delivery have never been obtained in the same window.**
+That is a fact. The *reason* is not established, and an earlier version of this section asserted
+one it could not support.
+
+The tempting reading was "narrow windows refuse keys". It is **confounded**: every narrow-window
+key attempt so far happened while Chrome was not frontmost, which independently explains zero
+events. The two candidate causes have never been separated.
+
+**The experiment that settles it, one line of owner time:** open a resized window, ask the owner to
+bring Chrome to the front, then run the key route. Keys landing means width was never the variable
+and narrow-width keyboard criteria are fully verifiable. Keys still absent means width is a real
+second constraint.
+
+Until then, do not verify the two halves separately and imply one run. State which half you
+measured, in which window, and that the combination is untested.
 
 ### Park procedure — a negative result is a pass, an unrecorded park is not
 
