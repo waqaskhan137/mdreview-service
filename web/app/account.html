@@ -153,7 +153,8 @@ function mcpBlock(token){
 $("#mint").onclick = async () => {
   $("#mint").disabled = true;
   const r = await fetch("/account/tokens", {method:"POST",
-    headers:{"Content-Type":"application/json"}, body:JSON.stringify({label:$("#label").value})});
+    headers:{"Content-Type":"application/json","X-CSRF-Token":CSRF},
+    body:JSON.stringify({label:$("#label").value})});
   $("#mint").disabled = false;
   if(!r.ok){ flash("Could not mint the token (" + r.status + "). Nothing was created.", "err"); return; }
   const d = await r.json();
@@ -166,7 +167,7 @@ $("#mint").onclick = async () => {
 };
 
 async function revoke(id){
-  const r = await fetch("/account/tokens/"+id, {method:"DELETE"});
+  const r = await fetch("/account/tokens/"+id, {method:"DELETE", headers:{"X-CSRF-Token":CSRF}});
   if(r.ok){ flash("Token " + id + " revoked.", "ok"); load(); }
   else flash("Could not revoke " + id + " (" + r.status + "). It is still active.", "err");
 }

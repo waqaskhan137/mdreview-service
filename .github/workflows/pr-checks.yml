@@ -43,3 +43,8 @@ jobs:
 
       - name: Custody regression smoke
         run: python3 tests/custody_regression_smoke.py
+
+      # #266: CSRF on the /account/tokens write arms — cookie plane 403s without the per-session
+      # token; the proxy and bearer planes pass unchanged. Stdlib-only, boots its own server.
+      - name: Account tokens CSRF selfcheck
+        run: python3 tests/account_tokens_csrf_selfcheck.py
