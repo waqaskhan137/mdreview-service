@@ -292,3 +292,27 @@
   --good-rule:#1f4a38;
   --warn-rule:#5a4a1f;
 }
+
+/* ---- #262 account menu -------------------------------------------------------------------
+   The menu's transition lives HERE, not in account.js's injected <style>. account.js appends its
+   style AFTER this file's <link>, so an equal-specificity rule in the injected string wins on load
+   order: a prefers-reduced-motion guard placed there could not override it, and would sit green
+   while doing nothing. Both the motion and its guard must share this file.
+
+   The guard is scoped to the whole document, not to the menu, because it is the app's FIRST
+   reduced-motion block and the next animated surface should find it here rather than add a rival
+   (standing rule, epic #152, carried into docs/design/design-system-spec.md by #241). */
+.acct-menu{ transition: opacity .12s, transform .12s; }
+.acct-menu[hidden]{ display:none; }
+.acct-menu.closing{ opacity:0; transform: translateY(-4px); }
+
+@media (prefers-reduced-motion: reduce){
+  /* Opacity only, never transform: motion is what is reduced, not feedback. */
+  *, *::before, *::after{
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .acct-menu.closing{ transform: none; }
+}

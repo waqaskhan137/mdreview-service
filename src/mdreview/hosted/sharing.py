@@ -50,7 +50,53 @@ class SharingModule:
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/shares", path)
         if mo:
             return self._shares(h, m, mo.group(1))
+        if path == "/api/account/shares" and m == "GET":
+            return self._account_shares(h)
         return False
+
+    # ---- account-wide view: what of mine is reachable by someone else (#262) ----
+    def _account_shares(self, h):
+        """GET /api/account/shares — every review of MINE that is public and/or has named
+        grantees. The account page's "what can others reach" section.
+
+        The gate is `list_reviews(uid=...)`, which scopes to reviews this user owns. It is NOT
+        shares.created_by: created_by records who GRANTED a share, a different question from who
+        OWNS the document, and conflating them would let a grantee-who-granted see a review they
+        do not own.
+
+        The per-review can_access below is deliberate defence in depth, and the two guards are
+        MUTUALLY redundant: list_reviews already applies can_access internally, so removing either
+        one alone changes nothing observable. Recorded because it matters for testing — no single
+        mutation can make the cross-user case fail, and only removing BOTH does (verified: the
+        check then reports a different user seeing another user's shares). An unlabelled pair like
+        this invites a future reader to delete one "safely" and a future test to pass vacuously. Reviews with
+        no public link and no grantees are omitted entirely rather than returned empty, so the
+        page's list is exactly the set that needs attention."""
+        p = h.server.app.identity.principal(h)
+        if p.is_anonymous:
+            self._json(h, 401, {"error": "authentication required"})
+            return True
+        items = []
+        for r in self.reviews.list_reviews(uid=p.uid):
+            rid = r.get("id")
+            if not rid or not self.reviews.can_access(rid, p.uid):
+                continue
+            public = self.shares.public_right(rid)
+            named = self.shares.list_named(rid)
+            if not public and not named:
+                continue
+            items.append({
+                "id": rid,
+                "title": r.get("title", "") or rid,
+                "public": public or None,
+                "shares": [{"subject": n.get("subject", ""),
+                            # Resolve server-side: list_named returns an opaque user:<provider:sub>.
+                            # "" means we genuinely do not know, and the UI must say so (#267).
+                            "email": self.users.email_for((n.get("subject") or "").replace("user:", "", 1)),
+                            "right": n.get("right") or n.get("grant_right", "")} for n in named],
+            })
+        self._json(h, 200, {"items": items})
+        return True
 
     # ---- response helper (core _send hardcodes CORS headers we don't need here) ----
     @staticmethod

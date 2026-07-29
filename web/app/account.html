@@ -33,16 +33,28 @@
 </div>
 <div class="app-col">
   <div id="flash" class="flash" role="status" aria-live="polite"></div>
-  <h1>Connect your agent</h1>
-  <p class="sub">mdreview docs are created by <b>your AI agent</b>, not uploaded by hand. Mint a
-  token below, drop it into your agent's MCP config <b>once</b>, and every <code>create_review</code>
-  from then on lands in your dashboard, scoped to you.</p>
+  <h1>Your account</h1>
+  <p class="sub" id="whoami">Loading…</p>
 
   <div class="stack">
+    <!-- #262: outbound exposure. Tokens and sessions below are things that can act AS you; this is
+         what of yours other people can reach. Same verb both ways: revoke. -->
     <div class="card">
       <header>
-        <h2>1. Mint an API token</h2>
-        <p>Name it so you can tell your machines apart.</p>
+        <h2>Shared with others</h2>
+        <p>Documents of yours that are reachable by someone else, by public link or by name.</p>
+      </header>
+      <section>
+        <div id="shares"><p class="text-muted-foreground">Loading…</p></div>
+      </section>
+    </div>
+
+    <div class="card">
+      <header>
+        <h2>Connect your agent</h2>
+        <p>mdreview docs are created by <b>your agent</b>, not uploaded by hand. Mint a token, drop
+        it into the agent's MCP config <b>once</b>, and every <code>create_review</code> from then on
+        lands in your dashboard, scoped to you. Name it so you can tell your machines apart.</p>
       </header>
       <section>
         <div class="row">
@@ -183,6 +195,58 @@ function device(ua){
   return s || "Unknown device";
 }
 
+// #262: what of mine can others reach. Public links and named shares are visually distinct on
+// purpose — a public link is reachable by anyone holding the URL, a named share is not, and
+// blurring the two is how someone misreads their own exposure.
+async function loadShares(){
+  const box = document.getElementById("shares");
+  let data;
+  try{
+    const r = await fetch("/api/account/shares", {cache:"no-store"});
+    if(r.status === 404){ box.innerHTML = ""; return; }   // no sharing plane on this build
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    data = await r.json();
+  }catch(e){
+    box.innerHTML = '<p class="text-muted-foreground">Could not load sharing. Nothing was changed.</p>';
+    return;
+  }
+  const items = data.items || [];
+  if(!items.length){
+    box.innerHTML = '<p class="text-muted-foreground">Nothing of yours is shared. Documents you '
+      + 'share by link or by name will appear here.</p>';
+    return;
+  }
+  box.innerHTML = items.map(it => {
+    const pub = it.public
+      ? `<span class="dpill minus" title="Anyone with the link can open this">Public · ${esc(it.public)}</span>`
+      : "";
+    const named = (it.shares||[]).map(sh =>
+      `<li>${esc(sh.email || sh.subject)}${sh.email ? "" : ' <span class="text-muted-foreground">(no email on record)</span>'}`
+      + ` — ${esc(sh.right||"view")}`
+      + ` <button class="btn rev-share" data-variant="outline" data-size="sm"`
+      + ` data-rid="${esc(it.id)}" data-subject="${esc(sh.subject)}">revoke</button></li>`).join("");
+    return `<div style="padding:10px 0;border-top:1px solid var(--rule-faint,var(--rule))">
+      <div><a href="/review/${encodeURIComponent(it.id)}">${esc(it.title)}</a> ${pub}
+      ${it.public ? `<button class="btn rev-public" data-variant="outline" data-size="sm" data-rid="${esc(it.id)}">make private</button>` : ""}</div>
+      ${named ? `<ul style="margin:6px 0 0 18px">${named}</ul>` : ""}</div>`;
+  }).join("");
+}
+
+document.addEventListener("click", async (e) => {
+  const pubBtn = e.target.closest(".rev-public"), shBtn = e.target.closest(".rev-share");
+  if(!pubBtn && !shBtn) return;
+  const btn = pubBtn || shBtn; btn.disabled = true;
+  const rid = btn.dataset.rid;
+  const url = pubBtn ? `/api/reviews/${encodeURIComponent(rid)}/public`
+                     : `/api/reviews/${encodeURIComponent(rid)}/shares?subject=${encodeURIComponent(btn.dataset.subject)}`;
+  try{
+    const r = await fetch(url, {method:"DELETE", headers:{"X-CSRF-Token": CSRF}});
+    // The row reflects what the server SAID, not what the click hoped (#213).
+    if(!r.ok){ flash("Could not revoke — HTTP " + r.status + ". Nothing changed.", "err"); btn.disabled = false; return; }
+    flash("Revoked.", "ok"); loadShares();
+  }catch(err){ flash("Could not revoke — network error. Nothing changed.", "err"); btn.disabled = false; }
+});
+
 async function loadSessions(){
   let r;
   // A failed fetch is NOT "no sessions" (#221's lesson applied here): rendering an empty table
@@ -236,7 +300,13 @@ document.addEventListener("click", async e => {
 
 (async () => {
   const s = await window.mdSession.read();
-  if(s.reachable && s.sess.authenticated){ CSRF = s.sess.csrf || ""; loadSessions(); }
+  if(s.reachable && s.sess.authenticated){
+    CSRF = s.sess.csrf || "";
+    const who = document.getElementById("whoami");
+    if(who) who.innerHTML = "Signed in as <b>" + esc(s.sess.email) + "</b>"
+      + (s.sess.is_admin ? ' · <span class="dpill">Admin</span>' : "");
+    loadSessions(); loadShares();
+  }
   else $("#sessrows").innerHTML = '<tr><td class="text-muted-foreground" colspan="4">not signed in</td></tr>';
 })();
 
