@@ -19,6 +19,12 @@ are identity-side; document access is core-side via _audit().)
 
 Routes:
   GET    /admin/users                              list accounts (uid, email, status, roles).
+  GET    /admin/audit?limit=&before=               read auth_audit, newest-first (#144). `before`
+                                                   is a ts cursor; the response's next_before
+                                                   feeds the next page. Admins see RAW emails and
+                                                   IPs by owner decision (2026-07-29): this is a
+                                                   sole-admin instance's own security log, and the
+                                                   policy is stated in the UI, not redacted away.
   POST   /admin/users/{uid}/ban                    ban (reject sessions AND tokens at next request).
   POST   /admin/users/{uid}/unban                  reinstate.
   POST   /admin/users/{uid}/admin        {value}   grant/revoke the admin role.
@@ -32,7 +38,7 @@ Routes:
 import json
 import os
 import re
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 from mdreview.config import WEB_DIR
 from mdreview.hosted.sessions import SessionService
@@ -97,6 +103,9 @@ class AdminModule:
             self._json(h, 200, {"users": self.users.list_users()})
             return True
 
+        if path == "/admin/audit" and m == "GET":
+            return self._audit_read(h)
+
         mo = _USER_ACTION.fullmatch(path)
         if mo and m == "POST":
             return self._user_action(h, p, unquote(mo.group(1)), mo.group(2))
@@ -111,6 +120,41 @@ class AdminModule:
             return self._block_remove(h, p, unquote(mo.group(1)))
 
         self._json(h, 404, {"error": "no admin route", "method": m, "path": path})
+        return True
+
+    # ---- audit log read (#144): the v1 contract the owner accepted 2026-07-29 ----
+    # Newest-first, `limit` + `before` (ts) cursor, unfiltered. Fields are returned RAW (emails,
+    # IPs): the stated policy, not an oversight. `target` is recovered from the "target=..." detail
+    # prefix _audit() above writes — same file, same format, so the split is not guessing.
+    MAX_AUDIT_LIMIT = 500
+
+    def _audit_read(self, h):
+        q = parse_qs(urlparse(h.path).query)
+        try:
+            limit = int(q.get("limit", ["100"])[0])
+        except ValueError:
+            limit = 100
+        limit = max(1, min(limit, self.MAX_AUDIT_LIMIT))
+        before = None
+        if q.get("before"):
+            try:
+                before = float(q["before"][0])
+            except ValueError:
+                self._json(h, 400, {"error": "before must be a timestamp"})
+                return True
+        rows = self.id_store.recent_audit(limit=limit, before=before)
+        events = []
+        for r in rows:
+            target, detail = None, r.get("detail") or ""
+            if detail.startswith("target="):
+                head, _, rest = detail.partition(" ")
+                target, detail = head[len("target="):], rest
+            events.append({"ts": r["ts"], "actor": r.get("uid"), "email": r.get("email"),
+                           "event": r["event"], "target": target, "detail": detail or None,
+                           "ip": r.get("ip")})
+        # next_before: a full page MAY have more; a short page definitely does not.
+        next_before = events[-1]["ts"] if len(events) == limit else None
+        self._json(h, 200, {"events": events, "next_before": next_before})
         return True
 
     # ---- user actions ----

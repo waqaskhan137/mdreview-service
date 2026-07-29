@@ -197,10 +197,20 @@ class IdentityStore:
                 (time.time(), event, uid, normalize_email(email) if email else None, ip or None,
                  detail))
 
-    def recent_audit(self, limit=50):
+    def recent_audit(self, limit=50, before=None):
+        """Newest-first page of auth_audit (#144, the read path the sink lacked). `before` is the
+        cursor: a ts, selecting strictly-older rows, so passing the previous page's oldest ts walks
+        the log without an offset scan. Ordered by (ts, id) so the cursor and the ordering agree;
+        rows sharing an identical REAL ts across a page boundary would be skipped, accepted for v1
+        (time.time() collisions are freak events at this write rate)."""
+        q, args = "SELECT * FROM auth_audit", []
+        if before is not None:
+            q += " WHERE ts < ?"
+            args.append(before)
+        q += " ORDER BY ts DESC, id DESC LIMIT ?"
+        args.append(limit)
         with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM auth_audit ORDER BY id DESC LIMIT ?",
-                                (limit,)).fetchall()
+            rows = conn.execute(q, args).fetchall()
             return [dict(r) for r in rows]
 
     # ---- per-session records (#223) ----

@@ -51,3 +51,8 @@ jobs:
 
       - name: Manual resolve smoke
         run: python3 tests/manual_resolve_smoke.py
+
+      # #144: GET /admin/audit — cookie-plane-admin gate, newest-first, limit + before cursor,
+      # raw fields (the stated policy). Stdlib-only, boots its own server.
+      - name: Admin audit read selfcheck
+        run: python3 tests/admin_audit_selfcheck.py
