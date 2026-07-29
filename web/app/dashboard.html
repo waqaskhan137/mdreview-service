@@ -126,6 +126,23 @@
   .signin-ok .addr{color:var(--text);font-weight:600;}
   .linklike{background:none;border:none;color:var(--link);font:inherit;font-size:12.5px;cursor:pointer;
     padding:0;margin-top:16px;text-decoration:underline;}
+
+  /* ---- #184: the narrow pass (§10) -------------------------------------------------------
+     Breakpoint 720px, chosen ABOVE the measured real-Chrome floor: a fresh window asked for
+     380px stops at innerWidth 606 on this display (W_min, recorded in the PR), so 720 keeps the
+     whole narrow treatment exercisable through the real path. Widths below 606 exist only on
+     actual phones; that boundary is recorded, not waived.
+     §10 rule 01: 44px minimum hit targets — rows, filter words, and the primary button (this
+     page's only primary CTA is #signin-btn). Targets grow by PADDING, not font size: §05 rule 02
+     (no cards, no pills) stays intact, and body/row text keeps its size — only the headline
+     steps down, 32px -> 24px, so the measure stays readable at 606. */
+  @media (max-width: 720px){
+    .rw{min-height:44px;align-items:center;padding:5px 0;}
+    .rw-l{align-self:stretch;align-items:center;min-height:44px;}
+    .filt{min-height:44px;display:inline-flex;align-items:center;padding:0 var(--s-2);}
+    #signin-btn{min-height:44px;}
+    .nu-title{font-size:24px;}
+  }
 </style>
 </head>
 <body>
