@@ -60,6 +60,13 @@
     border:1px solid var(--rule);border-radius:var(--r-pill);padding:1px 7px}
   .blockrow .bn{flex:1;color:var(--muted-fg)} .blockrow .brm{margin-left:auto}
   .blockempty{color:var(--muted-fg);padding:8px 0}
+  /* audit log (#144) */
+  #auditcard .table-container{overflow-x:auto}
+  #auditpanel td{font-size:12.5px;vertical-align:top}
+  #auditpanel .ev{font-weight:600;white-space:nowrap}
+  #auditpanel .ts{white-space:nowrap}
+  #auditpanel .ip{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+  .auditmore{margin-top:12px}
 </style>
 </head>
 <body>
@@ -87,6 +94,18 @@
         <input class="input" type="text" id="blocknote" placeholder="note (optional)" autocomplete="off">
         <button class="btn" id="blockbtn" type="button">Block</button>
       </div>
+    </section>
+  </div>
+
+  <div class="card" id="auditcard" style="display:none">
+    <header>
+      <h2>Audit log</h2>
+      <p>Auth and admin events, newest first. Entries show raw emails and IP addresses: this
+         audit trail is the instance's own security log, visible to administrators only.</p>
+    </header>
+    <section>
+      <div id="auditpanel" class="blockempty">Loading…</div>
+      <div class="auditmore"><button class="btn" data-variant="outline" data-size="sm" id="auditmorebtn" style="display:none" type="button">Load more</button></div>
     </section>
   </div>
 </div>
@@ -133,7 +152,7 @@ async function loadUsers(){
   let r; try{ r=await fetch("/admin/users",{cache:"no-store"}); }catch(e){ $("#panel").innerHTML=notice("Could not reach the service.",""); return; }
   if(r.status===403){ $("#panel").innerHTML=notice("You don't have admin access.","This area is for administrators."); return; }
   if(!r.ok){ $("#panel").innerHTML=notice("Could not load users.","Status "+r.status); return; }
-  const d=await r.json(); renderUsers(d.users||[]); loadBlock();
+  const d=await r.json(); renderUsers(d.users||[]); loadBlock(); loadAudit(false);
 }
 
 function roles(u){
@@ -275,6 +294,39 @@ async function addBlock(){
   if(r.ok){ $("#blockval").value=""; $("#blocknote").value=""; flash("Blocked "+value,"ok"); loadBlock(); }
   else{ const j=await r.json().catch(()=>({})); flash(j.error||("Failed ("+r.status+")"),"err"); }
 }
+// ---- Audit log (#144): read-only view of auth_audit. Newest-first; `before` ts cursor. Raw
+// emails/IPs are the stated policy (owner decision 2026-07-29), announced in the card header.
+const AUDIT_PAGE=50;
+let auditRows=[], auditNext=null;
+function fmtTs(ts){ return ts ? new Date(ts*1000).toLocaleString() : "-"; }
+function renderAudit(){
+  const p=$("#auditpanel");
+  if(!auditRows.length){ p.className="blockempty"; p.textContent="No audit events yet."; return; }
+  p.className="";
+  p.innerHTML='<div class="table-container"><table class="table"><thead><tr>'
+    +'<th>Time</th><th>Event</th><th>Actor</th><th>Target</th><th>Detail</th><th>IP</th>'
+    +'</tr></thead><tbody>'
+    +auditRows.map(e=>'<tr>'
+      +'<td class="ts muted">'+esc(fmtTs(e.ts))+'</td>'
+      +'<td class="ev">'+esc(e.event)+'</td>'
+      // actor uid is provider:sub; the email column carries the address on auth events
+      +'<td>'+esc(e.email||e.actor||"-")+'</td>'
+      +'<td>'+esc(e.target||"-")+'</td>'
+      +'<td class="muted">'+esc(e.detail||"-")+'</td>'
+      +'<td class="ip">'+esc(e.ip||"-")+'</td></tr>').join("")
+    +'</tbody></table></div>';
+}
+async function loadAudit(more){
+  $("#auditcard").style.display="";
+  const url="/admin/audit?limit="+AUDIT_PAGE+((more&&auditNext)?("&before="+encodeURIComponent(auditNext)):"");
+  let d; try{ d=await fetch(url,{cache:"no-store"}).then(r=>r.ok?r.json():null); }catch(e){ d=null; }
+  if(!d){ if(!more){ $("#auditpanel").className="blockempty"; $("#auditpanel").textContent="Could not load the audit log."; } return; }
+  auditRows=more ? auditRows.concat(d.events||[]) : (d.events||[]);
+  auditNext=d.next_before;
+  renderAudit();
+  $("#auditmorebtn").style.display = auditNext ? "" : "none";
+}
+$("#auditmorebtn") && ($("#auditmorebtn").onclick=()=>loadAudit(true));
 async function removeBlock(value){
   let r; try{ r=await fetch("/admin/blocklist/"+encodeURIComponent(value),{method:"DELETE",headers:{"X-CSRF-Token":CSRF}}); }
   catch(e){ return; }
