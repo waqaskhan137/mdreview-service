@@ -140,15 +140,24 @@ it depends on the shape of the call.
 one burst, and then failed twice in a row, in a fresh default-sized window, following the same
 recipe exactly. Delivery is **intermittent** and the trigger is not understood.
 
-Leading hypothesis, consistent with every observation: the key goes to whichever window the **OS**
-considers frontmost. An agent cannot control that and cannot observe it — `document.hasFocus()`
-returned `true` during a run where zero events arrived, so it is not a usable signal. If a human is
-using another app, keys are likely going there.
+**Confirmed 2026-07-29: the key goes to whichever window the OS considers frontmost.** Three
+consecutive attempts delivered zero events while the owner was working in another app. The owner
+then used Chrome directly, and the very next attempt — same recipe, same window, same tab —
+delivered the key and opened the palette. That is the whole variable.
+
+An agent can neither set nor read that state: `document.hasFocus()` returned `true` on all three
+zero-event attempts, so it is worthless as a signal. **The only reliable tell is the logger**: if
+the page saw no `keydown`, Chrome was not frontmost, whatever any API claims.
+
+Practical consequence: **keyboard criteria are verifiable whenever the owner is at the machine
+with Chrome in front, and not otherwise.** So the ask is small and specific — "bring Chrome to the
+front and say so" — rather than "the tool cannot do this".
 
 **Therefore: treat a zero-event reading as ordinary, not as breakage.** Attempt the route up to
-three times. If the logger still shows nothing, park with `no-key-delivery` and ask the owner —
-they can bring the window frontmost and press the key in seconds. Do not conclude "the tool cannot
-do this"; it demonstrably can, just not on demand.
+three times. If the logger still shows nothing, Chrome is almost certainly not frontmost: park with
+`no-key-delivery` and ask the owner to bring the window forward, then retry immediately. Do not
+conclude "the tool cannot do this"; it demonstrably can, under a precondition you cannot set
+yourself.
 
 Every one of these variations delivered **zero** events even during the burst, so the shape above
 still matters:
