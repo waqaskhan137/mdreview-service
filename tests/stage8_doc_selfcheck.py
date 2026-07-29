@@ -42,6 +42,15 @@ check("the ban cites #222, the case where it hid a real bug",
       re.search(r"#222", text) is not None and "stayed green" in low,
       "a rule without its scar tissue gets relaxed by the next reader")
 
+# 1b. The ban's permitted half (#243 AC1, restored by #299). This repo's stage-4 runnable checks
+#     ARE headless CDP; a doc that reads as a blanket ban forces every groomer to re-derive the
+#     stage-4/stage-8 distinction in issue comments, which is the re-litigation the AC exists to
+#     stop.
+check("headless is stated legitimate at stage 4 and never as stage-8 evidence",
+      re.search(r"legitimate as the stage-4 runnable check and never as stage-8 evidence",
+                text, re.I) is not None,
+      "without the permitted half the ban contradicts the repo's own runnable checks")
+
 # 2. The working route. The three ingredients that were each proven necessary by a zero-event
 #    variation: batching, the click, and the throwaway key. Losing any one silently returns the
 #    reader to the broken path, so each is asserted separately.
