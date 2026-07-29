@@ -136,7 +136,22 @@ it depends on the shape of the call.
      javascript_exec   read the logger AND the app's own state
 ```
 
-Reproduced 4/4 in one window. Every one of these variations delivered **zero** events:
+**This shape is necessary but NOT sufficient.** It was reproduced 4/4 inside one window during
+one burst, and then failed twice in a row, in a fresh default-sized window, following the same
+recipe exactly. Delivery is **intermittent** and the trigger is not understood.
+
+Leading hypothesis, consistent with every observation: the key goes to whichever window the **OS**
+considers frontmost. An agent cannot control that and cannot observe it — `document.hasFocus()`
+returned `true` during a run where zero events arrived, so it is not a usable signal. If a human is
+using another app, keys are likely going there.
+
+**Therefore: treat a zero-event reading as ordinary, not as breakage.** Attempt the route up to
+three times. If the logger still shows nothing, park with `no-key-delivery` and ask the owner —
+they can bring the window frontmost and press the key in seconds. Do not conclude "the tool cannot
+do this"; it demonstrably can, just not on demand.
+
+Every one of these variations delivered **zero** events even during the burst, so the shape above
+still matters:
 
 | Variation | Result |
 |---|---|

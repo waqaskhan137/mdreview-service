@@ -59,6 +59,24 @@ check("the doc says to read the page, not the tool's success report",
       re.search(r"read the logger, not the tool", text, re.I) is not None,
       "'Pressed 1 key' is reported whether or not the page saw it")
 
+# 3b. Reproducibility honesty. The first version of this doc claimed a "4/4 reproducible" route;
+#     it then failed twice in a row on the very next fresh window. A recipe stated as reliable,
+#     that is not, is worse than no recipe: the next agent follows it, sees nothing, and either
+#     gives up or fabricates. The doc must say intermittent AND give the retry-then-park bound.
+check("the route is stated to be necessary but NOT sufficient",
+      re.search(r"necessary but NOT sufficient", text) is not None,
+      "a recipe presented as reliable, that is not, invites giving up or faking")
+check("intermittency is named",
+      re.search(r"intermittent", text, re.I) is not None)
+check("a zero-event reading is framed as ordinary, not as breakage",
+      re.search(r"zero-event reading as ordinary", text, re.I) is not None)
+check("the retry bound before parking is stated",
+      re.search(r"up to\s+three times", text, re.I) is not None,
+      "an unbounded retry is how a run hangs instead of parking")
+check("document.hasFocus is called out as an unusable signal",
+      re.search(r"hasFocus\(\)[^.]*true", text) is not None,
+      "it returned true during a zero-event run; trusting it would mislead the next agent")
+
 # 4. The unresolved interaction. If this is lost, an agent will verify a narrow-width keyboard
 #    criterion in two halves and imply one run.
 check("viewport control and key delivery are recorded as not-yet-simultaneous",
