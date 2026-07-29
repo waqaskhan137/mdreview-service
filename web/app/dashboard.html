@@ -136,7 +136,23 @@
      page's only primary CTA is #signin-btn). Targets grow by PADDING, not font size: §05 rule 02
      (no cards, no pills) stays intact, and body/row text keeps its size — only the headline
      steps down, 32px -> 24px, so the measure stays readable at 606. */
+  /* #183: menu items resolve through --radius-lg (8px) — the DERIVED token, per the standing
+     Basecoat rule that overriding --radius itself does nothing. --r-panel (16px) is KEPT on the
+     dialog: it is the shared floating-surface radius, and its other consumers are unchanged. */
+  .command-dialog{border-radius:var(--r-panel);}
+  :where(.command-dialog) :is(.command [role=menuitem]){border-radius:var(--radius-lg);}
+  .cmdrow{display:flex;align-items:baseline;gap:var(--s-2);width:100%;padding:8px 10px;
+    background:none;border:0;font:inherit;text-align:left;cursor:pointer;}
+  .cmdrow[aria-selected="true"]{background:var(--accent-soft);}
+  .cmdrow .cmdhint{margin-left:auto;font-size:var(--t-meta);color:var(--muted2);}
+  .cmdempty{padding:10px;color:var(--muted2);font-size:var(--t-meta);}
+
   @media (max-width: 720px){
+    /* §10 rule 02: at narrow width the palette becomes a full-screen tap surface, sharing the
+       breakpoint #184 established (720px, above the measured 606px real-window floor). */
+    .command-dialog{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0;
+      margin:0;top:0;left:0;translate:none;}
+    .cmdrow{min-height:44px;align-items:center;}
     .rw{min-height:44px;align-items:center;padding:5px 0;}
     .rw-l{align-self:stretch;align-items:center;min-height:44px;}
     .filt{min-height:44px;display:inline-flex;align-items:center;padding:0 var(--s-2);}
@@ -191,6 +207,15 @@
   </div>
 </div>
 <!-- Before the inline block, not after it: boot() runs at parse time and needs window.mdSession. -->
+<!-- #183: ⌘K palette. Basecoat's .command markup for the styling contract, but marked
+     data-command-initialized so Basecoat's own JS leaves it alone — Escape must go through
+     mdKeys' shared layer stack (pushEscape), not a second component-local handler. -->
+<dialog id="cmdk" class="command-dialog" aria-label="Command palette">
+  <div class="command" data-command-initialized>
+    <header><input id="cmdq" type="text" placeholder="Search reviews and projects…" autocomplete="off" aria-label="Search reviews and projects"></header>
+    <div id="cmdlist" role="menu"></div>
+  </div>
+</dialog>
 <script src="/static/keys.js"></script>
 <script src="/static/session.js"></script>
 <script>
@@ -501,6 +526,60 @@ mdKeys.register([
   {keys:"2", label:"Filter: Working",  when:appUp, run:()=>mdKeys.click('.filt[data-filter="working"]')},
   {keys:"3", label:"Filter: Resolved", when:appUp, run:()=>mdKeys.click('.filt[data-filter="resolved"]')},
 ]);
+// #183 ⌘K palette. ADDITIVE (proxy decision D5): the five bindings above keep working unchanged.
+// Registered through mdKeys so the ? sheet lists it automatically — the sheet is generated from
+// the registry, so an unregistered global listener would be an invisible binding.
+const cmdk=$("#cmdk"), cmdq=$("#cmdq"), cmdlist=$("#cmdlist");
+let cmdItems=[], cmdIdx=0;
+
+function cmdBuild(){
+  const s=cmdq.value.trim().toLowerCase();
+  const hit=t=>!s||(t||"").toLowerCase().includes(s);
+  // Reviews first, then projects (AC): the common act is opening a review.
+  const revs=allReviews.filter(r=>hit(r.title)||hit(r.project)).slice(0,8)
+    .map(r=>({kind:"review",id:r.id,label:r.title||r.id,hint:r.project||""}));
+  const projs=[...new Set(allReviews.map(r=>r.project).filter(Boolean))].filter(hit).slice(0,5)
+    .map(p=>({kind:"project",value:p,label:p,hint:"project"}));
+  cmdItems=revs.concat(projs); cmdIdx=0;
+  cmdlist.innerHTML = cmdItems.length
+    ? cmdItems.map((it,i)=>`<button class="cmdrow" role="menuitem" data-i="${i}" aria-selected="${i===0}">`
+        +`<span>${esc(it.label)}</span>`+(it.hint?`<span class="cmdhint">${esc(it.hint)}</span>`:"")+`</button>`).join("")
+    : `<div class="cmdempty">No matches</div>`;
+}
+function cmdMove(d){
+  if(!cmdItems.length) return;
+  cmdIdx=(cmdIdx+d+cmdItems.length)%cmdItems.length;
+  cmdlist.querySelectorAll('.cmdrow').forEach((b,i)=>b.setAttribute('aria-selected', i===cmdIdx));
+  cmdlist.querySelectorAll('.cmdrow')[cmdIdx].scrollIntoView({block:'nearest'});
+}
+function cmdRun(i){
+  const it=cmdItems[i]; if(!it) return;
+  cmdClose();
+  if(it.kind==="review"){ location.href="/review/"+encodeURIComponent(it.id); return; }
+  // Drive the REAL control (AC): set the native select and fire its change handler, so the
+  // palette can never drift from what the select does.
+  const sel=$("#projsel"); sel.value=it.value; sel.dispatchEvent(new Event('change'));
+}
+function cmdOpen(){ cmdq.value=""; cmdBuild(); cmdk.showModal(); cmdq.focus(); }
+function cmdClose(){ if(cmdk.open) cmdk.close(); }
+
+cmdq.addEventListener('input', cmdBuild);
+cmdq.addEventListener('keydown', e=>{
+  if(e.key==='ArrowDown'){e.preventDefault();cmdMove(1);}
+  else if(e.key==='ArrowUp'){e.preventDefault();cmdMove(-1);}
+  else if(e.key==='Enter'){e.preventDefault();cmdRun(cmdIdx);}
+});
+cmdlist.addEventListener('click', e=>{const b=e.target.closest('.cmdrow'); if(b) cmdRun(+b.dataset.i);});
+// The ONE Escape path: mdKeys' layer stack, so the palette composes with every other layer
+// instead of racing a component-local handler. <dialog>'s native Escape is cancelled and
+// delegated to the same function, so both routes run identical code.
+mdKeys.pushEscape(()=>{ if(!cmdk.open) return false; cmdClose(); return true; });
+cmdk.addEventListener('cancel', e=>{ e.preventDefault(); cmdClose(); });
+
+mdKeys.register([
+  {keys:"mod+k", label:"Command palette", when:appUp, keepInField:true, run:cmdOpen},
+]);
+
 // Escape inside the search box clears it. Registered as an Escape layer, not a binding, because
 // bindings are suppressed in text fields and this one must fire precisely while typing in one.
 mdKeys.pushEscape(()=>{
