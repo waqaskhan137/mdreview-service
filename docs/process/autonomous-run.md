@@ -112,6 +112,80 @@ deploy: a sibling agent's merge moves the same marker.
 10. **Stop at G4.** The run swaps to `status:review`. It never closes an issue (G5) and never
     touches `main` (G8).
 
+## Stage 8: real input, and what to do when it will not arrive
+
+Stage 8 is the **claude-in-chrome extension only**. Never headless, never a synthetic event.
+
+**A constructed `KeyboardEvent` is never acceptable as stage-8 evidence.** #222 is the case that
+settled it: real Chrome sends `{key:"/", code:"Slash", shiftKey:true}` for `?`, while the unit and
+CDP checks *constructed* an event with `key:"?"`. The feature was broken and every check stayed
+green. A dispatched event proves your dispatcher works. It proves nothing about the browser.
+
+### The route that delivers a real key press
+
+Measured 2026-07-29 across nine attempts. Key delivery is **not** simply available or unavailable:
+it depends on the shape of the call.
+
+```
+1. navigate to the page          <- its OWN call, NOT inside the batch
+2. ONE browser_batch containing, in order:
+     javascript_exec   arm a capture-phase keydown logger on window
+     left_click        anywhere harmless on the page
+     key               a throwaway press (an invalid name like "slash" is ideal: it is a no-op)
+     key               THE KEY UNDER TEST
+     javascript_exec   read the logger AND the app's own state
+```
+
+Reproduced 4/4 in one window. Every one of these variations delivered **zero** events:
+
+| Variation | Result |
+|---|---|
+| Each action as its own tool call | 0 events |
+| `navigate` inside the same batch | 0 events |
+| Click + a single key (no throwaway) | 0 events |
+| Two keys, no click | 0 events |
+| Any window at a non-default size (resized, or size-inherited) | 0 events |
+
+**Read the logger, not the tool's success report.** `key` reports "Pressed 1 key" whether or not
+the page ever saw it. The only evidence is a `keydown` observed *in the page*, plus the app state
+the key was supposed to change.
+
+### The unresolved half, and why it matters for viewport work
+
+Key delivery succeeded only in a **default-sized** window. Every narrow window refused keys, and
+`resize_window` on an already-navigated window silently no-ops, so a window cannot be widened back
+into a working state. **A specified viewport width and real key delivery have never been obtained
+together.** A narrow-width keyboard criterion is therefore not currently verifiable by an agent;
+say so rather than verifying the two halves separately and implying one run.
+
+### Park procedure — a negative result is a pass, an unrecorded park is not
+
+When real input cannot be delivered, **park**. Do not fake it, do not fall back to headless, and
+do not let "we documented the problem" stand in for "we fixed the problem".
+
+1. Leave the ticket at its true state. It has not earned `status:review`.
+2. Comment on the issue: which criteria are verified, which are parked, the **measured** evidence
+   for the park (the zero-event reading, not a narrative), and what a human needs to do instead.
+3. State the residue explicitly. Anything a keyboard cannot reach is ~30 seconds of owner typing;
+   ask for it in one line.
+4. Record it in the run log as an error entry, with what would falsify the diagnosis.
+
+**"I tried and it did not work" is a statement about your approach, not about the tool.** It has
+been wrong twice: the viewport claim on 2026-07-28 (a new window then resize gave the exact width)
+and the key-delivery claim on 2026-07-29 (batching delivered the key). Before writing off a
+capability, vary the *shape* of the call, not just the parameters.
+
+### Stage-8 park reasons — the shared taxonomy
+
+One list, so #243 and #254 cannot invent competing vocabularies. Record exactly one:
+
+| Reason | Means | Residue |
+|---|---|---|
+| `no-session` | No signed-in staging session as the fixture's owner | Owner signs in, or P5's stub-email route is repaired |
+| `no-key-delivery` | Real key presses do not reach the page | Owner types it, ~30 seconds |
+| `no-viewport-control` | The required width cannot be produced in a real window | Owner resizes and looks |
+| `surface-unreachable` | The surface cannot be brought on screen at all | Depends; state it |
+
 ## Failure protocol
 
 Stop, record what failed with its evidence, leave the ticket at its true state, report.
