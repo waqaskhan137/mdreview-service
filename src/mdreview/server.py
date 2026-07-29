@@ -183,6 +183,25 @@ class H(BaseHTTPRequestHandler):
             return None
         return p
 
+    def _csrf_ok(self):
+        """Cookie-plane CSRF gate for the state-changing /account/tokens arms (#266). Same posture
+        as SharingModule._owner(mutating=True) and the latex recompile gate (#250): only a request
+        carrying a VERIFIED app-owned session cookie must present a matching X-CSRF-Token. The
+        transitional proxy plane and the bearer-token plane carry no such cookie (neither is
+        reachable cross-site with credentials), so they pass unchanged. app.sessions exists only on
+        the hosted composition; the plain local tier has no cookie plane, so the gate is correctly
+        absent there. Returns True to proceed; False after the 403 was written."""
+        sessions = getattr(self.server.app, "sessions", None)
+        if sessions is None:
+            return True
+        from mdreview.hosted.sessions import SessionService
+        cookie = SessionService.read_cookie(self)
+        sess = sessions.verify(cookie) if cookie else None
+        if sess and not sessions.check_csrf(sess, self.headers.get("X-CSRF-Token", "")):
+            self._json(403, {"error": "missing or invalid CSRF token"})
+            return False
+        return True
+
     def _authz(self, rid):
         """Per-review gate, read-order INVERTED (#103): consult the AccessPolicy FIRST, then demand
         identity only if it denied. Outcomes are byte-identical to the pre-#103 require-auth-first
@@ -366,6 +385,8 @@ class H(BaseHTTPRequestHandler):
             if m == "GET":
                 return self._json(200, {"tokens": app.users.list_tokens(p.uid), "base": self._base()})
             if m == "POST":
+                if not self._csrf_ok():                       # #266: cross-site mint
+                    return
                 label = (self._body_json().get("label") or "").strip()
                 with app.store.lock:
                     token = app.users.mint_token(p.uid, label)
@@ -377,6 +398,8 @@ class H(BaseHTTPRequestHandler):
                 return
             if p.plane == "token":
                 return self._json(403, {"error": "tokens are managed from the browser"})
+            if not self._csrf_ok():                           # #266: cross-site revoke
+                return
             with app.store.lock:
                 ok = app.users.revoke_token(p.uid, mo.group(1))
             return self._json(200 if ok else 404,
