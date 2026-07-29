@@ -62,3 +62,10 @@ jobs:
       # Stdlib-only, boots its own local + hosted instances.
       - name: Revision precondition selfcheck
         run: python3 tests/revision_precondition_selfcheck.py
+
+      # #289: session-keyed CSRF on PUT /source (verified session 403s without the token; proxy
+      # and bearer planes pass unchanged) + the source_updated_by attribution lifecycle
+      # (reviewer sets, agent deletes, readers default) + round.json "by". Stdlib-only, boots
+      # its own local + hosted instances.
+      - name: Source CSRF + attribution selfcheck
+        run: python3 tests/source_csrf_attribution_selfcheck.py
