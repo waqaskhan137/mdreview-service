@@ -156,6 +156,22 @@ def build_hosted(store):
     # keeps zero hosted imports and the plain local tier (no app.sessions) skips the gate — it has
     # no cookie plane to protect.
     app.sessions = sessions
+
+    # #289: the session-keyed CSRF predicate for core write arms (PUT /source), bound HERE so core
+    # never imports mdreview.hosted (the arm reaches it via getattr; absent on the local tier =
+    # no gate, correctly — there is no cookie plane to protect). The shape is SharingModule._owner
+    # (mutating=True) / the #250 recompile gate: read the cookie, VERIFY the session, and only then
+    # demand X-CSRF-Token. A caller with no verified session (proxy-vouched header, bearer token)
+    # passes untouched — plane == "cookie" is NOT the predicate "a session was verified"; it also
+    # covers proxy-vouched and anonymous callers (epic #273 round-1 finding 1). Returns True to
+    # proceed; the caller writes the 403.
+    def check_csrf(h):
+        cookie = SessionService.read_cookie(h)
+        sess = sessions.verify(cookie) if cookie else None
+        if sess and not sessions.check_csrf(sess, h.headers.get("X-CSRF-Token", "")):
+            return False
+        return True
+    app.check_csrf = check_csrf
     app.policy = CustodyPolicy(app.reviews, shares)
 
     # Feature modules run (in order) BEFORE the core review arms and each owns its own auth. Their

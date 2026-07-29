@@ -133,9 +133,14 @@ class ReviewService:
         # era, the viewer authors comments since MR-036, and comments.json is not per-round
         # snapshotted, so a truthful count is unrecoverable). The comment-aware per-review
         # notes_total in summary() is a different field and is unaffected.
-        self.store.write_text(os.path.join(rd, "round.json"), json.dumps({
-            "round": n, "ts": time.time(),
-        }))
+        rj = {"round": n, "ts": time.time()}
+        # #289: "by" names the author of the draft this round archives, copied from the OUTGOING
+        # meta (m, read above) BEFORE put_source's overwrite updates attribution. Copied only when
+        # present: an agent-authored draft carries no key (readers default "agent"), keeping an
+        # all-agent-plane review byte-identical on disk and on GET /history.
+        if m.get("source_updated_by"):
+            rj["by"] = m["source_updated_by"]
+        self.store.write_text(os.path.join(rd, "round.json"), json.dumps(rj))
         m["revision"] = n + 1
         self.store.write_text(os.path.join(d, "meta.json"), json.dumps(m))
 
@@ -174,7 +179,7 @@ class ReviewService:
     def read_source(self, rid):
         return self.store.read_text(self._path(rid, "source.md"))
 
-    def put_source(self, rid, markdown, expected_revision=None):
+    def put_source(self, rid, markdown, expected_revision=None, updated_by="agent"):
         """Snapshot the outgoing round, overwrite source.md, bump source_updated. Caller holds
         store.lock.
 
@@ -182,7 +187,14 @@ class ReviewService:
         proceeds only if it equals the CURRENT revision (the monotonic counter snapshot_round owns;
         never source_updated, whose wall-clock values can collide). Compared here, under the
         caller-held store.lock and BEFORE the snapshot, so a stale write changes nothing at all.
-        None = unconditional, exactly the pre-#288 behavior."""
+        None = unconditional, exactly the pre-#288 behavior.
+
+        updated_by (#289) is the attribution lifecycle, a REQUIREMENT of epic #273 and not an
+        implementer choice: a "reviewer" write SETS meta.source_updated_by; any other write is an
+        agent write and DELETES the key; readers default "agent" via .get(...). The subtractive
+        write is deliberate and has no codebase precedent (kind/template are set-once) — do not
+        "simplify" it into set-both-values, which would break the all-agent-plane byte-identical
+        contract (meta.json on disk and every response except GET /status)."""
         if expected_revision is not None:
             current = int(self.meta(rid).get("revision", 0) or 0)
             if int(expected_revision) != current:
@@ -194,6 +206,15 @@ class ReviewService:
         self.snapshot_round(rid)
         self.store.write_text(self._path(rid, "source.md"), markdown)
         self.bump(rid, "source_updated")
+        p = self._path(rid, "meta.json")
+        m = self.store.read_json(p, {})
+        if updated_by == "reviewer":
+            changed = m.get("source_updated_by") != "reviewer"
+            m["source_updated_by"] = "reviewer"
+        else:
+            changed = m.pop("source_updated_by", None) is not None
+        if changed:
+            self.store.write_text(p, json.dumps(m))
 
     def feedback(self, rid):
         """meta + feedback.md + a union of on-disk notes and a read-time projection of comments, so

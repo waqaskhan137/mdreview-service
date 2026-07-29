@@ -13,6 +13,10 @@ API
   PUT    /api/reviews/{id}/source     {markdown}              -> meta (agent applies edits; live-reloads viewer)
                                       If-Match: "N" header or {expected_revision: N} body key (#288)
                                       -> 409 + re-read instruction when stale; omit = unconditional
+                                      403 without X-CSRF-Token on a VERIFIED session (#289); other
+                                      planes pass. Attribution: cookie/proxy plane (or local +
+                                      X-Mdreview-Client: viewer) sets source_updated_by=reviewer,
+                                      an agent write deletes it (readers default "agent")
   GET    /api/reviews/{id}/feedback                           -> {markdown, notes, ...meta}  (notes = legacy notes + projected comments)
   POST   /api/reviews/{id}/feedback                           -> 410    (retired MR-036/MR-046; viewer authors comments — POST /comments)
   GET    /api/reviews/{id}/comments   ?status=open|resolved|reopened|all  -> {comments}
@@ -22,7 +26,7 @@ API
   POST   /api/reviews/{id}/comments/{cid}/reply   {text}      -> {comment}  (append; status unchanged)
   POST   /api/reviews/{id}/comments/{cid}/resolve {justification?} -> {comment}  (agent resolves; 409 if not open/reopened)
   POST   /api/reviews/{id}/comments/{cid}/reopen  {text?}     -> {comment}  (reviewer reopens; 409 if not resolved)
-  GET    /api/reviews/{id}/status                             -> {status, source_updated, feedback_updated, comments_updated, revision, can_edit, ...}
+  GET    /api/reviews/{id}/status                             -> {status, source_updated, feedback_updated, comments_updated, revision, can_edit, source_updated_by, ...}
   POST   /api/reviews/{id}/resolve    {resolved: true|false}  -> summary  (human sign-off; cookie plane ONLY, see the arm)
   GET    /review/{id}                                         -> viewer HTML (human opens)
   GET    /static/{file}                                       -> assets (marked/mermaid)
@@ -535,6 +539,16 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, body, "text/markdown; charset=utf-8",
                                   extra_headers=NOINDEX + (("ETag", '"%d"' % rev),))
             if m == "PUT":
+                # #289: CSRF keys on a VERIFIED SESSION, never on plane — plane "cookie" also
+                # covers proxy-vouched callers, which carry no app cookie and must keep writing
+                # untouched (epic #273 round-1 finding 1). The predicate lives in the hosted
+                # composition as a bound app.check_csrf (build_hosted, next to app.sessions),
+                # reached via getattr so the local tier's import graph is unchanged: no attribute,
+                # no gate — the local tier has no cookie plane to protect. Checked before the body
+                # is read, the same order as the /account/tokens arms (#266).
+                check_csrf = getattr(app, "check_csrf", None)
+                if check_csrf is not None and not check_csrf(self):
+                    return self._json(403, {"error": "missing or invalid CSRF token"})
                 b = self._body_json()
                 # #288 precondition: If-Match (the browser path) or an expected_revision body key
                 # (the MCP-wrapper path; an old server drops it, an old wrapper never sends it —
@@ -553,6 +567,15 @@ class H(BaseHTTPRequestHandler):
                     except (TypeError, ValueError):
                         return self._json(400, {"error": "If-Match / expected_revision must be "
                                                          "the integer revision from GET /source"})
+                # #289 attribution: derived from the authenticated plane, never a spoofable body
+                # field (the comment-role precedent below). Cookie plane (session or proxy-vouched
+                # human) -> reviewer; on the local plane the viewer identifies itself with an
+                # X-Mdreview-Client: viewer header (spoofable only by the local operator, who is
+                # both parties — epic #273 named risk 2); everything else (bearer token, local
+                # wrapper) is an agent write.
+                reviewer = (plane == "cookie"
+                            or (plane == "local"
+                                and self.headers.get("X-Mdreview-Client", "") == "viewer"))
                 # Same seam the POST arm uses at :438 — a feature module rejects the write by
                 # raising the core-defined base type, and core renders it without importing the
                 # module. #188: the latex decorator raises when a latex review's body is not TeX.
@@ -560,7 +583,8 @@ class H(BaseHTTPRequestHandler):
                 try:
                     with app.store.lock:
                         app.reviews.put_source(rid, b.get("markdown", ""),
-                                               expected_revision=expected)
+                                               expected_revision=expected,
+                                               updated_by="reviewer" if reviewer else "agent")
                 except ReviewWriteRejected as e:
                     return self._json(e.status, e.payload or {"error": str(e)})
                 return self._json(200, app.reviews.meta(rid))
@@ -611,6 +635,12 @@ class H(BaseHTTPRequestHandler):
                 # (epic #273 named risk 3, accepted at G1 sign-off).
                 "revision": mt.get("revision", 0),
                 "can_edit": bool(app.policy.can_write(self._principal(), rid)),
+                # #289: who authored the current draft. Lifecycle: a reviewer write SETS the meta
+                # key, an agent write DELETES it, readers default "agent" — so this echo is the
+                # documented default, not a new persisted field. /status is already exempt from
+                # the byte-identical contract (#288's unconditional can_edit); every other
+                # response stays untouched for an all-agent-plane review.
+                "source_updated_by": mt.get("source_updated_by", "agent"),
             })
 
         # ---- manual resolve (#187): a human sign-off, APPROVAL-CLASS, cookie plane ONLY ----------
