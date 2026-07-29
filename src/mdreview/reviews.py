@@ -70,7 +70,29 @@ class ReviewService:
             m["status"] = "resolved"
         else:
             m["status"] = "feedback"
+        # #187: a human's manual resolve overrides the derived value, and it is STICKY - a comment
+        # arriving afterwards does not silently un-resolve the review (no state flapping under the
+        # user). Purely a status flag: nothing else about the review changes. Cleared by the same
+        # route, at which point the derived status above takes over again.
+        if m.get("resolved_by_human"):
+            m["status"] = "resolved"
         return m
+
+    def set_resolved(self, rid, resolved):
+        """Set or clear the human's manual resolve (#187). Caller holds store.lock.
+
+        Additive-default-safe like kind/template: the keys are persisted ONLY while set and popped
+        on un-resolve, so a review that was never (or is no longer) manually resolved keeps a
+        byte-identical meta.json and summary() echoes nothing extra."""
+        p = self._path(rid, "meta.json")
+        m = self.store.read_json(p, {})
+        if resolved:
+            m["resolved_by_human"] = True
+            m["resolved_at"] = time.time()
+        else:
+            m.pop("resolved_by_human", None)
+            m.pop("resolved_at", None)
+        self.store.write_text(p, json.dumps(m))
 
     def list_reviews(self, uid=None):
         """All review summaries, newest first. When uid is given (hosted multi-user), scope to the
