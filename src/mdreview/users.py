@@ -41,6 +41,15 @@ class UserService:
         sub = (sub or "").strip()
         return "%s:%s" % (provider, sub) if provider and sub else None
 
+    def email_for(self, uid):
+        """uid -> the email we know for it, or "" when we know none (#262). Deliberately NOT
+        best-effort-parsing the uid: magic-link uids happen to be `email:<address>` and would
+        decode, but proxy-plane uids are `google:117...` and would yield a lie that looks like an
+        address. A caller that gets "" must show the uid honestly, not invent a name."""
+        if not uid:
+            return ""
+        return (self._load().get("users", {}).get(uid) or {}).get("email", "") or ""
+
     def _is_owner_email(self, email):
         """True IFF `email` equals the configured owner email, case-insensitively. An UNSET owner email
         matches no one, so an instance with no configured owner has no owner and no stranger can

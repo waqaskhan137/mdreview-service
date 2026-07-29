@@ -20,10 +20,36 @@
     "#acct .acct-in:hover{text-decoration:underline;}" +
     // Admin: both the indicator (you are an admin) and the way to reach /admin. Fixed violet reads on
     // every page's ground (light dashboard, dark viewer/account).
-    "#acct .acct-admin{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;" +
-    "color:#fff;background:#6a5acd;border-radius:20px;padding:3px 10px;text-decoration:none;" +
-    "white-space:nowrap;flex:0 0 auto;}" +
-    "#acct .acct-admin:hover{background:#7c6cff;text-decoration:none;}" +
+    // #262: the retired #7c6cff and the hardcoded #6a5acd are gone. Follows theme.css's .dpill /
+    // .difftoggle pattern — tinted background, brand-coloured text — because the naive fix (white
+    // on var(--brand)) measures 2.18:1 in dark, WORSE than the 5.31:1 it replaced. This measures
+    // 6.24:1 light and 6.84:1 dark, both clearing AA.
+    "#acct .acct-admin{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;" +
+    "color:var(--brand);background:var(--accent-bg);border:1px solid var(--brand);" +
+    "border-radius:var(--r-pill,20px);padding:1px 7px;white-space:nowrap;flex:0 0 auto;} " +
+    // #262 menu. HAND-ROLLED, not Basecoat: this file mounts on all five pages and the two
+    // viewers load neither basecoat.cdn.min.css nor basecoat.all.min.js, so Basecoat is never the
+    // primary here and there would be no fallback to design.
+    "#acct{position:relative;}" +
+    "#acct .acct-trig{display:flex;align-items:center;gap:9px;font:inherit;font-size:13px;" +
+    "background:none;border:1px solid transparent;border-radius:var(--r-control,8px);" +
+    "padding:3px 7px;cursor:pointer;color:inherit;max-width:min(46vw,320px);}" +
+    "#acct .acct-trig:hover{border-color:var(--rule);background:var(--nav-hover,transparent);}" +
+    "#acct .acct-trig[aria-expanded=true]{border-color:var(--rule);background:var(--nav-active,transparent);}" +
+    "#acct .acct-caret{flex:0 0 auto;opacity:.55;font-size:10px;}" +
+    "#acct .acct-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:224px;" +
+    "background:var(--panel,#fff);border:1px solid var(--rule);border-radius:var(--r-card,12px);" +
+    "box-shadow:0 10px 30px rgba(0,0,0,.12);padding:6px;}" +
+    "#acct .acct-who{padding:7px 10px 9px;border-bottom:1px solid var(--rule-faint,var(--rule));" +
+    "margin-bottom:6px;}" +
+    "#acct .acct-who b{display:block;font-weight:600;font-size:13px;overflow:hidden;" +
+    "text-overflow:ellipsis;white-space:nowrap;}" +
+    "#acct .acct-who span{font-size:11.5px;color:var(--muted2,var(--muted));}" +
+    "#acct .acct-item{display:block;width:100%;text-align:left;font:inherit;font-size:13px;" +
+    "padding:7px 10px;border:0;background:none;border-radius:var(--r-control,8px);cursor:pointer;" +
+    "color:var(--text);text-decoration:none;}" +
+    "#acct .acct-item:hover{background:var(--nav-hover,var(--inset));text-decoration:none;}" +
+    "#acct .acct-sep{height:1px;background:var(--rule-faint,var(--rule));margin:6px 4px;}" +
     // sidebar variant (dashboard): pin to the bottom, stack the email above the button
     ".side #acct{margin-top:auto;padding-top:16px;border-top:1px solid var(--rule);}" +
     ".side #acct .acct{flex-wrap:wrap;}" +
@@ -56,13 +82,58 @@
     var sess = res.sess;
 
     if (sess && sess.authenticated) {
-      var adminLink = sess.is_admin
-        ? '<a class="acct-admin" href="/admin" title="Open the admin console">Admin</a>' : "";
+      // The dot stays the trigger: it encodes session liveness, and "am I still signed in?" is a
+      // real recurring question here (#221, #223). No avatar — there is no identity to depict and
+      // a generated initial-circle would be decoration standing in for information.
+      var adminItem = sess.is_admin
+        ? '<a class="acct-item" href="/admin">Admin console</a>' : "";
       el.innerHTML =
-        '<div class="acct"><span class="acct-dot" title="Signed in"></span>' +
-        '<span class="acct-email" title="' + esc(sess.email) + '">' + esc(sess.email) + "</span>" +
-        adminLink +
-        '<button class="acct-out" type="button">Sign out</button></div>';
+        '<button class="acct-trig" type="button" aria-haspopup="menu" aria-expanded="false">' +
+          '<span class="acct-dot" title="Signed in"></span>' +
+          '<span class="acct-email" title="' + esc(sess.email) + '">' + esc(sess.email) + "</span>" +
+          (sess.is_admin ? '<span class="acct-admin">Admin</span>' : "") +
+          '<span class="acct-caret" aria-hidden="true">\u25be</span>' +
+        "</button>" +
+        '<div class="acct-menu" role="menu" hidden>' +
+          '<div class="acct-who"><b>' + esc(sess.email) + "</b>" +
+            "<span>" + (sess.is_admin ? "Admin" : "Signed in") + "</span></div>" +
+          '<a class="acct-item" href="/account" role="menuitem">Account</a>' +
+          adminItem +
+          '<div class="acct-sep"></div>' +
+          '<button class="acct-item acct-out" type="button" role="menuitem">Sign out</button>' +
+        "</div>";
+
+      var trig = el.querySelector(".acct-trig");
+      var menu = el.querySelector(".acct-menu");
+      var items = function () { return Array.prototype.slice.call(menu.querySelectorAll(".acct-item")); };
+      var open = function (focusFirst) {
+        menu.hidden = false; trig.setAttribute("aria-expanded", "true");
+        if (focusFirst) { var i = items()[0]; if (i) i.focus(); }
+      };
+      var close = function (refocus) {
+        if (menu.hidden) return false;
+        menu.hidden = true; trig.setAttribute("aria-expanded", "false");
+        if (refocus) trig.focus();
+        return true;
+      };
+      trig.addEventListener("click", function () { menu.hidden ? open(false) : close(false); });
+      trig.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") { e.preventDefault(); open(true); }
+      });
+      menu.addEventListener("keydown", function (e) {
+        var list = items(), i = list.indexOf(document.activeElement);
+        if (e.key === "ArrowDown") { e.preventDefault(); (list[i + 1] || list[0]).focus(); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); (list[i - 1] || list[list.length - 1]).focus(); }
+        else if (e.key === "Escape") { e.preventDefault(); close(true); }
+      });
+      document.addEventListener("click", function (e) { if (!el.contains(e.target)) close(false); });
+      // Escape goes through the SHARED layer stack where keys.js is loaded, so the menu composes
+      // with the ? sheet and the palette instead of racing them; the local handler above still
+      // covers pages that do not load keys.js (both viewers).
+      if (window.mdKeys && window.mdKeys.pushEscape) {
+        window.mdKeys.pushEscape(function () { return close(true); });
+      }
+
       el.querySelector(".acct-out").addEventListener("click", async function () {
         try {
           await fetch("/auth/logout", { method: "POST", headers: { "X-CSRF-Token": sess.csrf || "" } });
