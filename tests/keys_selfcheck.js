@@ -146,10 +146,13 @@ check('mod renders as ⌘ on mac', keys._prettify('mod+/') === '⌘/');
   // Reviews before projects (the common act is opening a review).
   check('results are reviews first, then projects', /cmdItems=revs\.concat\(projs\)/.test(src));
 
-  // §10-02: full-screen at narrow width, sharing #184's measured breakpoint.
+  // §10-02's full-screen assertion USED to live here as a regex over the CSS text. It was green
+  // from the day #183 merged while the rendered panel measured 574x176 at 606px and was never
+  // full-screen: the media block styles .command-dialog, a transparent wrapper, not the visible
+  // .command panel. A text assertion cannot see that. Removed rather than reworded, because a
+  // renamed false check is still a false check. #265 owns the fix and must assert RENDERED
+  // GEOMETRY, which is the only thing that could have caught this.
   const media = (src.match(/@media \(max-width: 720px\)\{[\s\S]*?\n  \}/) || [''])[0];
-  check('palette goes full-screen inside #184\'s 720px breakpoint',
-        /\.command-dialog\{[^}]*100vw/.test(media) && /100dvh/.test(media));
   check('palette rows reach 44px at narrow width', /\.cmdrow\{min-height:44px/.test(media));
 
   // Radius: the DERIVED token, and --r-panel kept for the shared floating surface.

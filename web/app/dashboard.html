@@ -141,11 +141,30 @@
      dialog: it is the shared floating-surface radius, and its other consumers are unchanged. */
   .command-dialog{border-radius:var(--r-panel);}
   :where(.command-dialog) :is(.command [role=menuitem]){border-radius:var(--radius-lg);}
-  .cmdrow{display:flex;align-items:baseline;gap:var(--s-2);width:100%;padding:8px 10px;
-    background:none;border:0;font:inherit;text-align:left;cursor:pointer;}
-  .cmdrow[aria-selected="true"]{background:var(--accent-soft);}
-  .cmdrow .cmdhint{margin-left:auto;font-size:var(--t-meta);color:var(--muted2);}
-  .cmdempty{padding:10px;color:var(--muted2);font-size:var(--t-meta);}
+  /* #261. The selected row was INVISIBLE: --accent-soft does not exist and never did — it appears
+     exactly once in this repo, here, as its own consumer. Both selected and unselected measured
+     rgba(0,0,0,0), so arrow-key navigation produced no visible change at all. --accent-bg is the
+     defined token. Shipped in #183 and caught by a grooming pass, not by my checks. */
+  .cmdrow{display:flex;align-items:center;gap:var(--s-2);width:100%;padding:9px 10px;
+    background:none;border:0;font:inherit;text-align:left;cursor:pointer;color:var(--text);
+    transition:background .12s, color .12s;}
+  .cmdrow:hover{background:var(--nav-hover,var(--inset));}
+  .cmdrow[aria-selected="true"]{background:var(--accent-bg);color:var(--brand);font-weight:550;}
+  /* The keyboard cursor needs a second, non-colour signal: hover and selection are otherwise two
+     tints of the same idea, and a hovering mouse would hide where the keyboard actually is. */
+  .cmdrow[aria-selected="true"]::before{content:"";position:absolute;left:0;width:2px;top:2px;
+    bottom:2px;background:var(--brand);border-radius:2px;}
+  .cmdrow{position:relative;}
+  .cmdrow .cmdhint{margin-left:auto;font-size:var(--t-meta);color:var(--muted2);
+    padding-left:var(--s-3);white-space:nowrap;}
+  .cmdrow[aria-selected="true"] .cmdhint{color:var(--brand);opacity:.75;}
+  .cmdempty{padding:14px 10px;color:var(--muted2);font-size:var(--t-meta);text-align:center;}
+  /* The query row reads as an input, not as a floating string of text. */
+  #cmdk .command>header{border-bottom:1px solid var(--rule-faint,var(--rule));padding:2px 4px;}
+  #cmdq{width:100%;font:inherit;font-size:15px;padding:11px 10px;border:0;background:none;
+    color:var(--text);outline:none;}
+  #cmdq::placeholder{color:var(--muted2);}
+  #cmdlist{padding:6px;max-height:min(52vh,420px);overflow:auto;}
 
   @media (max-width: 720px){
     /* §10 rule 02: at narrow width the palette becomes a full-screen tap surface, sharing the
