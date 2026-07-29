@@ -77,6 +77,18 @@ check("document.hasFocus is called out as an unusable signal",
       re.search(r"hasFocus\(\)[^.]*true", text) is not None,
       "it returned true during a zero-event run; trusting it would mislead the next agent")
 
+# 3c. The precondition, confirmed by experiment on 2026-07-29. Without it the doc leaves the next
+#     agent with "sometimes it works", which is indistinguishable from "the tool is broken" and
+#     leads to a park that a five-second ask would have avoided.
+check("OS-frontmost is stated as the confirmed cause, not a guess",
+      re.search(r"Confirmed[^.]*frontmost", text, re.I) is not None,
+      "'leading hypothesis' invites the next agent to ignore it")
+check("the logger is named as the only reliable tell",
+      re.search(r"only reliable tell is the logger", text, re.I) is not None)
+check("the doc gives the specific small ask to unblock",
+      re.search(r"bring Chrome to the\s*front and say so", text, re.I) is not None,
+      "a park without a concrete human ask wastes the owner's availability")
+
 # 4. The unresolved interaction. If this is lost, an agent will verify a narrow-width keyboard
 #    criterion in two halves and imply one run.
 check("viewport control and key delivery are recorded as not-yet-simultaneous",
