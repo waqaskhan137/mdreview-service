@@ -32,7 +32,10 @@ class ToolError(Exception):
     """A tool ran and failed (bad id, service down, non-2xx) -> isError result, not a protocol error."""
 
 
-def http(method, path, body=None):
+def _request(method, path, body=None):
+    """(body_text, response_headers) — the raw exchange. http() keeps the text-only contract every
+    existing caller has; the headers exist for get_source_with_revision, which needs the ETag from
+    the SAME response as the body (#288)."""
     url = BASE + path
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
@@ -42,12 +45,33 @@ def http(method, path, body=None):
         req.add_header("Authorization", "Bearer " + TOKEN)
     try:
         with _opener.open(req, timeout=30) as r:
-            return r.read().decode("utf-8")
+            return r.read().decode("utf-8"), r.headers
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")
         raise ToolError("HTTP %s from %s %s: %s" % (e.code, method, path, detail))
     except urllib.error.URLError as e:
         raise ToolError("cannot reach mdreview at %s (%s)" % (BASE, e.reason))
+
+
+def http(method, path, body=None):
+    return _request(method, path, body)[0]
+
+
+def get_source_with_revision(review_id):
+    """The opt-in get_source envelope (#288): {"source": <raw document>, "revision": N}.
+
+    The revision comes from the ETag of the SAME GET /source response as the body — one read, one
+    token, so a concurrent write can never leave the caller holding old text with a new token. The
+    default get_source result stays the raw document verbatim; this envelope exists only behind the
+    explicit with_revision flag (a default-on envelope would break every existing caller).
+    revision is null against a pre-#288 server that sends no ETag."""
+    text, headers = _request("GET", "/api/reviews/%s/source" % review_id, None)
+    etag = (headers.get("ETag") or "").strip().strip('"')
+    try:
+        revision = int(etag)
+    except ValueError:
+        revision = None
+    return json.dumps({"source": text, "revision": revision})
 
 
 def route(name, args):
@@ -67,7 +91,13 @@ def route(name, args):
     if name == "get_status":
         return "GET", "/api/reviews/%s/status" % args["id"], None
     if name == "update_source":
-        return "PUT", "/api/reviews/%s/source" % args["id"], {"markdown": args["markdown"]}
+        body = {"markdown": args["markdown"]}
+        # #288: optional optimistic-concurrency precondition. Omitted = today's unconditional
+        # write, byte-identical body (the no-break contract for existing callers). Sent as a body
+        # key so route() stays a pure (method, path, body) mapping; an old server drops it.
+        if args.get("expected_revision") is not None:
+            body["expected_revision"] = args["expected_revision"]
+        return "PUT", "/api/reviews/%s/source" % args["id"], body
     if name == "get_history":
         if args.get("round") is not None:
             return "GET", "/api/reviews/%s/history/%s" % (args["id"], args["round"]), None
