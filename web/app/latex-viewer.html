@@ -120,6 +120,11 @@
     background:var(--bg);font-size:12px;color:var(--muted-fg);}
   .pdfbar .st{font-variant-numeric:tabular-nums;}
   .pdfbar .dl{margin-left:auto;}
+  /* #250: retry a failed compile without editing the source. Same visibility contract as .errbar —
+     body.compile-failed drives it, so it appears on a COLD load of a failed review and never on ok. */
+  .pdfbar .recompile{display:none;}
+  body.compile-failed .pdfbar .recompile{display:inline-block;}
+  .pdfbar .recompile[disabled]{opacity:.55;cursor:default;}
   .dl{text-decoration:none;}
   .errbar{display:none;flex:0 0 auto;padding:8px 14px;background:var(--warn-bg);border-bottom:1px solid var(--warn);color:var(--warn);font-size:12px;}
   body.compile-failed .errbar{display:block;}
@@ -245,6 +250,7 @@
   <div class="vdiv" id="vdiv" role="separator" aria-label="Resize panes" aria-orientation="vertical"></div>
   <section class="pdfpane" aria-label="PDF preview">
     <div class="pdfbar"><span class="st" id="pdfstate">PDF</span>
+      <button class="btn recompile" id="recompilebtn" type="button" title="Re-run the compile at the current revision">Recompile</button>
       <a class="btn primary dl" id="dlbtn" href="#" download="paper.pdf">Download PDF</a></div>
     <details class="errbar" id="errbar"><summary id="errsum">Compile failed</summary><pre id="errlog"></pre></details>
     <div class="pdfwrap"><iframe id="pdfframe" title="compiled PDF"></iframe>
@@ -575,6 +581,7 @@ async function refreshPdf(){
     // Both are answered by the SERVER now (has_pdf / pdf_revision) rather than by session memory.
     bar.textContent='PDF · v'+rev+' · compile failed';
     document.body.classList.add('compile-failed');
+    const rb=$('#recompilebtn'); if(rb){ rb.disabled=false; rb.textContent='Recompile'; }  // #250: verdict is in
     $('#errlog').textContent=st.log_tail||'(no log)';
     // "unknown" is deliberate for status files written before pdf_revision existed. st.revision is
     // the ATTEMPTED revision — displaying it here would name a revision whose PDF was never built.
@@ -600,6 +607,10 @@ async function refreshPdf(){
   }else{
     bar.textContent='PDF · '+st.state+'…';
     if(pdfRev==null){msg.textContent='Compiling…';msg.style.display='flex';}
+    // #250: while the server says queued/running, the control stays in-progress — state from the
+    // poll, not a client timer. (body.compile-failed is still set from the failed round, so the
+    // button remains visible until the verdict.)
+    const rb=$('#recompilebtn'); if(rb){ rb.disabled=true; rb.textContent='Recompiling…'; }
   }
 }
 
@@ -777,6 +788,30 @@ mdKeys.register([
     return false;
   }},
 ]);
+// #250 Recompile. Honest, server-driven states (the #213 #pubcopy pattern: await, then say what
+// happened). The in-progress label appears only after the POST returns 2xx; a refused POST names
+// its reason and re-enables; queued/running is driven by st.state in refreshPdf(), never a client
+// timer; and the poll NEVER posts — one explicit click is the only retry path (#250's whole point,
+// preserving _self_heal's anti-stacking rule).
+$('#recompilebtn').addEventListener('click', async ()=>{
+  const b=$('#recompilebtn');
+  b.disabled=true;                                   // instant, so a double-click cannot double-post
+  let csrf='';
+  try{ csrf=((await fetch('/auth/session',{cache:'no-store'}).then(r=>r.json()))||{}).csrf||''; }catch(e){}
+  let r=null;
+  try{ r=await fetch(LATEX+'/recompile',{method:'POST',headers:{'X-CSRF-Token':csrf}}); }catch(e){}
+  if(!r || !r.ok){
+    const why = r ? (r.status===401?'sign in required':r.status===404?'not available for this review'
+                    :r.status===403?'session expired — reload':r.status===507?'server disk is full'
+                    :'HTTP '+r.status) : 'network error';
+    toast('Recompile failed — '+why+'. Nothing was queued.');
+    b.textContent='Recompile'; b.disabled=false;     // never a fake in-progress state
+    return;
+  }
+  b.textContent='Recompiling…';                       // only AFTER the server said 2xx
+  refreshPdf();                                       // pick up queued/running immediately
+});
+
 // #dlbtn is deliberately unbound: it downloads a file, and a stray keystroke must not write to disk.
 </script>
 <script src="/static/session.js"></script>
