@@ -14,9 +14,15 @@ the bulk-stamp path is gone.
 Each case runs in a SUBPROCESS: the guards fire at import/build time, so they cannot be re-observed
 in one interpreter.
 
+Section 6 (#272) additionally proves the reconcile tool persists the human custody decision:
+confirm/quarantine stamp custody_reviewed_at, quarantine never binds an owner, and an untouched
+record stays byte-identical.
+
 Run: python3 tests/custody_regression_smoke.py
 """
+import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -135,6 +141,84 @@ r = run(probe, bare=True)
 check("stamp_owner(None) refuses rather than returning a fallback uid",
       "REFUSED=" in r.stdout and "RETURNED=" not in r.stdout,
       r.stdout.strip()[:120] or r.stderr.strip()[-120:])
+
+# ---- 6. reconcile persists the human custody decision (#272) -------------------------------------
+# The durable baseline observable for custody slice 5: confirm/quarantine stamp
+# meta["custody_reviewed_at"] at decision time, quarantine writes without binding an owner, list
+# separates never-reviewed from quarantined, and a record the tool never touched stays
+# byte-identical. Exercises the REAL CLI (python -m mdreview.reconcile) against a throwaway dir.
+RDATA = os.path.join(REPO, ".scratch", "custody_regression_data", "reconcile")
+shutil.rmtree(RDATA, ignore_errors=True)
+
+
+def seed(rid, meta):
+    os.makedirs(os.path.join(RDATA, rid), exist_ok=True)
+    with open(os.path.join(RDATA, rid, "meta.json"), "w", encoding="utf-8") as f:
+        f.write(json.dumps(meta))
+
+
+def meta_of(rid):
+    with open(os.path.join(RDATA, rid, "meta.json"), encoding="utf-8") as f:
+        return json.load(f)
+
+
+def reconcile(*args):
+    env = {k: v for k, v in os.environ.items() if not k.startswith("MDREVIEW_")}
+    env.update({"MDREVIEW_DATA": RDATA, "PYTHONPATH": SRC})
+    return subprocess.run([sys.executable, "-m", "mdreview.reconcile"] + list(args),
+                          env=env, capture_output=True, text=True, timeout=60)
+
+
+seed("aaaa000001", {"id": "aaaa000001", "owner": "", "title": "untouched-pending", "created": 1})
+seed("bbbb000002", {"id": "bbbb000002", "owner": "", "title": "to-quarantine", "created": 2})
+seed("cccc000003", {"id": "cccc000003", "owner": "", "title": "to-confirm", "created": 3})
+seed("dddd000004", {"id": "dddd000004", "owner": "github:9", "title": "owned", "created": 4})
+untouched_path = os.path.join(RDATA, "aaaa000001", "meta.json")
+with open(untouched_path, "rb") as f:
+    untouched_before = f.read()
+
+r = reconcile("confirm", "cccc000003", "github:42")
+m = meta_of("cccc000003")
+check("confirm binds the owner AND stamps custody_reviewed_at (epoch int)",
+      r.returncode == 0 and m.get("owner") == "github:42"
+      and isinstance(m.get("custody_reviewed_at"), int) and m.get("custody_reviewed_at", 0) > 0,
+      "exit=%s meta=%r" % (r.returncode, m))
+
+r = reconcile("quarantine", "bbbb000002")
+m = meta_of("bbbb000002")
+check("quarantine stamps custody_reviewed_at WITHOUT binding an owner",
+      r.returncode == 0 and m.get("owner") == ""
+      and isinstance(m.get("custody_reviewed_at"), int) and m.get("custody_reviewed_at", 0) > 0,
+      "exit=%s meta=%r" % (r.returncode, m))
+
+r = reconcile("quarantine", "dddd000004")
+check("quarantine refuses an owned record",
+      r.returncode != 0 and meta_of("dddd000004").get("custody_reviewed_at") is None,
+      "exit=%s err=%r" % (r.returncode, r.stderr.strip()[:120]))
+
+r = reconcile("quarantine", "eeee999999")
+check("quarantine refuses an unknown rid", r.returncode != 0,
+      "exit=%s out=%r" % (r.returncode, r.stdout.strip()[:120]))
+
+r = reconcile("confirm", "aaaa000001", "no-colon-sub")
+check("confirm still refuses a malformed owner id", r.returncode != 0,
+      "exit=%s" % r.returncode)
+
+r = reconcile("list")
+out = r.stdout
+awaiting = out.find("AWAITING REVIEW")
+quar = out.find("QUARANTINED")
+check("list separates never-reviewed from quarantined (sections present, records in the right one)",
+      r.returncode == 0 and 0 <= awaiting < quar
+      and awaiting < out.find("aaaa000001") < quar < out.find("bbbb000002")
+      and "cccc000003" not in out and "dddd000004" not in out,
+      out.strip()[:200])
+
+with open(untouched_path, "rb") as f:
+    untouched_after = f.read()
+check("a record the tool never wrote stays byte-identical (list is read-only)",
+      untouched_after == untouched_before,
+      "before=%r after=%r" % (untouched_before[:80], untouched_after[:80]))
 
 print(("FAILED: " + ", ".join(fails)) if fails else "custody regression smoke: all clear")
 sys.exit(1 if fails else 0)
