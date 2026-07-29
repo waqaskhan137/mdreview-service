@@ -453,6 +453,11 @@ function showUnreachable(){
 }
 async function boot(){
   const res=await window.mdSession.read();
+  // #224: a build with NO auth plane is not a build that failed. The local tier serves no
+  // /auth/session, so this used to fall into the unreachable branch and hide the dashboard from
+  // self-hosters entirely — they saw either a magic-link form that can never work or a false
+  // "Can't reach mdreview". There is nobody to sign in as, so show the app.
+  if(res.noAuthPlane){ $("#signin").style.display="none"; $("#app").style.display=""; load(); return; }
   if(!res.reachable){ showUnreachable(); return; }
   const sess=res.sess;
   if(sess && sess.authenticated){
