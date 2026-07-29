@@ -168,9 +168,36 @@
 
   @media (max-width: 720px){
     /* §10 rule 02: at narrow width the palette becomes a full-screen tap surface, sharing the
-       breakpoint #184 established (720px, above the measured 606px real-window floor). */
-    .command-dialog{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0;
-      margin:0;top:0;left:0;translate:none;}
+       breakpoint #184 established (720px, above the measured 606px real-window floor).
+
+       #265: the rules must land on `.command`, NOT on `.command-dialog`. The dialog is a
+       transparent wrapper; Basecoat pins the VISIBLE panel with
+         .command-dialog:is([open],:popover-open)>.command{position:fixed;top:33.3333%;left:50%;
+                                                           translate:-50% 0;max-width:calc(100% - 2rem)}
+       so styling the wrapper is user-invisible. #183 styled the wrapper, the panel stayed
+       574x176 at 606px, and a text-regex check called it full-screen for two days.
+
+       No specificity trick is needed for the geometry, and a mutation test proved it: dropping
+       `:is([open],:popover-open)` changed nothing, because these declarations are UNLAYERED and
+       Basecoat's live in `@layer components` — unlayered normal declarations beat layered ones
+       whatever the specificity. So the plain child selector is enough. (Recorded because the
+       obvious assumption, "match their specificity", is the wrong mental model here.)
+
+       The radius cannot be won that way at all. Basecoat ships
+       `.command-dialog>.command{border-radius:var(--radius-xl)!important}` inside
+       `@layer components`, and for IMPORTANT declarations the cascade inverts layer order: a
+       layered !important beats an unlayered one whatever its specificity. So we redefine the
+       TOKEN the rule reads instead of fighting the declaration. Same lesson this repo already
+       learned once: override the DERIVED token, never the base --radius. */
+    .command-dialog{border-radius:0;}
+    .command-dialog>.command{
+      position:fixed;inset:0;top:0;left:0;translate:none;
+      width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;
+      --radius-xl:0px;display:flex;flex-direction:column;}
+    /* The list, not the page, is what scrolls: a full-screen panel that scrolls the document
+       behind it is how a phone loses the query row mid-typing. */
+    #cmdk .command>header{flex:0 0 auto;}
+    #cmdlist{flex:1 1 auto;max-height:none;}
     .cmdrow{min-height:44px;align-items:center;}
     .rw{min-height:44px;align-items:center;padding:5px 0;}
     .rw-l{align-self:stretch;align-items:center;min-height:44px;}
