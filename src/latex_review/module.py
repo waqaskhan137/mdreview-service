@@ -28,6 +28,10 @@ class LatexModule:
         return self.reviews.exists(rid) and self.reviews.meta(rid).get("kind") == "latex"
 
     def handle(self, h, m, path):
+        # #250: the ONE write on this surface. Everything else stays GET-only below.
+        mo = re.fullmatch(r"/api/latex/" + RID + r"/recompile", path)
+        if mo and m == "POST":
+            return self._recompile(h, mo.group(1))
         if m != "GET":
             return False
 
@@ -82,6 +86,41 @@ class LatexModule:
             self.worker.enqueue(rid)
         elif st.get("state") in ("ok", "failed") and int(st.get("revision", -1)) < rev:
             self.worker.enqueue(rid)
+
+    def _recompile(self, h, rid):
+        """POST /api/latex/{rid}/recompile — the sanctioned exception to _self_heal's anti-stacking
+        rule (#250). The poll NEVER retries a failed compile at the current revision, by design;
+        one explicit human click may. The worker's coalescing (_queued/_redo) bounds a click-storm
+        to at most 1 queued + 1 re-run, so this needs no rate limit of its own.
+
+        Auth mirrors every /api/latex arm (h._authz: 401 anon, 404 non-owner/absent). CSRF mirrors
+        SharingModule._owner(mutating=True): only the app-owned session cookie presents (and must
+        pass) a token; the bearer-token plane carries no cookie and passes — the documented sharing
+        posture. app.sessions exists only on the hosted composition; the plain local tier has no
+        cookie plane, so the getattr gate is correctly absent there."""
+        uid, plane = h._authz(rid)
+        if plane is None:
+            return True
+        if self.reviews.meta(rid).get("kind") != "latex":
+            h._json(404, {"error": "not a latex review"})
+            return True
+        sessions = getattr(h.server.app, "sessions", None)
+        if sessions is not None:
+            from mdreview.hosted.sessions import SessionService
+            cookie = SessionService.read_cookie(h)
+            sess = sessions.verify(cookie) if cookie else None
+            if sess and not sessions.check_csrf(sess, h.headers.get("X-CSRF-Token", "")):
+                h._json(403, {"error": "missing or invalid CSRF token"})
+                return True
+        if h._disk_low():
+            # 507, never a silent skip: the click must not report queued while nothing was queued.
+            h._json(507, {"error": "insufficient storage; compile not queued"})
+            return True
+        self.worker.enqueue(rid)
+        # Respond through the same status shape the poller reads (#213 precedent: the button renders
+        # what the server SAID, not what the click hoped).
+        self._serve_compile(h, rid)
+        return True
 
     def _serve_compile(self, h, rid):
         st = self.worker.status(rid) or {"state": "queued",

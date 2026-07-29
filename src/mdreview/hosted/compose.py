@@ -151,6 +151,11 @@ def build_hosted(store):
     # and (b) the audited, off-by-default, cookie-plane admin super-READ exception (#102). Bound to the
     # FINAL app.reviews (the latex wrapper when enabled); shares consulted via the injected ShareStore.
     app.identity = HostedIdentity(app.users, store, sessions, config.PROXY_SECRET, allow_proxy_plane)
+    # #250: the latex module's POST /recompile needs the CSRF check on the cookie plane. Exposed on
+    # the app (like app.shares) and read by LatexModule via getattr at request time, so latex_review
+    # keeps zero hosted imports and the plain local tier (no app.sessions) skips the gate — it has
+    # no cookie plane to protect.
+    app.sessions = sessions
     app.policy = CustodyPolicy(app.reviews, shares)
 
     # Feature modules run (in order) BEFORE the core review arms and each owns its own auth. Their
