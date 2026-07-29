@@ -36,7 +36,7 @@ Checked before stage 1. Each has a command that actually runs.
 | P2 | A driver exists: `/loop` is running, or the run is a single in-session pass | **There is no daemon.** An agent executes only when a message arrives |
 | P3 | Each agent has its own git worktree | `isolation: "worktree"` on the Agent call |
 | P4 | Staging's timer is live and the host's `auto-update.sh` carries the #163 fix | `ssh kapture 'systemctl is-active mdreview-staging-autoupdate.timer; grep -c repo_digest ~/mdreview-staging/auto-update.sh'` |
-| P5 | Stage 8 has a route to a signed-in staging session **as the identity that owns the fixture** | Staging sets `MDREVIEW_ALLOW_STUB_EMAIL=1`: magic links are logged, not delivered. Read the link from `ssh kapture 'docker logs mdreview-staging'` |
+| P5 | Stage 8 has a route to a signed-in staging session **as the identity that owns the fixture** — which route exists depends on staging's live email mode (both modes below) | `ssh kapture 'docker exec mdreview-staging printenv MDREVIEW_SMTP_HOST'` — output = real-SMTP mode, empty/exit 1 = stub mode |
 | P6 | Every claim about CI, images or deploy is read from `origin/dev` | `git show origin/dev:<path>` — never the working tree |
 
 P4 needs full `ssh kapture`. The restricted `kapture-agent` account answers `refused: not an
@@ -47,8 +47,25 @@ attempt.
 A precondition that **fails** stops the run. A precondition that **cannot be evaluated** also
 stops the run: unevaluable is not the same as true, and assuming it is, is own-goal 4.
 
-**P5 carries an accepted risk, restated here rather than inherited silently:** anyone who can
-read the staging container log can complete a login as any email on staging. This is already
+**P5 has two modes, and the doc is true in both** (#302: an earlier version described only the
+stub, staging moved to real SMTP, and the "read the link from the log" route silently died).
+The server picks the sender by precedence — `select_email_sender` uses real SMTP whenever
+`MDREVIEW_SMTP_HOST` is set and falls back to the stub only otherwise — so a compose file
+carrying `MDREVIEW_ALLOW_STUB_EMAIL: "1"` proves nothing about the live mode; only the running
+container's env (the check above) or its startup banner does.
+
+- **Stub mode** (`MDREVIEW_SMTP_HOST` unset, `MDREVIEW_ALLOW_STUB_EMAIL=1`): magic links are
+  logged, not delivered. Read the link from `ssh kapture 'docker logs mdreview-staging'` and
+  redeem it. Tell: the loud `STUB email backend` warning banner in the container log at startup.
+- **Real-SMTP mode** (`MDREVIEW_SMTP_HOST` set): links go out as real mail, nothing readable
+  lands in the log, and an agent has **no route to a cookie session**. Stage 8 parks
+  `no-session` per the park-reason taxonomy; the owner signs in, or switches staging to stub
+  mode (one host edit: blank `MDREVIEW_SMTP_HOST` in `.env.staging` and redeploy, per
+  `RUNBOOK-email-smtp.md`). Which mode staging *should* run is the owner's standing call, not
+  the agent's.
+
+**Stub mode carries an accepted risk, restated here rather than inherited silently:** anyone who
+can read the staging container log can complete a login as any email on staging. This is already
 recorded in `docker-compose.staging.yml`; a process that institutionalises the practice should
 say so out loud.
 
@@ -250,7 +267,7 @@ One list, so #243 and #254 cannot invent competing vocabularies. Record exactly 
 
 | Reason | Means | Residue |
 |---|---|---|
-| `no-session` | No signed-in staging session as the fixture's owner | Owner signs in, or P5's stub-email route is repaired |
+| `no-session` | No signed-in staging session as the fixture's owner | Owner signs in, or switches staging to stub mode (P5) |
 | `no-key-delivery` | Real key presses do not reach the page | Owner types it, ~30 seconds |
 | `no-viewport-control` | The required width cannot be produced in a real window | Owner resizes and looks |
 | `surface-unreachable` | The surface cannot be brought on screen at all | Depends; state it |
