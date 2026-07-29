@@ -33,10 +33,18 @@ it. Final shape: seven work tickets.
 | #265 | the palette really is full-screen at narrow widths | measured 606x752 at (0,0) with 0px radius; 384px and centred at 1280 | #271 | 2026-07-29 | met |
 
 Two notes on that table rather than in it. #257's README is 120 lines on `origin/dev`, not the 107
-its stage-9 comment recorded; the gap is #262's and #261's later commits adding links, it is still
-well inside the 150-line cap, and the check enforces the cap rather than the snapshot. And #241's
-extract records three divergences from shipped code instead of silently reconciling them, which is
-what its ACs asked for.
+its stage-9 comment recorded. No commit touched `README.md` after #257's own `598ae72`, and 120 is
+not the non-empty count either (that is 90), so the 107 was measured on a pre-commit draft and never
+re-measured against what shipped. It changes nothing about the AC, which set a 150-line cap by
+`wc -l`; the check enforces that cap rather than the snapshot, and 120 clears it comfortably. Worth
+one sentence anyway, because reporting a number from a draft instead of from the merged artifact is a
+small instance of this sprint's own lesson. And #241's extract records three divergences from shipped
+code instead of silently reconciling them, which is what its ACs asked for.
+
+My own error on this point, recorded per the repo's norm: the first version of this file attributed
+the 13-line gap to #262's and #261's later commits. That was inference, not measurement, and
+`git log 598ae72..origin/dev -- README.md` is empty, so it was wrong. Corrected here rather than only
+in a comment, because a gate record asserting an unexercised mechanism is the defect DEV-3 names.
 
 ## Verification method, per claim
 
