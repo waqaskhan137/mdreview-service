@@ -119,6 +119,9 @@ async function boot(){
   // #221: loadUsers() below already separates "could not reach the service" from a real answer.
   // This did not, so a blip told an admin to sign in again while their session was alive.
   const res=await window.mdSession.read();
+  // #224: /admin is a hosted-only surface. On a local build it is not broken, it does not exist —
+  // saying "could not reach the service" would send a self-hoster debugging their network.
+  if(res.noAuthPlane){ $("#panel").innerHTML=notice("The admin console is not available on this build.","It manages accounts, which only the hosted service has."); return; }
   if(!res.reachable){ $("#panel").innerHTML=notice("Could not reach the service.","You have not been signed out. Reload to retry."); return; }
   const s=res.sess;
   if(!s.authenticated){ $("#panel").innerHTML = '<div class="notice"><b>Sign in to continue</b><a href="/">Go to sign in &rarr;</a></div>'; return; }

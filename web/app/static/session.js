@@ -29,19 +29,30 @@
   // browser and without waiting real seconds. Browsers call read() with no arguments.
   async function read(fetchImpl, delayMs) {
     var f = fetchImpl || (typeof fetch !== "undefined" ? fetch : null);
-    if (!f) return { sess: { authenticated: false }, reachable: false };
+    if (!f) return { sess: { authenticated: false }, reachable: false, noAuthPlane: false };
     var wait = delayMs === undefined ? RETRY_DELAY_MS : delayMs;
 
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
         var r = await f("/auth/session", { cache: "no-store" });
+        // #224: 404 is a THIRD state, not a failure. The local (non-hosted) build serves no
+        // /auth/session at all, so treating its 404 as "unreachable" told self-hosters the server
+        // was down and hid the dashboard from them entirely.
+        // Returned as a named flag rather than a status code the callers re-interpret: an earlier
+        // version threw the status into an Error message and discarded it, which is why this could
+        // not be distinguished at all.
+        if (r && r.status === 404) {
+          // Deliberately NO retry: a route that does not exist will not exist in 600ms, and the
+          // sleep is pure latency on every page load of every local instance.
+          return { sess: { authenticated: false }, reachable: false, noAuthPlane: true };
+        }
         if (!r || !r.ok) throw new Error("HTTP " + (r && r.status));
-        return { sess: await r.json(), reachable: true };
+        return { sess: await r.json(), reachable: true, noAuthPlane: false };
       } catch (e) {
         if (attempt === 0) await sleep(wait);
       }
     }
-    return { sess: { authenticated: false }, reachable: false };
+    return { sess: { authenticated: false }, reachable: false, noAuthPlane: false };
   }
 
   var api = { read: read, RETRY_DELAY_MS: RETRY_DELAY_MS };

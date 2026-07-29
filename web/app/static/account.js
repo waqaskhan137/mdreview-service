@@ -44,6 +44,9 @@
     // #221: "could not ask" is not "signed out". Offering a Sign in link to someone whose session
     // is alive is a lie, and it is the lie that made a server blip look like a logout.
     var res = await window.mdSession.read();
+    // #224: on a build with no auth plane there is no account to show and nothing to reconnect to.
+    // Render nothing rather than a permanent "Reconnecting…" or a "Sign in" link that leads nowhere.
+    if (res.noAuthPlane) { el.innerHTML = ""; return; }
     if (!res.reachable) {
       el.innerHTML =
         '<div class="acct"><span class="acct-dot" style="background:#9aa0a6" title="Cannot reach the server"></span>' +
