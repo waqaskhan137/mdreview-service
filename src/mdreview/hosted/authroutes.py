@@ -16,6 +16,8 @@ Routes:
 import html
 import json
 import re
+import smtplib
+import sys
 from urllib.parse import parse_qs, urlparse
 
 _SEC_HEADERS = (("Cache-Control", "no-store"), ("X-Content-Type-Options", "nosniff"))
@@ -123,8 +125,20 @@ class AuthModule:
         # issue() applies the abuse limits internally and never sends when throttled; we ignore its
         # status and ALWAYS return the same body, so a caller cannot enumerate addresses or probe the
         # rate state. The write path (send_log, audit) is serialized under the store lock.
-        with self.store.lock:
-            self.magic.issue(email, self._client_ip(h))
+        try:
+            with self.store.lock:
+                self.magic.issue(email, self._client_ip(h))
+        except (smtplib.SMTPException, OSError) as exc:
+            # An SMTP rejection or socket failure is an expected external outcome, not a server
+            # error. Letting it escape kills the request thread (the caller sees an aborted
+            # connection / nginx 502), and worse, makes a rejected recipient distinguishable from
+            # an accepted one — the enumeration signal this route's constant response exists to
+            # deny (#302). Record it server-side only and fall through to the one constant body.
+            # Deliberately NOT a bare except: an unexpected bug should still surface loudly.
+            print("magic-link send failed (%s): %s" % (type(exc).__name__, exc),
+                  file=sys.stderr, flush=True)
+            self.id_store.audit("magiclink_send_failed", email=email, ip=self._client_ip(h),
+                                detail=type(exc).__name__)
         self._json(h, 200, {"ok": True,
                             "message": "If that address can sign in, a link is on its way."})
         return True
