@@ -48,3 +48,6 @@ jobs:
       # token; the proxy and bearer planes pass unchanged. Stdlib-only, boots its own server.
       - name: Account tokens CSRF selfcheck
         run: python3 tests/account_tokens_csrf_selfcheck.py
+
+      - name: Manual resolve smoke
+        run: python3 tests/manual_resolve_smoke.py

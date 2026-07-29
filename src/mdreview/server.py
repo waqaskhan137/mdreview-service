@@ -20,7 +20,8 @@ API
   POST   /api/reviews/{id}/comments/{cid}/reply   {text}      -> {comment}  (append; status unchanged)
   POST   /api/reviews/{id}/comments/{cid}/resolve {justification?} -> {comment}  (agent resolves; 409 if not open/reopened)
   POST   /api/reviews/{id}/comments/{cid}/reopen  {text?}     -> {comment}  (reviewer reopens; 409 if not resolved)
-  GET    /api/reviews/{id}/status                             -> {source_updated, feedback_updated, comments_updated}
+  GET    /api/reviews/{id}/status                             -> {status, source_updated, feedback_updated, comments_updated}
+  POST   /api/reviews/{id}/resolve    {resolved: true|false}  -> summary  (human sign-off; cookie plane ONLY, see the arm)
   GET    /review/{id}                                         -> viewer HTML (human opens)
   GET    /static/{file}                                       -> assets (marked/mermaid)
   GET    /healthz                                             -> {ok}
@@ -560,8 +561,11 @@ class H(BaseHTTPRequestHandler):
             uid, plane = self._authz(rid)
             if plane is None:
                 return
-            mt = app.reviews.meta(rid)
+            # #187: summary(), not meta() - the poll now reports the derived status too (additive),
+            # so a manually resolved review reads "resolved" here as well as on the list/summary.
+            mt = app.reviews.summary(rid)
             return self._json(200, {
+                "status": mt.get("status"),
                 "source_updated": mt.get("source_updated", 0),
                 "feedback_updated": mt.get("feedback_updated", 0),
                 "comments_updated": mt.get("comments_updated", 0),
@@ -571,6 +575,43 @@ class H(BaseHTTPRequestHandler):
                 "handoff": mt.get("handoff"),
                 "agent_status": mt.get("agent_status"),
             })
+
+        # ---- manual resolve (#187): a human sign-off, APPROVAL-CLASS, cookie plane ONLY ----------
+        # product.md: "whatever a human can do in the viewer, an agent can do over MCP, except
+        # approve" - and a manual resolve IS an approval, not inbox tidying (owner decision,
+        # 2026-07-29, recorded on #187). So this route DELIBERATELY DIVERGES from the documented
+        # sharing posture (SharingModule's "authenticated via the session OR the agent token"): the
+        # bearer-token plane is REFUSED here, even for a token that owns the review and can write
+        # everywhere else, because an agent must never be able to mark its own work done. No MCP
+        # tool exists for this route, in any plane - do not "fix" the 403 below back to parity.
+        # Owner-only via the same custody can_write choke as every workflow write; CSRF-checked in
+        # the shape SharingModule._owner / LatexModule._recompile use (app.sessions exists only on
+        # the hosted composition; the local tier has no cookie plane, so the getattr gate is
+        # correctly absent there, and the transitional proxy plane carries no app cookie).
+        mo = re.fullmatch(r"/api/reviews/" + RID + r"/resolve", path)
+        if mo and m == "POST":
+            rid = mo.group(1)
+            uid, plane = self._authz(rid)
+            if plane is None:
+                return
+            if plane == "token":
+                self._audit("resolve_token_refused", uid=uid, rid=rid)
+                return self._json(403, {"error": "manual resolve is a human sign-off; "
+                                        "it cannot be performed with an API token"})
+            sessions = getattr(app, "sessions", None)
+            if sessions is not None:
+                from mdreview.hosted.sessions import SessionService
+                cookie = SessionService.read_cookie(self)
+                sess = sessions.verify(cookie) if cookie else None
+                if sess and not sessions.check_csrf(sess, self.headers.get("X-CSRF-Token", "")):
+                    return self._json(403, {"error": "missing or invalid CSRF token"})
+            resolved = self._body_json().get("resolved")
+            if not isinstance(resolved, bool):
+                return self._json(400, {"error": "resolved must be true or false"})
+            with app.store.lock:
+                app.reviews.set_resolved(rid, resolved)
+            self._audit("review_resolved" if resolved else "review_unresolved", uid=uid, rid=rid)
+            return self._json(200, app.reviews.summary(rid))
 
         # Turn baton handoff (MR-051/054/055). The guarded read-decide-write of the turn/lease state
         # lives in HandoffService.apply, called under the one lock so the write and the /wait wake are
