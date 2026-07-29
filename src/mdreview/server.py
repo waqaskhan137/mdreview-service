@@ -9,8 +9,10 @@ API
   POST   /api/reviews                 {markdown, title?}      -> {id, review_url, feedback_url, source_url}
   GET    /api/reviews/{id}                                    -> meta
   DELETE /api/reviews/{id}                                    -> {deleted}
-  GET    /api/reviews/{id}/source                             -> raw markdown
+  GET    /api/reviews/{id}/source                             -> raw markdown (+ ETag: "revision", the edit precondition token)
   PUT    /api/reviews/{id}/source     {markdown}              -> meta (agent applies edits; live-reloads viewer)
+                                      If-Match: "N" header or {expected_revision: N} body key (#288)
+                                      -> 409 + re-read instruction when stale; omit = unconditional
   GET    /api/reviews/{id}/feedback                           -> {markdown, notes, ...meta}  (notes = legacy notes + projected comments)
   POST   /api/reviews/{id}/feedback                           -> 410    (retired MR-036/MR-046; viewer authors comments — POST /comments)
   GET    /api/reviews/{id}/comments   ?status=open|resolved|reopened|all  -> {comments}
@@ -20,7 +22,7 @@ API
   POST   /api/reviews/{id}/comments/{cid}/reply   {text}      -> {comment}  (append; status unchanged)
   POST   /api/reviews/{id}/comments/{cid}/resolve {justification?} -> {comment}  (agent resolves; 409 if not open/reopened)
   POST   /api/reviews/{id}/comments/{cid}/reopen  {text?}     -> {comment}  (reviewer reopens; 409 if not resolved)
-  GET    /api/reviews/{id}/status                             -> {status, source_updated, feedback_updated, comments_updated}
+  GET    /api/reviews/{id}/status                             -> {status, source_updated, feedback_updated, comments_updated, revision, can_edit, ...}
   POST   /api/reviews/{id}/resolve    {resolved: true|false}  -> summary  (human sign-off; cookie plane ONLY, see the arm)
   GET    /review/{id}                                         -> viewer HTML (human opens)
   GET    /static/{file}                                       -> assets (marked/mermaid)
@@ -522,16 +524,43 @@ class H(BaseHTTPRequestHandler):
             if plane is None:
                 return
             if m == "GET":
-                return self._send(200, app.reviews.read_source(rid),
-                                  "text/markdown; charset=utf-8", extra_headers=NOINDEX)
+                # #288: the edit-precondition token (revision) is issued atomically WITH the source
+                # as an ETag — body and token read under the ONE lock, so no write can interleave
+                # and hand the caller old text with a new token (the lost update the guard exists
+                # to prevent). Fetching the token from a separate /status call is forbidden by
+                # design for exactly that reason.
+                with app.store.lock:
+                    body = app.reviews.read_source(rid)
+                    rev = app.reviews.meta(rid).get("revision", 0)
+                return self._send(200, body, "text/markdown; charset=utf-8",
+                                  extra_headers=NOINDEX + (("ETag", '"%d"' % rev),))
             if m == "PUT":
                 b = self._body_json()
+                # #288 precondition: If-Match (the browser path) or an expected_revision body key
+                # (the MCP-wrapper path; an old server drops it, an old wrapper never sends it —
+                # additive both ways). Absent = today's unconditional write. The compare itself
+                # happens in put_source, inside the same store.lock as the write.
+                expected = self.headers.get("If-Match")
+                if expected is not None:
+                    expected = expected.strip().strip('"')
+                    if expected == "*":            # RFC 9110: If-Match: * = "exists", no precondition
+                        expected = None
+                else:
+                    expected = b.get("expected_revision")
+                if expected is not None:
+                    try:
+                        expected = int(expected)
+                    except (TypeError, ValueError):
+                        return self._json(400, {"error": "If-Match / expected_revision must be "
+                                                         "the integer revision from GET /source"})
                 # Same seam the POST arm uses at :438 — a feature module rejects the write by
                 # raising the core-defined base type, and core renders it without importing the
                 # module. #188: the latex decorator raises when a latex review's body is not TeX.
+                # #288: a stale expected_revision raises the same base type with status 409.
                 try:
                     with app.store.lock:
-                        app.reviews.put_source(rid, b.get("markdown", ""))
+                        app.reviews.put_source(rid, b.get("markdown", ""),
+                                               expected_revision=expected)
                 except ReviewWriteRejected as e:
                     return self._json(e.status, e.payload or {"error": str(e)})
                 return self._json(200, app.reviews.meta(rid))
@@ -574,6 +603,14 @@ class H(BaseHTTPRequestHandler):
                 "turn_updated": mt.get("turn_updated", 0),
                 "handoff": mt.get("handoff"),
                 "agent_status": mt.get("agent_status"),
+                # #288: revision explicitly defaulted (legacy reviews predate the key), and
+                # can_edit derived from the SAME custody can_write the PUT arm enforces — true for
+                # the owner and the local tier (owner by construction), false for a share/comment
+                # grantee or an anonymous public-share reader. This key is unconditional, so every
+                # /status row in both golden-transcript tiers drifts; re-blessed under #288
+                # (epic #273 named risk 3, accepted at G1 sign-off).
+                "revision": mt.get("revision", 0),
+                "can_edit": bool(app.policy.can_write(self._principal(), rid)),
             })
 
         # ---- manual resolve (#187): a human sign-off, APPROVAL-CLASS, cookie plane ONLY ----------
