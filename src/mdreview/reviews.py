@@ -12,6 +12,17 @@ import secrets
 import shutil
 import time
 
+from mdreview.errors import ReviewWriteRejected
+
+# The 409 contract (#288): the payload is the instruction, because the plausible agent reaction to a
+# bare 409 is "re-read the token and resend my buffer", which destroys the other writer's edit with
+# a 200. Wording pinned by tests/revision_precondition_selfcheck.py; keep it in sync with the
+# update_source tool description in src/mcp/tools.py.
+STALE_REVISION_MSG = (
+    "stale revision: the document changed since you read it. Re-read the source, re-apply your "
+    "change onto the new text, and save with the new revision. Never resend a buffered draft "
+    "after a 409 - it would silently overwrite the other writer's edit.")
+
 
 class ReviewService:
     def __init__(self, store, comments):
@@ -140,6 +151,10 @@ class ReviewService:
         meta = {
             "id": rid, "title": title or "", "created": now,
             "source_updated": now,
+            # #288: the edit-precondition token, explicit from birth. Only summary() defaulted it
+            # before; the new read paths (ETag on GET /source, GET /status) need it present so a
+            # fresh review issues token 0 rather than an absent key.
+            "revision": 0,
             "project": project or "", "source_path": source_path or "",
             "session": session or "",
             "owner": owner or "",       # account that owns it (hosted multi-user); "" for local
@@ -159,9 +174,23 @@ class ReviewService:
     def read_source(self, rid):
         return self.store.read_text(self._path(rid, "source.md"))
 
-    def put_source(self, rid, markdown):
+    def put_source(self, rid, markdown, expected_revision=None):
         """Snapshot the outgoing round, overwrite source.md, bump source_updated. Caller holds
-        store.lock."""
+        store.lock.
+
+        expected_revision (#288) is the optimistic-concurrency precondition: when given, the write
+        proceeds only if it equals the CURRENT revision (the monotonic counter snapshot_round owns;
+        never source_updated, whose wall-clock values can collide). Compared here, under the
+        caller-held store.lock and BEFORE the snapshot, so a stale write changes nothing at all.
+        None = unconditional, exactly the pre-#288 behavior."""
+        if expected_revision is not None:
+            current = int(self.meta(rid).get("revision", 0) or 0)
+            if int(expected_revision) != current:
+                raise ReviewWriteRejected(
+                    STALE_REVISION_MSG, status=409,
+                    payload={"error": STALE_REVISION_MSG,
+                             "expected_revision": int(expected_revision),
+                             "current_revision": current})
         self.snapshot_round(rid)
         self.store.write_text(self._path(rid, "source.md"), markdown)
         self.bump(rid, "source_updated")

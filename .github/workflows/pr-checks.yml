@@ -56,3 +56,9 @@ jobs:
       # raw fields (the stated policy). Stdlib-only, boots its own server.
       - name: Admin audit read selfcheck
         run: python3 tests/admin_audit_selfcheck.py
+
+      # #288: the edit-precondition seam — revision ETag/If-Match + MCP expected_revision 409
+      # on stale, no-break when omitted; can_edit on /status; the widened latex override.
+      # Stdlib-only, boots its own local + hosted instances.
+      - name: Revision precondition selfcheck
+        run: python3 tests/revision_precondition_selfcheck.py
