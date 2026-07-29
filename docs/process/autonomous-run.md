@@ -68,7 +68,7 @@ flowchart TD
   S5 -.fails.-> STOP["STOP · report; never weaken the criterion"]
   S6 -.digest read empty or failed.-> NODIGEST["STOP before merging · a gate<br/>with no before-value is not a gate"]
   S7 -.deadline.-> DEVNOTE["STOP · say on the PR and issue<br/>that dev carries unverified code"]
-  S8 -.no session.-> PARTIAL["STOP at 8, plainly"]
+  S8 -.parked: no-session / no-key-delivery / no-viewport-control / surface-unreachable.-> PARTIAL["STOP at 8, plainly"]
 ```
 
 | Stage | Exit criterion |
@@ -116,6 +116,12 @@ deploy: a sibling agent's merge moves the same marker.
 
 Stage 8 is the **claude-in-chrome extension only**. Never headless, never a synthetic event.
 
+That ban has a permitted half (#243): **a headless/CDP check is legitimate as the stage-4 runnable
+check and never as stage-8 evidence.** This repo's own runnable checks are headless CDP
+(`tests/palette_fullscreen_selfcheck.sh`, `tests/dashboard_narrow_selfcheck.sh`,
+`tests/css_tokens_selfcheck.js`), and that is the intended split: stage 4 asserts the rendered
+outcome mechanically and repeatably; stage 8 proves a real user's input reaches the real surface.
+
 **A constructed `KeyboardEvent` is never acceptable as stage-8 evidence.** #222 is the case that
 settled it: real Chrome sends `{key:"/", code:"Slash", shiftKey:true}` for `?`, while the unit and
 CDP checks *constructed* an event with `key:"?"`. The feature was broken and every check stayed
@@ -138,7 +144,10 @@ it depends on the shape of the call.
 
 **This shape is necessary but NOT sufficient.** It was reproduced 4/4 inside one window during
 one burst, and then failed twice in a row, in a fresh default-sized window, following the same
-recipe exactly. Delivery is **intermittent** and the trigger is not understood.
+recipe exactly. From the agent's side delivery therefore looks **intermittent**. An earlier
+version of this paragraph added "and the trigger is not understood"; the confirmation below
+superseded that the same day, and the stale half stood until #299 removed it (sprint-38 G7,
+DEV-3). The trigger is understood, and it is the next paragraph.
 
 **Confirmed 2026-07-29: the key goes to whichever window the OS considers frontmost.** Three
 consecutive attempts delivered zero events while the owner was working in another app. The owner
