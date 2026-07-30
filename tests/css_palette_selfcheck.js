@@ -174,41 +174,12 @@ if (mLight && mMediaDark && mExplicitDark && mMobile) {
  * contract. The re-skin tickets remove them AND their entries in the same change.
  * ------------------------------------------------------------------------------------------- */
 const ALLOWLIST = [
-  // dashboard.html — the avatar gradient (#278 re-skins the dashboard)
-  { file: "dashboard.html", literal: "#2f6fed", count: 1, ticket: "#278" },
-  { file: "dashboard.html", literal: "#7c4dff", count: 1, ticket: "#278" },
-  { file: "dashboard.html", literal: "#fff", count: 1, ticket: "#278" },
+  // dashboard.html: EMPTY since #278 — the sign-in logo gradient (its last three literals) now
+  // renders from --accent/--bg, per the rev-3 mock.
 
-  // viewer.html (#279 re-skins the markdown viewer).
-  // NOTE the 3x #5b46e6: a live drift defect, an off-palette accent where the accent is #5B30D6.
-  // This list documents it; #279 fixes it. It is exactly the class of bug this file exists to
-  // make impossible to reintroduce.
-  { file: "viewer.html", literal: "#5b46e6", count: 3, ticket: "#279" },
-  { file: "viewer.html", literal: "#c0392b", count: 4, ticket: "#279" },
-  { file: "viewer.html", literal: "#fafaf9", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "#fff", count: 7, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(0,0,0,.06)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(0,0,0,.18)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(0,0,0,.2)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(0,0,0,.25)", count: 4, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(0,0,0,.3)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(0,0,0,.45)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(0,0,0,.5)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(0,0,0,.85)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(20,22,40,.16)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(29,79,191,.08)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(91,48,214,.06)", count: 2, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(91,48,214,.07)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(91,48,214,.18)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(91,48,214,.40)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(127,127,127,.04)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(127,127,127,.05)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(127,127,127,.06)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(127,127,127,.1)", count: 2, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(127,127,127,.12)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(127,127,127,.16)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(192,57,43,.1)", count: 1, ticket: "#279" },
-  { file: "viewer.html", literal: "rgba(192,57,43,.10)", count: 1, ticket: "#279" },
+  // viewer.html: EMPTY since #279 (the re-skin replaced every literal with a contract token,
+  // including the 3x #5b46e6 drift defect — an off-palette accent where the accent is #5B30D6).
+  // Any literal appearing in viewer.html again is a new violation, not a grandfathered one.
 
   // latex-viewer.html: EMPTY since #280 re-skinned it to the token contract (including the 3x
   // #5b46e6 drift defect, replaced with var(--accent)). New literals here have no exemption.
