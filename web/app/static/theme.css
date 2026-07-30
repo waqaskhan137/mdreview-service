@@ -17,10 +17,46 @@
  * Light needs no override block: it is the base, and the media query steps aside for it.
  * The two dark blocks MUST stay value-identical; css_palette_selfcheck.js fails on any divergence.
  *
- * Self-hosted, no CDN — the project is self-contained by design.
+ * Self-hosted, no CDN — the project is self-contained by design. That includes the fonts below.
  */
 
+/* ---- Fonts (#277) ---------------------------------------------------------------------------
+ * Vendored variable woff2, same-directory URLs, the KaTeX precedent. Variable cuts are required,
+ * not a preference: the dark theme sets font-weight:350 on the root and the design uses Geist
+ * Mono 550 for tabular emphasis, and neither weight exists as a static instance. Axis ranges
+ * below are the files' actual fvar ranges (Geist/Geist Mono wght 100-900; Source Serif 4
+ * wght 200-900, opsz 8-60). Licences ship alongside: Geist-OFL.txt (covers Geist and Geist
+ * Mono, one upstream package) and SourceSerif4-OFL.md. KaTeX's own @font-face rules are
+ * untouched and live in katex.min.css. */
+@font-face{
+  font-family:"Geist";
+  src:url(Geist-Variable.woff2) format("woff2");
+  font-weight:100 900; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:"Geist Mono";
+  src:url(GeistMono-Variable.woff2) format("woff2");
+  font-weight:100 900; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:"Source Serif 4";
+  src:url(SourceSerif4Variable-Roman.woff2) format("woff2");
+  font-weight:200 900; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:"Source Serif 4";
+  src:url(SourceSerif4Variable-Italic.woff2) format("woff2");
+  font-weight:200 900; font-style:italic; font-display:swap;
+}
+
 :root{
+  /* Families. Pages point their font-family declarations here, never at raw stacks.
+     (--font-mono also exists inside the Basecoat bundle's @layer theme with the same intent and
+     family; this unlayered definition wins and finally makes it resolve to a real file.) */
+  --font-ui:"Geist",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --font-serif:"Source Serif 4",Charter,Georgia,Cambria,"Times New Roman",serif;
+
   /* surfaces */
   --bg:#FCFBF9;              /* page */
   --surface:#FAF9F7;         /* cards, panels */
@@ -180,7 +216,7 @@
 .diffhead{
   display:flex; align-items:center; gap:9px;
   padding:8px 13px; border-bottom:1px solid var(--border); background:var(--bg);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-family:var(--font-ui);
   font-size:var(--t-meta); color:var(--text-subtle);
 }
 .diffhead .dgrow{ flex:1 1 auto; }
@@ -205,30 +241,30 @@
 
 .dfold{
   display:flex; align-items:center; gap:9px; width:100%; text-align:left;
-  font:inherit; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font:inherit; font-family:var(--font-ui);
   font-size:11.5px; cursor:pointer; background:var(--code-bg); color:var(--text-subtle);
   border:none; border-top:1px solid var(--border); border-bottom:1px solid var(--border);
   padding:5px 13px;
 }
 .dfold:hover{ color:var(--accent); }
-.dfold .dchev{ font-family:ui-monospace,Menlo,monospace; font-size:11px; }
-.dfold .dmore{ margin-left:auto; font-family:ui-monospace,Menlo,monospace; font-size:10.5px; }
+.dfold .dchev{ font-family:var(--font-mono); font-size:11px; }
+.dfold .dmore{ margin-left:auto; font-family:var(--font-mono); font-size:10.5px; }
 
 .diffempty{
   color:var(--text-muted); padding:10px 13px;
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:13px;
+  font-family:var(--font-ui); font-size:13px;
 }
 
 /* The toggle that opens the diff. Shared shape; each viewer positions it in its own chrome. */
 .difftoggle{ display:inline-flex; align-items:center; gap:7px; }
 .difftoggle .dglyph{
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-family:var(--font-mono);
   font-size:12px; letter-spacing:-1px; color:var(--text-subtle);
 }
 .difftoggle[aria-pressed="true"]{ background:var(--accent-muted); border-color:var(--accent); color:var(--accent); }
 .difftoggle[aria-pressed="true"] .dglyph{ color:var(--accent); }
 .difftoggle .dcount{
-  font-family:ui-monospace,Menlo,monospace; font-size:11px; font-weight:700;
+  font-family:var(--font-mono); font-size:11px; font-weight:700;
   border-radius:var(--r-pill); padding:1px 7px;
   background:var(--success-bg); border:1px solid var(--success-border); color:var(--success);
 }
