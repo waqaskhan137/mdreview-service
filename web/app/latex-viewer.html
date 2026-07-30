@@ -904,8 +904,13 @@ $('#editsave').addEventListener('click',async()=>{
   if(r.status===409){
     // AC: buffer preserved, editor stays open, explicit "changed by the agent" message — never
     // auto-reload, that would be this UI resending nothing while silently discarding the buffer.
-    editErr('Changed by the agent since you opened the editor. Your text below is unsaved — '
-      +'Cancel, reopen Edit to see the latest, then re-apply your change.');
+    // The buffer below is untouched by THIS failure, but reopening Edit fetches the latest text
+    // and REPLACES it (enterEdit always repopulates from the server) — so the warning has to say
+    // that plainly, or "Cancel, reopen Edit, re-apply" reads as a safe sequence when it is really
+    // "copy your text out first, or reopening will overwrite it".
+    editErr('Changed by the agent since you opened the editor. Your text below is unsaved and '
+      +'NOT yet lost — but reopening Edit will replace it with the latest version. Copy what you '
+      +'want to keep, then Cancel and reopen Edit to see the latest and re-apply it.');
     return;
   }
   if(r.status===400){
