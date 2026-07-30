@@ -17,10 +17,10 @@
   body{margin:0;background:var(--bg);color:var(--text);
        font:var(--t-body)/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
   h1{font-size:var(--t-title);margin:0 0 var(--s-1)}
-  .sub{color:var(--muted-fg);margin:0 0 var(--s-6)}
+  .sub{color:var(--text-muted);margin:0 0 var(--s-6)}
   .stack{display:flex;flex-direction:column;gap:var(--s-4)}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  pre{background:var(--inset);border:1px solid var(--rule);border-radius:var(--r-control);padding:14px;overflow:auto;
+  pre{background:var(--code-bg);border:1px solid var(--border);border-radius:var(--r-control);padding:14px;overflow:auto;
       font:var(--t-meta)/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text)}
   .tok{font:var(--t-meta) ui-monospace,Menlo,monospace;word-break:break-all}
 </style>
@@ -226,7 +226,7 @@ async function loadShares(){
       + ` — ${esc(sh.right||"view")}`
       + ` <button class="btn rev-share" data-variant="outline" data-size="sm"`
       + ` data-rid="${esc(it.id)}" data-subject="${esc(sh.subject)}">revoke</button></li>`).join("");
-    return `<div style="padding:10px 0;border-top:1px solid var(--rule-faint,var(--rule))">
+    return `<div style="padding:10px 0;border-top:1px solid var(--border-faint,var(--border))">
       <div><a href="/review/${encodeURIComponent(it.id)}">${esc(it.title)}</a> ${pub}
       ${it.public ? `<button class="btn rev-public" data-variant="outline" data-size="sm" data-rid="${esc(it.id)}">make private</button>` : ""}</div>
       ${named ? `<ul style="margin:6px 0 0 18px">${named}</ul>` : ""}</div>`;

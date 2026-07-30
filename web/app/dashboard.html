@@ -33,11 +33,11 @@
   .filters{display:flex;align-items:center;gap:var(--s-2);min-width:0;}
   /* §05 rule 01/02: no violet, no pill. The active filter is carried by weight and text colour. */
   .filt{font:inherit;font-size:var(--t-meta);background:none;border:0;padding:2px 0;cursor:pointer;
-    color:var(--muted-fg);white-space:nowrap;}
+    color:var(--text-muted);white-space:nowrap;}
   .filt:hover{color:var(--text);}
   .filt.on{color:var(--text);font-weight:600;}
   .filt .ct{font-weight:700;font-variant-numeric:tabular-nums;}
-  .fdot{color:var(--muted2);user-select:none;}
+  .fdot{color:var(--text-subtle);user-select:none;}
   #search{flex:1 1 150px;min-width:0;max-width:250px;}   /* look comes from Basecoat .input */
   #projsel{flex:0 0 auto;max-width:180px;}               /* a native select: no popover to clip */
 
@@ -50,46 +50,46 @@
 
   /* Confirm bar: the same shape admin uses (#179), replacing confirm(). A modal confirm cannot be
      styled, blocks the page and reads as a browser error rather than as part of the app. */
-  #confirmbar{display:none;align-items:center;gap:10px;background:var(--warn-bg);
-    border:1px solid var(--warn-rule);border-radius:var(--r-control);padding:11px 14px;
+  #confirmbar{display:none;align-items:center;gap:10px;background:var(--warning-bg);
+    border:1px solid var(--warning-border);border-radius:var(--r-control);padding:11px 14px;
     margin:0 0 var(--s-4);}
   #confirmbar .msg{flex:1;}
 
   /* ---- next up ---- */
   #nextup:not(:empty){margin:0 0 var(--s-8);}
-  .nu-crumb{font-size:var(--t-meta);color:var(--muted2);margin:0 0 var(--s-2);}
+  .nu-crumb{font-size:var(--t-meta);color:var(--text-subtle);margin:0 0 var(--s-2);}
   .nu-title{font-size:var(--t-display);line-height:1.15;letter-spacing:-.02em;font-weight:650;
     margin:0 0 var(--s-3);}
-  .nu-say{color:var(--muted-fg);margin:0 0 var(--s-4);}
+  .nu-say{color:var(--text-muted);margin:0 0 var(--s-4);}
   /* §05 rule 01: one violet per screen, and this is it. */
   .nu-go{text-decoration:none;}
 
   /* ---- the quiet lists ---- */
   .grp{margin:0 0 var(--s-6);}
-  .grp-h{font-size:var(--t-meta);color:var(--muted2);margin:0 0 var(--s-2);}
-  /* §05 rule 02: a 1px --rule-faint hairline SEPARATES rows. The container is the page: no card and
+  .grp-h{font-size:var(--t-meta);color:var(--text-subtle);margin:0 0 var(--s-2);}
+  /* §05 rule 02: a 1px --border-faint hairline SEPARATES rows. The container is the page: no card and
      no border around the group, so the last row carries no rule. */
   .rw{position:relative;display:flex;align-items:baseline;gap:var(--s-3);padding:9px 0;}
-  .rw+.rw{border-top:1px solid var(--rule-faint);}
+  .rw+.rw{border-top:1px solid var(--border-faint);}
   .rw-l{display:flex;align-items:baseline;gap:var(--s-2);min-width:0;flex:1 1 auto;
     color:inherit;text-decoration:none;}
   .rw:hover .rw-t{text-decoration:underline;text-underline-offset:2px;}
   .rw-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .rw-p{flex:0 0 auto;font-size:var(--t-meta);color:var(--muted2);}
+  .rw-p{flex:0 0 auto;font-size:var(--t-meta);color:var(--text-subtle);}
   /* the LATEX marker (MR-098) demoted from a chip to plain text (§05 rule 02) */
   .rw-k{flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--blue);}
-  .rw-m{flex:0 0 auto;font-size:var(--t-meta);color:var(--muted2);white-space:nowrap;
+  .rw-m{flex:0 0 auto;font-size:var(--t-meta);color:var(--text-subtle);white-space:nowrap;
     transition:opacity .12s;}
   .rw:hover .rw-m{opacity:0;}   /* the delete button lands here, so get the meta out from under it */
   /* §05 rule 03, three weights of row: yours, the agent's, resolved. */
   .w-yours .rw-t{font-weight:500;color:var(--text);}
-  .w-agent .rw-t{font-weight:400;color:var(--muted-fg);}
-  .w-resolved .rw-t{font-weight:400;color:var(--muted2);}
+  .w-agent .rw-t{font-weight:400;color:var(--text-muted);}
+  .w-resolved .rw-t{font-weight:400;color:var(--text-subtle);}
 
   .del{position:absolute;top:50%;right:0;transform:translateY(-50%);
     display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;
     border-radius:var(--r-control);border:1px solid transparent;background:transparent;
-    color:var(--muted2);cursor:pointer;opacity:0;transition:opacity .12s,color .12s,background .12s;}
+    color:var(--text-subtle);cursor:pointer;opacity:0;transition:opacity .12s,color .12s,background .12s;}
   .rw:hover .del{opacity:1;}
   .del:hover{color:var(--danger);background:var(--danger-bg);}
   .del:focus-visible{opacity:1;}   /* the ring itself is theme.css's one focus rule (§03) */
@@ -98,22 +98,22 @@
   .res{position:absolute;top:50%;right:32px;transform:translateY(-50%);
     display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;
     border-radius:var(--r-control);border:1px solid transparent;background:transparent;
-    color:var(--muted2);cursor:pointer;opacity:0;transition:opacity .12s,color .12s,background .12s;}
+    color:var(--text-subtle);cursor:pointer;opacity:0;transition:opacity .12s,color .12s,background .12s;}
   .rw:hover .res{opacity:1;}
-  .res:hover{color:var(--good);background:var(--inset);}
+  .res:hover{color:var(--success);background:var(--code-bg);}
   .res:focus-visible{opacity:1;}
 
-  .resline{font-size:var(--t-meta);color:var(--muted2);}
+  .resline{font-size:var(--t-meta);color:var(--text-subtle);}
   .resline .linklike{margin-top:0;font-size:var(--t-meta);}
 
   /* Namespaced: a bare `.empty` now collides with Basecoat's own empty-state block, which is
      display:flex/flex:1 and would fight this outright. */
-  .dash-empty,.noresults{text-align:center;color:var(--muted-fg);padding:var(--s-12) 0;}
+  .dash-empty,.noresults{text-align:center;color:var(--text-muted);padding:var(--s-12) 0;}
   .noresults{display:none;}
   .dash-empty code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-meta);
-    background:var(--inset);padding:2px 6px;border-radius:var(--r-control);}
+    background:var(--code-bg);padding:2px 6px;border-radius:var(--r-control);}
 
-  .sub{color:var(--muted2);font-size:var(--t-meta);margin:var(--s-6) 0 0;}
+  .sub{color:var(--text-subtle);font-size:var(--t-meta);margin:var(--s-6) 0 0;}
 
   /* ---- sign-in screen (anonymous; #131) — Basecoat card/input/btn + layout only ---- */
   .signin-wrap{min-height:100vh;display:none;align-items:center;justify-content:center;padding:24px;}
@@ -124,14 +124,14 @@
     background:linear-gradient(135deg,#2f6fed,#7c4dff);color:#fff;display:flex;align-items:center;
     justify-content:center;font-size:12px;font-weight:700;}
   #signin-card h1{font-size:21px;font-weight:700;letter-spacing:-.3px;margin:0 0 7px;text-align:center;}
-  #signin-card .lede{color:var(--muted-fg);font-size:13.5px;line-height:1.5;text-align:center;margin:0 0 20px;}
+  #signin-card .lede{color:var(--text-muted);font-size:13.5px;line-height:1.5;text-align:center;margin:0 0 20px;}
   .signin-field label{display:block;margin:0 0 6px;}
-  .signin-note{color:var(--muted2);font-size:12px;text-align:center;margin:16px 0 0;}
+  .signin-note{color:var(--text-subtle);font-size:12px;text-align:center;margin:16px 0 0;}
   /* the always-shown "didn't get it?" note: quieter than the lede so it reads as a footnote */
-  #signin-card .lede.signin-fine{font-size:12px;color:var(--muted2,var(--muted-fg));margin:-8px 0 18px;}
+  #signin-card .lede.signin-fine{font-size:12px;color:var(--text-subtle,var(--text-muted));margin:-8px 0 18px;}
   .signin-ok{text-align:center;}
-  .signin-ok .check{width:46px;height:46px;border-radius:var(--r-pill);background:var(--accent-bg);
-    color:var(--brand);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .signin-ok .check{width:46px;height:46px;border-radius:var(--r-pill);background:var(--accent-muted);
+    color:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
   .signin-ok .addr{color:var(--text);font-weight:600;}
   .linklike{background:none;border:none;color:var(--link);font:inherit;font-size:12.5px;cursor:pointer;
     padding:0;margin-top:16px;text-decoration:underline;}
@@ -152,27 +152,27 @@
   :where(.command-dialog) :is(.command [role=menuitem]){border-radius:var(--radius-lg);}
   /* #261. The selected row was INVISIBLE: --accent-soft does not exist and never did — it appears
      exactly once in this repo, here, as its own consumer. Both selected and unselected measured
-     rgba(0,0,0,0), so arrow-key navigation produced no visible change at all. --accent-bg is the
+     rgba(0,0,0,0), so arrow-key navigation produced no visible change at all. --accent-muted is the
      defined token. Shipped in #183 and caught by a grooming pass, not by my checks. */
   .cmdrow{display:flex;align-items:center;gap:var(--s-2);width:100%;padding:9px 10px;
     background:none;border:0;font:inherit;text-align:left;cursor:pointer;color:var(--text);
     transition:background .12s, color .12s;}
-  .cmdrow:hover{background:var(--nav-hover,var(--inset));}
-  .cmdrow[aria-selected="true"]{background:var(--accent-bg);color:var(--brand);font-weight:550;}
+  .cmdrow:hover{background:var(--nav-hover,var(--code-bg));}
+  .cmdrow[aria-selected="true"]{background:var(--accent-muted);color:var(--accent);font-weight:550;}
   /* The keyboard cursor needs a second, non-colour signal: hover and selection are otherwise two
      tints of the same idea, and a hovering mouse would hide where the keyboard actually is. */
   .cmdrow[aria-selected="true"]::before{content:"";position:absolute;left:0;width:2px;top:2px;
-    bottom:2px;background:var(--brand);border-radius:2px;}
+    bottom:2px;background:var(--accent);border-radius:2px;}
   .cmdrow{position:relative;}
-  .cmdrow .cmdhint{margin-left:auto;font-size:var(--t-meta);color:var(--muted2);
+  .cmdrow .cmdhint{margin-left:auto;font-size:var(--t-meta);color:var(--text-subtle);
     padding-left:var(--s-3);white-space:nowrap;}
-  .cmdrow[aria-selected="true"] .cmdhint{color:var(--brand);opacity:.75;}
-  .cmdempty{padding:14px 10px;color:var(--muted2);font-size:var(--t-meta);text-align:center;}
+  .cmdrow[aria-selected="true"] .cmdhint{color:var(--accent);opacity:.75;}
+  .cmdempty{padding:14px 10px;color:var(--text-subtle);font-size:var(--t-meta);text-align:center;}
   /* The query row reads as an input, not as a floating string of text. */
-  #cmdk .command>header{border-bottom:1px solid var(--rule-faint,var(--rule));padding:2px 4px;}
+  #cmdk .command>header{border-bottom:1px solid var(--border-faint,var(--border));padding:2px 4px;}
   #cmdq{width:100%;font:inherit;font-size:15px;padding:11px 10px;border:0;background:none;
     color:var(--text);outline:none;}
-  #cmdq::placeholder{color:var(--muted2);}
+  #cmdq::placeholder{color:var(--text-subtle);}
   #cmdlist{padding:6px;max-height:min(52vh,420px);overflow:auto;}
 
   @media (max-width: 720px){
