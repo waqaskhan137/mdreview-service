@@ -312,7 +312,7 @@
   <textarea id="popnote" placeholder="Your comment on this line…"></textarea>
   <div class="row"><button class="btn" id="popcancel">Cancel</button><button class="btn primary" id="popsave">Comment</button></div>
 </div>
-<div id="dock"><div id="dockbar"><span id="count">0 open</span><button class="btn" id="cmtbtn">Comments</button></div></div>
+<div id="dock"><div id="dockbar"><span id="count">0 open</span><button class="btn" id="cmtbtn" aria-pressed="true">Comments</button></div></div>
 <div id="cmtdock"></div>
 <div id="toast" role="status"></div>
 
@@ -325,6 +325,12 @@ const $=s=>document.querySelector(s);
 const ID=location.pathname.split('/').pop();
 const API='/api/reviews/'+ID, LATEX='/api/latex/'+ID;
 let comments=[], cur=null, confirming=null, lastSrc=0, lastCmt=0, pdfRev=null;
+// #280 comments-off (design screen 05). Session-only, rail ON on load — same persistence contract
+// as diff mode (OFF on load, sticky within the session). This flag must NEVER be body.norail:
+// layoutCards() rewrites norail on every repaint, resize and divider drag, so a toggle that
+// reused it would be silently reverted by the next 2s comment poll. body.rail-off is the manual
+// flag; the CSS hides the rail when EITHER class is present.
+let RAILOFF=false;
 
 function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 const esc=escapeHtml;
@@ -568,9 +574,17 @@ function focusPair(id){
   const m=document.querySelector('mark.cmt[data-id="'+id+'"]');
   if(m){m.classList.add('active');m.scrollIntoView({block:'center',behavior:'smooth'});}
 }
+// #cmtbtn's pressed state mirrors what the button currently controls: the rail at rail-capable
+// widths (>=640px pane), the narrow dock below that. Re-synced from layoutCards() so a resize
+// that crosses the threshold re-labels the button with the surface it now governs.
+function syncCmtBtn(wide){
+  $('#cmtbtn').setAttribute('aria-pressed',
+    String(wide ? !RAILOFF : $('#cmtdock').classList.contains('show')));
+}
 function layoutCards(){
   const pane=$('.srcpane'),wide=pane&&pane.clientWidth>=640;
   document.body.classList.toggle('norail',!wide);
+  syncCmtBtn(wide);
   if(!wide)return;
   const col=$('#codecol');let prev=0;
   [...$('#railcol').querySelectorAll('.gcard')]
@@ -699,7 +713,21 @@ function poll(){
   const ts=$('#tab-src'),tp=$('#tab-pdf');
   function tab(pdf){document.body.classList.toggle('show-pdf',pdf);ts.setAttribute('aria-pressed',String(!pdf));tp.setAttribute('aria-pressed',String(pdf));}
   ts.onclick=()=>tab(false);tp.onclick=()=>tab(true);
-  $('#cmtbtn').onclick=()=>$('#cmtdock').classList.toggle('show');
+  // #280: at rail-capable pane widths the button toggles the RAIL (manual comments-off, screen
+  // 05); narrow keeps toggling the dock exactly as before. Re-showing re-runs layoutCards()
+  // because the cards were position:absolute-laid-out while display:none (offsetHeight 0), so
+  // their stacked tops are stale until a post-show pass recomputes them.
+  $('#cmtbtn').onclick=()=>{
+    const wide=$('.srcpane').clientWidth>=640;
+    if(wide){
+      RAILOFF=!RAILOFF;
+      document.body.classList.toggle('rail-off',RAILOFF);
+      if(!RAILOFF)layoutCards();else syncCmtBtn(true);
+    }else{
+      $('#cmtdock').classList.toggle('show');
+      syncCmtBtn(false);
+    }
+  };
   window.addEventListener('resize',()=>{try{layoutCards();}catch(e){}});
 })();
 let tTimer=null;
@@ -850,7 +878,7 @@ mdKeys.pushEscape(()=>{const p=$('#pop');if(!p||p.style.display!=='block')return
 mdKeys.register([
   {keys:"1", label:"Show the LaTeX source",   run:()=>mdKeys.click("#tab-src")},
   {keys:"2", label:"Show the compiled PDF",   run:()=>mdKeys.click("#tab-pdf")},
-  {keys:"c", label:"Toggle the comments dock", run:()=>mdKeys.click("#cmtbtn")},
+  {keys:"c", label:"Toggle comments", run:()=>mdKeys.click("#cmtbtn")},
   {keys:"a", label:"Add a comment",            run:()=>mdKeys.click("#addbtn")},
   {keys:"mod+Enter", label:"Save the comment you are writing", keepInField:true, run:()=>{
     const pop=$('#pop');
