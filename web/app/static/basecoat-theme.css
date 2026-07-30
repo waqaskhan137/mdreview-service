@@ -8,9 +8,9 @@
  * a grey surface (this file loads after theme.css and would win). So the hover surface is fed one
  * level down instead: the bundle's only consumers of it read var(--color-accent), whose @layer
  * theme indirection (--color-accent: var(--accent)) loses to an unlayered declaration here.
- * Same story for --border: theme.css now defines Basecoat's exact name itself, so the old
- * `--border: var(--rule)` alias is gone (it would be a self-referential cycle, which CSS treats
- * as invalid and drops, taking every Basecoat border with it).
+ * Same story for --border: theme.css now defines Basecoat's exact name itself, so the old alias
+ * of --border onto the legacy --rule name is gone (post-rename it would have read as --border
+ * aliasing itself, a cycle CSS treats as invalid and drops, taking every Basecoat border with it).
  */
 :root {
   --background: var(--bg);
