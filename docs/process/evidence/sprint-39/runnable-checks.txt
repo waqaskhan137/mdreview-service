@@ -1,0 +1,468 @@
+sprint-39 G7 independent close review: runnable-check transcripts
+
+Reviewer: staff-critic, independent. Read from origin/dev @ ca838f4b6d299b0ad832d079ae7f33bd5ccb8bb2,
+in a clean worktree cut from it. Date 2026-07-30 (Europe/London).
+Host: darwin 27.0.0, Python 3.11.5, node v22.22.0.
+
+python3 -m py_compile src/mdreview/*.py src/mdreview/hosted/*.py src/mcp/*.py
+  src/watcher/*.py src/latex_review/*.py src/mcp_server.py src/watch.py   -> exit 0
+
+Case counts below are grep -cE '^[[:space:]]*ok' on each transcript. No check prints a count
+of its own, so every N/N figure in a stage-9 comment is an author tally, not a reading.
+
+================================================================================
+$ python3 tests/pr_checks_guard.py       exit 0, ok lines: 5
+================================================================================
+  ok   job key is `pr-checks` (the required-status-check context name)
+  ok   triggers only on pull_request into dev
+  ok   no packages scope, no image push — cannot publish from a PR head
+  ok   permissions: contents: read declared in-file
+  ok   both smokes referenced and present
+pr-checks guard: all clear
+
+================================================================================
+$ python3 tests/hosted_boot_smoke.py       exit 0, ok lines: 4
+================================================================================
+  ok   staging env (REQUIRE_AUTH=1, ALLOW_PROXY_PLANE=0, inert PROXY_SECRET) boots
+  ok   without PROXY_SECRET the REQUIRE_AUTH=1 build refuses to boot (guard is real)
+  ok   staging env with MDREVIEW_ENABLE_LATEX=1 boots (latex_review imports cleanly)
+  ok   #188 latex source guard rejects non-TeX writes and spares markdown reviews
+hosted boot smoke: all clear
+
+================================================================================
+$ python3 tests/custody_regression_smoke.py       exit 0, ok lines: 19
+================================================================================
+  ok   hosted build with NO ownership env refuses to boot (the #97 precondition)
+  ok   without MDREVIEW_SESSION_SECRET the hosted build refuses (guard is real)
+  ok   without MDREVIEW_TOKEN_PEPPER the hosted build refuses (guard is real)
+  ok   without MDREVIEW_OWNER_EMAIL the hosted build refuses (guard is real)
+  ok   a valid hosted build yields CustodyPolicy
+  ok   hosted build never degrades to OpenPolicy under {'MDREVIEW_REQUIRE_AUTH': '0'}
+  ok   hosted build never degrades to OpenPolicy under {'MDREVIEW_REQUIRE_AUTH': ''}
+  ok   hosted build never degrades to OpenPolicy under {'MDREVIEW_ALLOW_PROXY_PLANE': '1', 'MDREVIEW_REQUIRE_AUTH': '0'}
+  ok   `mdreview.migrate` (the blind bulk owner-stamp) is not importable
+  ok   `python -m mdreview.migrate` cannot be invoked
+  ok   no module defines a bulk owner-stamp (backfill_owner/bulk_stamp/stamp_all)
+  ok   stamp_owner(None) refuses rather than returning a fallback uid
+  ok   confirm binds the owner AND stamps custody_reviewed_at (epoch int)
+  ok   quarantine stamps custody_reviewed_at WITHOUT binding an owner
+  ok   quarantine refuses an owned record
+  ok   quarantine refuses an unknown rid
+  ok   confirm still refuses a malformed owner id
+  ok   list separates never-reviewed from quarantined (sections present, records in the right one)
+  ok   a record the tool never wrote stays byte-identical (list is read-only)
+custody regression smoke: all clear
+
+================================================================================
+$ python3 tests/account_tokens_csrf_selfcheck.py       exit 0, ok lines: 13
+================================================================================
+  ok   setup: genuine session cookie + csrf obtained
+  ok   mint without X-CSRF-Token -> 403
+  ok   ...and the 403 is the CSRF gate
+  ok   mint with a WRONG token -> 403
+  ok   mint WITH the token -> 201, mdr_...
+  ok   GET list needs no CSRF (reads exempt)
+  ok   revoke without X-CSRF-Token -> 403
+  ok   ...and the token SURVIVED the blocked revoke
+  ok   revoke WITH the token -> 200
+  ok   ...and it is gone
+  ok   proxy plane mints WITHOUT any CSRF token -> 201
+  ok   proxy plane revokes WITHOUT any CSRF token -> 200
+  ok   bearer plane mint -> 403 browser-only (unchanged)
+
+all /account/tokens CSRF cases pass
+
+================================================================================
+$ python3 tests/manual_resolve_smoke.py       exit 0, ok lines: 25
+================================================================================
+  ok   owner creates a review
+  ok   owner posts an (open) comment
+  ok   derived status is 'feedback' with an open comment
+  ok   /status reports the derived status too (#187 additive field)
+  ok   meta.json carries no resolve keys before any resolve
+  ok   session cookie with a WRONG CSRF token -> 403
+  ok   session cookie with NO CSRF token -> 403
+  ok   non-boolean body -> 400
+  ok   cookie plane + CSRF resolves (200, status 'resolved')
+  ok   GET /api/reviews reports 'resolved' despite the open comment
+  ok   /status reports 'resolved'
+  ok   a new comment still lands on a resolved review
+  ok   the manual resolve is STICKY under the new comment
+  ok   owner mints an agent token
+  ok   that token CAN write the document (PUT source 200)
+  ok   the SAME token is REFUSED on /resolve (403; approval-class, human-only)
+  ok   the refused bearer call changed nothing (still resolved)
+  ok   no review-resolve MCP tool exists (resolve_comment is the pre-existing comment workflow)
+  ok   un-resolve returns the derived status ('feedback', two open comments)
+  ok   un-resolve removes both keys from meta.json
+  ok   authenticated non-owner -> 404 (not probeable)
+  ok   anonymous -> 401
+  ok   a never-resolved review's meta.json is byte-identical after list/summary/status reads
+  ok   local tier creates a review
+  ok   local tier resolves with no cookie/CSRF (no auth plane to satisfy)
+
+manual resolve smoke: all cases passed
+
+================================================================================
+$ python3 tests/admin_audit_selfcheck.py       exit 0, ok lines: 16
+================================================================================
+  ok   setup: admin + member sessions
+  ok   anonymous -> 401
+  ok   non-admin cookie -> 403 'admin only'
+  ok   admin's own BEARER token -> 403 (cookie plane only)
+  ok   admin cookie -> 200 with events (logins already audited)
+  ok   newest-first (ts non-increasing)
+  ok   raw email visible (stated PII policy, not redacted)
+  ok   ip present on events
+  ok   setup: blocklist add (the audited admin act) -> 201
+  ok   admin action appears newest-first
+  ok   actor uid recorded
+  ok   target parsed out of the detail prefix
+  ok   detail carries the remainder, not the target= prefix
+  ok   limit=2 -> exactly 2 events + next_before
+  ok   before=<next_before> -> the NEXT page, strictly older, no overlap
+  ok   malformed before -> 400
+
+all /admin/audit cases pass
+
+================================================================================
+$ python3 tests/revision_precondition_selfcheck.py       exit 0, ok lines: 36
+================================================================================
+-- local tier --
+  ok   setup: review created
+  ok   fresh /status: revision present and explicitly 0
+  ok   fresh /status: can_edit true on the local tier
+  ok   GET /source: body verbatim + ETag carries revision 0
+  ok   PUT with stale If-Match -> 409
+  ok   409 payload instructs re-read + re-apply and forbids resending
+  ok   409 payload names expected vs current revision
+  ok   ...and the stale PUT wrote NOTHING (body + ETag unchanged)
+  ok   PUT with current If-Match -> 200, revision bumps to 1
+  ok   ...and GET /source now serves v1 with ETag 1
+  ok   PUT without any precondition stays unconditional -> 200 (no-break)
+  ok   PUT with stale body expected_revision -> 409
+  ok   ...and wrote nothing
+  ok   PUT with current body expected_revision -> 200, revision 3
+  ok   If-Match: * means no precondition -> 200
+  ok   malformed If-Match -> 400, nothing written
+  ok   ...body still v4 after the malformed attempt
+  ok   /status tracks the moved token (revision 4)
+-- mcp wrapper --
+  ok   route(update_source) without expected_revision -> body exactly {markdown} (no-break)
+  ok   route(update_source) with expected_revision -> body carries it
+  ok   update_source description carries the 409 re-read/never-resend contract
+  ok   update_source schema: expected_revision integer and OPTIONAL (not required)
+  ok   get_source schema: with_revision is opt-in boolean; id stays the only required arg
+  ok   wrapper get_source default result is the raw document VERBATIM
+  ok   with_revision envelope: source + revision from the SAME response
+  ok   wrapper stale update_source -> ToolError surfacing 409 + the instruction
+  ok   wrapper update_source WITHOUT the parameter still writes (no-break)
+-- latex decorator (unit) --
+  ok   latex override accepts expected_revision (no TypeError) and writes
+  ok   ...and the recompile was enqueued for the guarded write
+  ok   latex stale write -> 409, nothing written, no extra enqueue
+-- hosted tier --
+  ok   hosted setup: owner created a review
+  ok   hosted /status for the OWNER: can_edit true + revision present
+  ok   hosted setup: comment share granted
+  ok   hosted /status for a comment-share GRANTEE: readable but can_edit FALSE
+  ok   hosted setup: made public
+  ok   hosted /status for an ANONYMOUS public reader: can_edit FALSE
+
+all #288 revision-precondition cases pass
+
+================================================================================
+$ python3 tests/source_csrf_attribution_selfcheck.py       exit 0, ok lines: 33
+================================================================================
+-- local tier --
+  ok   core import graph: mdreview.server never imports mdreview.hosted
+  ok   setup: review created
+  ok   fresh review: /status defaults source_updated_by to "agent"
+  ok   fresh review: meta.json on disk carries NO source_updated_by
+  ok   local agent PUT (no header) -> 200, no CSRF gate on the local tier
+  ok   ...meta response carries no source_updated_by (all-agent, no trace)
+  ok   ...and /status still reads "agent"
+  ok   local viewer-header PUT -> 200 and /status reads "reviewer"
+  ok   ...meta.json on disk SET to reviewer
+  ok   agent PUT after a reviewer write -> 200 and /status back to "agent"
+  ok   ...and the key is DELETED from meta.json on disk (subtractive, not set-agent)
+  ok   history round 2 (archived the reviewer draft d2) carries by=reviewer
+  ok   history rounds 0+1 (agent drafts) carry NO by key (reader default = agent)
+  ok   single-round read carries the same attribution
+  ok   all-agent review: no source_updated_by/by anywhere but /status
+-- mcp tool surface --
+  ok   get_status tool description names source_updated_by
+-- latex decorator (unit) --
+  ok   latex override accepts updated_by (no TypeError), writes + enqueues + attributes
+  ok   latex agent write deletes the key through the widened override
+-- hosted tier --
+  ok   hosted setup: genuine session cookie + csrf obtained
+  ok   hosted setup: review created on the session plane
+  ok   session PUT without X-CSRF-Token -> 403
+  ok   ...and the 403 is the CSRF gate
+  ok   session PUT with a WRONG token -> 403
+  ok   ...and the blocked PUTs wrote NOTHING (body + ETag unchanged)
+  ok   session PUT WITH the token -> 200, unchanged behavior
+  ok   ...and the session write attributes "reviewer"
+  ok   CSRF pass does not bypass the #288 precondition: stale If-Match still 409
+  ok   proxy setup: review created on the proxy plane
+  ok   proxy-plane PUT with NO CSRF token still succeeds (finding-1 regression)
+  ok   ...and the proxy write attributes "reviewer" (a vouched human)
+  ok   bearer setup: token minted
+  ok   bearer-plane PUT with no CSRF token unchanged -> 200
+  ok   ...and the agent write flips the SAME review back to the "agent" default (reviewer -> agent, key deleted)
+
+all #289 CSRF + attribution cases pass
+
+================================================================================
+$ python3 tests/review_shares_email_selfcheck.py       exit 0, ok lines: 6
+================================================================================
+ok   - owner GET /shares -> 200
+ok   - every named share carries an email key
+ok   - resolvable subject yields the address
+ok   - unresolvable subject yields "" (never invented)
+ok   - subject preserved raw (revoke keys on it)
+ok   - right preserved
+
+all review-shares email cases pass
+
+================================================================================
+$ python3 tests/latex_edit_ui_selfcheck.py       exit 0, ok lines: 25
+================================================================================
+  ok   setup: latex review created
+  ok   GET /review/{rid} for a latex review -> 200
+  ok   served latex-viewer.html contains 'id="editbtn"'
+  ok   served latex-viewer.html contains 'id="edittext"'
+  ok   served latex-viewer.html contains 'id="editsave"'
+  ok   served latex-viewer.html contains 'id="editcancel"'
+  ok   served latex-viewer.html contains 'id="editerr"'
+  ok   served latex-viewer.html contains 'id="editpane"'
+  ok   served latex-viewer.html contains 'X-Mdreview-Client'
+  ok   served latex-viewer.html contains 'If-Match'
+  ok   served latex-viewer.html contains 'body.editing'
+  ok   fresh latex /status: can_edit true on the local tier
+  ok   fresh latex /status: revision 0
+  ok   GET /source: body verbatim + ETag carries revision 0
+  ok   Save valid .tex at the current revision -> 200, revision bumps to 1
+  ok   ...and the LOCAL-tier viewer header attributes the write to "reviewer"
+  ok   ...and GET /source now serves the saved text with ETag 1
+  ok   Save a body failing the #188 guard -> 400 (not 409, not 200)
+  ok   ...the rejection names the review kind and what is missing
+  ok   ...and NOTHING was written: source + ETag unchanged (buffer-preserving contract)
+  ok   Save a guard-passing body at a STALE revision -> 409
+  ok   ...and NOTHING was written either (source + ETag still unchanged)
+  ok   Save a body that is BOTH invalid AND at a stale revision -> 400, the guard wins
+  ok   ...and still nothing written
+  ok   can_edit key name matches the button's gate exactly
+
+all #291 latex edit UI cases pass
+
+================================================================================
+$ python3 tests/magiclink_send_failure_selfcheck.py       exit 0, ok lines: 9
+================================================================================
+ok   - accepted recipient -> handled, 200, mail sent
+ok   - accepted audit trail says issued
+ok   - SMTP rejection does not escape the route (no 502)
+ok   - rejected response is BYTE-IDENTICAL to the accepted one (anti-enumeration)
+ok   - rejection is audited server-side as magiclink_send_failed
+ok   - rejection is logged server-side (stderr)
+ok   - socket failure -> same byte-identical 200
+ok   - socket failure audited
+ok   - a non-SMTP, non-socket exception still propagates (no bare except)
+
+all magic-link failure cases pass
+
+================================================================================
+$ python3 tests/stage8_doc_selfcheck.py       exit 0, ok lines: 33
+================================================================================
+ok   - constructed KeyboardEvent is banned as evidence
+ok   - the ban cites #222, the case where it hid a real bug
+ok   - headless is stated legitimate at stage 4 and never as stage-8 evidence
+ok   - the route requires ONE browser_batch
+ok   - the route requires a click before the key
+ok   - the route requires a throwaway key press
+ok   - navigate must be outside the batch
+ok   - the doc says to read the page, not the tool's success report
+ok   - the route is stated to be necessary but NOT sufficient
+ok   - intermittency is named
+ok   - a zero-event reading is framed as ordinary, not as breakage
+ok   - the retry bound before parking is stated
+ok   - document.hasFocus is called out as an unusable signal
+ok   - OS-frontmost is stated as the confirmed cause, not a guess
+ok   - the logger is named as the only reliable tell
+ok   - the doc gives the specific small ask to unblock
+ok   - the viewport route resizes BEFORE navigating
+ok   - the maximised-window trap and its two-attempt budget are recorded
+ok   - size inheritance is recorded (a new tab is not a fresh default)
+ok   - the OS minimum width is recorded as a measured floor
+ok   - requested width is distinguished from measured width
+ok   - the viewport+keys combination is stated as untested, not as impossible
+ok   - the experiment that would settle the confound is named
+ok   - a negative result is stated to be a pass
+ok   - an unrecorded park is stated NOT to be a pass
+ok   - parked tickets are barred from status:review
+ok   - documenting a problem must not stand in for fixing it
+ok   - park reason `no-session` is in the taxonomy
+ok   - park reason `no-key-delivery` is in the taxonomy
+ok   - park reason `no-viewport-control` is in the taxonomy
+ok   - park reason `surface-unreachable` is in the taxonomy
+ok   - the taxonomy names its residue (what a human must do)
+ok   - 'I tried and it did not work' is framed as a claim about the approach
+
+all stage-8 doc cases pass
+
+================================================================================
+$ python3 tests/access_seam_oracle.py       exit 0, ok lines: 6
+================================================================================
+
+===== tier: local =====
+OK: transcripts identical (23 steps) [mode=local]
+### GET /healthz -> 200
+{"ok": true}
+### GET /api -> 200
+{"collect_feedback": "GET /api/reviews/{id}/feedback", "dashboard": "GET / (HTML; this descriptor on Accept: application/json or GET /api)", "list_reviews": "GET /api/reviews", "post_a_review": "POST /api/reviews {markdown, title?, project?, source_path?, session?}", "service": "mdreview"}
+### GET /api/reviews -> 200
+{"reviews": []}
+### POST /api/reviews -> 201
+{"feedback_url": "BASE/api/reviews/RID/feedback", "id": "RID", "review_url": "BASE/review/RID", "source_url": "BASE/api/reviews/RID/source", "status_url": "BASE/api/reviews/RID/status"}
+### GET /api/reviews/RID -> 200
+{"created": "T", "id": "RID", "notes_addressed": 0, "notes_total": 0, "owner": "", "project": "oracle", "revision": 0, "session": "", "source_path": "", "source_updated": "T", "status": "awaiting", "title": "golden", "turn": "reviewer"}
+### GET /api/reviews/RID/source -> 200
+text/markdown len=20 sha256=a27c54778fb0a4275f0921250a430f7edad0107ce9d37f87c868c56d4395887a
+### GET /api/reviews/RID/status -> 200
+{"agent_status": null, "can_edit": true, "comments_updated": "T", "feedback_updated": "T", "handoff": null, "revision": 0, "source_updated": "T", "source_updated_by": "agent", "status": "awaiting", "turn": "reviewer", "turn_updated": "T"}
+### PUT /api/reviews/RID/source -> 200
+{"created": "T", "id": "RID", "owner": "", "project": "oracle", "revision": 1, "session": "", "source_path": "", "source_updated": "T", "title": "golden"}
+### GET /api/reviews/RID/history -> 200
+{"rounds": [{"round": 0, "ts": "T"}]}
+### POST /api/reviews/RID/comments -> 201
+{"anchor": {"block_num": "1", "end": null, "quoted_text": "second body", "start": null}, "comment_id": "CID", "created_at": "T", "created_by": "reviewer", "resolved_at": null, "resolved_by": null, "status": "open", "status_history": [{"by": "reviewer", "from": null, "to": "open", "ts": "T"}], "thread": [{"author": "reviewer", "role": "reviewer", "text": "a note", "ts": "T"}]}
+### GET /api/reviews/RID/comments -> 200
+{"comments": [{"anchor": {"block_num": "1", "end": null, "quoted_text": "second body", "start": null}, "comment_id": "CID", "created_at": "T", "created_by": "reviewer", "resolved_at": null, "resolved_by": null, "status": "open", "status_history": [{"by": "reviewer", "from": null, "to": "open", "ts": "T"}], "thread": [{"author": "reviewer", "role": "reviewer", "text": "a note", "ts": "T"}]}]}
+### POST /api/reviews/RID/comments/CID/reply -> 200
+{"anchor": {"block_num": "1", "end": null, "quoted_text": "second body", "start": null}, "comment_id": "CID", "created_at": "T", "created_by": "reviewer", "resolved_at": null, "resolved_by": null, "status": "open", "status_history": [{"by": "reviewer", "from": null, "to": "open", "ts": "T"}], "thread": [{"author": "reviewer", "role": "reviewer", "text": "a note", "ts": "T"}, {"author": "reviewer", "role": "reviewer", "text": "re", "ts": "T"}]}
+### POST /api/reviews/RID/comments/CID/resolve -> 200
+{"anchor": {"block_num": "1", "end": null, "quoted_text": "second body", "start": null}, "comment_id": "CID", "created_at": "T", "created_by": "reviewer", "resolved_at": "T", "resolved_by": "agent", "status": "resolved", "status_history": [{"by": "reviewer", "from": null, "to": "open", "ts": "T"}, {"by": "agent", "from": "open", "to": "resolved", "ts": "T"}], "thread": [{"author": "reviewer", "role": "reviewer", "text": "a note", "ts": "T"}, {"author": "reviewer", "role": "reviewer", "text": "re", "ts": "T"}, {"author": "agent", "role": "agent", "text": "done", "ts": "T"}]}
+### POST /api/reviews/RID/comments/CID/reopen -> 200
+{"anchor": {"block_num": "1", "end": null, "quoted_text": "second body", "start": null}, "comment_id": "CID", "created_at": "T", "created_by": "reviewer", "resolved_at": null, "resolved_by": null, "status": "reopened", "status_history": [{"by": "reviewer", "from": null, "to": "open", "ts": "T"}, {"by": "agent", "from": "open", "to": "resolved", "ts": "T"}, {"by": "reviewer", "from": "resolved", "to": "reopened", "ts": "T"}], "thread": [{"author": "reviewer", "role": "reviewer", "text": "a note", "ts": "T"}, {"author": "reviewer", "role": "reviewer", "text": "re", "ts": "T"}, {"author": "agent", "role": "agent", "text": "done", "ts": "T"}, {"author": "reviewer", "role": "reviewer", "text": "again", "ts": "T"}]}
+### DELETE /api/reviews/RID/comments/CID -> 200
+{"deleted": "CID"}
+### GET /api/reviews/RID/feedback -> 200
+{"comments_updated": "T", "created": "T", "id": "RID", "markdown": "", "notes": [], "owner": "", "project": "oracle", "revision": 1, "session": "", "source_path": "", "source_updated": "T", "title": "golden"}
+### GET /api/reviews/RID/assets -> 200
+{"assets": []}
+### GET / -> 200
+{"collect_feedback": "GET /api/reviews/{id}/feedback", "dashboard": "GET / (HTML; this descriptor on Accept: application/json or GET /api)", "list_reviews": "GET /api/reviews", "post_a_review": "POST /api/reviews {markdown, title?, project?, source_path?, session?}", "service": "mdreview"}
+### GET /review/RID -> 200
+text/html len=80918 sha256=9fa10fbd7be991312d492cc52fd9b7daf3229e1c9e88175eb0a54bdafaec73fe
+### GET /static/nope.js -> 404
+text/plain len=9 sha256=907ba78b4545338d3539683e63ecb51cf51c10adc9dabd86e92bd52339f298b9
+### DELETE /api/reviews/RID -> 200
+{"deleted": "RID"}
+### GET /api/reviews/RID/status -> 404
+{"error": "not found"}
+### GET /definitely/not/a/route -> 404
+{"error": "no route", "method": "GET", "path": "/definitely/not/a/route"}
+
+===== tier: hosted =====
+OK: transcripts identical (29 steps) [mode=hosted]
+### GET /healthz -> 200
+{"ok": true}
+### GET /api -> 200
+{"collect_feedback": "GET /api/reviews/{id}/feedback", "dashboard": "GET / (HTML; this descriptor on Accept: application/json or GET /api)", "list_reviews": "GET /api/reviews", "post_a_review": "POST /api/reviews {markdown, title?, project?, source_path?, session?}", "service": "mdreview"}
+### GET /api/reviews -> 200
+{"reviews": []}
+### POST /api/reviews -> 201
+{"feedback_url": "BASE/api/reviews/RID/feedback", "id": "RID", "review_url": "BASE/review/RID", "source_url": "BASE/api/reviews/RID/source", "status_url": "BASE/api/reviews/RID/status"}
+### GET /api/reviews/RID -> 200
+{"created": "T", "id": "RID", "notes_addressed": 0, "notes_total": 0, "owner": "google:owner1", "project": "oracle", "revision": 0, "session": "", "source_path": "", "source_updated": "T", "status": "awaiting", "title": "golden", "turn": "reviewer"}
+### GET /api/reviews/RID/source -> 200
+text/markdown len=20 sha256=a27c54778fb0a4275f0921250a430f7edad0107ce9d37f87c868c56d4395887a
+### GET /api/reviews/RID/status -> 200
+{"agent_status": null, "can_edit": true, "comments_updated": "T", "feedback_updated": "T", "handoff": null, "revision": 0, "source_updated": "T", "source_updated_by": "agent", "status": "awaiting", "turn": "reviewer", "turn_updated": "T"}
+### PUT /api/reviews/RID/source -> 200
+{"created": "T", "id": "RID", "owner": "google:owner1", "project": "oracle", "revision": 1, "session": "", "source_path": "", "source_updated": "T", "source_updated_by": "reviewer", "title": "golden"}
+### GET /api/reviews/RID/history -> 200
+{"rounds": [{"round": 0, "ts": "T"}]}
+### POST /api/reviews/RID/comments -> 201
+{"anchor": {"block_num": "1", "end": null, "quoted_text": "second body", "start": null}, "comment_id": "CID", "created_at": "T", "created_by": "google:owner1", "resolved_at": null, "resolved_by": null, "status": "open", "status_history": [{"by": "google:owner1", "from": null, "to": "open", "ts": "T"}], "thread": [{"author": "google:owner1", "role": "reviewer", "text": "a note", "ts": "T"}]}
+### GET /api/reviews/RID/comments -> 200
+{"comments": [{"anchor": {"block_num": "1", "end": null, "quoted_text": "second body", "start": null}, "comment_id": "CID", "created_at": "T", "created_by": "google:owner1", "resolved_at": null, "resolved_by": null, "status": "open", "status_history": [{"by": "google:owner1", "from": null, "to": "open", "ts": "T"}], "thread": [{"author": "google:owner1", "role": "reviewer", "text": "a note", "ts": "T"}]}]}
+### POST /api/reviews/RID/comments/CID/reply -> 200
+{"anchor": {"block_num": "1", "end": null, "quoted_text": "second body", "start": null}, "comment_id": "CID", "created_at": "T", "created_by": "google:owner1", "resolved_at": null, "resolved_by": null, "status": "open", "status_history": [{"by": "google:owner1", "from": null, "to": "open", "ts": "T"}], "thread": [{"author": "google:owner1", "role": "reviewer", "text": "a note", "ts": "T"}, {"author": "reviewer", "role": "reviewer", "text": "re", "ts": "T"}]}
+### POST /api/reviews/RID/comments/CID/resolve -> 200
+{"anchor": {"block_num": "1", "end": null, "quoted_text": "second body", "start": null}, "comment_id": "CID", "created_at": "T", "created_by": "google:owner1", "resolved_at": "T", "resolved_by": "agent", "status": "resolved", "status_history": [{"by": "google:owner1", "from": null, "to": "open", "ts": "T"}, {"by": "agent", "from": "open", "to": "resolved", "ts": "T"}], "thread": [{"author": "google:owner1", "role": "reviewer", "text": "a note", "ts": "T"}, {"author": "reviewer", "role": "reviewer", "text": "re", "ts": "T"}, {"author": "agent", "role": "agent", "text": "done", "ts": "T"}]}
+### POST /api/reviews/RID/comments/CID/reopen -> 200
+{"anchor": {"block_num": "1", "end": null, "quoted_text": "second body", "start": null}, "comment_id": "CID", "created_at": "T", "created_by": "google:owner1", "resolved_at": null, "resolved_by": null, "status": "reopened", "status_history": [{"by": "google:owner1", "from": null, "to": "open", "ts": "T"}, {"by": "agent", "from": "open", "to": "resolved", "ts": "T"}, {"by": "reviewer", "from": "resolved", "to": "reopened", "ts": "T"}], "thread": [{"author": "google:owner1", "role": "reviewer", "text": "a note", "ts": "T"}, {"author": "reviewer", "role": "reviewer", "text": "re", "ts": "T"}, {"author": "agent", "role": "agent", "text": "done", "ts": "T"}, {"author": "reviewer", "role": "reviewer", "text": "again", "ts": "T"}]}
+### DELETE /api/reviews/RID/comments/CID -> 200
+{"deleted": "CID"}
+### GET /api/reviews/RID/feedback -> 200
+{"comments_updated": "T", "created": "T", "id": "RID", "markdown": "", "notes": [], "owner": "google:owner1", "project": "oracle", "revision": 1, "session": "", "source_path": "", "source_updated": "T", "source_updated_by": "reviewer", "title": "golden"}
+### GET /api/reviews/RID/assets -> 200
+{"assets": []}
+### GET / -> 200
+{"collect_feedback": "GET /api/reviews/{id}/feedback", "dashboard": "GET / (HTML; this descriptor on Accept: application/json or GET /api)", "list_reviews": "GET /api/reviews", "post_a_review": "POST /api/reviews {markdown, title?, project?, source_path?, session?}", "service": "mdreview"}
+### GET /review/RID -> 200
+text/html len=80918 sha256=9fa10fbd7be991312d492cc52fd9b7daf3229e1c9e88175eb0a54bdafaec73fe
+### GET /static/nope.js -> 404
+text/plain len=9 sha256=907ba78b4545338d3539683e63ecb51cf51c10adc9dabd86e92bd52339f298b9
+### GET /api/reviews/RID -> 401
+{"error": "authentication required"}
+### GET /api/reviews/RID -> 404
+{"error": "not found"}
+### GET /api/reviews/nope00000000 -> 401
+{"error": "authentication required"}
+### GET /api/reviews/nope00000000 -> 404
+{"error": "not found"}
+### PUT /api/reviews/RID/source -> 401
+{"error": "authentication required"}
+### DELETE /api/reviews/RID -> 404
+{"error": "not found"}
+### DELETE /api/reviews/RID -> 200
+{"deleted": "RID"}
+### GET /api/reviews/RID/status -> 404
+{"error": "not found"}
+### GET /definitely/not/a/route -> 404
+{"error": "no route", "method": "GET", "path": "/definitely/not/a/route"}
+
+===== hosted denial assertions =====
+  ok   unauthenticated, existing review -> 401
+  ok   authenticated non-owner, existing review -> 404
+  ok   unauthenticated, ABSENT review -> 401 (inversion-critical)
+  ok   authenticated non-owner, ABSENT review -> 404
+  ok   unauthenticated write (PUT source) -> 401
+  ok   authenticated non-owner delete -> 404
+
+===== RESULT =====
+  before/after byte-identical (both tiers): PASS
+  hosted denials present + correct:          PASS
+
+ORACLE PASS: API byte-identical before vs after, both tiers; hosted fails closed.
+
+================================================================================
+$ node tests/editguard_selfcheck.js       exit 0, ok lines: 22
+================================================================================
+ok   - parseRevision strips ETag quotes
+ok   - parseRevision accepts an unquoted integer
+ok   - parseRevision(0) is 0, not null
+ok   - parseRevision(null) -> null
+ok   - parseRevision(undefined) -> null
+ok   - parseRevision("") -> null
+ok   - parseRevision(garbage) -> null, not NaN
+ok   - warns when editing and revisions differ
+ok   - never warns when not editing
+ok   - no warning when revisions match
+ok   - revision 0 vs 0 is "no change" (not misread as "no data")
+ok   - revision 0 vs 1 IS a change
+ok   - local revision unknown -> no warning
+ok   - remote revision unknown -> no warning
+ok   - remote revision undefined -> no warning
+ok   - If-Match carries the quoted revision
+ok   - X-CSRF-Token is sent when a token exists
+ok   - Content-Type is always set
+ok   - X-Mdreview-Client: viewer is always sent
+ok   - If-Match is sent for revision 0
+ok   - no If-Match when revision is null
+ok   - no X-CSRF-Token when csrf is empty
+
+All editguard self-checks passed.
