@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · reviews</title>
-<!-- #152 Basecoat: vendored (self-hosted, no runtime CDN). Basecoat skins the generic chrome (the
-     sign-in form, the search box, buttons). The inbox itself is hand CSS: design doc §05 rule 02 is
-     "no cards, no pills", which rules out the two Basecoat primitives this page used to lean on. -->
+<!-- #152 Basecoat: vendored (self-hosted, no runtime CDN). Basecoat still skins the buttons and
+     the project select. The inbox, the search control and the sign-in screen are hand CSS to the
+     rev-3 mock (#278): §05 rule 02 is "no cards, no pills", and rev 3 drew both card-less. -->
 <link rel="stylesheet" href="/static/basecoat.cdn.min.css">
 <link rel="stylesheet" href="/static/theme.css">
 <link rel="stylesheet" href="/static/basecoat-theme.css">
@@ -23,30 +23,43 @@
     font-size:var(--t-body);line-height:1.45;-webkit-font-smoothing:antialiased;}
 
   /* ---- the top line ----------------------------------------------------------------------
-     .app-top is theme.css's. Everything below is either one of THIS page's occupants of it, or
-     the one page-local guard noted inline. */
-  /* Overflow guard, not a narrow-width pass: the dashboard puts five things on a line that
-     account puts two on, so it wraps instead of scrolling the body sideways. §10's real narrow
-     treatment (44px targets, headline ramp) is #184. */
+     .app-top is theme.css's. Rev 3 (#278) empties it down to brand / search / #acct: the filter
+     words and #projsel moved into the column below the heading. The search control is still the
+     REAL live-filtering input (the palette-launcher reading of the mock would delete shipped
+     behaviour no epic decision retired); the ⌘K chip is an adornment inside it. The line must
+     also fit #285's future 30x30 theme toggle between search and #acct without wrapping —
+     tests/dashboard_reskin_selfcheck.sh injects that slot and measures. */
+  /* Overflow guard, not a narrow-width pass: wrap instead of scrolling the body sideways. */
   #app .app-top{flex-wrap:wrap;row-gap:var(--s-2);}
 
-  .filters{display:flex;align-items:center;gap:var(--s-2);min-width:0;}
-  /* §05 rule 01/02: no violet, no pill. The active filter is carried by weight and text colour. */
-  .filt{font:inherit;font-size:var(--t-meta);background:none;border:0;padding:2px 0;cursor:pointer;
-    color:var(--text-muted);white-space:nowrap;}
-  .filt:hover{color:var(--text);}
-  .filt.on{color:var(--text);font-weight:600;}
-  .filt .ct{font-weight:700;font-variant-numeric:tabular-nums;}
-  .fdot{color:var(--text-subtle);user-select:none;}
-  #search{flex:1 1 150px;min-width:0;max-width:250px;}   /* look comes from Basecoat .input */
-  #projsel{flex:0 0 auto;max-width:180px;}               /* a native select: no popover to clip */
+  .searchbox{display:flex;align-items:center;gap:var(--s-2);height:30px;padding:0 10px;
+    flex:0 1 260px;min-width:150px;border:1px solid var(--border);border-radius:var(--r-control);
+    background:var(--surface);color:var(--text-subtle);}
+  .searchbox:focus-within{border-color:var(--accent);}
+  #search{flex:1 1 auto;min-width:0;border:0;background:none;outline:none;padding:0;
+    font:inherit;font-size:var(--t-eyebrow);color:var(--text);}
+  #search::placeholder{color:var(--text-subtle);}
+  .kbd-hint{flex:0 0 auto;font-family:var(--font-mono);font-size:var(--t-eyebrow);
+    padding:1px 5px;border:1px solid var(--border);border-radius:4px;}
 
   /* ---- the column ------------------------------------------------------------------------ */
-  /* The visible headline is the "next up" title (§05: "one thing to do next"), so the document
-     heading is for assistive tech only. filterTitle() still writes it, so the active view is
-     announced even though nothing draws it. */
-  .vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
-    clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+  /* Rev 3 makes the document heading VISIBLE (owner decision in #276). filterTitle() stays its
+     single writer, so assistive tech and sighted users read the same node; the count line beside
+     it is #sub, relocated with its semantics intact. */
+  .head{display:flex;align-items:baseline;gap:var(--s-3);margin:0 0 var(--s-8);}
+  .head h1{margin:0;font-size:24px;line-height:1.15;letter-spacing:-.025em;font-weight:600;}
+  .head .sub{margin:0 0 0 auto;font-family:var(--font-mono);font-size:13px;letter-spacing:.04em;
+    color:var(--text-muted);font-variant-numeric:tabular-nums;}
+
+  .filtrow{display:flex;align-items:center;gap:var(--s-6);margin:0 0 var(--s-6);}
+  .filters{display:flex;align-items:center;gap:var(--s-6);min-width:0;}
+  /* §05 rule 01/02: no violet, no pill. The active filter is carried by weight and text colour. */
+  .filt{font:inherit;font-size:var(--t-body);background:none;border:0;padding:2px 0;cursor:pointer;
+    color:var(--text-muted);white-space:nowrap;transition:color .16s;}
+  .filt:hover{color:var(--text);}
+  .filt.on{color:var(--text);font-weight:600;}
+  .filt .ct{color:var(--text-subtle);font-weight:400;font-variant-numeric:tabular-nums;}
+  #projsel{flex:0 0 auto;max-width:200px;margin-left:auto;}   /* a native select: no popover to clip */
 
   /* Confirm bar: the same shape admin uses (#179), replacing confirm(). A modal confirm cannot be
      styled, blocks the page and reads as a browser error rather than as part of the app. */
@@ -56,33 +69,49 @@
   #confirmbar .msg{flex:1;}
 
   /* ---- next up ---- */
-  #nextup:not(:empty){margin:0 0 var(--s-8);}
-  .nu-crumb{font-size:var(--t-meta);color:var(--text-subtle);margin:0 0 var(--s-2);}
-  .nu-title{font-size:var(--t-display);line-height:1.15;letter-spacing:-.02em;font-weight:650;
-    margin:0 0 var(--s-3);}
-  .nu-say{color:var(--text-muted);margin:0 0 var(--s-4);}
+  /* Rev 3: the hero is a tinted block on --code-bg, title 20px (down from --t-display), mono
+     crumb. Promotion rule and CTA logic are unchanged; only the skin moved. */
+  #nextup:not(:empty){display:flex;flex-direction:column;gap:6px;padding:var(--s-4);
+    margin:0 0 var(--s-6);border-radius:var(--r-card);background:var(--code-bg);}
+  .nu-crumb{font-family:var(--font-mono);font-size:var(--t-meta);letter-spacing:.04em;
+    color:var(--text-subtle);margin:0;}
+  .nu-title{font-size:20px;line-height:1.2;letter-spacing:-.015em;font-weight:600;margin:0;}
+  .nu-say{font-size:var(--t-body);color:var(--text-muted);margin:0;}
   /* §05 rule 01: one violet per screen, and this is it. */
-  .nu-go{text-decoration:none;}
+  .nu-go{align-self:flex-start;margin-top:4px;text-decoration:none;}
 
   /* ---- the quiet lists ---- */
-  .grp{margin:0 0 var(--s-6);}
-  .grp-h{font-size:var(--t-meta);color:var(--text-subtle);margin:0 0 var(--s-2);}
-  /* §05 rule 02: a 1px --border-faint hairline SEPARATES rows. The container is the page: no card and
-     no border around the group, so the last row carries no rule. */
-  .rw{position:relative;display:flex;align-items:baseline;gap:var(--s-3);padding:9px 0;}
-  .rw+.rw{border-top:1px solid var(--border-faint);}
-  .rw-l{display:flex;align-items:baseline;gap:var(--s-2);min-width:0;flex:1 1 auto;
+  .grp{margin:0 0 var(--s-8);}
+  /* Rev 3 eyebrows: mono uppercase, and a deliberate asymmetry — "Waiting on you" reads at
+     --text strength, "With the agent" stays subtle. */
+  .grp-h{font-family:var(--font-mono);font-size:12px;line-height:20px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--text-subtle);margin:0 0 var(--s-2);}
+  .grp-yours .grp-h{color:var(--text);}
+  /* Rev 3 rows: the hairline between rows is GONE; a hover tint on --code-bg replaces it, with
+     the row bleeding 12px past the column (negative margins) so the tint reads as a slab. */
+  .rw{position:relative;display:flex;align-items:center;gap:var(--s-3);min-height:52px;
+    padding:var(--s-2) 12px;margin:0 -12px;border-radius:var(--r-control);transition:background .16s;}
+  .rw:hover{background:var(--code-bg);}
+  .rw-l{display:flex;align-items:center;gap:var(--s-3);min-width:0;flex:1 1 auto;
     color:inherit;text-decoration:none;}
-  .rw:hover .rw-t{text-decoration:underline;text-underline-offset:2px;}
-  .rw-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .rw-p{flex:0 0 auto;font-size:var(--t-meta);color:var(--text-subtle);}
-  /* the LATEX marker (MR-098) demoted from a chip to plain text (§05 rule 02) */
-  .rw-k{flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--blue);}
-  .rw-m{flex:0 0 auto;font-size:var(--t-meta);color:var(--text-subtle);white-space:nowrap;
-    transition:opacity .12s;}
-  .rw:hover .rw-m{opacity:0;}   /* the delete button lands here, so get the meta out from under it */
+  .rw-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px;line-height:20px;}
+  .rw-p{flex:0 0 auto;font-size:13px;line-height:20px;color:var(--text-muted);}
+  /* the leading kind cell: every row carries one now, "MD" or "TEX" (rev 3) */
+  .rw-k{flex:0 0 32px;font-family:var(--font-mono);font-size:13px;line-height:20px;font-weight:600;
+    letter-spacing:.04em;color:var(--text-muted);font-variant-numeric:tabular-nums;}
+  /* status/count: its own span, VISIBLE through hover (only the timestamp fades) */
+  .rw-s{flex:0 0 auto;font-family:var(--font-mono);font-size:13px;line-height:20px;
+    color:var(--text-subtle);font-variant-numeric:tabular-nums;}
+  .w-yours .rw-s{font-weight:600;color:var(--text);}
+  .rw-s.live{display:inline-flex;align-items:center;gap:6px;color:var(--accent);}
+  .rw-s.live::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent);}
+  /* the timestamp: fixed-width right-aligned mono, and the ONLY thing that fades under the
+     hover-revealed actions */
+  .rw-m{flex:0 0 auto;width:76px;text-align:right;font-family:var(--font-mono);font-size:13px;
+    line-height:20px;color:var(--text-muted);font-variant-numeric:tabular-nums;transition:opacity .16s;}
+  .rw:hover .rw-m{opacity:0;}   /* the delete button lands here, so get the time out from under it */
   /* §05 rule 03, three weights of row: yours, the agent's, resolved. */
-  .w-yours .rw-t{font-weight:500;color:var(--text);}
+  .w-yours .rw-t{font-weight:600;color:var(--text);}
   .w-agent .rw-t{font-weight:400;color:var(--text-muted);}
   .w-resolved .rw-t{font-weight:400;color:var(--text-subtle);}
 
@@ -103,8 +132,12 @@
   .res:hover{color:var(--success);background:var(--code-bg);}
   .res:focus-visible{opacity:1;}
 
-  .resline{font-size:var(--t-meta);color:var(--text-subtle);}
-  .resline .linklike{margin-top:0;font-size:var(--t-meta);}
+  /* Rev 3: the resolved control is a centred mono link, styled like an eyebrow */
+  .resline{display:flex;justify-content:center;padding-top:var(--s-4);margin:0 0 var(--s-2);}
+  .resline .linklike{margin-top:0;font-family:var(--font-mono);font-size:12px;line-height:20px;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);text-decoration:none;
+    transition:color .16s;}
+  .resline .linklike:hover{color:var(--accent);}
 
   /* Namespaced: a bare `.empty` now collides with Basecoat's own empty-state block, which is
      display:flex/flex:1 and would fight this outright. */
@@ -113,28 +146,36 @@
   .dash-empty code{font-family:var(--font-mono);font-size:var(--t-meta);
     background:var(--code-bg);padding:2px 6px;border-radius:var(--r-control);}
 
-  .sub{color:var(--text-subtle);font-size:var(--t-meta);margin:var(--s-6) 0 0;}
-
-  /* ---- sign-in screen (anonymous; #131) — Basecoat card/input/btn + layout only ---- */
-  .signin-wrap{min-height:100vh;display:none;align-items:center;justify-content:center;padding:24px;}
-  #signin-card{width:100%;max-width:400px;}
-  .signin-brand{display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px;
-    font-weight:600;letter-spacing:-.15px;margin:0 0 12px;}
-  .signin-brand .logo{width:30px;height:30px;border-radius:var(--r-control);
-    background:linear-gradient(135deg,#2f6fed,#7c4dff);color:#fff;display:flex;align-items:center;
-    justify-content:center;font-size:12px;font-weight:700;}
-  #signin-card h1{font-size:21px;font-weight:700;letter-spacing:-.3px;margin:0 0 7px;text-align:center;}
-  #signin-card .lede{color:var(--text-muted);font-size:13.5px;line-height:1.5;text-align:center;margin:0 0 20px;}
-  .signin-field label{display:block;margin:0 0 6px;}
-  .signin-note{color:var(--text-subtle);font-size:12px;text-align:center;margin:16px 0 0;}
+  /* ---- sign-in screen (anonymous; #131) — rev 3: card-less 400px block, brand top-left ---- */
+  .signin-wrap{min-height:100vh;display:none;align-items:center;justify-content:center;padding:var(--s-8);}
+  #signin-card{width:100%;max-width:400px;display:flex;flex-direction:column;}
+  .signin-brand{display:flex;align-items:center;gap:9px;font-size:var(--t-card);
+    font-weight:600;letter-spacing:-.01em;margin:0 0 var(--s-8);}
+  .signin-brand .logo{width:26px;height:26px;border-radius:var(--r-control);
+    background:var(--accent);color:var(--bg);display:flex;align-items:center;
+    justify-content:center;font-family:var(--font-mono);font-size:var(--t-eyebrow);font-weight:600;}
+  #signin-card h1{font-size:var(--t-title);line-height:1.15;font-weight:600;letter-spacing:-.025em;margin:0 0 var(--s-2);}
+  #signin-card .lede{color:var(--text-muted);font-size:var(--t-body);line-height:1.6;margin:0 0 var(--s-6);text-wrap:pretty;}
+  .signin-field label{display:block;font-family:var(--font-mono);font-size:var(--t-eyebrow);
+    letter-spacing:.1em;text-transform:uppercase;color:var(--text-subtle);margin:0 0 7px;}
+  #signin-email{width:100%;height:40px;padding:0 12px;border:1px solid var(--border);
+    border-radius:var(--r-control);background:var(--surface);font:inherit;font-size:var(--t-body);
+    color:var(--text);}
+  #signin-btn{width:100%;height:40px;margin-top:16px;border:0;border-radius:var(--r-control);
+    background:var(--accent);color:var(--bg);font:inherit;font-size:var(--t-body);font-weight:600;
+    cursor:pointer;transition:background .16s;}
+  #signin-btn:hover{background:var(--accent-strong);}
+  /* the footnote: mono, filled by JS from the mirrored magic-link constants */
+  .signin-note{font-family:var(--font-mono);font-size:var(--t-meta);line-height:1.6;
+    color:var(--text-subtle);margin:24px 0 0;}
   /* the always-shown "didn't get it?" note: quieter than the lede so it reads as a footnote */
   #signin-card .lede.signin-fine{font-size:12px;color:var(--text-subtle,var(--text-muted));margin:-8px 0 18px;}
   .signin-ok{text-align:center;}
   .signin-ok .check{width:46px;height:46px;border-radius:var(--r-pill);background:var(--accent-muted);
     color:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
   .signin-ok .addr{color:var(--text);font-weight:600;}
-  .linklike{background:none;border:none;color:var(--link);font:inherit;font-size:12.5px;cursor:pointer;
-    padding:0;margin-top:16px;text-decoration:underline;}
+  .linklike{background:none;border:none;color:var(--accent);font:inherit;font-size:12.5px;cursor:pointer;
+    padding:0;margin-top:16px;text-decoration:underline;text-underline-offset:3px;}
 
   /* ---- #184: the narrow pass (§10) -------------------------------------------------------
      Breakpoint 720px, chosen ABOVE the measured real-Chrome floor: a fresh window asked for
@@ -157,7 +198,7 @@
   .cmdrow{display:flex;align-items:center;gap:var(--s-2);width:100%;padding:9px 10px;
     background:none;border:0;font:inherit;text-align:left;cursor:pointer;color:var(--text);
     transition:background .12s, color .12s;}
-  .cmdrow:hover{background:var(--nav-hover,var(--code-bg));}
+  .cmdrow:hover{background:var(--code-bg);}
   .cmdrow[aria-selected="true"]{background:var(--accent-muted);color:var(--accent);font-weight:550;}
   /* The keyboard cursor needs a second, non-colour signal: hover and selection are otherwise two
      tints of the same idea, and a hovering mouse would hide where the keyboard actually is. */
@@ -208,57 +249,70 @@
     #cmdk .command>header{flex:0 0 auto;}
     #cmdlist{flex:1 1 auto;max-height:none;}
     .cmdrow{min-height:44px;align-items:center;}
-    .rw{min-height:44px;align-items:center;padding:5px 0;}
+    /* #184's 44px floors. Rev 3's base row is already 52px (>= 44), so .rw needs no override
+       here; .rw-l keeps its explicit floor so the tap surface, not just the row, is 44px.
+       The old 32 -> 24px headline step is gone with the headline it stepped: the rev-3 hero
+       title is 20px at every width. */
     .rw-l{align-self:stretch;align-items:center;min-height:44px;}
     .filt{min-height:44px;display:inline-flex;align-items:center;padding:0 var(--s-2);}
     #signin-btn{min-height:44px;}
-    .nu-title{font-size:24px;}
   }
 </style>
 </head>
 <body>
 <div class="signin-wrap" id="signin">
-  <div class="card" id="signin-card"><section>
+  <div id="signin-card">
     <div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>
-    <h1>Sign in to mdreview</h1>
-    <p class="lede">Enter your email and we'll send you a one-time sign-in link. No password needed.</p>
+    <h1>Sign in</h1>
+    <p class="lede">We'll email you a one-time link. No password, and the same link signs you up.</p>
     <form id="signin-form" novalidate>
       <div class="signin-field">
-        <label class="label" for="signin-email">Email</label>
-        <input class="input" id="signin-email" type="email" autocomplete="email"
-               placeholder="you@example.com" required style="width:100%">
+        <label for="signin-email">Email</label>
+        <input id="signin-email" type="email" autocomplete="email"
+               placeholder="you@example.com" required>
       </div>
-      <button class="btn" id="signin-btn" type="submit" style="width:100%;margin-top:14px">Send sign-in link</button>
+      <button id="signin-btn" type="submit">Send sign-in link</button>
     </form>
-    <p class="signin-note">New here? The same link signs you up.</p>
-  </section></div>
+    <!-- filled by JS from the mirrored magic-link constants, so the numbers cannot fork -->
+    <p class="signin-note" id="signin-note"></p>
+  </div>
 </div>
 <!-- #app is INSIDE nothing and the top line is INSIDE it: the shell must not render over the
      sign-in screen, which draws its own brand and wants no account menu. -->
 <div id="app" style="display:none">
+  <!-- Between .searchbox and #acct is where #285 lands its 30x30 theme toggle; this page ships
+       no toggle (element, icons, behaviour are all #285's) but the line must fit one without
+       wrapping — tests/dashboard_reskin_selfcheck.sh injects a [data-theme-icon] slot there and
+       measures. -->
   <div class="app-top">
     <a class="brand" href="/"><span class="mark">md</span><span>mdreview</span></a>
-    <nav class="filters" id="inbox" aria-label="Inbox filters">
-      <button type="button" class="filt" data-filter="needs">Yours <span class="ct" id="ct-needs">0</span></button>
-      <span class="fdot" aria-hidden="true">·</span>
-      <button type="button" class="filt" data-filter="working">Working <span class="ct" id="ct-working">0</span></button>
-      <span class="fdot" aria-hidden="true">·</span>
-      <button type="button" class="filt" data-filter="resolved">Resolved <span class="ct" id="ct-resolved">0</span></button>
-    </nav>
     <span class="spacer"></span>
-    <input id="search" class="input" type="search" placeholder="Search reviews…" autocomplete="off"
-           aria-label="Search reviews">
-    <select id="projsel" class="input" aria-label="Filter by project"><option value="">All projects</option></select>
+    <div class="searchbox">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="search" type="search" placeholder="Search reviews" autocomplete="off"
+             aria-label="Search reviews">
+      <span class="kbd-hint" aria-hidden="true">⌘K</span>
+    </div>
     <div id="acct"></div>
   </div>
   <div class="app-col">
-    <h1 class="vh" id="h1">All reviews</h1>
     <div id="confirmbar"><span class="msg"></span><button class="btn" data-variant="destructive" data-size="sm" id="cfy">Delete</button><button class="btn" data-variant="outline" data-size="sm" id="cfn">Cancel</button></div>
     <div id="flash" class="flash" role="status" aria-live="polite"></div>
     <section id="nextup"></section>
+    <div class="head">
+      <h1 id="h1">Documents</h1>
+      <p class="sub" id="sub">Loading…</p>
+    </div>
+    <div class="filtrow">
+      <nav class="filters" id="inbox" aria-label="Inbox filters">
+        <button type="button" class="filt" data-filter="needs">Yours <span class="ct" id="ct-needs">0</span></button>
+        <button type="button" class="filt" data-filter="working">Working <span class="ct" id="ct-working">0</span></button>
+        <button type="button" class="filt" data-filter="resolved">Resolved <span class="ct" id="ct-resolved">0</span></button>
+      </nav>
+      <select id="projsel" class="input" aria-label="Filter by project"><option value="">All projects</option></select>
+    </div>
     <div id="list"></div>
     <div class="noresults" id="noresults">No reviews match your search.</div>
-    <p class="sub" id="sub">Loading…</p>
   </div>
 </div>
 <!-- Before the inline block, not after it: boot() runs at parse time and needs window.mdSession. -->
@@ -332,8 +386,8 @@ function countLabel(r){
 function row(r){
   const st=statusOf(r), grp=GROUP_OF[st];
   const t=esc(r.title||r.id), pr=esc(r.project||r.session||""), pa=esc(r.source_path||"");
-  const kind=(r.kind==="latex")?`<span class="rw-k">LATEX</span>`:"";
-  const meta=STATUSTEXT[st](r)+" · "+rel(activity(r));
+  // rev 3: EVERY row leads with a mono kind cell — "TEX" for latex, "MD" for markdown
+  const kind=`<span class="rw-k">${r.kind==="latex"?"TEX":"MD"}</span>`;
   // #187 manual resolve. A manually resolved row offers "Reopen" (clears the sticky flag); an
   // unresolved row offers "Mark resolved". A row that DERIVED resolved (every comment addressed)
   // gets neither: there is no flag to clear, so a reopen control here would be a lie.
@@ -342,9 +396,12 @@ function row(r){
     : (r.status!=="resolved"
       ? `<button class="res" data-id="${esc(r.id)}" data-to="1" title="Mark resolved" aria-label="Mark ${t} resolved">${CHECK}</button>`
       : "");
+  // rev 3 splits the old combined meta: the status/count span STAYS visible on hover, the
+  // fixed-width timestamp span alone fades under the revealed actions.
   return `<div class="rw w-${grp}" data-id="${esc(r.id)}" data-title="${t}" data-project="${pr}" data-path="${pa}">
     <a class="rw-l" href="/review/${encodeURIComponent(r.id)}">${kind}<span class="rw-t">${t}</span>${pr?`<span class="rw-p">${pr}</span>`:""}</a>
-    <span class="rw-m">${esc(meta)}</span>
+    <span class="rw-s${st==="agent-working"?" live":""}">${esc(STATUSTEXT[st](r))}</span>
+    <span class="rw-m">${esc(rel(activity(r)))}</span>
     ${act}<button class="del" data-id="${esc(r.id)}" data-title="${t}" aria-label="Delete ${t}">${TRASH}</button>
   </div>`;
 }
@@ -375,7 +432,8 @@ function matchesFilter(r){
   return (INBOX[activeFilter]||INBOX.all)(r);
 }
 function filterTitle(){
-  const base={all:"All reviews",needs:"Yours",working:"With the agent",resolved:"Resolved"}[activeFilter]||"All reviews";
+  // rev 3: "Documents" is the all-reviews resting label; the filter names stay per view
+  const base={all:"Documents",needs:"Yours",working:"With the agent",resolved:"Resolved"}[activeFilter]||"Documents";
   return activeProject ? base+" · "+activeProject : base;
 }
 
@@ -436,34 +494,36 @@ function render(){
   // Resolved is collapsed in the resting view and open whenever it was asked for by name.
   const resOpen = showResolved || activeFilter==="resolved" || !!q;
   let h="";
-  h+=group(next ? bucket.yours.length+" more for you" : "For you", bucket.yours);
+  h+=group(next ? bucket.yours.length+" more waiting on you" : "Waiting on you", bucket.yours, "grp-yours");
   h+=group("With the agent", bucket.agent);
   if(bucket.resolved.length){
-    h+=`<div class="grp"><div class="grp-h resline">${bucket.resolved.length} resolved · `
-      +`<button class="linklike" id="browseall">${resOpen?"hide":"browse all"}</button></div>`
+    h+=`<div class="grp"><div class="resline">`
+      +`<button class="linklike" id="browseall">${resOpen?"Hide resolved":"Browse all "+bucket.resolved.length+" resolved"}</button></div>`
       +(resOpen?bucket.resolved.map(row).join(""):"")+`</div>`;
   }
   $("#list").innerHTML=h;
 
   const shown=matched.length;
-  // The heading that used to say which view you were in is now visually hidden, so the empty
-  // result has to say whether it was the search or the filter that emptied it.
+  // The empty result still says whether it was the search or the filter that emptied it: the
+  // heading names the view, not the reason the view is empty.
   const nores=$("#noresults");
   nores.textContent=q?"No reviews match your search.":"Nothing in this view.";
   nores.style.display=(shown?"none":"block");
   const projects=new Set(allReviews.filter(r=>r.project).map(r=>r.project)).size;
-  $("#sub").textContent=`${shown} review${shown===1?"":"s"} · ${projects} project${projects===1?"":"s"}`;
+  $("#sub").textContent=`${shown} · ${projects} project${projects===1?"":"s"}`;
 }
-function group(label, rows){
+function group(label, rows, cls){
   if(!rows.length) return "";
-  return `<div class="grp"><div class="grp-h">${esc(label)}</div>${rows.map(row).join("")}</div>`;
+  return `<div class="grp${cls?" "+cls:""}"><div class="grp-h">${esc(label)}</div>${rows.map(row).join("")}</div>`;
 }
 function nextUp(r){
   const crumb=[r.project||r.session||"", (r.revision||0)>0?"v"+r.revision:"", rel(activity(r))].filter(Boolean);
   const open=Math.max(0,(r.notes_total||0)-(r.notes_addressed||0));
+  // rev 3 say line: "N open comments" while there is something to read; countLabel otherwise
+  const say=open?`${open} open comment${open===1?"":"s"}`:countLabel(r);
   return `<div class="nu-crumb">${esc(crumb.join(" · "))}</div>
     <h2 class="nu-title">${esc(r.title||r.id)}</h2>
-    <p class="nu-say">${esc(countLabel(r))}${r.kind==="latex"?" · LaTeX paper":""}</p>
+    <p class="nu-say">${esc(say)}${r.kind==="latex"?" · LaTeX paper":""}</p>
     <a class="btn nu-go" href="/review/${encodeURIComponent(r.id)}">${open?"Read the comments":"Open review"}</a>`;
 }
 
@@ -511,10 +571,13 @@ $("#search").addEventListener('input', render);
 $("#projsel").addEventListener('change', e=>{ activeProject=e.target.value; render(); });
 // ---- auth gating (#131): anonymous visitors get the sign-in screen, not the empty dashboard ----
 const MAIL='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';
-// Magic-link send limits, mirrored from MagicLink's defaults in src/mdreview/hosted/magiclink.py
-// (max_per_address=3, address_window_s=900). Copy only — the SERVER stays the sole enforcer; this is
-// for telling the user why a link may not have arrived. Keep in sync if those defaults change.
-const LINK_MAX=3, LINK_WINDOW_MS=900000, LINK_KEY='mdr.linkreq.';
+// Magic-link limits, mirrored from MagicLink's defaults in src/mdreview/hosted/magiclink.py
+// (ttl_s=900 -> LINK_TTL_MIN, max_per_address=3, address_window_s=900). Copy only — the SERVER
+// stays the sole enforcer; this is for telling the user why a link may not have arrived (and,
+// via #signin-note, what to expect). Keep in sync if those defaults change.
+const LINK_MAX=3, LINK_WINDOW_MS=900000, LINK_TTL_MIN=15, LINK_KEY='mdr.linkreq.';
+// The resting footnote renders from the mirrored constants, never a second hard-coding.
+$("#signin-note").textContent=`Links last ${LINK_TTL_MIN} minutes · ${LINK_MAX} per address`;
 // Request timestamps are tracked HERE, in the browser, on purpose: the /auth/magic-link response is a
 // single constant body precisely so a caller cannot probe rate state or enumerate addresses. Reporting
 // the throttle from local history keeps the user informed without the server disclosing anything.
@@ -559,14 +622,14 @@ function initSignin(){
       : `If <span class="addr">${esc(addr)}</span> can sign in, a link is on its way.<br>`+
         `It's valid once and expires shortly.`;
     $("#signin-card").innerHTML=
-      `<section><div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
+      `<div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
       `<div class="signin-ok"><div class="check">${MAIL}</div>`+
       `<h1>Check your email</h1>`+
       `<p class="lede">${lede}</p>`+
       // Shown to everyone, always the same text, so it reveals nothing about this address.
       `<p class="lede signin-fine">Didn't get it? Check your spam folder. Sign-in links are limited to `+
       `${LINK_MAX} per 15 minutes per address.</p>`+
-      `<button class="linklike" onclick="location.reload()">Use a different email</button></div></section>`;
+      `<button class="linklike" onclick="location.reload()">Use a different email</button></div>`;
   });
 }
 // #221: a server we could not reach is not a server that signed us out. Showing the magic-link form
@@ -574,11 +637,11 @@ function initSignin(){
 function showUnreachable(){
   $("#app").style.display="none"; $("#signin").style.display="flex";
   $("#signin-card").innerHTML=
-    `<section><div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
+    `<div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
     `<h1>Can't reach mdreview</h1>`+
     `<p class="lede">The server didn't answer. You have <b>not</b> been signed out, so there's no `+
     `need to request a new link.</p>`+
-    `<button class="linklike" onclick="location.reload()">Try again</button></section>`;
+    `<button class="linklike" onclick="location.reload()">Try again</button>`;
 }
 async function boot(){
   const res=await window.mdSession.read();
