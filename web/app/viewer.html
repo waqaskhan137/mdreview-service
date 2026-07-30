@@ -255,12 +255,30 @@
      this page's own layout, stays here. */
   #diffpane{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.6;
     border:1px solid var(--rule);border-radius:var(--r-card,12px);overflow:hidden;margin:8px 0 40px;}
+
+  /* ---- #290 in-place editor (epic #273 slice B) ------------------------------------------------
+     Mutually exclusive with #diffpane / #article (only one pane is ever unhidden at a time — see
+     the JS-side rule next to openEditor()). Edit is a plain raw-source textarea on purpose: no
+     contenteditable, no HTML-to-markdown conversion, ever. */
+  #editpane{margin:8px 0 40px;}
+  #editbar{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+  .editspacer{flex:1;}
+  #editnotice{flex:1 1 auto;font-size:12.5px;line-height:1.5;color:var(--warn);background:var(--warn-bg);
+    border:1px solid var(--warn-rule);border-radius:var(--r-control);padding:7px 11px;}
+  #editnotice .btn{font-size:11.5px;padding:3px 10px;margin-left:6px;}
+  #edittext{width:100%;min-height:60vh;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:14px;line-height:1.6;border:1px solid var(--rule);border-radius:var(--r-card,12px);
+    padding:16px;background:var(--panel);color:var(--text);resize:vertical;}
+  #edittext:focus{outline:none;border-color:var(--brand);}
+  /* the diff toggle is disabled (not hidden) while editing, so its presence in the bar is stable —
+     only its affordance changes, per the stated edit/diff mutual-exclusion rule. */
+  .tb-btn:disabled{opacity:.4;cursor:not-allowed;}
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span><span class="filename" id="filename">loading…</span></div>
-  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><button id="difftoggle" class="tb-btn difftoggle" type="button" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
+  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><button id="editbtn" class="tb-btn" type="button" style="display:none">Edit</button><button id="difftoggle" class="tb-btn difftoggle" type="button" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
 </header>
 <div class="wrap">
   <nav class="breadcrumb" id="breadcrumb"></nav>
@@ -268,6 +286,15 @@
   <div id="docmeta"></div>
   <div id="article">Loading...</div>
   <div id="diffpane" hidden></div>
+  <div id="editpane" hidden>
+    <div id="editbar">
+      <span id="editnotice" hidden></span>
+      <span class="editspacer"></span>
+      <button id="editcancel" class="btn" type="button">Cancel</button>
+      <button id="editsave" class="btn primary" type="button">Save</button>
+    </div>
+    <textarea id="edittext" spellcheck="false"></textarea>
+  </div>
 </div>
 
 <button id="addbtn">+ comment</button>
@@ -298,6 +325,7 @@
 <div id="lightbox"><img alt="zoomed figure"></div>
 <div id="toast"></div>
 <script src="/static/linediff.js"></script>
+<script src="/static/editguard.js"></script>
 <script src="/static/marked.min.js"></script>
 <script src="/static/mermaid.min.js"></script>
 <script src="/static/katex.min.js"></script>
@@ -315,6 +343,16 @@ let cur=null;           // pending anchor while authoring a comment
 let lastSrc=0;          // source_updated (doc live-reload)
 let lastCmt=0;          // comments_updated (thread live-reload)
 let confirming=null;    // comment_id with a pending inline delete-confirm (guards the poll re-render)
+
+// ---- #290 in-place editor state (epic #273 slice B) -------------------------------------------
+let CAN_EDIT=false;     // /status.can_edit (#288) — the ONLY edit gate; never the /shares 200/404
+                         // probe initShare() uses (that route has no arm on the local tier at all).
+let EDITON=false;       // editor open (mutually exclusive with DIFFON — see openEditor())
+let EDITREV=null;       // the revision this editor session read WITH the source (never a second
+                         // fetch — see openEditor()); sent back as If-Match on save.
+let EDITORIG="";        // the buffer's value as loaded/reloaded, to ask before discarding edits
+let EDITACK=null;       // remote revision the user already dismissed the change-notice for, so
+                         // the 2s poll doesn't re-nag about the same change every tick
 
 function toast(msg){const t=$("#toast");t.textContent=msg;t.style.opacity=1;clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.opacity=0,1800);}
 function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
@@ -442,6 +480,7 @@ async function load(){
   let md=await fetch(API+'/source',{cache:'no-store'}).then(r=>r.text());
   const st=await fetch(API+'/status').then(r=>r.json()).catch(()=>({}));
   lastSrc=st.source_updated||0;lastCmt=st.comments_updated||0;
+  setEditVisible(!!st.can_edit);   // #290 edit gate — can_edit ONLY, never the /shares probe
   // extract YAML front matter (for the title) and strip it
   let title="";
   const fm=md.match(/^﻿?\s*---\r?\n([\s\S]*?)\r?\n---\s*/);
@@ -780,11 +819,125 @@ function poll(){
     if(addbtn.style.display==='block'||$("#pop").style.display==='block'||confirming)return;
     try{
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
+      setEditVisible(!!s.can_edit);
+      // #290: the live-reload poll is suppressed while the editor is open — it must never clobber
+      // the buffer with load()'s re-render. It keeps watching /status (already fetched above, no
+      // extra request) so a remote change is still detected; the human is told and chooses reload
+      // vs keep-editing, per EDITACK below, rather than losing the draft to a silent re-render.
+      if(EDITON){
+        if(mdEdit.shouldWarnRemoteChange(true,EDITREV,s.revision)&&s.revision!==EDITACK){
+          showRemoteChangeNotice('The document changed while you were editing (the agent pushed a new revision).',s.revision);
+        }
+        return;
+      }
       if(s.source_updated&&s.source_updated!==lastSrc){await fetchComments();await load();toast('Draft updated by AI');await onAgentPush();}
       else if(s.comments_updated&&s.comments_updated!==lastCmt){lastCmt=s.comments_updated;await fetchComments();renderAll();}
     }catch(e){}
   },2000);
 }
+
+// ---- #290 in-place editor (epic #273 slice B) --------------------------------------------------
+// Owner-only (can_edit, #288) raw-markdown textarea over GET/PUT .../source. Explicitly NO
+// contenteditable and NO HTML-to-markdown conversion, ever — the textarea's value IS the document.
+//
+// Mutual exclusion, decided here (the rule the ticket asks be written down before code): edit mode
+// and diff mode share the same pane real estate (#article / #diffpane / #editpane are siblings that
+// are never unhidden together), so opening one always wins it — entering Edit force-closes an open
+// diff (closeEditor() does the reverse implicitly: it just re-shows #article, and the diff toggle
+// re-enables). The version-history modal is a separate full-screen overlay with its own view, not a
+// pane owner, so it stays reachable (read-only) while editing; it does not touch the draft buffer.
+function setEditVisible(can){
+  CAN_EDIT=can;
+  const b=$("#editbtn");if(b)b.style.display=can?'':'none';
+}
+// Same one-line seam initShare() uses for /auth/session's csrf field (#289's session-keyed CSRF).
+// Not reused as a shared global: initShare()'s _shareCsrf is fetched unawaited during boot() and a
+// fast click on Edit could race it, so the editor always resolves its own token before a save.
+async function currentCsrf(){
+  if(_shareCsrf)return _shareCsrf;
+  try{ return ((await fetch("/auth/session",{cache:"no-store"}).then(x=>x.json()))||{}).csrf || ""; }
+  catch(e){ return ""; }
+}
+function hideEditNotice(){ const n=$("#editnotice");if(n){n.hidden=true;n.innerHTML='';} }
+// One banner, two callers: a remote change spotted by the poll while editing, and a 409 on save
+// (which IS a remote change, just discovered at save time instead of on a tick). Idempotent and
+// revision-guarded (EDITACK) so it doesn't re-render out from under the user every 2s once shown.
+function showRemoteChangeNotice(msg,remoteRev){
+  const n=$("#editnotice");if(!n)return;
+  n.hidden=false;
+  n.innerHTML=escapeHtml(msg)+' Your edits are still in this box — nothing was resent automatically.'+
+    ' <button class="btn" id="editreload" type="button">Reload latest</button>'+
+    ' <button class="btn" id="editkeep" type="button">Keep editing</button>';
+  $("#editreload").onclick=reloadEditor;
+  $("#editkeep").onclick=()=>{ EDITACK=remoteRev===undefined?null:remoteRev; hideEditNotice(); };
+}
+async function openEditor(){
+  if(!CAN_EDIT)return;
+  if(DIFFON){ DIFFON=false;syncDiffVisibility(); }   // edit wins the pane; see the comment above
+  let r; try{ r=await fetch(API+'/source',{cache:'no-store'}); }catch(e){ toast('Could not load the document');return; }
+  if(!r.ok){ toast('Could not load the document');return; }
+  const md=await r.text();
+  // #288/#290: the token is taken from THIS response — never a second /status fetch, which is
+  // exactly the lost-update race the precondition exists to close (a write landing between two
+  // fetches would hand the editor old text paired with a newer token).
+  EDITREV=mdEdit.parseRevision(r.headers.get('ETag'));
+  EDITORIG=md;EDITACK=null;hideEditNotice();
+  $("#edittext").value=md;
+  EDITON=true;
+  $("#difftoggle").disabled=true;
+  $("#article").hidden=true;$("#diffpane").hidden=true;$("#editpane").hidden=false;
+  $("#edittext").focus();
+}
+async function reloadEditor(){
+  let r; try{ r=await fetch(API+'/source',{cache:'no-store'}); }catch(e){ toast('Could not reload');return; }
+  if(!r.ok){ toast('Could not reload');return; }
+  EDITORIG=await r.text();
+  EDITREV=mdEdit.parseRevision(r.headers.get('ETag'));
+  $("#edittext").value=EDITORIG;
+  EDITACK=null;hideEditNotice();
+  toast('Reloaded the latest revision');
+}
+function closeEditor(){
+  EDITON=false;EDITREV=null;EDITACK=null;
+  hideEditNotice();
+  $("#editpane").hidden=true;$("#article").hidden=false;
+  $("#difftoggle").disabled=false;
+}
+function requestCloseEditor(){
+  if(!EDITON)return;
+  if($("#edittext").value!==EDITORIG&&!confirm('Discard your unsaved changes?'))return;
+  closeEditor();
+}
+async function saveEditor(){
+  if(!EDITON)return;
+  // EDITREV is set by openEditor() from the SAME response as the source text, always, once a
+  // session is genuinely open. A null revision here means Save fired without that precondition —
+  // refuse rather than fall back to an unconditional write, which would silently defeat the whole
+  // guard this ticket exists to add (epic #273 slice A1/B).
+  if(EDITREV===null){ toast('Could not confirm the document revision — reopen the editor and try again.'); return; }
+  const btn=$("#editsave");btn.disabled=true;
+  try{
+    const csrf=await currentCsrf();
+    const headers=mdEdit.buildSaveHeaders({revision:EDITREV,csrf:csrf});
+    const r=await fetch(API+'/source',{method:'PUT',headers,body:JSON.stringify({markdown:$("#edittext").value})});
+    if(r.status===409){
+      // #273 slice B AC: buffer preserved, editor stays open, explicit "changed by the agent"
+      // message, NEVER auto-resend the buffer against the fresh revision.
+      let payload={};try{payload=await r.json();}catch(e){}
+      const rev=(payload&&typeof payload.current_revision==='number')?payload.current_revision:null;
+      showRemoteChangeNotice('This document was changed by the agent while you were editing.',rev);
+      return;
+    }
+    if(!r.ok){ toast('Could not save');return; }
+    closeEditor();
+    await fetchComments();await load();await refreshDiffAvail();
+    toast('Saved');
+  }catch(e){ toast('Could not save'); }
+  finally{ btn.disabled=false; }
+}
+$("#editbtn").onclick=openEditor;
+$("#editcancel").onclick=requestCloseEditor;
+$("#editsave").onclick=saveEditor;
 
 // --- version history (read-only) ---
 let HISTVERS=[];        // [{n,label}] versions for the compare pickers (newest-first: current, then rounds)
@@ -891,6 +1044,7 @@ function applyDiffMode(){
   if(DIFFON)paintInlineDiff();
 }
 $("#difftoggle").onclick=()=>{
+  if(EDITON)return;   // #290: edit/diff are mutually exclusive; the button is also .disabled while editing
   DIFFON=!DIFFON;
   $("#difftoggle").classList.remove('hinted');   // acted on; stop advertising
   applyDiffMode();
@@ -935,6 +1089,10 @@ document.addEventListener('click',e=>{
 // actually open, so Escape shuts the topmost open thing and nothing underneath it. Registration
 // order is outermost-first: the lightbox was the only Escape handler before, and it stays last
 // resort. Behaviour when the lightbox is the only thing open is unchanged.
+// #290: the editor is a base-pane state (like #diffpane), not a floating overlay, and nothing can
+// open on top of it in practice (#article — the only click surface for the lightbox — is hidden
+// while editing). Pushed first = lowest priority = true last resort, below every real overlay.
+mdKeys.pushEscape(()=>{ if(!EDITON)return false; requestCloseEditor(); return true; });
 mdKeys.pushEscape(()=>{const l=$("#lightbox");if(!l||l.style.display!=='flex')return false;l.style.display='none';return true;});
 mdKeys.pushEscape(()=>{const h=$("#histmodal");if(!h||h.style.display!=='flex')return false;h.style.display='none';return true;});
 mdKeys.pushEscape(()=>{const p=$("#pop");if(!p||p.style.display!=='block')return false;p.style.display='none';return true;});
