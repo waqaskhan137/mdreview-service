@@ -293,6 +293,10 @@
   /* the diff toggle is disabled (not hidden) while editing, so its presence in the bar is stable —
      only its affordance changes, per the stated edit/diff mutual-exclusion rule. */
   .tb-btn:disabled{opacity:.4;cursor:not-allowed;}
+  /* theme.css's shared `.difftoggle{display:inline-flex}` (an AUTHOR rule) defeats the UA's
+     [hidden]{display:none}, so before any agent push the pill rendered despite refreshDiffAvail()
+     setting hidden. Re-assert the gate at author level (#279 AC18; pre-existing on dev). */
+  #difftoggle[hidden]{display:none;}
 </style>
 </head>
 <body>

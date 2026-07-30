@@ -114,7 +114,8 @@ return "CHROME chip="+(chip?chip.textContent:"MISSING")
  +" eyebrow="+(document.querySelector("#breadcrumb").textContent||"EMPTY").replace(/ /g,"_")
  +" turn="+/Your turn/.test(document.querySelector("#docmeta").textContent)
  +" words="+/\d[\d,]* words/.test(document.querySelector("#docmeta").textContent)
- +" toggleslot="+!!document.querySelector("#sharebtn")+" acct="+!!document.querySelector("#acct");})()'
+ +" toggleslot="+!!document.querySelector("#sharebtn")+" acct="+!!document.querySelector("#acct")
+ +" dgate="+(getComputedStyle(document.querySelector("#difftoggle")).display==="none");})()'
 LAB='(()=>{const card=document.querySelector("#gutter .gcard");
 const whos=[...card.querySelectorAll(".gwho")].map(x=>x.textContent).join("|");
 const avs=[...card.querySelectorAll(".gav")].map(x=>x.textContent).join("|");
@@ -184,6 +185,11 @@ if [ -z "$m" ]; then bad "chrome: no measurement"; else
   case "$(field "$m" eyebrow)" in *pushed*) ok "AC20: eyebrow shows pushed-<ago> (present segments only)";; *) bad "AC20: eyebrow '$(field "$m" eyebrow)' has no pushed segment";; esac
   [ "$(field "$m" turn)" = "true" ] && ok "AC20: 'Your turn' renders (turn=reviewer, not resolved)" || bad "AC20: no 'Your turn' in the title meta line"
   [ "$(field "$m" words)" = "true" ] && ok "AC20: words/min in the title meta line" || bad "AC20: no words count in the title meta line"
+  # AC18: with zero history rounds the Diff pill must not RENDER. The [hidden] attribute alone is
+  # not enough: theme.css's author-level `.difftoggle{display:inline-flex}` beats the UA rule, the
+  # exact pre-existing leak #279 plugs. Computed display is the outcome, so this asserts that.
+  [ "$(field "$m" dgate)" = "true" ] && ok "AC18: diff pill computes display:none before any agent push" \
+    || bad "AC18: the diff pill RENDERS on a review with no earlier round (the [hidden] gate is defeated)"
 fi
 
 m="$(line "$p1" LAB)"
