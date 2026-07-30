@@ -69,3 +69,8 @@ jobs:
       # its own local + hosted instances.
       - name: Source CSRF + attribution selfcheck
         run: python3 tests/source_csrf_attribution_selfcheck.py
+
+      # #267: GET /api/reviews/{id}/shares resolves `email` per named share; a resolvable subject
+      # yields the address, an unresolvable one yields "". Stdlib-only, boots its own server.
+      - name: Review shares email selfcheck
+        run: python3 tests/review_shares_email_selfcheck.py

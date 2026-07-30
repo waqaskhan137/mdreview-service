@@ -689,7 +689,10 @@ boot();
 // Depends only on API/ID (defined above) + the #sharebtn/#sharepop topbar markup. Keep in sync.
 let _shareCsrf = "", _pubRight = null, _shares = [];
 function _esc(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
-function _shareLabel(subject){ return (subject||"").replace(/^user:/,"").replace(/^email:/,""); } // grantee email
+// Grantee label: prefer the server-resolved email in the /shares payload; "" or absent means the
+// account is genuinely unknown (#267), so show the opaque subject marked unresolved rather than
+// dressing a raw provider:sub uid up as an address.
+function _shareLabel(s){ if(s && s.email) return s.email; const raw=((s&&s.subject)||"").replace(/^user:/,""); return raw ? raw+" (unresolved)" : "(unknown)"; }
 async function initShare(){
   const btn = document.getElementById("sharebtn"), pop = document.getElementById("sharepop");
   if(!btn) return;
@@ -711,7 +714,7 @@ async function refreshShares(){
 function renderShare(){
   const pop = document.getElementById("sharepop"), on = !!_pubRight;
   const rows = _shares.length
-    ? _shares.map(s=>'<div class="share-item"><span class="em" title="'+_esc(_shareLabel(s.subject))+'">'+_esc(_shareLabel(s.subject))+'</span><span class="rt">'+_esc(s.right)+'</span><button class="rm" type="button" data-subject="'+_esc(s.subject)+'" title="Remove access">&times;</button></div>').join("")
+    ? _shares.map(s=>'<div class="share-item"><span class="em" title="'+_esc(_shareLabel(s))+'">'+_esc(_shareLabel(s))+'</span><span class="rt">'+_esc(s.right)+'</span><button class="rm" type="button" data-subject="'+_esc(s.subject)+'" title="Remove access">&times;</button></div>').join("")
     : '<div class="share-empty">No one yet.</div>';
   pop.innerHTML =
     '<h3>Share this review</h3>' +

@@ -162,7 +162,13 @@ class SharingModule:
             if p is None:
                 return True
             self._json(h, 200, {"rid": rid, "public": self.shares.public_right(rid),
-                                "shares": self.shares.list_named(rid)})
+                                # Resolve email server-side, exactly as _account_shares does:
+                                # list_named returns an opaque user:<provider:sub>. "" means we
+                                # genuinely do not know, and the UI must say so (#267); it is
+                                # never invented from the uid.
+                                "shares": [{**n, "email": self.users.email_for(
+                                                (n.get("subject") or "").replace("user:", "", 1))}
+                                           for n in self.shares.list_named(rid)]})
             return True
         if m == "POST":
             return self._invite(h, rid)
