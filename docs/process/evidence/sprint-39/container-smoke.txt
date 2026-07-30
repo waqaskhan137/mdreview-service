@@ -1,0 +1,52 @@
+sprint-39 G7 container smoke (the working agreement's G7 condition: container rebuild +
+curl /healthz + /api/reviews). Reviewer: staff-critic. origin/dev @ ca838f4.
+
+$ docker build -f infra/Dockerfile -t mdreview-g7-39:test .   -> exit 0
+#10 naming to docker.io/library/mdreview-g7-39:test done
+#10 unpacking to docker.io/library/mdreview-g7-39:test 0.1s done
+#10 DONE 0.4s
+
+$ docker run -d --name mdr-g7-39 -p 8271:8080 -v <throwaway>:/data mdreview-g7-39:test
+f46a531a8bfd381e6ad4f4a1e4a4ce5dba3ac7605aa7a3e7684e91c33541d262
+
+$ curl /healthz
+{"ok": true}  HTTP 200
+
+$ curl GET /api/reviews   (empty store)
+{"reviews": []}
+  HTTP 200
+
+$ curl POST /api/reviews
+  id=8260866412
+
+$ curl GET /api/reviews   (carries the created review)
+{"reviews": [{"id": "8260866412", "title": "", "created": 1785402150.5583167, "source_updated": 1785402150.5583167, "revision": 0, "project": "", "source_path": "", "session": "", "owner": "", "notes_total": 0, "notes_addressed": 0, "turn": "reviewer", "status": "awaiting"}]}
+
+$ curl -D- GET /api/reviews/$RID/source   (#288 ETag issued with the body)
+HTTP/1.0 200 OK
+ETag: "0"
+
+$ curl GET /api/reviews/$RID/status   (#187 status, #288 revision+can_edit, #289 source_updated_by)
+{"status": "awaiting", "source_updated": 1785402150.5583167, "feedback_updated": 0, "comments_updated": 0, "turn": "reviewer", "turn_updated": 0, "handoff": null, "agent_status": null, "revision": 0, "can_edit": true, "source_updated_by": "agent"}
+
+$ served pages
+  /                        -> 200
+  /account                 -> 200
+  /admin                   -> 404
+  /review/8260866412       -> 200
+  /static/editguard.js     -> 200
+  (/admin 404 is correct: the admin console is a hosted-plane module, absent on a local build)
+
+$ docker exec grep of the image's own web/ and src/ (the sprint's UI bytes really are baked in)
+  web/latex-viewer.html "NOT yet lost" (#291 wording fix): 1
+  web/viewer.html editpane (#290): 5
+  web/viewer.html mdEdit (#290 editguard binding): 4
+  web/dashboard.html resolve row action (#187): 2
+  web/admin.html auditcard (#144): 3
+  src/mdreview/hosted/sharing.py email_for in _shares (#267): 2
+  src/mdreview/server.py #266 markers: 4
+  src/mdreview/hosted/authroutes.py magiclink_send_failed (#302): 1
+  src/mdreview/reconcile.py custody_reviewed_at (#272): 12
+
+$ docker rm -f mdr-g7-39
+mdr-g7-39

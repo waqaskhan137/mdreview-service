@@ -1,0 +1,53 @@
+sprint-39 G7: the staging-deployment claim, verified rather than taken from the tickets.
+Reviewer: staff-critic. 2026-07-30 (Europe/London). origin/dev HEAD = ca838f4.
+
+Every G5 comment in this sprint asserts "staging's .deployed-digest confirmed serving that
+build". That is one claim, checked four ways below. The decisive one is the last: editguard.js
+exists only from ca838f4, which is origin/dev HEAD, so an image carrying it can only have been
+built from HEAD.
+
+1. the marker on the host
+$ ssh kapture 'cat ~/mdreview-staging/.deployed-digest; ls -la ~/mdreview-staging/.deployed-digest'
+ghcr.io/ranawaqas-ai/mdreview-service-latex@sha256:251a9d0b449cc2b84fc347f037d7145b85e2828da8c1b6b21cae9a306c831511
+-rw-r--r-- 1 rana rana 116 Jul 30 01:08 /home/rana/mdreview-staging/.deployed-digest
+
+2. the image the marker names, and the container running it
+$ ssh kapture "docker image inspect <that digest> --format ..."
+RepoTags=[ghcr.io/ranawaqas-ai/mdreview-service-latex:dev]
+RepoDigests=[ghcr.io/ranawaqas-ai/mdreview-service-latex@sha256:251a9d0b449cc2b84fc347f037d7145b85e2828da8c1b6b21cae9a306c831511]
+ImageCreated=2026-07-30T00:55:07.233784504Z
+ContainerImage=sha256:251a9d0b449cc2b84fc347f037d7145b85e2828da8c1b6b21cae9a306c831511
+ContainerCreated=2026-07-30T01:08:11.715529199Z
+
+3. the CI run that produced it
+$ gh run list --workflow=staging-image.yml   (newest 4)
+  run=30504063040 head=ca838f4b success concluded=2026-07-30T00:55:20Z  feat(ui): markdown viewer in-place edit UI (#290) (#
+  run=30503749014 head=8d6c54a2 success concluded=2026-07-30T00:49:18Z  fix(ui): 409 edit-save message stops implying reopen
+  run=30503399766 head=3a14d615 success concluded=2026-07-30T00:41:55Z  feat(ui): latex viewer edit UI — 400 rejected-write 
+  run=30502165494 head=c05a518c success concluded=2026-07-30T00:17:14Z  fix(hosted): shares payload carries grantee email; v
+
+  Image config Created 2026-07-30T00:55:07Z sits 13 s inside the run for ca838f4, which
+  concluded 00:55:20Z. No staging-image run has run since. The container was created
+  2026-07-30T01:08:11Z and the marker file's mtime is 01:08, ~13 min after the build,
+  matching the recorded ~11 min merge-to-adoption baseline.
+
+4. the decisive check: the running container's own bytes
+$ ssh kapture 'docker exec mdreview-staging ...'
+  web/static/editguard.js (introduced by ca838f4 = HEAD, #290): -rw-r--r-- 1 root root 3373 Jul 30 00:54 /app/web/static/editguard.js
+  web/latex-viewer.html "NOT yet lost" (8d6c54a, #291): 1
+  web/viewer.html editpane (#290): 5
+  hosted/sharing.py email_for (c05a518, #267): 2
+  hosted/authroutes.py magiclink_send_failed (a4f3549, #302): 1
+  hosted/compose.py check_csrf (350cc1c, #289): 3
+  server.py can_edit (501ba37, #288): 4
+  server.py #266 markers (ee72a03): 4
+  reviews.py resolved_by_human (a70461a, #187): 3
+  hosted/adminroutes.py auth_audit (432bd5b, #144): 2
+  reconcile.py custody_reviewed_at (bf774d2, #272): 12
+
+5. staging answers
+$ curl https://staging.mdreview.space/healthz
+{"ok": true}  HTTP 200
+
+Conclusion: the deployed image IS the build of origin/dev HEAD ca838f4, and every one of the
+eleven tickets' commits is an ancestor of it (git merge-base --is-ancestor, 18/18 YES).
