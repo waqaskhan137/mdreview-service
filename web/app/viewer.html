@@ -378,7 +378,10 @@ let EDITACK=null;       // remote revision the user already dismissed the change
                          // the 2s poll doesn't re-nag about the same change every tick
 
 function toast(msg){const t=$("#toast");t.textContent=msg;t.style.opacity=1;clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.opacity=0,1800);}
-function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+// String() first: anchor.block_num arrives as a NUMBER from API/MCP authors (the viewer itself
+// sends strings), and Number.replace is a TypeError that used to kill renderAll() mid-pass,
+// leaving the counters stale and the resolved panel empty.
+function escapeHtml(s){return String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
 function fileBase(p){return (p||"").split('/').pop()||p;}
 // Relative time, the dashboard's ago() bucketing verbatim (#279 AC7) — keep the two in step.
 function ago(ts){
