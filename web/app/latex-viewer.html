@@ -77,6 +77,11 @@
   /* Mutual exclusion (AC): edit mode always wins over diff mode (enterEdit forces DIFFON off), so
      this is belt-and-suspenders — the diff toggle stays inert (JS guard) and visibly says so. */
   body.editing #difftoggle{opacity:.35;pointer-events:none;}
+  /* theme.css's shared .difftoggle{display:inline-flex} is an AUTHOR rule, so it beats the UA's
+     [hidden]{display:none} — the explicit-display-beats-hidden trap #208 documents for .srcscroll,
+     on the button itself this time. Without this gate the Diff pill renders on a fresh review that
+     has never had an agent push (found by #279; same shared rule, same bug here). */
+  .difftoggle[hidden]{display:none;}
   .codecol{flex:1;min-width:0;padding:12px 0 60vh;}
   .ln{display:flex;padding:1px 14px 1px 0;line-height:1.62;position:relative;}
   .ln:hover{background:var(--code-bg);}
