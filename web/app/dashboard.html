@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · reviews</title>
+<script>
+/* #285 pre-paint theme applier — IDENTICAL in all five page heads (dashboard, viewer,
+   latex-viewer, account, admin); edit all five together. It must run synchronously in <head>,
+   before first paint: account.js (which renders the toggle) is end-of-body and too late, and a
+   deferred applier would flash the wrong theme. An explicit stored choice pins data-theme;
+   anything else (key absent, garbage value, storage unavailable) means auto: attribute off,
+   CSS follows the OS. */
+(function(){try{var t=localStorage.getItem("mdr.theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
+</script>
 <!-- #152 Basecoat: vendored (self-hosted, no runtime CDN). Basecoat still skins the buttons and
      the project select. The inbox, the search control and the sign-in screen are hand CSS to the
      rev-3 mock (#278): §05 rule 02 is "no cards, no pills", and rev 3 drew both card-less. -->
@@ -26,9 +35,9 @@
      .app-top is theme.css's. Rev 3 (#278) empties it down to brand / search / #acct: the filter
      words and #projsel moved into the column below the heading. The search control is still the
      REAL live-filtering input (the palette-launcher reading of the mock would delete shipped
-     behaviour no epic decision retired); the ⌘K chip is an adornment inside it. The line must
-     also fit #285's future 30x30 theme toggle between search and #acct without wrapping —
-     tests/dashboard_reskin_selfcheck.sh injects that slot and measures. */
+     behaviour no epic decision retired); the ⌘K chip is an adornment inside it. The line also
+     fits #285's 30x30 theme toggle between search and #acct without wrapping — account.js
+     mounts it before #acct, and tests/dashboard_reskin_selfcheck.sh measures the fit. */
   /* Overflow guard, not a narrow-width pass: wrap instead of scrolling the body sideways. */
   #app .app-top{flex-wrap:wrap;row-gap:var(--s-2);}
 
@@ -280,10 +289,9 @@
 <!-- #app is INSIDE nothing and the top line is INSIDE it: the shell must not render over the
      sign-in screen, which draws its own brand and wants no account menu. -->
 <div id="app" style="display:none">
-  <!-- Between .searchbox and #acct is where #285 lands its 30x30 theme toggle; this page ships
-       no toggle (element, icons, behaviour are all #285's) but the line must fit one without
-       wrapping — tests/dashboard_reskin_selfcheck.sh injects a [data-theme-icon] slot there and
-       measures. -->
+  <!-- #285's 30x30 theme toggle sits between .searchbox and #acct: account.js mounts it as
+       #acct's previous sibling (element, icons, behaviour all live there + theme.css);
+       tests/dashboard_reskin_selfcheck.sh measures that the line fits it without wrapping. -->
   <div class="app-top">
     <a class="brand" href="/"><span class="mark">md</span><span>mdreview</span></a>
     <span class="spacer"></span>

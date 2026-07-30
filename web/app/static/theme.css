@@ -11,11 +11,18 @@
  * change, and no component declares a colour literal. tests/css_palette_selfcheck.js enforces
  * the exact values, the no-literal rule, and the font policy below.
  *
- * Light is the base on :root. Dark arrives two ways, and both are needed:
- *   - the system preference, scoped :not([data-theme="light"]) so an explicit light choice wins;
- *   - an explicit [data-theme="dark"], which wins regardless of the system.
- * Light needs no override block: it is the base, and the media query steps aside for it.
- * The two dark blocks MUST stay value-identical; css_palette_selfcheck.js fails on any divergence.
+ * Every colour is declared ONCE, as light-dark(light, dark) on :root (#285). Which side renders
+ * is decided by `color-scheme` alone: the base is `light dark` (follow the OS, live), and the
+ * [data-theme] overrides below are one-line color-scheme flips. Before #285 the dark table
+ * existed twice (a media block plus an explicit [data-theme="dark"] block, kept value-identical
+ * by a selfcheck); rev 3's single-source contract retired that duplication. The ONE dark delta
+ * light-dark() cannot carry is font-weight (it only takes <color>), so that single declaration
+ * still ships via both arrival selectors, guarded by css_palette_selfcheck.js.
+ *
+ * data-theme on <html> is the toggle contract (#285): "light"/"dark" are explicit overrides,
+ * attribute ABSENT is auto. Auto is pure CSS — a live OS change re-resolves every light-dark()
+ * with no JS involved. The pre-paint applier in each page's <head> sets the attribute from
+ * localStorage `mdr.theme` before first paint; account.js renders the toggle button.
  *
  * Self-hosted, no CDN — the project is self-contained by design. That includes the fonts below.
  */
@@ -50,6 +57,11 @@
 }
 
 :root{
+  /* Follow the OS by default; the [data-theme] blocks below pin it. This is what makes every
+     light-dark() pair in this block resolve, and it also hands the UA the matching form-control /
+     scrollbar rendering in dark. */
+  color-scheme: light dark;
+
   /* Families. Pages point their font-family declarations here, never at raw stacks.
      (--font-mono also exists inside the Basecoat bundle's @layer theme with the same intent and
      family; this unlayered definition wins and finally makes it resolve to a real file.) */
@@ -58,60 +70,61 @@
   --font-serif:"Source Serif 4",Charter,Georgia,Cambria,"Times New Roman",serif;
 
   /* surfaces */
-  --bg:#FCFBF9;              /* page */
-  --surface:#FAF9F7;         /* cards, panels */
-  --surface-raised:#FFFFFF;  /* menus, popovers: elevation is a lighter surface, not a shadow */
-  --canvas:#EAE7E0;          /* recessed area behind a sheet (latex viewer) */
+  --bg:light-dark(#FCFBF9, #14130F);              /* page */
+  --surface:light-dark(#FAF9F7, #1F1D19);         /* cards, panels */
+  --surface-raised:light-dark(#FFFFFF, #26231D);  /* menus, popovers: elevation is a lighter surface, not a shadow */
+  --canvas:light-dark(#EAE7E0, #100F0C);          /* recessed area behind a sheet (latex viewer) */
   --paper:#FFFFFF;           /* the printed sheet itself — stays white in both themes by design */
   --paper-ink:#1F1D1A;       /* ink on --paper: fixed, because the sheet never inverts */
   --paper-ink-muted:#57534B;
-  --code-bg:#F4F2EE;         /* inputs, <pre>, <code> */
+  --code-bg:light-dark(#F4F2EE, #24211C);         /* inputs, <pre>, <code> */
   /* Nav surfaces are NOT contract tokens: legacy, retired with their consumers by the re-skin
      tickets. Values are a judgement call (#277): the shipped cool greys sat visibly blue on the
      warm paper, so these are the same relative steps rebuilt from --bg/--code-bg. */
-  --nav-hover:#F5F3EF;
-  --nav-active:#F0EDE7;
+  --nav-hover:light-dark(#F5F3EF, #1B1915);
+  --nav-active:light-dark(#F0EDE7, #211E19);
 
   /* text */
-  --text:#1F1D1A;
-  --text-muted:#57534B;
-  --text-subtle:#6B6660;
+  --text:light-dark(#1F1D1A, #E8E4DC);
+  --text-muted:light-dark(#57534B, #9A948A);
+  --text-subtle:light-dark(#6B6660, #8F897F);
 
   /* lines */
-  --border:#E6E2DC;
-  --border-faint:#EFECE6;    /* hairline row rule; fainter than --border (#177 §05 rule 02) */
+  --border:light-dark(#E6E2DC, #2E2B26);
+  --border-faint:light-dark(#EFECE6, #232019);    /* hairline row rule; fainter than --border (#177 §05 rule 02) */
 
   /* accent (violet) */
-  --accent:#5B30D6;
-  --accent-strong:#4423B0;   /* hover/active step of --accent */
-  --accent-muted:#F1ECFA;    /* tinted accent surface */
+  --accent:light-dark(#5B30D6, #B5A7E6);
+  --accent-strong:light-dark(#4423B0, #C9BEEE);   /* hover/active step of --accent */
+  --accent-muted:light-dark(#F1ECFA, #2A2540);    /* tinted accent surface */
   --noteline:var(--accent);
 
   /* blue + link: legacy, no contract equivalent (rev 3 has no blue anywhere). Kept at their
      shipped values until the re-skin tickets (#278-#280) retire their consumers. */
-  --blue:#1d4fbf;
-  --blue-bg:#e9f0fd;
-  --link:#2f6fed;
+  --blue:light-dark(#1d4fbf, #9cc0f5);
+  --blue-bg:light-dark(#e9f0fd, #16243f);
+  --link:light-dark(#2f6fed, #7ba6f5);
 
   /* status */
-  --success:#1F7A49;
-  --success-bg:#E6F4EC;
-  --success-border:#B7E0C8;
-  --warning:#8A6100;
-  --warning-bg:#F7EFDC;
+  --success:light-dark(#1F7A49, #6DD39B);
+  --success-bg:light-dark(#E6F4EC, #1C2C22);
+  --success-border:light-dark(#B7E0C8, #2F4A39);
+  --warning:light-dark(#8A6100, #D0A24A);
+  --warning-bg:light-dark(#F7EFDC, #2B2317);
   /* Rev 3 ships success/danger borders only; --warning-border is a documented judgement call
      (#277) for symmetry, sitting between --warning-bg and --warning like its siblings do. */
-  --warning-border:#E6D6AC;
-  --danger:#C0392B;
-  --danger-bg:#FDECEA;
-  --danger-border:#E8C6BF;
+  --warning-border:light-dark(#E6D6AC, #4A3D20);
+  --danger:light-dark(#C0392B, #E07A7A);
+  --danger-bg:light-dark(#FDECEA, #33231D);
+  --danger-border:light-dark(#E8C6BF, #4A2F28);
 
-  /* scrims + shadows: previously page literals, tokened by the rev-3 contract */
-  --scrim:rgba(20,19,15,.42);
-  --shadow-menu:0 18px 44px -18px rgba(20,20,40,.35);
-  --shadow-dock:0 18px 40px -18px rgba(20,20,40,.28);
-  --shadow-paper:0 10px 30px -12px rgba(20,20,40,.3);
-  --shadow-hair:0 1px 0 rgba(20,20,40,.06);
+  /* scrims + shadows: previously page literals, tokened by the rev-3 contract. light-dark() is a
+     <color>, so it sits on the colour PART of a shadow; the geometry stays written once. */
+  --scrim:light-dark(rgba(20,19,15,.42), rgba(0,0,0,.72));
+  --shadow-menu:0 18px 44px -18px light-dark(rgba(20,20,40,.35), rgba(0,0,0,.6));
+  --shadow-dock:0 18px 40px -18px light-dark(rgba(20,20,40,.28), rgba(0,0,0,.7));
+  --shadow-paper:0 10px 30px -12px light-dark(rgba(20,20,40,.3), rgba(0,0,0,.55));
+  --shadow-hair:0 1px 0 light-dark(rgba(20,20,40,.06), rgba(0,0,0,.35));
 
   /* ---- Shape (#177, §02) ------------------------------------------------------------------
      Four roles, not a t-shirt scale, so a rule reads as "this is a control" rather than "this is
@@ -272,109 +285,52 @@
 /* The hint after an agent push: the button advertises that a diff is available. It never opens it. */
 .difftoggle.hinted{ border-color:var(--accent); }
 
-/* System dark — yields to an explicit [data-theme="light"].
- * THIS BLOCK AND :root[data-theme="dark"] BELOW ARE THE SAME TABLE ON PURPOSE and must stay
- * value-identical: they are the two arrivals of one dark theme, and css_palette_selfcheck.js
- * fails the build on any divergence between them. Edit both or neither. */
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#14130F;
-    --surface:#1F1D19;
-    --surface-raised:#26231D;
-    --canvas:#100F0C;
-    --paper:#FFFFFF;
-    --paper-ink:#1F1D1A;
-    --paper-ink-muted:#57534B;
-    --code-bg:#24211C;
-    --nav-hover:#1B1915;   /* judgement call, same relative steps as light; see the light block */
-    --nav-active:#211E19;
-
-    --text:#E8E4DC;
-    --text-muted:#9A948A;
-    --text-subtle:#8F897F;
-
-    --border:#2E2B26;
-    --border-faint:#232019;
-
-    --accent:#B5A7E6;
-    --accent-strong:#C9BEEE;
-    --accent-muted:#2A2540;
-
-    --blue:#9cc0f5;
-    --blue-bg:#16243f;
-    --link:#7ba6f5;
-
-    --success:#6DD39B;
-    --success-bg:#1C2C22;
-    --success-border:#2F4A39;
-    --warning:#D0A24A;
-    --warning-bg:#2B2317;
-    --warning-border:#4A3D20;  /* judgement call, symmetry with success/danger; see the light block */
-    --danger:#E07A7A;
-    --danger-bg:#33231D;
-    --danger-border:#4A2F28;
-
-    --scrim:rgba(0,0,0,.72);
-    --shadow-menu:0 18px 44px -18px rgba(0,0,0,.6);
-    --shadow-dock:0 18px 40px -18px rgba(0,0,0,.7);
-    --shadow-paper:0 10px 30px -12px rgba(0,0,0,.55);
-    --shadow-hair:0 1px 0 rgba(0,0,0,.35);
-
-    /* Rev 3: dark body weight drops 400 -> 350, from the theme, not per element. Needs the
-       variable Geist file above; a static cut cannot render 350. */
-    font-weight:350;
-  }
-}
-
-/* Explicit dark — wins over the system preference. Same table as the media block above,
- * deliberately; see the note there. */
+/* ---- Theme arrival (#285) --------------------------------------------------------------------
+ * Explicit overrides are ONLY color-scheme flips: the values above already carry both sides.
+ * "light"/"dark" pin the scheme regardless of the OS; attribute absent = the :root base
+ * (light dark) = follow the OS live. Set by the pre-paint applier in each page's <head> and by
+ * the toggle in account.js; nothing else may write data-theme.
+ *
+ * font-weight is the one dark delta light-dark() cannot express (it only takes <color>), so it
+ * alone keeps the old two-arrival duplication: the media block below (system dark, yielding to an
+ * explicit light) plus the explicit-dark block. css_palette_selfcheck.js pins the media block to
+ * exactly this one declaration so the retired dark table cannot creep back in. */
+:root[data-theme="light"]{ color-scheme: light; }
 :root[data-theme="dark"]{
-  --bg:#14130F;
-  --surface:#1F1D19;
-  --surface-raised:#26231D;
-  --canvas:#100F0C;
-  --paper:#FFFFFF;
-  --paper-ink:#1F1D1A;
-  --paper-ink-muted:#57534B;
-  --code-bg:#24211C;
-  --nav-hover:#1B1915;   /* judgement call, same relative steps as light; see the light block */
-  --nav-active:#211E19;
-
-  --text:#E8E4DC;
-  --text-muted:#9A948A;
-  --text-subtle:#8F897F;
-
-  --border:#2E2B26;
-  --border-faint:#232019;
-
-  --accent:#B5A7E6;
-  --accent-strong:#C9BEEE;
-  --accent-muted:#2A2540;
-
-  --blue:#9cc0f5;
-  --blue-bg:#16243f;
-  --link:#7ba6f5;
-
-  --success:#6DD39B;
-  --success-bg:#1C2C22;
-  --success-border:#2F4A39;
-  --warning:#D0A24A;
-  --warning-bg:#2B2317;
-  --warning-border:#4A3D20;  /* judgement call, symmetry with success/danger; see the light block */
-  --danger:#E07A7A;
-  --danger-bg:#33231D;
-  --danger-border:#4A2F28;
-
-  --scrim:rgba(0,0,0,.72);
-  --shadow-menu:0 18px 44px -18px rgba(0,0,0,.6);
-  --shadow-dock:0 18px 40px -18px rgba(0,0,0,.7);
-  --shadow-paper:0 10px 30px -12px rgba(0,0,0,.55);
-  --shadow-hair:0 1px 0 rgba(0,0,0,.35);
-
+  color-scheme: dark;
   /* Rev 3: dark body weight drops 400 -> 350, from the theme, not per element. Needs the
      variable Geist file above; a static cut cannot render 350. */
   font-weight:350;
 }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    font-weight:350;   /* same delta, system-dark arrival; see the note above */
+  }
+}
+
+/* ---- #285 theme toggle -----------------------------------------------------------------------
+ * The rev-3 top-bar icon button (data-theme-icon in the mock): 30x30, --border edge, --surface
+ * face, --text-muted glyph, control radius. Markup is rendered by account.js (the one injection
+ * point on all five pages) but the CSS lives HERE per the #262 ordering rule below: an injected
+ * style would beat this file on load order.
+ *
+ * The button carries all three glyphs; which one shows is driven by the SAME data-theme state the
+ * tokens read, so the icon can never disagree with the rendered theme. Sun = explicit light,
+ * moon = explicit dark (both from the mock). The mock's static screens never draw the auto state;
+ * the monitor glyph for "system" is the implementer's documented judgement call (the
+ * --warning-border precedent) — owner can veto at review. No transition here on purpose: the mock
+ * gives the icon button none, and motion would owe a reduced-motion story (#152). */
+.theme-toggle{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:30px; height:30px; flex:0 0 auto; padding:0; cursor:pointer;
+  background:var(--surface); color:var(--text-muted);
+  border:1px solid var(--border); border-radius:var(--r-control);
+}
+.theme-toggle:hover{ border-color:var(--text-subtle); color:var(--text); }
+.theme-toggle svg{ display:none; width:16px; height:16px; }
+:root[data-theme="light"] .theme-toggle .tt-sun{ display:block; }
+:root[data-theme="dark"] .theme-toggle .tt-moon{ display:block; }
+:root:not([data-theme]) .theme-toggle .tt-auto{ display:block; }
 
 /* ---- #262 account menu -------------------------------------------------------------------
    The menu's transition lives HERE, not in account.js's injected <style>. account.js appends its

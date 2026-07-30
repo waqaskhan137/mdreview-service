@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · account</title>
+<script>
+/* #285 pre-paint theme applier — IDENTICAL in all five page heads (dashboard, viewer,
+   latex-viewer, account, admin); edit all five together. It must run synchronously in <head>,
+   before first paint: account.js (which renders the toggle) is end-of-body and too late, and a
+   deferred applier would flash the wrong theme. An explicit stored choice pins data-theme;
+   anything else (key absent, garbage value, storage unavailable) means auto: attribute off,
+   CSS follows the OS. */
+(function(){try{var t=localStorage.getItem("mdr.theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
+</script>
 <!-- #152 Basecoat spike: vendored (self-hosted, no runtime CDN) — Basecoat CSS, then mdreview tokens,
      then the token map that dresses Basecoat in mdreview's palette. -->
 <link rel="stylesheet" href="/static/basecoat.cdn.min.css">
@@ -14,8 +23,11 @@
   /* Page-specific only. The shell (.app-top/.app-col), the flash bar and every scale come from
      theme.css; components come from Basecoat. Nothing here re-declares either. */
   *{box-sizing:border-box}
+  /* #285: longhand, NOT the `font:` shorthand — the shorthand resets font-weight to 400 and was
+     silently swallowing the theme's dark 350 (rev 3: dark body weight arrives from the theme). */
   body{margin:0;background:var(--bg);color:var(--text);
-       font:var(--t-body)/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+       font-size:var(--t-body);line-height:1.55;
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
   h1{font-size:var(--t-title);margin:0 0 var(--s-1)}
   .sub{color:var(--text-muted);margin:0 0 var(--s-6)}
   .stack{display:flex;flex-direction:column;gap:var(--s-4)}

@@ -6,11 +6,14 @@
 // that survives exactly as long as something fails the build when it is broken. This file is that
 // something. It guards four things:
 //
-//   a. CONTRACT VALUES — every contract token is defined in all three scopes of theme.css
-//      (light :root, the media dark block, the explicit [data-theme="dark"] block) with exactly
-//      the contract's values, and the two dark blocks are value-identical. The dark table exists
-//      twice on purpose (two arrival paths for one theme); duplication is a drift hazard only if
-//      nothing asserts identity, so this asserts identity.
+//   a. CONTRACT VALUES — every contract token is declared exactly ONCE in theme.css, on :root,
+//      as light-dark(light, dark) carrying exactly the contract's pair (#285 single-source; a
+//      token whose two sides are equal is a plain value). Theme arrival is color-scheme only:
+//      :root says `light dark` (auto follows the OS), [data-theme="light"|"dark"] pin it. The one
+//      non-colour dark delta (font-weight 350) is the ONLY declaration allowed to ship via the
+//      two arrival selectors; the media block may contain nothing else, so the retired duplicated
+//      dark table cannot creep back. Each dark literal appears exactly once in the file (#285
+//      AC 7's grep half).
 //   b. NO LITERALS — no colour literal (#hex / rgb() / rgba() / hsl() / hsla()) in first-party
 //      style sources outside theme.css's token definitions.
 //   c. ALLOWLIST — the pre-existing literals ship as an exact, counted, ticket-tagged list below.
@@ -104,54 +107,102 @@ const decls = (block) => {
 const themeRaw = fs.readFileSync(path.join(STATIC, "theme.css"), "utf8");
 const theme = stripCss(themeRaw);
 
-// The three scopes plus the mobile block. Structure assertions are loud on purpose: if the file
-// is reorganised, this parser must be re-pointed, not silently matched against nothing.
+// The scopes of the #285 structure. Structure assertions are loud on purpose: if the file is
+// reorganised, this parser must be re-pointed, not silently matched against nothing.
 const mLight = theme.match(/:root\{([^}]*)\}/);
-const mMediaDark = theme.match(/@media\s*\(prefers-color-scheme:\s*dark\)\s*\{\s*:root:not\(\[data-theme="light"\]\)\s*\{([^}]*)\}/);
+const mExplicitLight = theme.match(/:root\[data-theme="light"\]\s*\{([^}]*)\}/);
 const mExplicitDark = theme.match(/:root\[data-theme="dark"\]\s*\{([^}]*)\}/);
+const mMediaDark = theme.match(/@media\s*\(prefers-color-scheme:\s*dark\)\s*\{\s*:root:not\(\[data-theme="light"\]\)\s*\{([^}]*)\}/);
 const mMobile = theme.match(/@media\s*\(max-width:\s*767px\)\s*\{\s*:root\s*\{([^}]*)\}/);
-check("theme.css has all three theme scopes plus the mobile type block",
-  !!(mLight && mMediaDark && mExplicitDark && mMobile),
-  "missing: " + [["light :root", mLight], ["media dark", mMediaDark],
-                 ["explicit dark", mExplicitDark], ["mobile type", mMobile]]
+check("theme.css has the base :root, both data-theme overrides, the media dark-delta block and the mobile type block",
+  !!(mLight && mExplicitLight && mExplicitDark && mMediaDark && mMobile),
+  "missing: " + [["base :root", mLight], ["explicit light", mExplicitLight],
+                 ["explicit dark", mExplicitDark], ["media dark delta", mMediaDark],
+                 ["mobile type", mMobile]]
                 .filter((p) => !p[1]).map((p) => p[0]).join(", "));
 
-if (mLight && mMediaDark && mExplicitDark && mMobile) {
+// The expected single-source declaration for a [light, dark] contract pair: the value itself when
+// both sides agree, light-dark(l, d) for a plain colour, and for a shadow the shared geometry
+// with light-dark() on the colour part (light-dark() is a <color>, it cannot wrap the geometry).
+function expectedDecl(tok, lv, dv) {
+  const l = norm(lv), d = norm(dv);
+  if (l === d) return l;
+  const colour = /(#[0-9a-f]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\))$/;
+  const lc = l.match(colour), dc = d.match(colour);
+  if (!lc || !dc) return null; // no colour tail — light-dark() cannot express this pair
+  const lPre = l.slice(0, lc.index), dPre = d.slice(0, dc.index);
+  if (lPre !== dPre) return null; // geometry differs between themes — not single-sourceable
+  return lPre + "light-dark(" + lc[0] + ", " + dc[0] + ")";
+}
+
+if (mLight && mExplicitLight && mExplicitDark && mMediaDark && mMobile) {
   const light = decls(mLight[1]);
-  const dark1 = decls(mMediaDark[1]);   // media-dark block
-  const dark2 = decls(mExplicitDark[1]); // explicit-dark block
+  const exLight = decls(mExplicitLight[1]);
+  const exDark = decls(mExplicitDark[1]);
+  const mediaDark = decls(mMediaDark[1]);
   const mobile = decls(mMobile[1]);
 
-  // a1. Every contract token, exact value, all three scopes.
+  // a1. Every contract token: exactly one declaration in the whole file, on :root, carrying the
+  //     contract pair as a single light-dark() source.
   const bad = [];
   for (const [tok, [lv, dv]] of Object.entries(CONTRACT)) {
-    for (const [scope, map, want] of [["light :root", light, lv],
-                                      ["media-dark block", dark1, dv],
-                                      ["explicit-dark block", dark2, dv]]) {
-      if (!(tok in map)) bad.push(tok + " missing from the " + scope);
-      else if (map[tok] !== norm(want)) bad.push(tok + " in the " + scope + " is '" + map[tok] + "', contract says '" + want + "'");
-    }
+    const want = expectedDecl(tok, lv, dv);
+    if (want === null) { bad.push(tok + ": the contract pair cannot be expressed as one light-dark() declaration"); continue; }
+    const n = (theme.match(new RegExp("(^|[^-\\w])" + tok + "\\s*:", "g")) || []).length;
+    if (n !== 1) bad.push(tok + " declared " + n + "x in theme.css, single-source says exactly 1");
+    if (!(tok in light)) bad.push(tok + " missing from the base :root");
+    else if (light[tok] !== norm(want)) bad.push(tok + " is '" + light[tok] + "', contract says '" + want + "'");
   }
-  check("every contract token carries the contract value in all three scopes",
+  check("every contract token is declared once, on :root, with the contract's light-dark pair",
     bad.length === 0, bad.join(" | "));
 
-  // a2. The two dark blocks are value-identical, every declaration, both directions.
-  const div = [];
-  for (const k of new Set([...Object.keys(dark1), ...Object.keys(dark2)])) {
-    if (!(k in dark1)) div.push(k + " only in the explicit-dark block");
-    else if (!(k in dark2)) div.push(k + " only in the media-dark block");
-    else if (dark1[k] !== dark2[k])
-      div.push(k + " diverged: media-dark '" + dark1[k] + "' vs explicit-dark '" + dark2[k] + "'");
+  // a2. Each dark literal appears exactly once in the file (#285 AC 7): scan every light-dark()
+  //     call (balanced-paren, since rgba() nests commas) and count its dark argument's
+  //     occurrences. Covers legacy pairs too, mechanically.
+  const darkLits = [];
+  for (let at = theme.indexOf("light-dark("); at !== -1; at = theme.indexOf("light-dark(", at + 1)) {
+    let depth = 1, args = [""], j = at + "light-dark(".length;
+    for (; j < theme.length && depth > 0; j++) {
+      const ch = theme[j];
+      if (ch === "(") depth++;
+      else if (ch === ")") { depth--; if (depth === 0) break; }
+      if (depth === 1 && ch === ",") args.push("");
+      else args[args.length - 1] += ch;
+    }
+    if (args.length === 2) darkLits.push(norm(args[1]));
   }
-  check("the two dark blocks are value-identical (one theme, two arrival paths)",
-    div.length === 0, div.join(" | "));
+  const dup = [];
+  check("theme.css carries light-dark() pairs to scan", darkLits.length > 0,
+    "no light-dark() found — the single-source structure is gone");
+  for (const darkLit of new Set(darkLits)) {
+    const esc = darkLit.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const n = (norm(theme).match(new RegExp(esc, "g")) || []).length;
+    if (n !== 1) dup.push(darkLit + " appears " + n + "x (a second copy is the old duplicated table creeping back)");
+  }
+  check("each dark colour literal appears exactly once in theme.css", dup.length === 0, dup.join(" | "));
 
-  // a3. Dark body weight 350 arrives from the theme, both paths (needs the variable Geist file).
-  check("both dark blocks set font-weight 350",
-    dark1["font-weight"] === "350" && dark2["font-weight"] === "350",
+  // a3. Theme arrival is color-scheme: auto on :root, pinned by the two overrides. The explicit
+  //     blocks stay MINIMAL — colour may never be redeclared there.
+  const arr = [];
+  if (light["color-scheme"] !== "light dark") arr.push(":root color-scheme is '" + light["color-scheme"] + "', auto needs 'light dark'");
+  if (exLight["color-scheme"] !== "light") arr.push('[data-theme="light"] color-scheme is \'' + exLight["color-scheme"] + "'");
+  if (exDark["color-scheme"] !== "dark") arr.push('[data-theme="dark"] color-scheme is \'' + exDark["color-scheme"] + "'");
+  for (const [scope, map, allowed] of [["explicit-light", exLight, ["color-scheme"]],
+                                       ["explicit-dark", exDark, ["color-scheme", "font-weight"]],
+                                       ["media dark-delta", mediaDark, ["font-weight"]]]) {
+    const extra = Object.keys(map).filter((k) => !allowed.includes(k));
+    if (extra.length) arr.push(scope + " block declares more than " + allowed.join("+") + ": " + extra.join(", "));
+  }
+  check("theme arrival is color-scheme-only (overrides are flips, not tables)",
+    arr.length === 0, arr.join(" | "));
+
+  // a4. Dark body weight 350 arrives from the theme via BOTH arrival paths — the one legal
+  //     non-colour duplication (light-dark() only takes <color>; needs the variable Geist file).
+  check("both dark arrival selectors set font-weight 350",
+    mediaDark["font-weight"] === "350" && exDark["font-weight"] === "350",
     "rev 3: dark body weight drops 400 -> 350 from the theme, not per element");
 
-  // a4. Type scale, desktop and the mobile floor.
+  // a5. Type scale, desktop and the mobile floor.
   const tbad = [];
   for (const [tok, want] of Object.entries(TYPE_ROOT))
     if (light[tok] !== want) tbad.push(tok + " is '" + light[tok] + "', rev 3 says '" + want + "'");
@@ -159,7 +210,7 @@ if (mLight && mMediaDark && mExplicitDark && mMobile) {
     if (mobile[tok] !== want) tbad.push("mobile " + tok + " is '" + mobile[tok] + "', rev 3 says '" + want + "'");
   check("type scale matches rev 3 (desktop + mobile floor)", tbad.length === 0, tbad.join(" | "));
 
-  // a5. Legacy tokens still defined while their consumers live.
+  // a6. Legacy tokens still defined while their consumers live.
   const lbad = Object.entries(LEGACY).filter(([t]) => !(t in light))
     .map(([t, owner]) => t + " (retired by " + owner + ", which has not landed)");
   check("legacy tokens survive until their re-skin tickets retire their consumers",
@@ -190,20 +241,10 @@ const ALLOWLIST = [
   { file: "static/account.js", literal: "#fff", count: 1, ticket: "#281" },
   { file: "static/account.js", literal: "rgba(0,0,0,.12)", count: 1, ticket: "#281" },
 
-  // keys.js ⌘K/help-sheet styles. No live ticket owns its re-skin; tagged to epic #276 until one
-  // does. These are var() fallbacks by design (the sheet renders on pages without the tokens).
-  { file: "static/keys.js", literal: "#111", count: 2, ticket: "#276" },
-  { file: "static/keys.js", literal: "#16161a", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#24242a", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#2c2c33", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#3a3a42", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#d7d7de", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#e3e3e8", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#eee", count: 2, ticket: "#276" },
-  { file: "static/keys.js", literal: "#f6f6f8", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#fff", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "rgba(0,0,0,.25)", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "rgba(0,0,0,.45)", count: 1, ticket: "#276" },
+  // static/keys.js: EMPTY since #285 re-pointed the keysheet at the contract tokens. The old
+  // var() fallbacks existed for pages without the tokens; since #277 every page links theme.css,
+  // and those literal fallbacks were where the dark-keycap bug lived. New literals here have no
+  // exemption.
 ];
 
 // First-party style sources. Vendored bundles are excluded by name, never by pattern-weakening:

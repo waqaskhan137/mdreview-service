@@ -63,10 +63,87 @@
     document.head.appendChild(s);
   }
 
+  // ---- #285 theme toggle ------------------------------------------------------------------
+  // Mode is data-theme on <html>: "light"/"dark" explicit, attribute ABSENT is auto. The
+  // pre-paint applier in each <head> already applied storage; this code never resolves auto
+  // into an explicit value — auto stays pure CSS so a live OS change re-themes with no JS.
+  // Storage: mdr.theme holds explicit values only; choosing auto removes the key; every access
+  // is try/catch so blocked storage still leaves a working per-session toggle.
+  // NOT window.basecoat.theme: that rival flips a .dark class and writes a themeMode key,
+  // neither of which theme.css reads — two mechanisms would fight silently (#285 AC 6 asserts
+  // both stay absent). The button's CSS lives in theme.css per the #262 load-order rule.
+  function themeMode() {
+    var t = document.documentElement.getAttribute("data-theme");
+    return t === "light" || t === "dark" ? t : "auto";
+  }
+  function themeEffective() {
+    var m = themeMode();
+    if (m !== "auto") return m;
+    return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  function themeLabel() {
+    return "Theme: " + (themeMode() === "auto" ? "system" : themeMode());
+  }
+  function themeNotify() {
+    // The one effective-theme signal. JS consumers (the viewer's Mermaid re-render) track THIS,
+    // never the OS: an OS listener disagrees with an explicit override.
+    document.dispatchEvent(new CustomEvent("mdr:themechange", {
+      detail: { mode: themeMode(), theme: themeEffective() },
+    }));
+  }
+  function themeSet(mode) {
+    if (mode === "light" || mode === "dark") document.documentElement.setAttribute("data-theme", mode);
+    else document.documentElement.removeAttribute("data-theme");
+    try {
+      if (mode === "light" || mode === "dark") localStorage.setItem("mdr.theme", mode);
+      else localStorage.removeItem("mdr.theme");
+    } catch (e) { /* storage unavailable: the choice still holds for this page */ }
+    var btn = document.getElementById("themetoggle");
+    if (btn) btn.setAttribute("aria-label", themeLabel());
+    themeNotify();
+  }
+  window.mdTheme = { mode: themeMode, effective: themeEffective, set: themeSet };
+  if (window.matchMedia) {
+    // Auto is live by CSS alone; this listener only forwards the flip to JS consumers.
+    var themeMq = matchMedia("(prefers-color-scheme: dark)");
+    var onOsFlip = function () { if (themeMode() === "auto") themeNotify(); };
+    if (themeMq.addEventListener) themeMq.addEventListener("change", onOsFlip);
+    else if (themeMq.addListener) themeMq.addListener(onOsFlip);
+  }
+
+  // Sun and moon are the mock's own glyphs (sun shown in the light screens, moon in the dark
+  // ones). The mock never draws the auto state; the monitor glyph for "system" is the documented
+  // judgement call (the --warning-border precedent) — owner veto at review. All three ship in the
+  // button and theme.css picks one off the same data-theme state the tokens read, so the icon
+  // cannot disagree with the rendered theme.
+  var TT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="';
+  var TT_ICONS =
+    TT_SVG + 'tt-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>' +
+    TT_SVG + 'tt-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>' +
+    TT_SVG + 'tt-auto"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
+
+  function mountToggle(el) {
+    if (document.getElementById("themetoggle")) return; // mount() re-runs after auth changes
+    var btn = document.createElement("button");
+    btn.id = "themetoggle";
+    btn.className = "theme-toggle";
+    btn.type = "button";
+    btn.setAttribute("aria-label", themeLabel());
+    btn.innerHTML = TT_ICONS;
+    btn.addEventListener("click", function () {
+      themeSet({ auto: "light", light: "dark", dark: "auto" }[themeMode()]);
+    });
+    // The mock's slot: immediately before the account cluster, on every page.
+    el.parentNode.insertBefore(btn, el);
+  }
+
   async function mount() {
     var el = document.getElementById("acct");
     if (!el) return;
     inject();
+    // #285: the toggle mounts SYNCHRONOUSLY, before the session fetch below — theming must not
+    // wait on /auth/session, and it exists even when the auth plane is absent or unreachable.
+    mountToggle(el);
     // #221: "could not ask" is not "signed out". Offering a Sign in link to someone whose session
     // is alive is a lie, and it is the lie that made a server blip look like a logout.
     var res = await window.mdSession.read();
