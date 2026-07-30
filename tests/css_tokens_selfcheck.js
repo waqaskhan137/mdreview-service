@@ -73,8 +73,8 @@ check(
 );
 check(
   "the selected palette row uses a defined token",
-  /\.cmdrow\[aria-selected="true"\]\{[^}]*var\(--accent-bg\)/.test(code),
-  "--accent-bg is the real token (#eee9fd light / #2a2147 dark)"
+  /\.cmdrow\[aria-selected="true"\]\{[^}]*var\(--accent-muted\)/.test(code),
+  "--accent-muted is the real token (#F1ECFA light / #2A2540 dark); #277 renamed it from --accent-bg"
 );
 check(
   "selection carries a non-colour signal too",

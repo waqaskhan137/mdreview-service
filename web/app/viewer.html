@@ -14,11 +14,11 @@
 <style>
   /* Colour tokens live in /static/theme.css (#153) — never redefine them per page. */
   /* Light palette = the new mockup (violet baton/comments, blue headings/links); dark derived via
-     the existing token swap (mockup is light-only). --brand is the violet primary used by the
+     the existing token swap (mockup is light-only). --accent is the violet primary used by the
      baton + comment threads; --blue is section headings + links; --noteline = the comment margin
      bar (violet, was amber). */
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:Charter,Georgia,Cambria,"Times New Roman",serif;font-size:20px;line-height:1.7;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-serif);font-size:20px;line-height:1.7;}
   /* #199: the reading column yields so the comment rail can sit beside the text.
      The rail needs `#article.right + 320 <= innerWidth`. With .wrap centred that reduces to
      `column <= W - 592` (rail 284 + gap 24 + the 24/64 padding either side). Reserving 620
@@ -29,30 +29,30 @@
      The 320px floor keeps genuinely narrow viewports readable; there the rail docks, as before. */
   .wrap{max-width:clamp(320px, calc(100vw - 620px), 720px);margin:0 auto;padding:40px 24px 160px 64px;}
   /* full-width sticky top bar (mockup): ← Reviews + filename (left), vN · turn-state (right) */
-  .topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 26px;border-bottom:1px solid var(--rule);background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;}
+  .topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 26px;border-bottom:1px solid var(--border);background:var(--bg);font-family:var(--font-ui);font-size:13px;}
   .topbar .tb-left{display:flex;align-items:center;gap:10px;min-width:0;}
-  .topbar .home{color:var(--muted-fg);text-decoration:none;font-weight:500;white-space:nowrap;}
+  .topbar .home{color:var(--text-muted);text-decoration:none;font-weight:500;white-space:nowrap;}
   .topbar .home:hover{color:var(--text);}
-  .topbar .tb-sep{color:var(--rule);}
-  .filename{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--brand);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .tb-right{font-size:12px;color:var(--muted-fg);letter-spacing:.03em;white-space:nowrap;font-variant:small-caps;}
+  .topbar .tb-sep{color:var(--border);}
+  .filename{font-family:var(--font-mono);font-size:13px;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tb-right{font-size:12px;color:var(--text-muted);letter-spacing:.03em;white-space:nowrap;font-variant:small-caps;}
   /* breadcrumb above the title: project / session / source_path (present segments only) */
-  .breadcrumb{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:12.5px;color:var(--muted2);margin:0 0 14px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
-  .breadcrumb .sep{color:var(--rule);}
+  .breadcrumb{font-family:var(--font-ui);font-size:12.5px;color:var(--text-subtle);margin:0 0 14px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+  .breadcrumb .sep{color:var(--border);}
   .breadcrumb:empty{display:none;}
   /* rendered markdown */
   #article h1{font-size:38px;line-height:1.15;letter-spacing:-.02em;margin:.2em 0 .3em;font-weight:700;}
-  #article h2{font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;letter-spacing:.05em;text-transform:uppercase;color:var(--blue);margin:0;font-weight:700;}
+  #article h2{font-family:var(--font-ui);font-size:14px;letter-spacing:.05em;text-transform:uppercase;color:var(--blue);margin:0;font-weight:700;}
   #article h3{font-size:22px;margin:0;font-weight:600;}
   #article p{margin:0;}
   #article ul,#article ol{margin:0;padding-left:1.4em;}
   #article li{margin:.2em 0;}
-  #article blockquote{margin:0;padding-left:1em;border-left:3px solid var(--brand);color:var(--muted-fg);font-style:italic;}
+  #article blockquote{margin:0;padding-left:1em;border-left:3px solid var(--accent);color:var(--text-muted);font-style:italic;}
   #article pre{background:rgba(127,127,127,.1);padding:14px;border-radius:var(--r-control);overflow:auto;font-size:14px;}
-  #article code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em;}
+  #article code{font-family:var(--font-mono);font-size:.85em;}
   #article a{color:var(--blue);}
   #article table{border-collapse:collapse;width:100%;margin:8px 0;font-size:15px;line-height:1.45;display:block;overflow-x:auto;}
-  #article th,#article td{border:1px solid var(--rule);padding:6px 10px;text-align:left;vertical-align:top;}
+  #article th,#article td{border:1px solid var(--border);padding:6px 10px;text-align:left;vertical-align:top;}
   #article th{background:rgba(127,127,127,.1);font-weight:600;}
   #article tr:nth-child(even) td{background:rgba(127,127,127,.04);}
   /* Images get a near-white "paper" mat so a light-authored figure stays legible on a dark pane
@@ -70,78 +70,78 @@
      screen-reader-only heading. The viewer has no .sr-only rule otherwise, so without the clip rule
      below that heading renders as a full-size accent banner. */
   .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;padding:0;margin:-1px;}
-  #article .footnotes{margin-top:32px;border-top:1px solid var(--rule);padding-top:6px;font-size:15px;color:var(--muted-fg);}
+  #article .footnotes{margin-top:32px;border-top:1px solid var(--border);padding-top:6px;font-size:15px;color:var(--text-muted);}
   #article .footnotes ol{padding-left:1.2em;}
   #article sup a,#article .footnotes a{color:var(--blue);text-decoration:none;}
-  #article hr{border:none;border-top:1px solid var(--rule);margin:8px 0;}
-  #doctitle{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:34px;line-height:1.15;letter-spacing:-.5px;margin:4px 0 8px;font-weight:700;}
+  #article hr{border:none;border-top:1px solid var(--border);margin:8px 0;}
+  #doctitle{font-family:var(--font-ui);font-size:34px;line-height:1.15;letter-spacing:-.5px;margin:4px 0 8px;font-weight:700;}
   #doctitle:empty{display:none;}
-  #docmeta{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:var(--muted2);margin:0 0 24px;}
+  #docmeta{font-family:var(--font-ui);font-size:13px;color:var(--text-subtle);margin:0 0 24px;}
   #article .mermaid{margin:10px 0;text-align:center;}
   #article .mermaid svg{max-width:100%;height:auto;}
   /* block wrapper + margin number */
   .blk{position:relative;padding:6px 0;margin:16px 0;border-radius:var(--r-control);transition:background .15s;}
   .blk:hover{background:rgba(127,127,127,.06);}
-  .blk .num{position:absolute;left:-46px;top:9px;width:32px;text-align:right;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:11.5px;color:var(--muted2);cursor:pointer;user-select:none;opacity:.5;font-variant-numeric:tabular-nums;}
-  .blk .num:hover{opacity:1;color:var(--brand);}
+  .blk .num{position:absolute;left:-46px;top:9px;width:32px;text-align:right;font-family:var(--font-ui);font-size:11.5px;color:var(--text-subtle);cursor:pointer;user-select:none;opacity:.5;font-variant-numeric:tabular-nums;}
+  .blk .num:hover{opacity:1;color:var(--accent);}
   .blk.has-note{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
   .blk.has-note .num::after{content:" \25CF";color:var(--noteline);}
   @media (max-width:820px){.blk .num{left:-30px;width:22px;font-size:11px;}.wrap{padding-left:40px;}}
-  #addbtn{position:absolute;z-index:50;display:none;background:var(--brand);color:#fff;border:none;border-radius:var(--r-control);padding:6px 12px;font-family:-apple-system,sans-serif;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+  #addbtn{position:absolute;z-index:50;display:none;background:var(--accent);color:#fff;border:none;border-radius:var(--r-control);padding:6px 12px;font-family:var(--font-ui);font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);}
   /* Issue #44: composer floats beside the article (positionPop), where the gutter cards live. width
      284px (was 330) = the .gcard width, so it fits inside the wide gate's envelope — left is rect.right+24
      and the gate needs innerWidth >= rect.right+320, so 24+284=308 < 320 — instead of overflowing the edge. */
-  #pop{position:fixed;z-index:60;display:none;width:284px;background:var(--bg);border:1px solid var(--rule);border-radius:var(--r-card);box-shadow:0 8px 30px rgba(0,0,0,.3);padding:14px;}
+  #pop{position:fixed;z-index:60;display:none;width:284px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:0 8px 30px rgba(0,0,0,.3);padding:14px;}
   /* narrow fallback: dock (mirrors #gutter.docked); auto!important beats the wide branch's inline left/top.
      .top docks upper-right instead, chosen opposite the anchor so the composer never covers it (issue #44 AC3). */
   #pop.docked{right:18px;bottom:70px;top:auto!important;left:auto!important;width:360px;}
   #pop.docked.top{top:18px!important;bottom:auto;}
-  #pop .q{font-size:13px;color:var(--muted-fg);font-style:italic;margin:0 0 8px;max-height:64px;overflow:auto;font-family:-apple-system,sans-serif;}
-  #pop textarea{width:100%;min-height:74px;font-family:-apple-system,sans-serif;font-size:14px;border:1px solid var(--rule);border-radius:var(--r-control);padding:8px;background:var(--bg);color:var(--text);resize:vertical;}
+  #pop .q{font-size:13px;color:var(--text-muted);font-style:italic;margin:0 0 8px;max-height:64px;overflow:auto;font-family:var(--font-ui);}
+  #pop textarea{width:100%;min-height:74px;font-family:var(--font-ui);font-size:14px;border:1px solid var(--border);border-radius:var(--r-control);padding:8px;background:var(--bg);color:var(--text);resize:vertical;}
   #pop .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;}
-  .btn{font-family:-apple-system,sans-serif;font-size:13px;border-radius:var(--r-control);padding:7px 14px;cursor:pointer;border:1px solid var(--rule);background:var(--panel);color:var(--text);}
-  .btn:hover{border-color:var(--muted2);}
-  /* #152 slice B: primary buttons use the app-wide brand violet (--brand) with --bg text, matching
+  .btn{font-family:var(--font-ui);font-size:13px;border-radius:var(--r-control);padding:7px 14px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);}
+  .btn:hover{border-color:var(--text-subtle);}
+  /* #152 slice B: primary buttons use the app-wide brand violet (--accent) with --bg text, matching
      Basecoat's --primary/--primary-foreground on the other pages (and the viewer's own #addbtn/#toast,
-     already violet). --bg text (not #fff) keeps contrast correct in dark mode, where --brand is a light
+     already violet). --bg text (not #fff) keeps contrast correct in dark mode, where --accent is a light
      violet. The viewer stays off Basecoat's CSS on purpose: its Tailwind preflight strips list markers
      from the bespoke serif prose (verified), and every viewer control already reads the shared tokens. */
-  .btn.primary{background:var(--brand);color:var(--bg);border-color:var(--brand);}
-  .btn.primary:hover{filter:brightness(1.06);border-color:var(--brand);}
-  #dock{position:fixed;right:18px;bottom:18px;z-index:55;font-family:-apple-system,sans-serif;}
-  #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--rule);border-radius:var(--r-pill);padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
-  #count{font-size:13px;color:var(--muted-fg);}
-  #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--brand);color:#fff;font-family:-apple-system,sans-serif;font-size:13px;padding:8px 16px;border-radius:var(--r-card);box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
+  .btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+  .btn.primary:hover{filter:brightness(1.06);border-color:var(--accent);}
+  #dock{position:fixed;right:18px;bottom:18px;z-index:55;font-family:var(--font-ui);}
+  #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-pill);padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
+  #count{font-size:13px;color:var(--text-muted);}
+  #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:13px;padding:8px 16px;border-radius:var(--r-card);box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
   /* MR-006/MR-036: Google-Docs style margin comments (threaded) */
   #gutter{position:absolute;top:0;width:284px;z-index:5;display:none;}
   body.gutter-on #cmtbtn{display:none;}
-  .gcard{position:absolute;width:284px;background:var(--bg);border:1px solid var(--rule);border-left:3px solid var(--noteline);border-radius:var(--r-control);padding:10px 28px 10px 12px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;line-height:1.4;box-shadow:0 1px 6px rgba(0,0,0,.06);transition:top .18s ease,box-shadow .15s,border-color .15s;cursor:pointer;}
-  .gcard:hover,.gcard.active{box-shadow:0 5px 18px rgba(0,0,0,.18);border-left-color:var(--brand);}
-  .gcard .gref{color:var(--brand);font-weight:700;}
-  .gcard .gq{color:var(--muted-fg);font-style:italic;display:block;margin:2px 0 5px;font-size:12px;max-height:48px;overflow:hidden;}
+  .gcard{position:absolute;width:284px;background:var(--bg);border:1px solid var(--border);border-left:3px solid var(--noteline);border-radius:var(--r-control);padding:10px 28px 10px 12px;font-family:var(--font-ui);font-size:13px;line-height:1.4;box-shadow:0 1px 6px rgba(0,0,0,.06);transition:top .18s ease,box-shadow .15s,border-color .15s;cursor:pointer;}
+  .gcard:hover,.gcard.active{box-shadow:0 5px 18px rgba(0,0,0,.18);border-left-color:var(--accent);}
+  .gcard .gref{color:var(--accent);font-weight:700;}
+  .gcard .gq{color:var(--text-muted);font-style:italic;display:block;margin:2px 0 5px;font-size:12px;max-height:48px;overflow:hidden;}
   .gcard .gnote{color:var(--text);}
-  .gcard .gx{position:absolute;top:5px;right:8px;border:none;background:none;color:var(--muted-fg);font-size:16px;cursor:pointer;line-height:1;}
-  .gcard.addressed{opacity:.55;border-left-color:var(--muted-fg);}
+  .gcard .gx{position:absolute;top:5px;right:8px;border:none;background:none;color:var(--text-muted);font-size:16px;cursor:pointer;line-height:1;}
+  .gcard.addressed{opacity:.55;border-left-color:var(--text-muted);}
   .gcard.addressed .gnote{text-decoration:line-through;}
   mark.cmt{background:rgba(91,48,214,.18);color:inherit;border-radius:var(--r-control);padding:.5px 0;cursor:pointer;transition:background .15s;}
   mark.cmt.active{background:rgba(91,48,214,.40);}
   #histmodal{display:none;position:fixed;inset:0;z-index:85;background:rgba(0,0,0,.45);align-items:center;justify-content:center;}
-  #histbox{width:min(720px,92vw);max-height:82vh;overflow:auto;background:var(--bg);border-radius:var(--r-card);padding:18px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13.5px;}
-  #histbox h3{margin:0 0 12px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-fg);}
+  #histbox{width:min(720px,92vw);max-height:82vh;overflow:auto;background:var(--bg);border-radius:var(--r-card);padding:18px;font-family:var(--font-ui);font-size:13.5px;}
+  #histbox h3{margin:0 0 12px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);}
   .histlist{display:flex;flex-direction:column;gap:6px;}
-  .histitem{text-align:left;font:inherit;font-size:13px;border:1px solid var(--rule);background:var(--bg);color:var(--text);border-radius:var(--r-control);padding:8px 10px;cursor:pointer;}
-  .histitem:hover{border-color:var(--brand);}
-  #histview h4{margin:16px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--brand);}
+  .histitem{text-align:left;font:inherit;font-size:13px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:var(--r-control);padding:8px 10px;cursor:pointer;}
+  .histitem:hover{border-color:var(--accent);}
+  #histview h4{margin:16px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
   #histview ul{margin:4px 0;padding-left:1.2em;}
-  .histdoc{border:1px solid var(--rule);border-radius:var(--r-control);padding:12px 14px;font-family:Charter,Georgia,serif;font-size:15px;line-height:1.5;max-height:38vh;overflow:auto;}
+  .histdoc{border:1px solid var(--border);border-radius:var(--r-control);padding:12px 14px;font-family:var(--font-serif);font-size:15px;line-height:1.5;max-height:38vh;overflow:auto;}
   .histbtnrow{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
   /* #19: History-modal compare mode — pick any two versions, line-level source diff */
-  .cmpbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:var(--muted-fg);}
-  .cmpbar select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--rule);border-radius:var(--r-control);background:var(--bg);color:var(--text);max-width:min(46%,300px);}
+  .cmpbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:var(--text-muted);}
+  .cmpbar select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--r-control);background:var(--bg);color:var(--text);max-width:min(46%,300px);}
   /* Compare mode is now just a scroll container: the rows, gutter and folds come from the shared
      renderer below, so this no longer restyles them. The old .diffrow rules went with it (#207). */
-  .diffdoc{border:1px solid var(--rule);border-radius:var(--r-control);max-height:44vh;overflow:auto;}
-  .diffempty{color:var(--muted-fg);padding:8px 4px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;}
+  .diffdoc{border:1px solid var(--border);border-radius:var(--r-control);max-height:44vh;overflow:auto;}
+  .diffempty{color:var(--text-muted);padding:8px 4px;font-family:var(--font-ui);font-size:13px;}
   /* MR-036: a block carrying an open comment gets the margin bar + dot */
   .blk.has-comment{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
   .blk.has-comment .num::after{content:" \25CF";color:var(--noteline);}
@@ -149,14 +149,14 @@
   .gcard{cursor:default;padding:9px 11px;}
   .gcard .ghead,.rcard .ghead{display:flex;gap:6px;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;}
   /* MR-050: secondary, muted Delete affordance — only on the reviewer's own un-engaged comment */
-  .gcard .ghead .gdel{margin-left:auto;align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--muted-fg);padding:1px 5px;border-radius:var(--r-control);}
+  .gcard .ghead .gdel{margin-left:auto;align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
   .gcard .ghead .gdel:hover{color:#c0392b;background:rgba(192,57,43,.10);}
   .gcard .ghead .gdel.armed{color:#fff;background:#c0392b;font-weight:600;}
   .gthread{display:flex;flex-direction:column;gap:5px;}
-  .gentry{border-left:3px solid var(--rule);background:rgba(127,127,127,.05);border-radius:var(--r-control);padding:4px 8px;}
+  .gentry{border-left:3px solid var(--border);background:rgba(127,127,127,.05);border-radius:var(--r-control);padding:4px 8px;}
   .gentry.reviewer{border-left-color:var(--noteline);background:rgba(91,48,214,.07);}
   .gentry.agent{border-left-color:var(--blue);background:rgba(29,79,191,.08);}
-  .gentry .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted-fg);margin-right:5px;}
+  .gentry .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--text-muted);margin-right:5px;}
   .gentry.reviewer .grole{color:var(--noteline);}
   .gentry.agent .grole{color:var(--blue);}
   .gentry .gtext{color:var(--text);}
@@ -165,50 +165,50 @@
   .gentry .gtext p{margin:.4em 0;}
   .gentry .gtext ul,.gentry .gtext ol{margin:.4em 0;padding-left:1.3em;}
   .gentry .gtext li{margin:.15em 0;}
-  .gentry .gtext code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:rgba(127,127,127,.16);padding:.5px 4px;border-radius:var(--r-control);}
+  .gentry .gtext code{font-family:var(--font-mono);font-size:.9em;background:rgba(127,127,127,.16);padding:.5px 4px;border-radius:var(--r-control);}
   .gentry .gtext pre{background:rgba(127,127,127,.12);padding:7px 9px;border-radius:var(--r-control);overflow:auto;margin:.4em 0;}
   .gentry .gtext pre code{background:none;padding:0;font-size:.86em;}
-  .gentry .gtext a{color:var(--brand);}
-  .gentry .gtext blockquote{margin:.4em 0;padding-left:8px;border-left:2px solid var(--rule);color:var(--muted-fg);}
+  .gentry .gtext a{color:var(--accent);}
+  .gentry .gtext blockquote{margin:.4em 0;padding-left:8px;border-left:2px solid var(--border);color:var(--text-muted);}
   .gentry .gtext h1,.gentry .gtext h2,.gentry .gtext h3,.gentry .gtext h4,.gentry .gtext h5{font-size:13px;margin:.5em 0 .2em;}
   .gentry .gtext img{max-width:100%;border-radius:var(--r-control);}
-  .gentry .gtext hr{border:none;border-top:1px solid var(--rule);margin:.5em 0;}
+  .gentry .gtext hr{border:none;border-top:1px solid var(--border);margin:.5em 0;}
   .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
-  .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font-family:-apple-system,sans-serif;font-size:12.5px;border:1px solid var(--rule);border-radius:var(--r-control);padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
+  .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font-family:var(--font-ui);font-size:12.5px;border:1px solid var(--border);border-radius:var(--r-control);padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
   .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
   /* Resolved history panel */
-  #resolved{display:none;position:fixed;right:18px;bottom:70px;z-index:55;width:380px;max-height:64vh;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:var(--r-card);box-shadow:0 8px 30px rgba(0,0,0,.25);padding:14px;font-family:-apple-system,sans-serif;}
-  #resolved h3{margin:0 0 6px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-fg);}
-  .resolved-count{color:var(--brand);font-weight:700;}
-  #resempty{color:var(--muted-fg);font-size:13px;}
-  .rcard{border-top:1px solid var(--rule);padding:11px 0;font-size:13px;}
-  .rcard .gref{color:var(--brand);font-weight:700;}
-  .rcard .gq{color:var(--muted-fg);font-style:italic;font-size:12px;}
+  #resolved{display:none;position:fixed;right:18px;bottom:70px;z-index:55;width:380px;max-height:64vh;overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:0 8px 30px rgba(0,0,0,.25);padding:14px;font-family:var(--font-ui);}
+  #resolved h3{margin:0 0 6px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);}
+  .resolved-count{color:var(--accent);font-weight:700;}
+  #resempty{color:var(--text-muted);font-size:13px;}
+  .rcard{border-top:1px solid var(--border);padding:11px 0;font-size:13px;}
+  .rcard .gref{color:var(--accent);font-weight:700;}
+  .rcard .gq{color:var(--text-muted);font-style:italic;font-size:12px;}
   /* narrow fallback: the active-comment gutter docks bottom-right with static cards */
-  #gutter.docked{position:fixed;right:18px;bottom:70px;top:auto!important;left:auto!important;width:360px;max-height:64vh;overflow:auto;background:var(--bg);border:1px solid var(--rule);border-radius:var(--r-card);box-shadow:0 8px 30px rgba(0,0,0,.25);padding:12px;display:block;z-index:55;}
+  #gutter.docked{position:fixed;right:18px;bottom:70px;top:auto!important;left:auto!important;width:360px;max-height:64vh;overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:0 8px 30px rgba(0,0,0,.25);padding:12px;display:block;z-index:55;}
   #gutter.docked .gcard{position:static;width:auto;margin-bottom:8px;box-shadow:none;}
 
   /* ---- Share control (#133 public link, extended by #134 people) ---- */
   .tb-btn{font:inherit;font-size:12.5px;font-weight:600;color:var(--text);background:none;
-    border:1px solid var(--rule);border-radius:var(--r-control);padding:5px 12px;cursor:pointer;
+    border:1px solid var(--border);border-radius:var(--r-control);padding:5px 12px;cursor:pointer;
     text-transform:none;letter-spacing:normal;}
-  .tb-btn:hover{border-color:var(--muted2,var(--muted-fg));}
+  .tb-btn:hover{border-color:var(--text-subtle,var(--text-muted));}
   /* #181 (§08 rule 01) — the button states what is true: brand-tinted once a public link OR a
      named grantee exists. Declared AFTER :hover on purpose — both are (0,2,0), so source order
      is what stops the brand border reverting to grey under the pointer. */
-  .tb-btn.shared,.tb-btn.shared:hover{color:var(--brand);background:var(--accent-bg);border-color:var(--brand);}
+  .tb-btn.shared,.tb-btn.shared:hover{color:var(--accent);background:var(--accent-muted);border-color:var(--accent);}
   .tb-btn .ct{font-weight:500;opacity:.75;}
   .share-wrap{position:relative;display:flex;}
-  .sharepop{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--panel);
-    border:1px solid var(--rule);border-radius:var(--r-panel);box-shadow:0 12px 40px rgba(20,22,40,.16);
+  .sharepop{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--surface);
+    border:1px solid var(--border);border-radius:var(--r-panel);box-shadow:0 12px 40px rgba(20,22,40,.16);
     padding:16px;z-index:60;text-transform:none;letter-spacing:normal;text-align:left;}
   .sharepop h3{margin:0 0 12px;font-size:14px;font-weight:700;color:var(--text);}
   .share-row{display:flex;align-items:center;justify-content:space-between;gap:14px;}
   .share-lbl{font-size:13px;color:var(--text);}
-  .share-lbl small{display:block;color:var(--muted-fg);font-size:11.5px;margin-top:2px;font-weight:400;}
+  .share-lbl small{display:block;color:var(--text-muted);font-size:11.5px;margin-top:2px;font-weight:400;}
   .switch{position:relative;width:40px;height:22px;flex:0 0 auto;display:inline-block;}
   .switch input{opacity:0;width:0;height:0;position:absolute;}
-  .switch .track{position:absolute;inset:0;background:var(--rule);border-radius:var(--r-pill);transition:.15s;
+  .switch .track{position:absolute;inset:0;background:var(--border);border-radius:var(--r-pill);transition:.15s;
     cursor:pointer;display:block;}
   .switch .track:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;
     background:#fff;border-radius:var(--r-pill);transition:.15s;}
@@ -216,60 +216,60 @@
   .switch input:checked + .track:before{transform:translateX(18px);}
   .share-link{display:flex;gap:8px;margin-top:14px;}
   .share-link input{flex:1;min-width:0;font:inherit;font-size:12px;padding:8px 10px;
-    border:1px solid var(--rule);border-radius:var(--r-control);background:var(--bg);color:var(--muted-fg);}
+    border:1px solid var(--border);border-radius:var(--r-control);background:var(--bg);color:var(--text-muted);}
   .share-copy{font:inherit;font-size:12.5px;font-weight:600;padding:8px 14px;border:none;
     border-radius:var(--r-control);background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
   .share-copy:hover{opacity:.92;}
   /* Confirmed state (§08 rule 02). The ring is an inset shadow, not a border: .share-copy has
      border:none, and adding one here would shift the row by 2px on every confirm. */
-  .share-copy.ok,.share-copy.ok:hover{background:var(--good-bg);color:var(--good);opacity:1;
-    box-shadow:inset 0 0 0 1px var(--good-rule);}
+  .share-copy.ok,.share-copy.ok:hover{background:var(--success-bg);color:var(--success);opacity:1;
+    box-shadow:inset 0 0 0 1px var(--success-border);}
   /* #134 named-share / people section */
-  .share-sep{height:1px;background:var(--rule);margin:16px 0;}
+  .share-sep{height:1px;background:var(--border);margin:16px 0;}
   .share-people h4{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.05em;
-    text-transform:uppercase;color:var(--muted-fg);}
+    text-transform:uppercase;color:var(--text-muted);}
   .share-list{display:flex;flex-direction:column;gap:8px;margin:0 0 12px;}
   .share-item{display:flex;align-items:center;gap:8px;font-size:13px;}
   .share-item .em{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
-  .share-item .rt{font-size:11px;font-weight:600;color:var(--muted-fg);text-transform:capitalize;}
-  .share-item .rm{background:none;border:none;color:var(--muted2,var(--muted-fg));cursor:pointer;
+  .share-item .rt{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:capitalize;}
+  .share-item .rm{background:none;border:none;color:var(--text-subtle,var(--text-muted));cursor:pointer;
     font-size:16px;line-height:1;padding:1px 5px;border-radius:var(--r-control);}
   .share-item .rm:hover{color:#c0392b;background:rgba(192,57,43,.1);}
-  .share-empty{color:var(--muted-fg);font-size:12.5px;margin:0 0 12px;}
+  .share-empty{color:var(--text-muted);font-size:12.5px;margin:0 0 12px;}
   .share-invite{display:flex;gap:6px;align-items:center;}
   .share-invite input{flex:1;min-width:0;font:inherit;font-size:12.5px;padding:8px 10px;
-    border:1px solid var(--rule);border-radius:var(--r-control);background:var(--bg);color:var(--text);}
-  .share-invite select{font:inherit;font-size:12.5px;padding:8px 6px;border:1px solid var(--rule);
+    border:1px solid var(--border);border-radius:var(--r-control);background:var(--bg);color:var(--text);}
+  .share-invite select{font:inherit;font-size:12.5px;padding:8px 6px;border:1px solid var(--border);
     border-radius:var(--r-control);background:var(--bg);color:var(--text);}
   .share-invite button{font:inherit;font-size:12.5px;font-weight:600;padding:8px 12px;border:none;
     border-radius:var(--r-control);background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
   .share-err{color:#c0392b;font-size:12px;margin:8px 0 0;}
 
   /* ---- #207 diff toggle + hunked unified diff ------------------------------------------------
-     Colours are the EXISTING --good/--danger status pairs, not new tokens: an add is "good" and a
+     Colours are the EXISTING --success/--danger status pairs, not new tokens: an add is "good" and a
      removal is "danger" in exactly the sense theme.css already means. The sign column carries the
      add/remove distinction independently of colour, so the diff survives greyscale and a
      colourblind reader. */
   /* Row/gutter/fold styling and the .difftoggle shape moved to theme.css in #208, so the latex
      viewer renders the identical markup from the identical rules. Only the pane wrapper, which is
      this page's own layout, stays here. */
-  #diffpane{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.6;
-    border:1px solid var(--rule);border-radius:var(--r-card,12px);overflow:hidden;margin:8px 0 40px;}
+  #diffpane{font-family:var(--font-mono);font-size:13px;line-height:1.6;
+    border:1px solid var(--border);border-radius:var(--r-card,12px);overflow:hidden;margin:8px 0 40px;}
 
   /* ---- #290 in-place editor (epic #273 slice B) ------------------------------------------------
      Mutually exclusive with #diffpane / #article (only one pane is ever unhidden at a time — see
      the JS-side rule next to openEditor()). Edit is a plain raw-source textarea on purpose: no
      contenteditable, no HTML-to-markdown conversion, ever. */
   #editpane{margin:8px 0 40px;}
-  #editbar{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+  #editbar{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-family:var(--font-ui);}
   .editspacer{flex:1;}
-  #editnotice{flex:1 1 auto;font-size:12.5px;line-height:1.5;color:var(--warn);background:var(--warn-bg);
-    border:1px solid var(--warn-rule);border-radius:var(--r-control);padding:7px 11px;}
+  #editnotice{flex:1 1 auto;font-size:12.5px;line-height:1.5;color:var(--warning);background:var(--warning-bg);
+    border:1px solid var(--warning-border);border-radius:var(--r-control);padding:7px 11px;}
   #editnotice .btn{font-size:11.5px;padding:3px 10px;margin-left:6px;}
-  #edittext{width:100%;min-height:60vh;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-    font-size:14px;line-height:1.6;border:1px solid var(--rule);border-radius:var(--r-card,12px);
-    padding:16px;background:var(--panel);color:var(--text);resize:vertical;}
-  #edittext:focus{outline:none;border-color:var(--brand);}
+  #edittext{width:100%;min-height:60vh;font-family:var(--font-mono);
+    font-size:14px;line-height:1.6;border:1px solid var(--border);border-radius:var(--r-card,12px);
+    padding:16px;background:var(--surface);color:var(--text);resize:vertical;}
+  #edittext:focus{outline:none;border-color:var(--accent);}
   /* the diff toggle is disabled (not hidden) while editing, so its presence in the bar is stable —
      only its affordance changes, per the stated edit/diff mutual-exclusion rule. */
   .tb-btn:disabled{opacity:.4;cursor:not-allowed;}
@@ -964,7 +964,7 @@ function renderBrowse(rounds,rev){
   const body=$("#histbody");
   let items='<button class="histitem" data-n="current">'+(rev>0?'current (v'+rev+')':'current')+' &middot; live draft</button>';
   if(rounds.length)items+=rounds.map(r=>'<button class="histitem" data-n="'+r.round+'">v'+r.round+' &middot; earlier draft &middot; '+new Date(r.ts*1000).toLocaleString()+'</button>').join('');
-  else items+='<p style="color:var(--muted-fg);font-size:13px;margin:6px 2px 0">No earlier versions yet — a version is saved each time the AI pushes a revised draft.</p>';
+  else items+='<p style="color:var(--text-muted);font-size:13px;margin:6px 2px 0">No earlier versions yet — a version is saved each time the AI pushes a revised draft.</p>';
   body.innerHTML='<div class="histlist">'+items+'</div><div id="histview"></div>';
   body.querySelectorAll('.histitem').forEach(b=>b.onclick=()=>showRound(b.dataset.n));
   showRound('current');                       // open showing the current draft, never an empty modal
@@ -1149,7 +1149,7 @@ async function initShare(){
   document.addEventListener("click", e=>{ if(!pop.hidden && !pop.contains(e.target) && e.target!==btn) pop.hidden = true; });
 }
 function shareUrl(){ return location.origin + "/review/" + encodeURIComponent(ID); }
-// #181 (§08 rule 01): "Share" while private, "Shared" in --brand once a public link OR a named
+// #181 (§08 rule 01): "Share" while private, "Shared" in --accent once a public link OR a named
 // grantee exists, carrying the people count. The count is grantees (_shares), not the owner.
 function updateShareBtn(){
   const btn = document.getElementById("sharebtn"); if(!btn) return;

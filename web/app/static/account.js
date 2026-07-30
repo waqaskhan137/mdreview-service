@@ -11,21 +11,21 @@
     // normal-case + no letter-spacing so the email reads right even inside the viewer's uppercase top bar
     "#acct .acct{display:flex;align-items:center;gap:9px;font-size:13px;min-width:0;text-transform:none;letter-spacing:normal;}" +
     "#acct .acct-dot{width:7px;height:7px;border-radius:50%;background:#2f8f5b;flex:0 0 auto;}" +
-    "#acct .acct-email{color:var(--muted-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}" +
+    "#acct .acct-email{color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}" +
     "#acct .acct-out{font:inherit;font-size:12.5px;font-weight:600;color:var(--text);background:none;" +
-    "border:1px solid var(--rule);border-radius:8px;padding:5px 11px;cursor:pointer;flex:0 0 auto;" +
+    "border:1px solid var(--border);border-radius:8px;padding:5px 11px;cursor:pointer;flex:0 0 auto;" +
     "text-transform:none;letter-spacing:normal;}" +
-    "#acct .acct-out:hover{border-color:var(--muted2,var(--muted-fg));}" +
+    "#acct .acct-out:hover{border-color:var(--text-subtle,var(--text-muted));}" +
     "#acct .acct-in{color:var(--link);text-decoration:none;font-weight:600;font-size:13px;white-space:nowrap;}" +
     "#acct .acct-in:hover{text-decoration:underline;}" +
     // Admin: both the indicator (you are an admin) and the way to reach /admin. Fixed violet reads on
     // every page's ground (light dashboard, dark viewer/account).
     // #262: the retired #7c6cff and the hardcoded #6a5acd are gone. Follows theme.css's .dpill /
     // .difftoggle pattern — tinted background, brand-coloured text — because the naive fix (white
-    // on var(--brand)) measures 2.18:1 in dark, WORSE than the 5.31:1 it replaced. This measures
+    // on var(--accent)) measures 2.18:1 in dark, WORSE than the 5.31:1 it replaced. This measures
     // 6.24:1 light and 6.84:1 dark, both clearing AA.
     "#acct .acct-admin{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;" +
-    "color:var(--brand);background:var(--accent-bg);border:1px solid var(--brand);" +
+    "color:var(--accent);background:var(--accent-muted);border:1px solid var(--accent);" +
     "border-radius:var(--r-pill,20px);padding:1px 7px;white-space:nowrap;flex:0 0 auto;} " +
     // #262 menu. HAND-ROLLED, not Basecoat: this file mounts on all five pages and the two
     // viewers load neither basecoat.cdn.min.css nor basecoat.all.min.js, so Basecoat is never the
@@ -34,24 +34,24 @@
     "#acct .acct-trig{display:flex;align-items:center;gap:9px;font:inherit;font-size:13px;" +
     "background:none;border:1px solid transparent;border-radius:var(--r-control,8px);" +
     "padding:3px 7px;cursor:pointer;color:inherit;max-width:min(46vw,320px);}" +
-    "#acct .acct-trig:hover{border-color:var(--rule);background:var(--nav-hover,transparent);}" +
-    "#acct .acct-trig[aria-expanded=true]{border-color:var(--rule);background:var(--nav-active,transparent);}" +
+    "#acct .acct-trig:hover{border-color:var(--border);background:var(--nav-hover,transparent);}" +
+    "#acct .acct-trig[aria-expanded=true]{border-color:var(--border);background:var(--nav-active,transparent);}" +
     "#acct .acct-caret{flex:0 0 auto;opacity:.55;font-size:10px;}" +
     "#acct .acct-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:224px;" +
-    "background:var(--panel,#fff);border:1px solid var(--rule);border-radius:var(--r-card,12px);" +
+    "background:var(--surface,#fff);border:1px solid var(--border);border-radius:var(--r-card,12px);" +
     "box-shadow:0 10px 30px rgba(0,0,0,.12);padding:6px;}" +
-    "#acct .acct-who{padding:7px 10px 9px;border-bottom:1px solid var(--rule-faint,var(--rule));" +
+    "#acct .acct-who{padding:7px 10px 9px;border-bottom:1px solid var(--border-faint,var(--border));" +
     "margin-bottom:6px;}" +
     "#acct .acct-who b{display:block;font-weight:600;font-size:13px;overflow:hidden;" +
     "text-overflow:ellipsis;white-space:nowrap;}" +
-    "#acct .acct-who span{font-size:11.5px;color:var(--muted2,var(--muted));}" +
+    "#acct .acct-who span{font-size:11.5px;color:var(--text-subtle,var(--muted));}" +
     "#acct .acct-item{display:block;width:100%;text-align:left;font:inherit;font-size:13px;" +
     "padding:7px 10px;border:0;background:none;border-radius:var(--r-control,8px);cursor:pointer;" +
     "color:var(--text);text-decoration:none;}" +
-    "#acct .acct-item:hover{background:var(--nav-hover,var(--inset));text-decoration:none;}" +
-    "#acct .acct-sep{height:1px;background:var(--rule-faint,var(--rule));margin:6px 4px;}" +
+    "#acct .acct-item:hover{background:var(--nav-hover,var(--code-bg));text-decoration:none;}" +
+    "#acct .acct-sep{height:1px;background:var(--border-faint,var(--border));margin:6px 4px;}" +
     // sidebar variant (dashboard): pin to the bottom, stack the email above the button
-    ".side #acct{margin-top:auto;padding-top:16px;border-top:1px solid var(--rule);}" +
+    ".side #acct{margin-top:auto;padding-top:16px;border-top:1px solid var(--border);}" +
     ".side #acct .acct{flex-wrap:wrap;}" +
     ".side #acct .acct-email{flex:1 1 100%;}";
 
