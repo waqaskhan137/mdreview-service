@@ -55,6 +55,22 @@
      for codecol + railcol, and reusing it put the diff header beside the rows instead of above. */
   .diffscroll{flex:1;overflow:auto;position:relative;display:block;}
   .diffscroll[hidden]{display:none;}
+  /* #291: edit mode. A third source-pane view, same [hidden]-beats-flex contract as srcscroll and
+     diffscroll above (an explicit display beats the UA default or two panes stack, #208's bug
+     again). BLOCK layout, like diffscroll: it is a column (textarea + bottom bar), not the
+     codecol+railcol row srcscroll is built for. */
+  .editscroll{flex:1;display:flex;flex-direction:column;min-height:0;}
+  .editscroll[hidden]{display:none;}
+  .editscroll textarea{flex:1;width:100%;border:0;resize:none;padding:12px 14px;margin:0;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.62;
+    background:var(--bg);color:var(--text);outline:none;}
+  .editbar{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 14px;
+    border-top:1px solid var(--rule);background:var(--bg);}
+  .editerr{flex:1;color:var(--warn);font-size:12px;line-height:1.4;}
+  .editerr[hidden]{display:none;}
+  /* Mutual exclusion (AC): edit mode always wins over diff mode (enterEdit forces DIFFON off), so
+     this is belt-and-suspenders — the diff toggle stays inert (JS guard) and visibly says so. */
+  body.editing #difftoggle{opacity:.35;pointer-events:none;}
   .codecol{flex:1;min-width:0;padding:12px 0 60vh;}
   .ln{display:flex;padding:1px 14px 1px 0;line-height:1.62;position:relative;}
   .ln:hover{background:rgba(127,127,127,.07);}
@@ -236,7 +252,7 @@
 </div>
 <div class="split">
   <section class="srcpane" aria-label="LaTeX source">
-    <div class="panehead">Source <span class="mono" id="srcname">paper.tex</span><span id="srcmeta"></span><button type="button" class="headbtn difftoggle" id="difftoggle" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><button type="button" class="headbtn" id="copysrc" aria-label="Copy the LaTeX source to the clipboard">Copy</button></div>
+    <div class="panehead">Source <span class="mono" id="srcname">paper.tex</span><span id="srcmeta"></span><button type="button" class="headbtn difftoggle" id="difftoggle" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><button type="button" class="headbtn" id="editbtn" aria-label="Edit the LaTeX source" hidden>Edit</button><button type="button" class="headbtn" id="copysrc" aria-label="Copy the LaTeX source to the clipboard">Copy</button></div>
     <div class="srcscroll" id="srcscroll">
       <div class="codecol" id="codecol"><div class="pdfmsg">Loading source…</div></div>
       <div class="railcol" id="railcol"></div>
@@ -246,6 +262,19 @@
          comment rail is deliberately NOT shown here: comments anchor to current line numbers, and a
          unified diff interleaves old and new ones, so an anchor drawn against it would be a lie. -->
     <div class="diffscroll" id="texdiffpane" hidden></div>
+    <!-- #291: edit mode. A textarea over the .tex source, same pane, same mutual-exclusion rule as
+         diff mode above (only one of the three views is ever visible). editerr surfaces the two
+         DISTINCT #188 failure paths: 400 (rejected write, buffer kept, nothing written) and 409
+         (stale revision, buffer kept, "changed by the agent"). A 200 that later fails to COMPILE is
+         NOT an editor error — that surfaces in #errbar via the existing compile poll, after the
+         editor has already closed on the successful save. -->
+    <div class="editscroll" id="editpane" hidden>
+      <textarea id="edittext" spellcheck="false" aria-label="Edit the LaTeX source"></textarea>
+      <div class="editbar"><span class="editerr" id="editerr" hidden></span>
+        <button type="button" class="btn" id="editcancel">Cancel</button>
+        <button type="button" class="btn primary" id="editsave">Save</button>
+      </div>
+    </div>
   </section>
   <div class="vdiv" id="vdiv" role="separator" aria-label="Resize panes" aria-orientation="vertical"></div>
   <section class="pdfpane" aria-label="PDF preview">
@@ -329,6 +358,12 @@ async function loadSource(){
 // ever hints. Only the source pane swaps; the PDF pane and the compile bar are untouched.
 let DIFFON=false;
 let PREVROUND=null;      // newest archived round, or null when there is nothing to compare against
+// #291: edit mode. EDITON gates the third source-pane view (syncDiffVisibility above); editRevision
+// is the #288 precondition token, taken ONLY from the GET /source response that seeds the textarea
+// (never a separate /status fetch — that ordering is the lost-update bug the guard exists to
+// prevent); canEdit mirrors /status.can_edit, read once at boot like the Share button's ownership
+// gate (both viewers already poll /status, so this adds no requests).
+let EDITON=false, editRevision=null, canEdit=false;
 
 function setDiffCount(c){
   const el=$('#diffcount');
@@ -361,11 +396,15 @@ async function paintTexDiff(){
   }catch(e){pane.innerHTML='<div class="diffempty">Could not load the diff.</div>';}
 }
 // DIFFON is the single source of truth for which pane shows; kept separate so a push can
-// re-assert it without also re-triggering a repaint.
+// re-assert it without also re-triggering a repaint. #291: EDITON is a THIRD pane sharing the same
+// slot, and it always wins — enterEdit() forces DIFFON off before opening, so the two are never
+// both true, but this stays defensive rather than trusting that invariant silently.
 function syncDiffVisibility(){
-  $('#srcscroll').hidden=DIFFON;
-  $('#texdiffpane').hidden=!DIFFON;
+  $('#srcscroll').hidden=DIFFON||EDITON;
+  $('#texdiffpane').hidden=!DIFFON||EDITON;
+  $('#editpane').hidden=!EDITON;
   $('#difftoggle').setAttribute('aria-pressed',DIFFON?'true':'false');
+  document.body.classList.toggle('editing',EDITON);
 }
 function applyDiffMode(){
   syncDiffVisibility();
@@ -386,7 +425,10 @@ async function onAgentPush(){
   // The toast is where the reviewer learns their paper was rewritten, so it is where the way to
   // see it belongs. Clicking is the reviewer ASKING — that is the one case where opening the diff
   // for them is correct, and it is still their action, not the push's.
-  if(changed)toastAction('Draft updated by AI','See what changed',()=>{DIFFON=true;$('#difftoggle').classList.remove('hinted');applyDiffMode();});
+  // #291: not while EDITON — the action would flip DIFFON under an open editor, and syncDiffVisibility
+  // keeps the edit pane on top regardless, so the click would silently do nothing visible. Plain
+  // notice instead; the diff is still one click away once they finish or cancel.
+  if(changed&&!EDITON)toastAction('Draft updated by AI','See what changed',()=>{DIFFON=true;$('#difftoggle').classList.remove('hinted');applyDiffMode();});
   else toast('Draft updated by AI');
   // Re-assert from DIFFON, always and last: loadSource() has just rebuilt the pane and several
   // awaits have passed, so this guarantees a push cannot leave the reviewer in a pane they did
@@ -673,11 +715,16 @@ async function boot(){
   // lastSrc/lastCmt at their initial 0 and falsely fires a "Draft updated by AI" reload on a
   // review nothing changed (mirrors viewer.html's load()).
   try{const s=await (await fetch(API+'/status',{cache:'no-store'})).json();
-    lastSrc=s.source_updated||0;lastCmt=s.comments_updated||0;}catch(e){}
+    lastSrc=s.source_updated||0;lastCmt=s.comments_updated||0;
+    // #291: can_edit (#288) is the SAME custody can_write the PUT arm enforces — owner on both
+    // tiers, false for a comment/view grantee. One extra field off a request the page already
+    // makes, not a new one.
+    canEdit=!!s.can_edit;$('#editbtn').hidden=!canEdit;}catch(e){}
   await refreshDiffAvail();   // reveals the toggle if an earlier version exists; never opens it
   poll();
 }
 $('#difftoggle').onclick=()=>{
+  if(EDITON)return;   // #291 mutual exclusion: the click handler is the real gate; CSS just says so
   DIFFON=!DIFFON;
   $('#difftoggle').classList.remove('hinted');   // acted on; stop advertising
   applyDiffMode();
@@ -791,6 +838,86 @@ mdKeys.register([
     return false;
   }},
 ]);
+
+// ---- #291: edit mode — swap #srcscroll for a textarea over the .tex source. Save rides the same
+// PUT /source the MCP path uses, widened by #288 (If-Match precondition) and #289 (session-keyed
+// CSRF + reviewer attribution). Two DISTINCT server outcomes on a rejected save, per #188, and the
+// UI must not conflate them: 400 = the write guard fired, NOTHING was written, buffer kept, show
+// the _NOT_TEX text verbatim; 409 = the write guard passed but the revision was stale, ALSO nothing
+// written, buffer kept, but the message is about the OTHER writer, not the content. A 200 that
+// later fails to COMPILE is neither of these — the editor has already closed on the 200, and that
+// failure surfaces through the existing #errbar / refreshPdf() poll, untouched by this feature.
+function editErr(msg){const e=$('#editerr');e.textContent=msg;e.hidden=!msg;}
+async function enterEdit(){
+  if(!canEdit||EDITON)return;
+  DIFFON=false;   // mutual exclusion: edit always wins, unconditionally
+  let text,rev;
+  try{
+    const r=await fetch(API+'/source',{cache:'no-store'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    text=await r.text();
+    // The precondition token comes from THIS response, never a separate /status fetch — reading it
+    // out of band is exactly the lost-update ordering #288 forbids.
+    rev=(r.headers.get('ETag')||'').replace(/"/g,'');
+  }catch(e){toast('Could not load the source for editing');return;}
+  editRevision=rev;
+  $('#edittext').value=text;
+  editErr('');
+  EDITON=true;
+  syncDiffVisibility();
+  $('#edittext').focus();
+}
+function exitEdit(){
+  EDITON=false;
+  editErr('');
+  syncDiffVisibility();
+}
+$('#editbtn').addEventListener('click',enterEdit);
+$('#editcancel').addEventListener('click',exitEdit);
+$('#editsave').addEventListener('click',async()=>{
+  const save=$('#editsave'),cancel=$('#editcancel'),markdown=$('#edittext').value;
+  save.disabled=true;cancel.disabled=true;save.textContent='Saving…';editErr('');
+  let csrf='';
+  try{csrf=((await fetch('/auth/session',{cache:'no-store'}).then(r=>r.json()))||{}).csrf||'';}catch(e){}
+  let r=null,body=null;
+  try{
+    r=await fetch(API+'/source',{method:'PUT',headers:{'Content-Type':'application/json',
+      'If-Match':'"'+editRevision+'"','X-CSRF-Token':csrf,'X-Mdreview-Client':'viewer'},
+      body:JSON.stringify({markdown:markdown})});
+    body=await r.json().catch(()=>({}));
+  }catch(e){
+    save.disabled=false;cancel.disabled=false;save.textContent='Save';
+    editErr('Save failed — network error. Your text below is unsaved.');
+    return;
+  }
+  save.disabled=false;cancel.disabled=false;save.textContent='Save';
+  if(r.status===200){
+    // This write IS the source_updated change the poll would otherwise see as a REMOTE one —
+    // seed lastSrc from the response so the next tick does not fire a false "Draft updated by AI"
+    // toast over the reviewer's own save (mirrors boot()'s cursor-seeding comment above).
+    lastSrc=body.source_updated||lastSrc;
+    EDITON=false;editErr('');syncDiffVisibility();
+    await loadSource();await refreshDiffAvail();refreshPdf();
+    toast('Saved — recompiling…');
+    return;
+  }
+  if(r.status===409){
+    // AC: buffer preserved, editor stays open, explicit "changed by the agent" message — never
+    // auto-reload, that would be this UI resending nothing while silently discarding the buffer.
+    editErr('Changed by the agent since you opened the editor. Your text below is unsaved — '
+      +'Cancel, reopen Edit to see the latest, then re-apply your change.');
+    return;
+  }
+  if(r.status===400){
+    // AC 7a: the #188 guard rejected the body before anything was written. Show its text verbatim
+    // (decorator.py's _NOT_TEX is written for exactly this reader) — never invent our own wording.
+    editErr((body&&body.error)||'Rejected: not a valid LaTeX document. Nothing was saved.');
+    return;
+  }
+  editErr('Save failed — HTTP '+r.status+'. Your text below is unsaved.');
+});
+mdKeys.pushEscape(()=>{if(!EDITON)return false;exitEdit();return true;});
+
 // #250 Recompile. Honest, server-driven states (the #213 #pubcopy pattern: await, then say what
 // happened). The in-progress label appears only after the POST returns 2xx; a refused POST names
 // its reason and re-enables; queued/running is driven by st.state in refreshPdf(), never a client

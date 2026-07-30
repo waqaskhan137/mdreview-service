@@ -74,3 +74,10 @@ jobs:
       # yields the address, an unresolvable one yields "". Stdlib-only, boots its own server.
       - name: Review shares email selfcheck
         run: python3 tests/review_shares_email_selfcheck.py
+
+      # #291: the latex-viewer.html edit UI's exact HTTP contract against a real latex review —
+      # If-Match from GET /source, X-Mdreview-Client attribution, the 400-vs-409 distinction (AC
+      # 7a/7b) including the guard-wins-over-precondition ordering. Stdlib-only, boots its own
+      # local instance.
+      - name: Latex edit UI selfcheck
+        run: python3 tests/latex_edit_ui_selfcheck.py
