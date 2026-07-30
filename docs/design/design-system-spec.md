@@ -21,37 +21,64 @@ is the load-bearing part.
 
 Same token names in both themes — pages never branch on theme in markup.
 
+**Amended 2026-07-30 (#277):** this section now records the Polish rev-3 token contract
+(`design-polish-v3` canvas, the theme-specification revision), which replaced the cool palette
+this extract originally captured. The contract's own rule is binding and mechanically enforced by
+`tests/css_palette_selfcheck.js`: identical DOM in both themes, only these values change, and no
+component declares a colour literal. Where older sections of this extract quote a cool-palette
+hex (for example §05.02's `#f2f2f6` hairline), the contract supersedes it: that hairline is
+`--border-faint`.
 
-### Light
+### The contract (light / dark)
 
-| Token | Value |
-|---|---|
-| `--bg` | `#f7f7fa` |
-| `--panel` | `#ffffff` |
-| `--text` | `#16181d` |
-| `--muted` | `#5c6270` |
-| `--accent` | `#5b30d6` |
-| `--blue` | `#1d4fbf` |
-| `--green` | `#2f8f5b` |
-| `--danger` | `#c0392b` |
+| Token | Light | Dark |
+|---|---|---|
+| `--bg` | `#FCFBF9` | `#14130F` |
+| `--surface` | `#FAF9F7` | `#1F1D19` |
+| `--surface-raised` | `#FFFFFF` | `#26231D` |
+| `--text` | `#1F1D1A` | `#E8E4DC` |
+| `--text-muted` | `#57534B` | `#9A948A` |
+| `--text-subtle` | `#6B6660` | `#8F897F` |
+| `--border` | `#E6E2DC` | `#2E2B26` |
+| `--border-faint` | `#EFECE6` | `#232019` |
+| `--accent` | `#5B30D6` | `#B5A7E6` |
+| `--accent-strong` | `#4423B0` | `#C9BEEE` |
+| `--accent-muted` | `#F1ECFA` | `#2A2540` |
+| `--success` | `#1F7A49` | `#6DD39B` |
+| `--success-bg` | `#E6F4EC` | `#1C2C22` |
+| `--success-border` | `#B7E0C8` | `#2F4A39` |
+| `--warning` | `#8A6100` | `#D0A24A` |
+| `--warning-bg` | `#F7EFDC` | `#2B2317` |
+| `--danger` | `#C0392B` | `#E07A7A` |
+| `--danger-bg` | `#FDECEA` | `#33231D` |
+| `--danger-border` | `#E8C6BF` | `#4A2F28` |
+| `--code-bg` | `#F4F2EE` | `#24211C` |
+| `--canvas` | `#EAE7E0` | `#100F0C` |
+| `--paper` | `#FFFFFF` | `#FFFFFF` |
+| `--paper-ink` | `#1F1D1A` | `#1F1D1A` |
+| `--paper-ink-muted` | `#57534B` | `#57534B` |
+| `--scrim` | `rgba(20,19,15,.42)` | `rgba(0,0,0,.72)` |
+| `--shadow-menu` | `0 18px 44px -18px rgba(20,20,40,.35)` | same shape, `rgba(0,0,0,.6)` |
+| `--shadow-dock` | `0 18px 40px -18px rgba(20,20,40,.28)` | same shape, `rgba(0,0,0,.7)` |
+| `--shadow-paper` | `0 10px 30px -12px rgba(20,20,40,.3)` | same shape, `rgba(0,0,0,.55)` |
+| `--shadow-hair` | `0 1px 0 rgba(20,20,40,.06)` | same shape, `rgba(0,0,0,.35)` |
 
+Dark also sets `font-weight: 350` on the root: body weight drops 400 → 350 from the theme, never
+per element. Elevation in dark is a lighter surface (`--surface-raised` above `--surface` above
+`--bg`), not a heavier shadow. `--paper` stays white in both themes: it is a printed sheet, not a
+UI surface, and the LaTeX viewer never inverts the rendered PDF.
 
-### Dark
-
-| Token | Value |
-|---|---|
-| `--bg` | `#0f1014` |
-| `--panel` | `#17181d` |
-| `--text` | `#e9eaf0` |
-| `--muted` | `#9a9fb0` |
-| `--accent` | `#b9a3f5` |
-| `--blue` | `#9cc0f5` |
-| `--green` | `#6dd39b` |
-| `--danger` | `#f0857a` |
-
+Outside the contract: `--warning-border` (symmetry with the success/danger borders) and the warm
+`--nav-hover`/`--nav-active` are documented judgement calls in `theme.css`; `--blue`, `--blue-bg`
+and `--link` are legacy with no contract equivalent (rev 3 has no blue anywhere), kept only until
+#278–#280 retire their consumers.
 
 ### Retired
 
+- the cool palette this extract originally recorded (`--bg #f7f7fa` / `#0f1014`,
+  `--panel #ffffff` / `#17181d`, `--muted`, `--green #2f8f5b`, dark danger `#f0857a`) and the old
+  token names (`--panel`, `--rule`, `--brand`, `--muted-fg`, `--muted2`, `--inset`,
+  `--accent-bg`), renamed to the contract vocabulary by #277
 - #7c6cff (account/admin violet)
 - #0e0f13 / #15171c / #262a33 neutrals
 - Blue→violet gradient logo & buttons
@@ -59,25 +86,31 @@ Same token names in both themes — pages never branch on theme in markup.
 ### Accent means one thing
 
 - Violet = the baton, comments, you
-- Blue = structure, links, headings
-- Green / amber / red = outcome only
+- Success / warning / danger = outcome only
+- Blue is legacy (structure, links, headings) and leaves with the re-skins
 
 ## §02 Type, space, shape
 
-System sans for UI, Charter for document bodies. One 4px spacing grid.
+**Amended 2026-07-30 (#277):** Geist for UI, Geist Mono for code and tabular emphasis, Source
+Serif 4 for document bodies — all three self-hosted as variable woff2 in `web/app/static/`
+(never a CDN), reached through `--font-ui` / `--font-mono` / `--font-serif`. Variable files are
+required, not preferred: dark's 350 body weight and Geist Mono's 550 tabular emphasis are axis
+positions no static cut can render. One 4px spacing grid, unchanged.
 
-
-### Type scale
+### Type scale (rev 3)
 
 | Role | Example |
 |---|---|
 | `display/32` | All reviews |
-| `title/22` | Connect your agent |
+| `title/25` | Connect your agent |
 | `card/16` | Retrieval latency budget |
-| `body/14` | Default interface text and form labels. |
-| `meta/12.5` | Timestamps, counts, breadcrumbs. |
-| `eyebrow/11` | Recent activity |
+| `body/13` | Default interface text and form labels. |
+| `meta/13` | Timestamps, counts, breadcrumbs. |
+| `eyebrow/12` | Recent activity |
 | `doc/20` | The reading column stays serif at 20/1.7 — only the viewer body uses it. |
+
+Below 768px the floors lift so iOS stops zooming on focus: body 13 → 16, card 16 → 17,
+title 25 → 24. Colour tokens never change with width.
 
 ### Radius
 
@@ -304,7 +337,7 @@ Recorded 2026-07-29 while extracting. Each is the document being wrong about the
 | Where | The document says | The app ships |
 |---|---|---|
 | §10.03 | Headline steps down **40 -> 27px** | `--t-display` is **32px**, and #184 shipped the narrow step as **32 -> 24px**. The 40px baseline never existed in `theme.css`. |
-| §01 | `--accent: #5b30d6`, and `#7c6cff` is retired | `theme.css` names it `--brand: #5b30d6`. The retired `#7c6cff` still appears hardcoded in the admin pill in `web/app/static/account.js` (#262 removes it). |
+| §01 | `--accent: #5b30d6`, and `#7c6cff` is retired | Resolved: #262 removed the hardcoded `#7c6cff`, and #277 renamed `--brand` to the contract's `--accent`, so the document and the app now agree. Kept as a row because a resolved divergence is still a recorded one. |
 | §04 | Skeletons and a running-agent ring | Neither exists in first-party code. Verified 2026-07-28 and again 2026-07-29: zero `@keyframes`, zero `animation:` declarations under `web/app` outside vendored bundles. |
 
 ## Standing rules added after the extract
