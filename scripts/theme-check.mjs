@@ -13,13 +13,17 @@
 // string — custom properties resolve at the point of USE — so tokens are resolved through a
 // probe element (`color: var(--tok)`), which is the value every consumer actually receives.
 //
+// Full matrix (all four flags required — the matrix is five pages by contract, #285 AC 1;
+// tests/theme_toggle_selfcheck.sh starts the instances and wires the fixtures):
 //   node scripts/theme-check.mjs --base http://127.0.0.1:PORT --review RID --latex RID \
 //                                --admin http://127.0.0.1:PORT2
-//
 // --base serves /, /account and /review/{RID}; --admin is a HOSTED instance's origin (the admin
-// console only exists on the hosted plane; its shell is served unauthenticated). All four flags
-// are required: the matrix is five pages by contract (#285 AC 1). Run against throwaway local
-// instances — tests/theme_toggle_selfcheck.sh starts them and wires the fixtures.
+// console only exists on the hosted plane; its shell is served unauthenticated).
+//
+// Legacy mode (#153's original contract, kept because dashboard_reskin_selfcheck.sh calls it):
+//   node scripts/theme-check.mjs <url>...
+// asserts each URL adapts to the emulated OS scheme with the CONTRACT surfaces in its default
+// (auto) state — no toggle interaction.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -30,11 +34,14 @@ const arg = (name) => {
   return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : null;
 };
 const BASE = arg('base'), REVIEW = arg('review'), LATEX = arg('latex'), ADMIN = arg('admin');
-if (!BASE || !REVIEW || !LATEX || !ADMIN) {
-  console.error('usage: theme-check.mjs --base URL --review RID --latex RID --admin URL');
+const LEGACY_URLS = process.argv.slice(2).filter(a => /^https?:\/\//.test(a));
+const LEGACY = !BASE && LEGACY_URLS.length > 0;
+if (!LEGACY && (!BASE || !REVIEW || !LATEX || !ADMIN)) {
+  console.error('usage: theme-check.mjs --base URL --review RID --latex RID --admin URL\n' +
+    '   or (legacy, auto-state only): theme-check.mjs <url>...');
   process.exit(2);
 }
-const PAGES = {
+const PAGES = LEGACY ? {} : {
   dashboard: BASE + '/',
   account: BASE + '/account',
   viewer: BASE + '/review/' + REVIEW,
@@ -136,6 +143,25 @@ try {
   });
   await new Promise(r => ws.addEventListener('open', r));
   await cmd('Page.enable'); await cmd('Runtime.enable');
+
+  /* ---- Legacy mode: default (auto) state adapts to the OS, contract surfaces ------------- */
+  if (LEGACY) {
+    for (const url of LEGACY_URLS) {
+      for (const scheme of ['light', 'dark']) {
+        await media(scheme);
+        await cmd('Page.navigate', { url });
+        for (let i = 0; i < 100; i++) {
+          if (await evaluate('document.readyState') === 'complete') break;
+          await sleep(100);
+        }
+        await sleep(250);
+        const b = await bg();
+        check(`auto under OS ${scheme}: ${url}`, b === BG[scheme], `body bg=${b} want ${BG[scheme]}`);
+      }
+    }
+    console.log(failed ? `\n  FAIL (${failed})` : '\n  PASS — all pages adapt with the contract surfaces');
+    done(); process.exit(failed ? 1 : 0);
+  }
 
   /* ---- AC 1: click cycle, per page, both OS schemes -------------------------------------- */
   for (const [page, url] of Object.entries(PAGES)) {
