@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · reviews</title>
+<script>
+/* #285 pre-paint theme applier — IDENTICAL in all five page heads (dashboard, viewer,
+   latex-viewer, account, admin); edit all five together. It must run synchronously in <head>,
+   before first paint: account.js (which renders the toggle) is end-of-body and too late, and a
+   deferred applier would flash the wrong theme. An explicit stored choice pins data-theme;
+   anything else (key absent, garbage value, storage unavailable) means auto: attribute off,
+   CSS follows the OS. */
+(function(){try{var t=localStorage.getItem("mdr.theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
+</script>
 <!-- #152 Basecoat: vendored (self-hosted, no runtime CDN). Basecoat still skins the buttons and
      the project select. The inbox, the search control and the sign-in screen are hand CSS to the
      rev-3 mock (#278): §05 rule 02 is "no cards, no pills", and rev 3 drew both card-less. -->
