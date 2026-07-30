@@ -222,7 +222,7 @@
     text-transform:none;letter-spacing:normal;}
   .tb-btn:hover{border-color:var(--text-subtle,var(--text-muted));}
   .share-wrap{position:relative;display:flex;}
-  .sharepop{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--surface-raised);
+  .sharepop{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--surface);
     border:1px solid var(--border);border-radius:var(--r-panel);box-shadow:var(--shadow-menu);
     padding:16px;z-index:60;text-transform:none;letter-spacing:normal;text-align:left;}
   .sharepop h3{margin:0 0 12px;font-size:14px;font-weight:700;color:var(--text);}
@@ -234,7 +234,7 @@
   .switch .track{position:absolute;inset:0;background:var(--border);border-radius:var(--r-pill);transition:.15s;
     cursor:pointer;display:block;}
   .switch .track:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;
-    background:var(--bg);border-radius:var(--r-pill);transition:.15s;}
+    background:var(--paper);border-radius:var(--r-pill);transition:.15s;}
   .switch input:checked + .track{background:var(--accent);}
   .switch input:checked + .track:before{transform:translateX(18px);}
   .share-link{display:flex;gap:8px;margin-top:14px;}
@@ -253,7 +253,7 @@
   .share-item .rt{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:capitalize;}
   .share-item .rm{background:none;border:none;color:var(--text-subtle,var(--text-muted));cursor:pointer;
     font-size:16px;line-height:1;padding:1px 5px;border-radius:var(--r-control);}
-  .share-item .rm:hover{color:var(--danger);background:var(--danger-bg);}
+  .share-item .rm:hover{color:var(--danger);background:color-mix(in srgb, var(--danger) 10%, transparent);}
   .share-empty{color:var(--text-muted);font-size:12.5px;margin:0 0 12px;}
   .share-invite{display:flex;gap:6px;align-items:center;}
   .share-invite input{flex:1;min-width:0;font:inherit;font-size:12.5px;padding:8px 10px;
