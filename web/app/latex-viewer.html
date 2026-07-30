@@ -2,7 +2,8 @@
 <!-- LaTeX paper review viewer (MR-097). Overleaf-style split: LaTeX source (line-numbered,
      highlighted) left, live server-compiled PDF right. Reuses the shared comment store verbatim
      (block_num = source line number); no turn baton. Self-contained per the repo convention.
-     UI contract: mockup artifact b1132f25-daf3-43d8-ba92-d41655fb68d4. -->
+     UI contract: Polish design rev 3, screens 04 (split) and 05 (comments off), both themes
+     (#280; original layout from mockup artifact b1132f25-daf3-43d8-ba92-d41655fb68d4). -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -18,16 +19,18 @@
   body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-ui);
     font-size:13px;display:flex;flex-direction:column;overflow:hidden;}
 
-  .topbar{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;
-    padding:11px 20px;border-bottom:1px solid var(--border);background:var(--bg);}
-  .tb-left{display:flex;align-items:center;gap:10px;min-width:0;}
-  .home{color:var(--text-muted);text-decoration:none;font-weight:500;white-space:nowrap;}
+  /* Rev 3 top bar (#280): 56px tall, hairline rule (--border-faint), no fill of its own. */
+  .topbar{flex:0 0 56px;height:56px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:0 16px;border-bottom:1px solid var(--border-faint);background:var(--bg);}
+  .tb-left{display:flex;align-items:center;gap:8px;min-width:0;}
+  .home{color:var(--text-muted);text-decoration:none;font-weight:500;white-space:nowrap;font-size:13px;}
   .home:hover{color:var(--text);}
   .tb-sep{color:var(--border);}
   .filename{font-family:var(--font-mono);font-size:13px;color:var(--accent);
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .typechip{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--blue);background:var(--blue-bg);border-radius:var(--r-pill);padding:2px 6px;}
-  .tb-right{font-size:12px;color:var(--text-muted);letter-spacing:.03em;white-space:nowrap;font-variant:small-caps;}
+  /* Rev 3: the LATEX chip is quiet chrome (mono on --code-bg), retiring the legacy blue badge. */
+  .typechip{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--text-subtle);background:var(--code-bg);border-radius:var(--r-pill);padding:2px 6px;}
+  .tb-right{font-size:12px;color:var(--text-muted);letter-spacing:.03em;white-space:nowrap;font-variant-numeric:tabular-nums;}
 
   .tabbar{display:none;}
   .split{flex:1;display:flex;min-height:0;}
@@ -35,13 +38,16 @@
   .vdiv{flex:0 0 5px;cursor:col-resize;background:var(--border);position:relative;}
   .vdiv::after{content:"";position:absolute;inset:0 -3px;}
   .vdiv:hover,.vdiv.drag{background:var(--accent);}
-  .pdfpane{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--canvas);}
+  /* Rev 3: the recessed backdrop behind the PDF sheet is --code-bg (the design's own annotation
+     says "backdrop (--code-bg)"), not --canvas. The white sheet itself is drawn by the native PDF
+     viewer inside the iframe and is unthemable from here. */
+  .pdfpane{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--code-bg);}
 
-  .panehead{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--border);
-    background:var(--bg);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);}
+  .panehead{flex:0 0 32px;height:32px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border-faint);
+    background:var(--bg);font-family:var(--font-mono);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);}
   .panehead .mono{font-family:var(--font-mono);text-transform:none;letter-spacing:0;font-size:12px;color:var(--text);}
   /* #189: copy the raw .tex. margin-left:auto parks it at the pane's trailing edge. */
-  .panehead .headbtn{margin-left:auto;font:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  .panehead .headbtn{margin-left:auto;font:inherit;font-size:12px;letter-spacing:.04em;text-transform:uppercase;
     color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:var(--r-control);
     padding:2px 9px;cursor:pointer;}
   .panehead .headbtn:hover{color:var(--text);border-color:var(--text-muted);}
@@ -71,51 +77,70 @@
   /* Mutual exclusion (AC): edit mode always wins over diff mode (enterEdit forces DIFFON off), so
      this is belt-and-suspenders — the diff toggle stays inert (JS guard) and visibly says so. */
   body.editing #difftoggle{opacity:.35;pointer-events:none;}
+  /* theme.css's shared .difftoggle{display:inline-flex} is an AUTHOR rule, so it beats the UA's
+     [hidden]{display:none} — the explicit-display-beats-hidden trap #208 documents for .srcscroll,
+     on the button itself this time. Without this gate the Diff pill renders on a fresh review that
+     has never had an agent push (found by #279; same shared rule, same bug here). */
+  .difftoggle[hidden]{display:none;}
   .codecol{flex:1;min-width:0;padding:12px 0 60vh;}
   .ln{display:flex;padding:1px 14px 1px 0;line-height:1.62;position:relative;}
-  .ln:hover{background:rgba(127,127,127,.07);}
+  .ln:hover{background:var(--code-bg);}
   .ln .n{flex:0 0 46px;text-align:right;padding-right:12px;color:var(--text-subtle);opacity:.55;
-    font-family:var(--font-mono);font-size:11.5px;user-select:none;cursor:pointer;
+    font-family:var(--font-mono);font-size:12px;user-select:none;cursor:pointer;
     font-variant-numeric:tabular-nums;padding-top:1px;}
   .ln .n:hover{opacity:1;color:var(--accent);}
   .ln .src{flex:1;font-family:var(--font-mono);font-size:13px;white-space:pre-wrap;word-break:break-word;}
-  .ln.has-c{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
+  /* Rev 3 commented-line marker: inset 3px accent rule + accent-muted tint, gutter at full strength. */
+  .ln.has-c{box-shadow:inset 3px 0 0 var(--accent);background:var(--accent-muted);}
   .ln.has-c .n{opacity:1;}
   .ln.flash{background:var(--accent-muted);}
   .addb{position:absolute;left:3px;top:50%;transform:translateY(-50%);width:18px;height:18px;border:none;
-    border-radius:var(--r-control);background:var(--accent);color:#fff;font-size:14px;line-height:1;cursor:pointer;
-    display:none;padding:0;box-shadow:0 1px 4px rgba(0,0,0,.25);}
+    border-radius:var(--r-control);background:var(--accent);color:var(--bg);font-size:14px;line-height:1;cursor:pointer;
+    display:none;padding:0;}
   .ln:hover .addb,.addb:focus-visible{display:block;}
-  .tx-c{color:var(--blue);}          /* \command */
+  /* Rev 3 syntax mapping: commands and $math$ both take the accent (the mock colours \section and
+     $\delta$ identically); % comments stay muted italic. Colours ONLY — highlightLatex() and its
+     concatenated-textContent contract are untouched. */
+  .tx-c{color:var(--accent);}        /* \command */
   .tx-m{color:var(--accent);}        /* $math$ */
   .tx-x{color:var(--text-subtle);font-style:italic;}   /* % comment */
-  mark.cmt{background:rgba(91,48,214,.18);color:inherit;border-radius:var(--r-control);cursor:pointer;}
-  mark.cmt.active{background:rgba(91,48,214,.40);}
+  /* Inline comment highlight = the design's text-highlight idiom (screen 03): accent-muted fill
+     plus a 1px accent underline, which is what keeps it legible INSIDE a .has-c line that already
+     carries the accent-muted tint. */
+  mark.cmt{background:var(--accent-muted);box-shadow:inset 0 -1px 0 var(--accent);color:inherit;border-radius:2px;cursor:pointer;}
+  mark.cmt.active{background:var(--accent);color:var(--bg);}
 
   /* comment rail inside the source scroll (mockup .railcol) */
   .railcol{flex:0 0 296px;position:relative;padding:12px 12px 60vh 0;min-height:100%;}
-  body.norail .railcol{display:none;}
-  .gcard{position:absolute;width:284px;background:var(--bg);border:1px solid var(--border);border-left:3px solid var(--noteline);
-    border-radius:var(--r-control);padding:9px 11px;font-size:13px;line-height:1.4;box-shadow:0 1px 6px rgba(0,0,0,.06);
+  /* Two INDEPENDENT reasons to hide the rail, one visual rule. body.norail is the RESPONSIVE
+     state, owned by layoutCards(), which rewrites it on every repaint, resize and divider drag —
+     nothing else may touch it. body.rail-off is the reviewer's manual comments-off toggle (#280,
+     screen 05); it survives every layoutCards() rewrite precisely because it is a distinct class.
+     The rail renders only when NEITHER flag is set. */
+  body.norail .railcol,body.rail-off .railcol{display:none;}
+  .gcard{position:absolute;width:284px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);
+    border-radius:var(--r-card);padding:9px 11px;font-size:13px;line-height:1.4;box-shadow:var(--shadow-hair);
     transition:top .16s ease,box-shadow .15s,border-color .15s;}
-  .gcard:hover,.gcard.active{box-shadow:0 5px 18px rgba(0,0,0,.18);border-left-color:var(--accent);}
+  .gcard:hover,.gcard.active{box-shadow:var(--shadow-menu);border-left-color:var(--accent-strong);}
   .ghead{display:flex;gap:6px;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;}
   .gref{color:var(--accent);font-weight:700;}
   .gq{color:var(--text-muted);font-style:italic;font-size:12px;max-height:48px;overflow:hidden;}
   .gdel{margin-left:auto;background:none;border:none;cursor:pointer;font:inherit;font-size:11px;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
-  .gdel:hover{color:#c0392b;background:rgba(192,57,43,.10);}
-  .gdel.armed{color:#fff;background:#c0392b;font-weight:600;}
+  .gdel:hover{color:var(--danger);background:var(--danger-bg);}
+  .gdel.armed{color:var(--bg);background:var(--danger);font-weight:600;}
   .gthread{display:flex;flex-direction:column;gap:5px;}
-  .gentry{border-left:3px solid var(--border);background:rgba(127,127,127,.05);border-radius:var(--r-control);padding:4px 8px;}
-  .gentry.reviewer{border-left-color:var(--noteline);background:rgba(91,48,214,.07);}
-  .gentry.agent{border-left-color:var(--blue);background:rgba(29,79,191,.08);}
+  .gentry{border-left:3px solid var(--border);background:var(--code-bg);border-radius:var(--r-control);padding:4px 8px;}
+  .gentry.reviewer{border-left-color:var(--accent);background:var(--accent-muted);}
+  /* Rev 3 has no blue: the agent's entries read as quiet chrome (code-bg + muted), the reviewer's
+     as accent — matching the mock's ak/ag avatar treatment. */
+  .gentry.agent{border-left-color:var(--border);background:var(--code-bg);}
   .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--text-muted);margin-right:5px;}
-  .gentry.reviewer .grole{color:var(--noteline);}
-  .gentry.agent .grole{color:var(--blue);}
+  .gentry.reviewer .grole{color:var(--accent);}
+  .gentry.agent .grole{color:var(--text-muted);}
   .gtext{color:var(--text);}
   .gtext>:first-child{margin-top:0;}.gtext>:last-child{margin-bottom:0;}
-  .gtext p{margin:.4em 0;}.gtext code{font-family:var(--font-mono);font-size:.9em;background:rgba(127,127,127,.16);padding:.5px 4px;border-radius:var(--r-control);}
-  .gtext pre{background:rgba(127,127,127,.12);padding:7px 9px;border-radius:var(--r-control);overflow:auto;margin:.4em 0;}
+  .gtext p{margin:.4em 0;}.gtext code{font-family:var(--font-mono);font-size:.9em;background:var(--code-bg);padding:.5px 4px;border-radius:var(--r-control);}
+  .gtext pre{background:var(--code-bg);padding:7px 9px;border-radius:var(--r-control);overflow:auto;margin:.4em 0;}
   .gtext a{color:var(--accent);}
   .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
   .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font:inherit;font-size:12.5px;border:1px solid var(--border);
@@ -128,12 +153,12 @@
      purpose — its preflight would strip list markers from comment-body markdown — and instead aligns
      via the shared theme.css tokens. */
   .btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);}
-  .btn.primary:hover{filter:brightness(1.06);}
+  .btn.primary:hover{background:var(--accent-strong);border-color:var(--accent-strong);}
   .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
 
-  /* PDF pane */
-  .pdfbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--border);
-    background:var(--bg);font-size:12px;color:var(--text-muted);}
+  /* PDF pane. The bar carries no fill of its own (rev 3): it sits on the pane's --code-bg. */
+  .pdfbar{flex:0 0 32px;height:32px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border-faint);
+    font-size:12px;color:var(--text-muted);}
   .pdfbar .st{font-variant-numeric:tabular-nums;}
   .pdfbar .dl{margin-left:auto;}
   /* #250: retry a failed compile without editing the source. Same visibility contract as .errbar —
@@ -147,21 +172,21 @@
   .errbar summary{cursor:pointer;font-weight:600;}
   .errbar pre{margin:6px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;font-family:var(--font-mono);font-size:11px;color:var(--text);}
   .pdfwrap{flex:1;min-height:0;position:relative;}
-  #pdfframe{border:0;width:100%;height:100%;background:var(--canvas);}
+  #pdfframe{border:0;width:100%;height:100%;background:var(--code-bg);}
   .pdfmsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px;padding:20px;text-align:center;}
 
-  #toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:90;background:var(--accent);color:#fff;
-    font-size:13px;padding:8px 16px;border-radius:var(--r-card);box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
+  #toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:90;background:var(--accent);color:var(--bg);
+    font-size:13px;padding:8px 16px;border-radius:var(--r-card);box-shadow:var(--shadow-menu);opacity:0;transition:opacity .25s;pointer-events:none;}
   /* An action toast has to be clickable, which the default explicitly is not, and has to outlive
      the 1.8s fade or the action is decorative (#208). */
   #toast.hasaction{pointer-events:auto;display:flex;align-items:center;gap:12px;}
   #toast .toastbtn{font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;background:none;
-    border:1px solid rgba(255,255,255,.65);color:#fff;border-radius:var(--r-control);padding:2px 9px;}
-  #toast .toastbtn:hover{background:rgba(255,255,255,.15);}
-  #addbtn{position:fixed;z-index:50;display:none;background:var(--accent);color:#fff;border:none;border-radius:var(--r-control);
-    padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);}
-  #pop{position:fixed;z-index:60;display:none;width:320px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-card);
-    box-shadow:0 8px 30px rgba(0,0,0,.3);padding:13px;}
+    border:1px solid var(--bg);color:var(--bg);border-radius:var(--r-control);padding:2px 9px;}
+  #toast .toastbtn:hover{background:var(--accent-strong);}
+  #addbtn{position:fixed;z-index:50;display:none;background:var(--accent);color:var(--bg);border:none;border-radius:var(--r-control);
+    padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;box-shadow:var(--shadow-menu);}
+  #pop{position:fixed;z-index:60;display:none;width:320px;background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--r-card);
+    box-shadow:var(--shadow-menu);padding:13px;}
   #pop .q{font-size:12px;color:var(--text-muted);font-style:italic;margin:0 0 8px;font-family:var(--font-mono);
     white-space:pre-wrap;max-height:56px;overflow:auto;}
   #pop textarea{width:100%;min-height:70px;font:inherit;font-size:13.5px;border:1px solid var(--border);border-radius:var(--r-control);
@@ -169,11 +194,11 @@
   #pop .row{display:flex;gap:8px;justify-content:flex-end;margin-top:9px;}
 
   #dock{position:fixed;right:18px;bottom:18px;z-index:55;}
-  #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-pill);
-    padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
+  #dockbar{display:flex;gap:8px;align-items:center;background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--r-pill);
+    padding:8px 12px;box-shadow:var(--shadow-dock);}
   #count{font-size:13px;color:var(--text-muted);}
   #cmtdock{display:none;position:fixed;right:18px;bottom:70px;z-index:55;width:340px;max-height:64vh;overflow:auto;
-    background:var(--bg);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:0 8px 30px rgba(0,0,0,.25);padding:12px;}
+    background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-dock);padding:12px;}
   #cmtdock.show{display:block;}
   #cmtdock .gcard{position:static;width:auto;margin-bottom:8px;box-shadow:none;}
 
@@ -184,7 +209,7 @@
     .pdfpane{flex:1;}
     .tabbar{display:flex;gap:6px;padding:7px 14px;border-bottom:1px solid var(--border);background:var(--bg);}
     .tabbar button{font:inherit;font-size:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:var(--r-control);padding:4px 14px;cursor:pointer;}
-    .tabbar button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;}
+    .tabbar button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg);}
     body.show-pdf .srcpane{display:none;}
     body:not(.show-pdf) .pdfpane{display:none;}
   }
@@ -198,7 +223,7 @@
   .tb-btn:hover{border-color:var(--text-subtle,var(--text-muted));}
   .share-wrap{position:relative;display:flex;}
   .sharepop{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--surface);
-    border:1px solid var(--border);border-radius:var(--r-panel);box-shadow:0 12px 40px rgba(20,22,40,.16);
+    border:1px solid var(--border);border-radius:var(--r-panel);box-shadow:var(--shadow-menu);
     padding:16px;z-index:60;text-transform:none;letter-spacing:normal;text-align:left;}
   .sharepop h3{margin:0 0 12px;font-size:14px;font-weight:700;color:var(--text);}
   .share-row{display:flex;align-items:center;justify-content:space-between;gap:14px;}
@@ -209,14 +234,14 @@
   .switch .track{position:absolute;inset:0;background:var(--border);border-radius:var(--r-pill);transition:.15s;
     cursor:pointer;display:block;}
   .switch .track:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;
-    background:#fff;border-radius:var(--r-pill);transition:.15s;}
-  .switch input:checked + .track{background:#5b46e6;}
+    background:var(--paper);border-radius:var(--r-pill);transition:.15s;}
+  .switch input:checked + .track{background:var(--accent);}
   .switch input:checked + .track:before{transform:translateX(18px);}
   .share-link{display:flex;gap:8px;margin-top:14px;}
   .share-link input{flex:1;min-width:0;font:inherit;font-size:12px;padding:8px 10px;
     border:1px solid var(--border);border-radius:var(--r-control);background:var(--bg);color:var(--text-muted);}
   .share-copy{font:inherit;font-size:12.5px;font-weight:600;padding:8px 14px;border:none;
-    border-radius:var(--r-control);background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
+    border-radius:var(--r-control);background:var(--accent);color:var(--bg);cursor:pointer;white-space:nowrap;}
   .share-copy:hover{opacity:.92;}
   /* #134 named-share / people section */
   .share-sep{height:1px;background:var(--border);margin:16px 0;}
@@ -228,7 +253,7 @@
   .share-item .rt{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:capitalize;}
   .share-item .rm{background:none;border:none;color:var(--text-subtle,var(--text-muted));cursor:pointer;
     font-size:16px;line-height:1;padding:1px 5px;border-radius:var(--r-control);}
-  .share-item .rm:hover{color:#c0392b;background:rgba(192,57,43,.1);}
+  .share-item .rm:hover{color:var(--danger);background:color-mix(in srgb, var(--danger) 10%, transparent);}
   .share-empty{color:var(--text-muted);font-size:12.5px;margin:0 0 12px;}
   .share-invite{display:flex;gap:6px;align-items:center;}
   .share-invite input{flex:1;min-width:0;font:inherit;font-size:12.5px;padding:8px 10px;
@@ -236,8 +261,8 @@
   .share-invite select{font:inherit;font-size:12.5px;padding:8px 6px;border:1px solid var(--border);
     border-radius:var(--r-control);background:var(--bg);color:var(--text);}
   .share-invite button{font:inherit;font-size:12.5px;font-weight:600;padding:8px 12px;border:none;
-    border-radius:var(--r-control);background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
-  .share-err{color:#c0392b;font-size:12px;margin:8px 0 0;}
+    border-radius:var(--r-control);background:var(--accent);color:var(--bg);cursor:pointer;white-space:nowrap;}
+  .share-err{color:var(--danger);font-size:12px;margin:8px 0 0;}
 </style>
 </head>
 <body class="norail">
@@ -292,7 +317,7 @@
   <textarea id="popnote" placeholder="Your comment on this line…"></textarea>
   <div class="row"><button class="btn" id="popcancel">Cancel</button><button class="btn primary" id="popsave">Comment</button></div>
 </div>
-<div id="dock"><div id="dockbar"><span id="count">0 open</span><button class="btn" id="cmtbtn">Comments</button></div></div>
+<div id="dock"><div id="dockbar"><span id="count">0 open</span><button class="btn" id="cmtbtn" aria-pressed="true">Comments</button></div></div>
 <div id="cmtdock"></div>
 <div id="toast" role="status"></div>
 
@@ -305,8 +330,17 @@ const $=s=>document.querySelector(s);
 const ID=location.pathname.split('/').pop();
 const API='/api/reviews/'+ID, LATEX='/api/latex/'+ID;
 let comments=[], cur=null, confirming=null, lastSrc=0, lastCmt=0, pdfRev=null;
+// #280 comments-off (design screen 05). Session-only, rail ON on load — same persistence contract
+// as diff mode (OFF on load, sticky within the session). This flag must NEVER be body.norail:
+// layoutCards() rewrites norail on every repaint, resize and divider drag, so a toggle that
+// reused it would be silently reverted by the next 2s comment poll. body.rail-off is the manual
+// flag; the CSS hides the rail when EITHER class is present.
+let RAILOFF=false;
 
-function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+// String() first: comment anchors arrive as NUMBERS from API/MCP authors, and Number.replace is
+// a TypeError that killed renderComments() mid-pass (found by #279 on the markdown viewer; the
+// same helper lives here). A half-drawn render is worse than a wrong label.
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 const esc=escapeHtml;
 
 // ---- LaTeX line highlighting: split a line into command / comment / math / text spans. The
@@ -548,9 +582,17 @@ function focusPair(id){
   const m=document.querySelector('mark.cmt[data-id="'+id+'"]');
   if(m){m.classList.add('active');m.scrollIntoView({block:'center',behavior:'smooth'});}
 }
+// #cmtbtn's pressed state mirrors what the button currently controls: the rail at rail-capable
+// widths (>=640px pane), the narrow dock below that. Re-synced from layoutCards() so a resize
+// that crosses the threshold re-labels the button with the surface it now governs.
+function syncCmtBtn(wide){
+  $('#cmtbtn').setAttribute('aria-pressed',
+    String(wide ? !RAILOFF : $('#cmtdock').classList.contains('show')));
+}
 function layoutCards(){
   const pane=$('.srcpane'),wide=pane&&pane.clientWidth>=640;
   document.body.classList.toggle('norail',!wide);
+  syncCmtBtn(wide);
   if(!wide)return;
   const col=$('#codecol');let prev=0;
   [...$('#railcol').querySelectorAll('.gcard')]
@@ -679,7 +721,21 @@ function poll(){
   const ts=$('#tab-src'),tp=$('#tab-pdf');
   function tab(pdf){document.body.classList.toggle('show-pdf',pdf);ts.setAttribute('aria-pressed',String(!pdf));tp.setAttribute('aria-pressed',String(pdf));}
   ts.onclick=()=>tab(false);tp.onclick=()=>tab(true);
-  $('#cmtbtn').onclick=()=>$('#cmtdock').classList.toggle('show');
+  // #280: at rail-capable pane widths the button toggles the RAIL (manual comments-off, screen
+  // 05); narrow keeps toggling the dock exactly as before. Re-showing re-runs layoutCards()
+  // because the cards were position:absolute-laid-out while display:none (offsetHeight 0), so
+  // their stacked tops are stale until a post-show pass recomputes them.
+  $('#cmtbtn').onclick=()=>{
+    const wide=$('.srcpane').clientWidth>=640;
+    if(wide){
+      RAILOFF=!RAILOFF;
+      document.body.classList.toggle('rail-off',RAILOFF);
+      if(!RAILOFF)layoutCards();else syncCmtBtn(true);
+    }else{
+      $('#cmtdock').classList.toggle('show');
+      syncCmtBtn(false);
+    }
+  };
   window.addEventListener('resize',()=>{try{layoutCards();}catch(e){}});
 })();
 let tTimer=null;
@@ -735,7 +791,7 @@ boot();
 // Copied verbatim from viewer.html so the latex viewer shows the same panel (#152 share-parity).
 // Depends only on API/ID (defined above) + the #sharebtn/#sharepop topbar markup. Keep in sync.
 let _shareCsrf = "", _pubRight = null, _shares = [];
-function _esc(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function _esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 // Grantee label: prefer the server-resolved email in the /shares payload; "" or absent means the
 // account is genuinely unknown (#267), so show the opaque subject marked unresolved rather than
 // dressing a raw provider:sub uid up as an address.
@@ -830,7 +886,7 @@ mdKeys.pushEscape(()=>{const p=$('#pop');if(!p||p.style.display!=='block')return
 mdKeys.register([
   {keys:"1", label:"Show the LaTeX source",   run:()=>mdKeys.click("#tab-src")},
   {keys:"2", label:"Show the compiled PDF",   run:()=>mdKeys.click("#tab-pdf")},
-  {keys:"c", label:"Toggle the comments dock", run:()=>mdKeys.click("#cmtbtn")},
+  {keys:"c", label:"Toggle comments", run:()=>mdKeys.click("#cmtbtn")},
   {keys:"a", label:"Add a comment",            run:()=>mdKeys.click("#addbtn")},
   {keys:"mod+Enter", label:"Save the comment you are writing", keepInField:true, run:()=>{
     const pop=$('#pop');

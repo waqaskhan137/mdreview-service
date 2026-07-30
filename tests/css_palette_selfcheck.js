@@ -181,29 +181,8 @@ const ALLOWLIST = [
   // including the 3x #5b46e6 drift defect — an off-palette accent where the accent is #5B30D6).
   // Any literal appearing in viewer.html again is a new violation, not a grandfathered one.
 
-  // latex-viewer.html (#280 re-skins the latex viewer). Same 3x #5b46e6 drift defect as viewer.
-  { file: "latex-viewer.html", literal: "#5b46e6", count: 3, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "#c0392b", count: 4, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "#fff", count: 9, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(0,0,0,.06)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(0,0,0,.18)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(0,0,0,.2)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(0,0,0,.25)", count: 4, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(0,0,0,.3)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(20,22,40,.16)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(29,79,191,.08)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(91,48,214,.06)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(91,48,214,.07)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(91,48,214,.18)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(91,48,214,.40)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(127,127,127,.05)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(127,127,127,.07)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(127,127,127,.12)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(127,127,127,.16)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(192,57,43,.1)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(192,57,43,.10)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(255,255,255,.15)", count: 1, ticket: "#280" },
-  { file: "latex-viewer.html", literal: "rgba(255,255,255,.65)", count: 1, ticket: "#280" },
+  // latex-viewer.html: EMPTY since #280 re-skinned it to the token contract (including the 3x
+  // #5b46e6 drift defect, replaced with var(--accent)). New literals here have no exemption.
 
   // account.js injected styles (#281 re-skins account)
   { file: "static/account.js", literal: "#2f8f5b", count: 1, ticket: "#281" },
