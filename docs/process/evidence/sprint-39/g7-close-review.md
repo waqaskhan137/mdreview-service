@@ -176,8 +176,14 @@ tally, and seven of eleven do not match the number of `ok` lines the check actua
 
 Every check passes, so nothing is unshipped and no acceptance criterion turns on the number. It is
 still the same defect sprint-38's G7 named on #257's README line count: a figure reported from
-somewhere other than the artifact it claims to describe, in a gate record. Six of the seven
-understate, which is the tell that they are recollections rather than readings.
+somewhere other than the artifact it claims to describe, in a gate record.
+
+There is a rebuttal to anticipate, so here is why the finding survives it. "13 cases" could mean 13
+scenarios where the check prints several `ok` lines per scenario, and for six of the seven that
+reading is available (all six understate). It does not rescue the claim, for two reasons. No check
+prints a count of anything, so no figure in any stage-9 comment was read off the run it cites. And
+one instance is immune to the rebuttal entirely: #288 reported "40 cases" against 36 `ok` lines, an
+overstatement, and there is no grouping under which 36 printed assertions become 40 scenarios.
 
 Direction: quote the check's own final line (`all #291 latex edit UI cases pass`), or paste the
 count. A number that cannot be reproduced from the run it cites is worse than no number.
@@ -218,10 +224,11 @@ and this run generated at least three worth having.
    #262") false on `origin/dev`. The park procedure says in terms: "Record it in the run log as an
    error entry, with what would falsify the diagnosis." It is recorded on the issue and on the epic,
    not in the log.
-2. Nine of eleven tickets needed a coordinator stage-9 recovery because the build agent "stopped
-   without reporting" (#144, #187, #266, #267, #272, #289, #290, #291, #299, #302 all say so). A
-   failure mode that hit nine times in one run is the most instructive thing that happened, and it
-   is invisible in the log.
+2. **Ten** of eleven tickets needed a coordinator stage-9 recovery because the build agent "stopped
+   without reporting": #144, #187, #266, #267, #272, #289, #290, #291, #299 and #302 all say so, and
+   #288 is the only ticket in the sprint with a normal stage-9 report. A failure mode that hit ten
+   times out of eleven is the most instructive thing that happened in this run, and it is invisible
+   in the log.
 3. Five stage-8 `no-session` parks and their later unpark in a single owner sitting. Sprint-38's log
    carried E1, E2, E3 for less.
 
@@ -310,6 +317,20 @@ comment template, and the corrections on #291 and #273. DEV-1 is its own ticket 
 a design decision inside it, because it changes what stage 7 means under parallel mode. DEV-5 is a
 decision, not work: merge PR #248 or close it. The unwired checks and #311's scope are worth a line
 each on whatever ticket picks them up.
+
+## My own error in this record, corrected in place
+
+The first version of this file, merged as PR #312 (squash `edf0fa3`), said "nine of eleven" in DEV-4
+item 2 while enumerating ten tickets. Ten is right: #288 is the only ticket in the sprint with a
+normal stage-9 report. The number was a recollection and the enumeration was the reading, which is
+precisely the defect DEV-2 charges, committed inside the record that charges it. Recorded here rather
+than swapped silently, per the repo's norm and per sprint-38's G7, which did the same with its own
+wrong inference about #257's line count. `edf0fa3`'s commit message still carries "nine stage-9
+recoveries" and is immutable; this section is the correction of record.
+
+The correction makes DEV-4 stronger. A stage-9 failure mode that hit ten times out of eleven, with a
+single exception, is not an intermittent fault; it is the run's normal behaviour, and a run log with
+no error entry for it is missing the entry that would have paid for the document.
 
 ## Milestone disposition
 
