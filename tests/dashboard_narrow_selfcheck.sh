@@ -3,8 +3,13 @@
 #
 # BASELINE, measured in a real Chrome window at the real floor (W_min = 606px — a fresh window
 # asked for 380 stops there on this display): .rw 38px, .rw-l 20px, .filt 22px, headline 32px.
-# §10 rule 01 wants 44px hit targets; the fix adds them under @media (max-width:720px), padding
-# only, headline 32 -> 24.
+# §10 rule 01 wants 44px hit targets; the fix adds them under @media (max-width:720px).
+#
+# REV 3 (#278) SUPERSEDED two of the geometry expectations here — a declared decision in the
+# ticket, not a quiet green: the 32px-wide / 24px-narrow headline ramp became a 20px hero title
+# at EVERY width (the mock's value; the ramp is gone with the display-size headline it stepped),
+# and wide rows are no longer "compact, under 44px" but >= 52px min-height (the mock's row slab).
+# The 44px floors and the no-horizontal-scroll assertion survive verbatim.
 #
 # THIS IS THE REGRESSION CHECK (G2 item 7), driven headlessly via cdp-shot --resize, the same
 # split #199 recorded: the check proves the CSS logic at exact widths; STAGE 8 is separately the
@@ -57,20 +62,20 @@ if [ -z "$narrow" ]; then bad "no narrow measurement"; printf '%s\n' "$out" | ta
       && ok "606px: .$k tap height ${got}px >= ${want}" \
       || bad "606px: .$k is ${got}px, needs >= ${want} (baseline was 38/20/22)"
   done
-  [ "$(field "$narrow" title)" = "24px" ] && ok "606px: headline stepped 32 -> 24px" \
-    || bad "606px: headline is $(field "$narrow" title), expected 24px"
+  [ "$(field "$narrow" title)" = "20px" ] && ok "606px: hero title at rev 3's 20px" \
+    || bad "606px: hero title is $(field "$narrow" title), expected 20px (rev 3: no ramp, 20 everywhere)"
   [ "$(field "$narrow" hscroll)" = "true" ] && ok "606px: no horizontal scrollbar" \
     || bad "606px: horizontal scrollbar present"
 fi
 
 if [ -z "$wide" ]; then bad "no wide measurement"; else
-  # The narrow treatment must not leak wide: headline stays 32px and rows stay compact.
-  [ "$(field "$wide" title)" = "32px" ] && ok "1400px: headline unchanged at 32px" \
-    || bad "1400px: headline is $(field "$wide" title) — the media block leaked wide"
+  # Rev 3 (#278): one 20px hero title at every width, and 52px row slabs at wide.
+  [ "$(field "$wide" title)" = "20px" ] && ok "1400px: hero title at rev 3's 20px" \
+    || bad "1400px: hero title is $(field "$wide" title), expected 20px (rev 3: no ramp, 20 everywhere)"
   got="$(field "$wide" rw)"
-  [ -n "$got" ] && [ "$got" -lt 44 ] 2>/dev/null \
-    && ok "1400px: rows compact (${got}px), wide layout untouched" \
-    || bad "1400px: rows are ${got}px — the 44px rule leaked into the wide layout"
+  [ -n "$got" ] && [ "$got" -ge 52 ] 2>/dev/null \
+    && ok "1400px: rows are rev-3 slabs (${got}px >= 52)" \
+    || bad "1400px: rows are ${got}px, rev 3 wants >= 52 (mock min-height)"
 fi
 
 echo

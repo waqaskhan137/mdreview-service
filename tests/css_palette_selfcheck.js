@@ -174,10 +174,8 @@ if (mLight && mMediaDark && mExplicitDark && mMobile) {
  * contract. The re-skin tickets remove them AND their entries in the same change.
  * ------------------------------------------------------------------------------------------- */
 const ALLOWLIST = [
-  // dashboard.html — the avatar gradient (#278 re-skins the dashboard)
-  { file: "dashboard.html", literal: "#2f6fed", count: 1, ticket: "#278" },
-  { file: "dashboard.html", literal: "#7c4dff", count: 1, ticket: "#278" },
-  { file: "dashboard.html", literal: "#fff", count: 1, ticket: "#278" },
+  // dashboard.html: EMPTY since #278 — the sign-in logo gradient (its last three literals) now
+  // renders from --accent/--bg, per the rev-3 mock.
 
   // viewer.html: EMPTY since #279 (the re-skin replaced every literal with a contract token,
   // including the 3x #5b46e6 drift defect — an off-palette accent where the accent is #5B30D6).
