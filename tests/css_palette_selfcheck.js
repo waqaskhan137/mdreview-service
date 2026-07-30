@@ -241,20 +241,10 @@ const ALLOWLIST = [
   { file: "static/account.js", literal: "#fff", count: 1, ticket: "#281" },
   { file: "static/account.js", literal: "rgba(0,0,0,.12)", count: 1, ticket: "#281" },
 
-  // keys.js ⌘K/help-sheet styles. No live ticket owns its re-skin; tagged to epic #276 until one
-  // does. These are var() fallbacks by design (the sheet renders on pages without the tokens).
-  { file: "static/keys.js", literal: "#111", count: 2, ticket: "#276" },
-  { file: "static/keys.js", literal: "#16161a", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#24242a", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#2c2c33", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#3a3a42", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#d7d7de", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#e3e3e8", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#eee", count: 2, ticket: "#276" },
-  { file: "static/keys.js", literal: "#f6f6f8", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "#fff", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "rgba(0,0,0,.25)", count: 1, ticket: "#276" },
-  { file: "static/keys.js", literal: "rgba(0,0,0,.45)", count: 1, ticket: "#276" },
+  // static/keys.js: EMPTY since #285 re-pointed the keysheet at the contract tokens. The old
+  // var() fallbacks existed for pages without the tokens; since #277 every page links theme.css,
+  // and those literal fallbacks were where the dark-keycap bug lived. New literals here have no
+  // exemption.
 ];
 
 // First-party style sources. Vendored bundles are excluded by name, never by pattern-weakening:

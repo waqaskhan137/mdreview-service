@@ -464,7 +464,11 @@ function initialsOf(label){
 
 function initMermaid(){
   if(!window.mermaid)return;
-  const dark=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches;
+  // #285: the EFFECTIVE theme, never the OS alone — an explicit data-theme override wins; only
+  // with the attribute absent (auto) does the OS decide. Same resolution as
+  // window.mdTheme.effective(), inlined because account.js loads after boot() runs.
+  const t=document.documentElement.getAttribute('data-theme');
+  const dark=t?t==='dark':(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);
   try{mermaid.initialize({startOnLoad:false,securityLevel:'loose',theme:dark?'dark':'default'});}catch(e){}
 }
 async function renderMermaid(){
@@ -472,12 +476,25 @@ async function renderMermaid(){
   codes.forEach(c=>{
     const div=document.createElement('div');
     div.className='mermaid';div.textContent=c.textContent;
+    div.dataset.src=c.textContent;   // #285: mermaid.run consumes the text; keep it for retheme
     (c.closest('pre')||c).replaceWith(div);
   });
   if(window.mermaid&&codes.length){
     try{await mermaid.run({querySelector:'#article .mermaid'});}catch(e){console.warn('mermaid render failed',e);}
   }
 }
+// #285: mermaid bakes its theme into the SVG at render time, so following an effective-theme
+// change (a toggle click, or an OS flip while in auto) means rendering again from the kept
+// source. Driven by the mdr:themechange signal, NOT a matchMedia listener: the OS disagrees with
+// an explicit override.
+async function rethemeMermaid(){
+  const divs=[...document.querySelectorAll('#article .mermaid')];
+  if(!window.mermaid||!divs.length)return;
+  initMermaid();   // re-reads the effective theme
+  divs.forEach(d=>{d.removeAttribute('data-processed');d.textContent=d.dataset.src||d.textContent;});
+  try{await mermaid.run({querySelector:'#article .mermaid'});}catch(e){console.warn('mermaid retheme failed',e);}
+}
+document.addEventListener('mdr:themechange',rethemeMermaid);
 // Math rendering: a marked extension tokenizes math DURING the markdown parse and renders it
 // to HTML with KaTeX. It must run inside marked, not as a post-pass: marked strips the
 // backslashes from \(...\) / \[...\] (turning them into literal parens/brackets) and can mangle
