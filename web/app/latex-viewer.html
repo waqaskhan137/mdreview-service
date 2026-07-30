@@ -332,7 +332,10 @@ let comments=[], cur=null, confirming=null, lastSrc=0, lastCmt=0, pdfRev=null;
 // flag; the CSS hides the rail when EITHER class is present.
 let RAILOFF=false;
 
-function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+// String() first: comment anchors arrive as NUMBERS from API/MCP authors, and Number.replace is
+// a TypeError that killed renderComments() mid-pass (found by #279 on the markdown viewer; the
+// same helper lives here). A half-drawn render is worse than a wrong label.
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 const esc=escapeHtml;
 
 // ---- LaTeX line highlighting: split a line into command / comment / math / text spans. The
@@ -783,7 +786,7 @@ boot();
 // Copied verbatim from viewer.html so the latex viewer shows the same panel (#152 share-parity).
 // Depends only on API/ID (defined above) + the #sharebtn/#sharepop topbar markup. Keep in sync.
 let _shareCsrf = "", _pubRight = null, _shares = [];
-function _esc(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function _esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 // Grantee label: prefer the server-resolved email in the /shares payload; "" or absent means the
 // account is genuinely unknown (#267), so show the opaque subject marked unresolved rather than
 // dressing a raw provider:sub uid up as an address.
