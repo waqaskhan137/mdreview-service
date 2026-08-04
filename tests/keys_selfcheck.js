@@ -83,14 +83,71 @@ check('contenteditable is a field', keys._isField({ isContentEditable: true }) =
 check('a button is NOT a field', keys._isField({ tagName: 'BUTTON' }) === false);
 check('null target is not a field', keys._isField(null) === false);
 
-// 5. The help binding registers itself and is reachable while typing. If keepInField were false
-//    here, the sheet would be unreachable from exactly the situation it exists for.
+// 5. The help binding registers itself and is reachable while typing THROUGH THE CHORD. keepInField
+//    is what makes ⌘/ work mid-sentence; it must not extend to "?" (see case 5b).
 {
   const help = keys._registry.filter(b => b.keys.includes('?'))[0];
   check('help sheet is registered on both mod+/ and ?',
     !!help && help.keys.includes('mod+/') && help.keys.includes('?'));
-  check('help sheet works while typing (keepInField)', !!help && help.keepInField === true);
+  check('help sheet sets keepInField (what makes ⌘/ work mid-sentence)',
+    !!help && help.keepInField === true);
   check('help sheet has a label, so it appears in its own sheet', !!help && !!help.label);
+}
+
+// 5b. #311 — THE DISPATCH, not the registry. Everything above inspects registration; the reported
+//     bug lived in onKeydown, where keepInField let "?" fire inside a textarea and swallow the
+//     character. So drive the real listener and watch whether the binding runs and whether the
+//     event is preventDefault()ed — preventDefault is what actually stops the character being
+//     typed, so asserting only "did not run" would miss half of it.
+//
+//     The help entry's run is swapped for a counter: the sheet's real openSheet builds DOM this
+//     stub cannot host, and the thing under test is the dispatcher's decision, not the sheet.
+{
+  const help = keys._registry.filter(b => b.keys.includes('?'))[0];
+  const origRun = help.run;
+  let ran = 0, prevented = 0;
+  help.run = function () { ran++; };
+  const fire = (over) => {
+    prevented = 0;
+    listeners.keydown(Object.assign(ev(over), { preventDefault() { prevented++; } }));
+  };
+  const TEXTAREA = { tagName: 'TEXTAREA' };
+
+  fire({ key: '?', shiftKey: true, target: TEXTAREA });
+  check('#311 "?" in a textarea does not open the sheet', ran === 0);
+  check('#311 "?" in a textarea is not preventDefault()ed, so the character types', prevented === 0);
+
+  // The delivery form case 1b caught in a real browser: the UNSHIFTED char with shiftKey set.
+  // It normalises to "?" before the field check, so it must be suppressed the same way.
+  fire({ key: '/', shiftKey: true, target: TEXTAREA });
+  check('#311 unshifted-"/"-with-shift in a textarea is suppressed too', ran === 0);
+
+  fire({ key: '?', shiftKey: true, target: { tagName: 'INPUT' } });
+  check('#311 "?" in an input is suppressed', ran === 0);
+  fire({ key: '?', shiftKey: true, target: { isContentEditable: true } });
+  check('#311 "?" in a contenteditable is suppressed', ran === 0);
+
+  fire({ key: '?', shiftKey: true, target: { tagName: 'BODY' } });
+  check('"?" OUTSIDE a field still opens the sheet', ran === 1);
+  check('"?" outside a field is preventDefault()ed', prevented === 1);
+
+  // The intent keepInField exists for survives: help is still reachable mid-sentence by chord.
+  fire({ key: '/', metaKey: true, target: TEXTAREA });
+  check('⌘/ still opens the sheet while typing', ran === 2);
+
+  help.run = origRun;
+}
+
+// 5c. The rule is structural, so state it directly: a printable spec can never survive in a field,
+//     whatever a future binding sets keepInField to.
+{
+  check('a bare letter is typable', keys._isTypable('a') === true);
+  check('"?" is typable', keys._isTypable('?') === true);
+  check('Space is typable', keys._isTypable('Space') === true);
+  check('a chord is not typable', keys._isTypable('mod+/') === false);
+  check('mod+Enter is not typable (composer submit keeps working)',
+    keys._isTypable('mod+Enter') === false);
+  check('Escape is not typable', keys._isTypable('Escape') === false);
 }
 
 // 6. A binding without a label cannot exist: the sheet is generated from labels, so an unlabelled
