@@ -144,7 +144,17 @@ try:
     # anonymous visitor the wrong message entirely.
     ok("anonymous POST -> 401", posts(c, ANON) == 401)
 
-    print("4. the viewers gate their author surfaces on the flag")
+    print("4. a refused post keeps what the human typed (#334)")
+    # The composer must close only when the post SUCCEEDED. latex-viewer's handler used to fire
+    # createComment without awaiting and close regardless, so a refusal lost the text — the other
+    # half of #320, which fixed only the message.
+    for name in ("viewer.html", "latex-viewer.html"):
+        src = open(os.path.join(ROOT, "web", "app", name)).read()
+        ok("%-18s popsave awaits the result before closing" % name,
+           re.search(r"#popsave.{0,40}onclick\s*=\s*async", src, re.S) is not None
+           and re.search(r"if\(!await createComment\(", src) is not None)
+
+    print("5. the viewers gate their author surfaces on the flag")
     for name in ("viewer.html", "latex-viewer.html"):
         src = open(os.path.join(ROOT, "web", "app", name)).read()
         ok("%-18s reads can_comment from /status" % name, "can_comment!==false" in src)

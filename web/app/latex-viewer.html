@@ -682,8 +682,12 @@ function openPop(c,x,y){
   pop.style.left=Math.max(12,px)+'px';pop.style.top=Math.max(12,py)+'px';$('#popnote').focus();
 }
 $('#popcancel').onclick=()=>$('#pop').style.display='none';
-$('#popsave').onclick=()=>{const v=$('#popnote').value.trim();if(!v)return;
-  createComment({quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null},v);
+// #334: gate the close on the RESULT. createComment returns false when the post was refused
+// (#320), and closing regardless threw that away along with whatever the human had typed —
+// reachable on a session that expired with the composer open, or a grant revoked mid-session.
+// viewer.html has always done it this way; this is the LaTeX side catching up.
+$('#popsave').onclick=async()=>{const v=$('#popnote').value.trim();if(!v)return;
+  if(!await createComment({quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null},v))return;
   $('#pop').style.display='none';window.getSelection().removeAllRanges();};
 
 // ---- PDF pane: compile status + iframe reload + download + error banner ----
