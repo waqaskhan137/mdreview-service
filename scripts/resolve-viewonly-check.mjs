@@ -57,6 +57,11 @@ async function main() {
   await new Promise(r => ws.addEventListener('open', r, { once: true }));
   ws.addEventListener('message', e => { const m = JSON.parse(e.data); if (pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } });
   await cmd('Page.enable'); await cmd('Runtime.enable');
+  // Wide viewport: the default headless window is narrow enough to trip the DOCKED gutter layout
+  // (.gcard width:auto in a possibly-narrow panel), which can make a flush-right measurement pass
+  // by coincidence (content roughly fills a narrow row) rather than by the actual margin-left:auto
+  // mechanism. The 284px-wide rail layout (railFits(), viewer.html) is what the AC1 mock depicts.
+  await cmd('Emulation.setDeviceMetricsOverride', { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
   // No Network.setCookie call anywhere in this script — that IS the fixture: a cookie-less tab.
   await cmd('Page.navigate', { url: URL_ARG });
 
@@ -86,6 +91,18 @@ async function main() {
   ok('AC7: the Resolve control is not visible to a view-only reader (computed display / offsetParent)',
     state.present === false || (state.display === 'none' && state.offsetParent === false),
     JSON.stringify(state));
+
+  // Hiding .gres (which alone carries margin-left:auto) must not knock .gdel out of its
+  // flush-right position — the AC7 fixture (one reviewer comment, no agent reply) is exactly the
+  // case where .gdel renders (deletable=true), so this is a real regression risk from the same
+  // change, not a hypothetical.
+  const delRect = await evaluate(`(()=>{const del=document.querySelector('.gcard .gdel');
+    const head=del ? del.closest('.ghead') : null;
+    if(!del||!head) return {present:false};
+    const d=del.getBoundingClientRect(), h=head.getBoundingClientRect();
+    return {present:true, gap: h.right - d.right};})()`);
+  ok('AC7: hiding Resolve does not knock Delete out of its flush-right position',
+    delRect.present === true && Math.abs(delRect.gap) <= 1, JSON.stringify(delRect));
 
   console.log(failed ? `\n${failed} case(s) failed` : '\nall resolve-viewonly cases pass');
   cleanup();

@@ -229,6 +229,12 @@
   #viewonly{display:none;font-size:var(--t-meta);color:var(--text-muted);letter-spacing:.01em;}
   body.viewonly #viewonly{display:inline;}
   body.viewonly .greply,body.viewonly .reopenbox,body.viewonly #addbtn,body.viewonly #pop,body.viewonly .gres{display:none !important;}
+  /* .gres carries the .ghead row's only margin-left:auto (see :194); body.viewonly hiding it
+     takes that auto margin out of the flex flow too, which would otherwise leave a viewonly
+     .gdel (deletable=true, no agent reply yet — exactly the reader's own un-engaged comment)
+     packed left instead of flush right. Two auto margins would split the free space and park
+     .gres mid-row, so this is additive to :194, not a duplicate of it. */
+  body.viewonly .gcard .ghead .gdel{margin-left:auto;}
   .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
   .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font-family:var(--font-ui);font-size:12.5px;border:1px solid var(--border);border-radius:var(--r-control);padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
   .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
