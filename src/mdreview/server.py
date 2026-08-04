@@ -635,6 +635,13 @@ class H(BaseHTTPRequestHandler):
                 # (epic #273 named risk 3, accepted at G1 sign-off).
                 "revision": mt.get("revision", 0),
                 "can_edit": bool(app.policy.can_write(self._principal(), rid)),
+                # #320: can_comment from the SAME custody can_comment the POST /comments arm
+                # enforces, for the same reason can_edit exists — the viewer had no way to know a
+                # reader may not comment, so it offered the composer to a view-only grantee and to a
+                # public-link visitor, then reported the server's correct 404 as "Could not save
+                # comment". True for the owner, a "comment"-share grantee and the local tier; false
+                # for a view-only grantee, a public-link reader, and anonymous.
+                "can_comment": bool(app.policy.can_comment(self._principal(), rid)),
                 # #289: who authored the current draft. Lifecycle: a reviewer write SETS the meta
                 # key, an agent write DELETES it, readers default "agent" — so this echo is the
                 # documented default, not a new persisted field. /status is already exempt from

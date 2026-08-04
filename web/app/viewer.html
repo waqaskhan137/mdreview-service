@@ -203,6 +203,11 @@
   .gentry .gtext h1,.gentry .gtext h2,.gentry .gtext h3,.gentry .gtext h4,.gentry .gtext h5{font-size:13px;margin:.5em 0 .2em;}
   .gentry .gtext img{max-width:100%;border-radius:var(--r-control);}
   .gentry .gtext hr{border:none;border-top:1px solid var(--border);margin:.5em 0;}
+  /* #320: view-only readers keep every READ surface (threads, resolved, history) and lose only the
+     author surfaces. One class, so a repaint cannot resurrect a box the policy refuses. */
+  #viewonly{display:none;font-size:var(--t-meta);color:var(--text-muted);letter-spacing:.01em;}
+  body.viewonly #viewonly{display:inline;}
+  body.viewonly .greply,body.viewonly .reopenbox,body.viewonly #addbtn,body.viewonly #pop{display:none !important;}
   .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
   .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font-family:var(--font-ui);font-size:12.5px;border:1px solid var(--border);border-radius:var(--r-control);padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
   .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
@@ -340,6 +345,7 @@
 <div id="dock"><div id="dockbar">
   <span id="count"><i class="cdot" aria-hidden="true"></i>0 open</span>
   <span class="dsep" aria-hidden="true"></span>
+  <span id="viewonly" title="Ask the owner for comment access">View only</span>
   <button class="btn" id="cmtbtn">Comments</button>
   <button class="btn" id="resbtn">Resolved 0</button>
   <button class="btn" id="histbtn">History</button>
@@ -379,6 +385,12 @@ let lastCmt=0;          // comments_updated (thread live-reload)
 let confirming=null;    // comment_id with a pending inline delete-confirm (guards the poll re-render)
 let WORDS=0;            // prose word count, cached by load() for the title meta line
 let LASTTURN=null,LASTSTATUS=null;  // last turn/status painted, so the poll repaints only on change
+
+// #320: /status.can_comment — the custody policy's can_comment, the SAME gate POST /comments
+// enforces. Defaults TRUE so a server that predates the key behaves exactly as before (the owner
+// and the local tier are the overwhelming case, and a stale-server false would silently remove
+// the owner's own composer). A refused post corrects it, so a revoked grant self-heals.
+let CAN_COMMENT=true;
 
 // ---- #290 in-place editor state (epic #273 slice B) -------------------------------------------
 let CAN_EDIT=false;     // /status.can_edit (#288) — the ONLY edit gate; never the /shares 200/404
@@ -594,6 +606,7 @@ async function load(){
   const st=await fetch(API+'/status').then(r=>r.json()).catch(()=>({}));
   lastSrc=st.source_updated||0;lastCmt=st.comments_updated||0;
   setEditVisible(!!st.can_edit);   // #290 edit gate — can_edit ONLY, never the /shares probe
+  setCommentVisible(st.can_comment!==false);   // #320 comment gate; absent key -> unchanged
   // extract YAML front matter (for the title) and strip it
   let title="";
   const fm=md.match(/^﻿?\s*---\r?\n([\s\S]*?)\r?\n---\s*/);
@@ -659,6 +672,11 @@ async function fetchComments(){
 // in (the top-bar "Sign in" links to the sign-in screen). Returns false so the caller keeps its input.
 function commentDenied(r,fallback){
   if(r.status===401){toast('Sign in to comment');return true;}
+  // #320: a 404 on a comment POST for a document we are READING is not a missing document — it is
+  // the custody policy refusing the note (view-only share, or a public link with no named grant).
+  // Naming that beats "Could not save comment", which reads as a server fault the reader could
+  // retry away. Also re-gates the surfaces, so a grant revoked mid-session settles immediately.
+  if(r.status===404){setCommentVisible(false);toast('You have view-only access to this document');return true;}
   if(!r.ok){toast(fallback);return true;}
   return false;
 }
@@ -892,6 +910,7 @@ window.addEventListener('resize',()=>{try{layoutComments();positionPop();}catch(
 const addbtn=$("#addbtn");
 $("#article").addEventListener('mouseup',e=>{
   setTimeout(()=>{
+    if(!CAN_COMMENT){addbtn.style.display='none';return;}   // #320: no author surface without the right
     const sel=window.getSelection();const t=sel.toString().trim();
     if(!t||!sel.rangeCount){addbtn.style.display='none';return;}
     const r=sel.getRangeAt(0);
@@ -910,6 +929,7 @@ $("#article").addEventListener('mouseup',e=>{
 addbtn.onclick=()=>{addbtn.style.display='none';openPop(cur);};
 
 function openPop(c){
+  if(!CAN_COMMENT)return;   // #320: also covers the "a" keyboard shortcut, which bypasses #addbtn
   cur=c;
   $("#popq").textContent=(c.quoted_text===''?'Block #'+c.block_num+' (whole paragraph)':'#'+c.block_num+': "'+c.quoted_text+'"');
   $("#popnote").value="";
@@ -950,6 +970,7 @@ function poll(){
     try{
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
       setEditVisible(!!s.can_edit);
+      setCommentVisible(s.can_comment!==false);   // #320: a grant revoked mid-session takes effect here
       // #290: the live-reload poll is suppressed while the editor is open — it must never clobber
       // the buffer with load()'s re-render. It keeps watching /status (already fetched above, no
       // extra request) so a remote change is still detected; the human is told and chooses reload
@@ -982,6 +1003,16 @@ function poll(){
 function setEditVisible(can){
   CAN_EDIT=can;
   const b=$("#editbtn");if(b)b.style.display=can?'':'none';
+}
+// #320: one switch for every author surface. Hiding them is not enough on its own — a reader who
+// simply finds nothing to click learns nothing — so body.viewonly also drives the dock's "View
+// only" label, which is the ONLY place that names the reason. Reply and reopen boxes are rendered
+// by renderComments() on every repaint, so they are gated in CSS off this class rather than
+// patched per card.
+function setCommentVisible(can){
+  CAN_COMMENT=can;
+  document.body.classList.toggle('viewonly',!can);
+  if(!can){const a=$("#addbtn");if(a)a.style.display='none';const p=$("#pop");if(p)p.style.display='none';}
 }
 // Same one-line seam initShare() uses for /auth/session's csrf field (#289's session-keyed CSRF).
 // Not reused as a shared global: initShare()'s _shareCsrf is fetched unawaited during boot() and a
