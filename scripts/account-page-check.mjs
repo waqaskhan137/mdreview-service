@@ -393,9 +393,21 @@ try {
   await evaluate(`(() => { const spacer = document.createElement('div'); spacer.id='__spacer'; spacer.style.height='1400px'; document.getElementById('acct-slot').appendChild(spacer); return true; })()`);
   await evaluate(`window.scrollTo(0, 600); true`);
   await sleep(100);
-  const stickyTop = await evalJSON(`JSON.stringify({top: document.querySelector('nav[aria-label="Sections"]').getBoundingClientRect().top, s6: window.__tok('margin-top','var(--s-6)')})`);
-  ok('AC7: after scrolling the pane 600px, the sticky nav parks at resolved --s-6 (24px)',
-     Math.abs(parseFloat(stickyTop.top) - parseFloat(stickyTop.s6)) <= 1, stickyTop);
+  // #281 CORRECTION. The AC said "parks at --s-6 (24px)", which the mock's static canvas implies
+  // because it has no sticky app bar. The real page does: .app-top is sticky at top:0 with
+  // z-index:20, so a nav parked at 24px has its ENTIRE first row painted behind the bar while
+  // scrolled. getBoundingClientRect is paint-order-blind, so the original assertion passed on a
+  // visibly broken layout. Asserting the relationship that actually matters instead: the nav must
+  // clear the app bar. Rect-only, so it stays a rendered-outcome check.
+  const stickyTop = await evalJSON(`(() => {
+    const nav = document.querySelector('nav[aria-label="Sections"]').getBoundingClientRect();
+    const bar = document.querySelector('.app-top').getBoundingClientRect();
+    return JSON.stringify({navTop: nav.top, barBottom: bar.bottom, gap: nav.top - bar.bottom});
+  })()`);
+  ok('AC7: the scrolled sticky nav clears the app bar instead of hiding behind it',
+     stickyTop.navTop >= stickyTop.barBottom - 1, stickyTop);
+  ok('AC7: and it does not float an absurd distance below it (<= 24px gap)',
+     stickyTop.gap <= 24 + 1, stickyTop);
   await evaluate(`(() => { window.scrollTo(0,0); const sp = document.getElementById('__spacer'); if (sp) sp.remove(); return true; })()`);
 
   // ================================================================================

@@ -190,6 +190,12 @@
   background:var(--bg);
   position:sticky; top:0; z-index:20;
 }
+/* #281: the app bar is sticky at top:0 with z-index:20, so anything else that sticks must clear
+   it or be painted underneath. Published as a token so a sticky sibling does not have to
+   hardcode the bar's box; tests/account_page_selfcheck.sh asserts the RENDERED rects do not
+   overlap, so if the bar's height ever drifts from this value the check fails rather than the
+   layout silently breaking. */
+:root{ --app-top-h:55px; }
 .app-top .brand{
   display:flex; align-items:center; gap:var(--s-2);
   font-weight:650; letter-spacing:-.01em; color:var(--text); text-decoration:none;
