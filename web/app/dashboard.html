@@ -200,30 +200,53 @@
      dialog: it is the shared floating-surface radius, and its other consumers are unchanged. */
   .command-dialog{border-radius:var(--r-panel);}
   :where(.command-dialog) :is(.command [role=menuitem]){border-radius:var(--radius-lg);}
+  /* #283: the panel face is the mock's frame colour (--bg), and Basecoat's own popover padding
+     drops to 0 so the header/list/footer rules below can run edge to edge, per 05-palette.html.
+     Both declarations are UNLAYERED, same mechanism as the radius note above: Basecoat's
+     `.command{background-color:...;padding:...}` lives in `@layer components`, and an unlayered
+     normal declaration always beats a layered one regardless of specificity (mutation-tested by
+     the #265 comment this pattern is copied from). */
+  #cmdk .command{background:var(--bg);padding:0;}
   /* #261. The selected row was INVISIBLE: --accent-soft does not exist and never did — it appears
      exactly once in this repo, here, as its own consumer. Both selected and unselected measured
      rgba(0,0,0,0), so arrow-key navigation produced no visible change at all. --accent-muted is the
      defined token. Shipped in #183 and caught by a grooming pass, not by my checks. */
-  .cmdrow{display:flex;align-items:center;gap:var(--s-2);width:100%;padding:9px 10px;
-    background:none;border:0;font:inherit;text-align:left;cursor:pointer;color:var(--text);
-    transition:background .12s, color .12s;}
+  .cmdrow{display:flex;align-items:center;gap:10px;width:100%;padding:10px 11px;
+    background:none;border:0;font:inherit;font-size:var(--t-body);text-align:left;cursor:pointer;
+    color:var(--text);transition:background 160ms ease-out;}
   .cmdrow:hover{background:var(--code-bg);}
-  .cmdrow[aria-selected="true"]{background:var(--accent-muted);color:var(--accent);font-weight:550;}
+  .cmdrow[aria-selected="true"]{background:var(--accent-muted);color:var(--accent);font-weight:600;}
   /* The keyboard cursor needs a second, non-colour signal: hover and selection are otherwise two
      tints of the same idea, and a hovering mouse would hide where the keyboard actually is. */
-  .cmdrow[aria-selected="true"]::before{content:"";position:absolute;left:0;width:2px;top:2px;
-    bottom:2px;background:var(--accent);border-radius:2px;}
+  .cmdrow[aria-selected="true"]::before{content:"";position:absolute;left:0;width:2px;top:8px;
+    bottom:8px;background:var(--accent);border-radius:2px;}
   .cmdrow{position:relative;}
-  .cmdrow .cmdhint{margin-left:auto;font-size:var(--t-meta);color:var(--text-subtle);
-    padding-left:var(--s-3);white-space:nowrap;}
+  .cmdrow .cmdhint{margin-left:auto;font-family:var(--font-mono);font-size:var(--t-eyebrow);
+    color:var(--text-subtle);padding-left:var(--s-3);white-space:nowrap;}
   .cmdrow[aria-selected="true"] .cmdhint{color:var(--accent);opacity:.75;}
   .cmdempty{padding:14px 10px;color:var(--text-subtle);font-size:var(--t-meta);text-align:center;}
-  /* The query row reads as an input, not as a floating string of text. */
-  #cmdk .command>header{border-bottom:1px solid var(--border-faint,var(--border));padding:2px 4px;}
-  #cmdq{width:100%;font:inherit;font-size:15px;padding:11px 10px;border:0;background:none;
-    color:var(--text);outline:none;}
+  /* #283: "Reviews" / "Projects" group headers, per the mock. Plain non-interactive DOM: no role,
+     no tabindex, so cmdMove's `.cmdrow`-only NodeList and cmdBuild's cmdItems index math (below)
+     skip them by construction — no change to keyboard navigation was needed. */
+  .cmdgroup{font-family:var(--font-mono);font-size:var(--t-eyebrow);letter-spacing:.1em;
+    text-transform:uppercase;color:var(--text-subtle);padding:10px 11px 4px;}
+  /* The query row reads as an input, not as a floating string of text. display:flex and
+     align-items:center already arrive from Basecoat's `.command>header` (@layer components) and
+     are left alone. Everything else in THIS rule overrides a Basecoat declaration in that same
+     layered block that would otherwise survive unlayered padding/gap alone: a 4px margin (only
+     margin-bottom zeroed), a forced 32px height, and a border on all four sides, not just the
+     bottom — found by measuring the rendered header, not by reading the bundle. */
+  #cmdk .command>header{margin:0;height:auto;border:0;border-radius:0;gap:10px;padding:14px 16px;
+    background:transparent;border-bottom:1px solid var(--border-faint,var(--border));}
+  #cmdicon{color:var(--text-subtle);flex:0 0 auto;}
+  #cmdq{flex:1 1 auto;width:auto;min-width:0;font:inherit;font-size:var(--t-card);padding:0;
+    border:0;background:none;color:var(--text);outline:none;caret-color:var(--accent);}
   #cmdq::placeholder{color:var(--text-subtle);}
-  #cmdlist{padding:6px;max-height:min(52vh,420px);overflow:auto;}
+  #cmdlist{padding:8px;display:flex;flex-direction:column;gap:2px;
+    max-height:min(52vh,420px);overflow:auto;}
+  #cmdk .command>footer{display:flex;align-items:center;gap:var(--s-4);padding:9px 14px;
+    border-top:1px solid var(--border-faint,var(--border));font-family:var(--font-mono);
+    font-size:var(--t-eyebrow);color:var(--text-subtle);}
 
   @media (max-width: 720px){
     /* §10 rule 02: at narrow width the palette becomes a full-screen tap surface, sharing the
@@ -257,6 +280,9 @@
        behind it is how a phone loses the query row mid-typing. */
     #cmdk .command>header{flex:0 0 auto;}
     #cmdlist{flex:1 1 auto;max-height:none;}
+    /* #283: the footer pins to the bottom of the full-screen panel like the header pins to the
+       top — the list is the only child that grows/scrolls. */
+    #cmdk .command>footer{flex:0 0 auto;}
     .cmdrow{min-height:44px;align-items:center;}
     /* #184's 44px floors. Rev 3's base row is already 52px (>= 44), so .rw needs no override
        here; .rw-l keeps its explicit floor so the tap surface, not just the row, is 44px.
@@ -329,8 +355,12 @@
      mdKeys' shared layer stack (pushEscape), not a second component-local handler. -->
 <dialog id="cmdk" class="command-dialog" aria-label="Command palette">
   <div class="command" data-command-initialized>
-    <header><input id="cmdq" type="text" placeholder="Search reviews and projects…" autocomplete="off" aria-label="Search reviews and projects"></header>
+    <header>
+      <svg id="cmdicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="cmdq" type="text" placeholder="Search reviews and projects…" autocomplete="off" aria-label="Search reviews and projects">
+    </header>
     <div id="cmdlist" role="menu"></div>
+    <footer><span>↑↓ move</span><span>↵ open</span><span>esc close</span></footer>
   </div>
 </dialog>
 <script src="/static/keys.js"></script>
@@ -698,11 +728,17 @@ function cmdBuild(){
   const revs=allReviews.filter(r=>hit(r.title)||hit(r.project)).slice(0,8)
     .map(r=>({kind:"review",id:r.id,label:r.title||r.id,hint:r.project||""}));
   const projs=[...new Set(allReviews.map(r=>r.project).filter(Boolean))].filter(hit).slice(0,5)
-    .map(p=>({kind:"project",value:p,label:p,hint:"project"}));
+    .map(p=>{const n=allReviews.filter(r=>r.project===p).length;
+      return {kind:"project",value:p,label:p,hint:n+" review"+(n===1?"":"s")};});
   cmdItems=revs.concat(projs); cmdIdx=0;
+  const row=(it,i)=>`<button class="cmdrow" role="menuitem" data-i="${i}" aria-selected="${i===0}">`
+    +`<span>${esc(it.label)}</span>`+(it.hint?`<span class="cmdhint">${esc(it.hint)}</span>`:"")+`</button>`;
+  // Group headers interleave as plain, non-menuitem DOM (see the .cmdgroup CSS comment): the
+  // data-i on each row is still its absolute index into cmdItems, so cmdRun/cmdMove need no
+  // awareness of the headers at all.
   cmdlist.innerHTML = cmdItems.length
-    ? cmdItems.map((it,i)=>`<button class="cmdrow" role="menuitem" data-i="${i}" aria-selected="${i===0}">`
-        +`<span>${esc(it.label)}</span>`+(it.hint?`<span class="cmdhint">${esc(it.hint)}</span>`:"")+`</button>`).join("")
+    ? (revs.length?`<div class="cmdgroup">Reviews</div>`+revs.map((it,i)=>row(it,i)).join(""):"")
+      +(projs.length?`<div class="cmdgroup">Projects</div>`+projs.map((it,i)=>row(it,revs.length+i)).join(""):"")
     : `<div class="cmdempty">No matches</div>`;
 }
 function cmdMove(d){
