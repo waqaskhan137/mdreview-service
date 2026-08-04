@@ -82,8 +82,11 @@
      crumb. Promotion rule and CTA logic are unchanged; only the skin moved. */
   #nextup:not(:empty){display:flex;flex-direction:column;gap:6px;padding:var(--s-4);
     margin:0 0 var(--s-6);border-radius:var(--r-card);background:var(--code-bg);}
+  /* #284: the crumb also carries the owned-row badges — the promotion rule (unchanged) can lift
+     the freshest "yours" row into this hero, and a promoted PUBLIC document must not lose its
+     only visible PUBLIC indicator. flex+wrap so a long crumb and a badge coexist at narrow width. */
   .nu-crumb{font-family:var(--font-mono);font-size:var(--t-meta);letter-spacing:.04em;
-    color:var(--text-subtle);margin:0;}
+    color:var(--text-subtle);margin:0;display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap;}
   .nu-title{font-size:20px;line-height:1.2;letter-spacing:-.015em;font-weight:600;margin:0;}
   .nu-say{font-size:var(--t-body);color:var(--text-muted);margin:0;}
   /* §05 rule 01: one violet per screen, and this is it. */
@@ -624,7 +627,10 @@ function nextUp(r){
   const open=Math.max(0,(r.notes_total||0)-(r.notes_addressed||0));
   // rev 3 say line: "N open comments" while there is something to read; countLabel otherwise
   const say=open?`${open} open comment${open===1?"":"s"}`:countLabel(r);
-  return `<div class="nu-crumb">${esc(crumb.join(" · "))}</div>
+  // #284: badges follow the promoted row into the hero (see the .nu-crumb CSS comment) —
+  // crumb.join is escaped as ONE string, so the crumb text is its own span and the badges (their
+  // own markup, already safe: static titles + an integer count, nothing user-authored) sit beside it.
+  return `<div class="nu-crumb">${crumb.length?`<span>${esc(crumb.join(" · "))}</span>`:""}${shareBadges(r)}</div>
     <h2 class="nu-title">${esc(r.title||r.id)}</h2>
     <p class="nu-say">${esc(say)}${r.kind==="latex"?" · LaTeX paper":""}</p>
     <a class="btn nu-go" href="/review/${encodeURIComponent(r.id)}">${open?"Read the comments":"Open review"}</a>`;

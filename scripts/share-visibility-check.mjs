@@ -58,13 +58,15 @@ const FIXTURE_SCRIPT = `
   var owned = [
     // The highest-activity "yours" row: the dashboard's OWN "next up" hero promotion (unrelated
     // to #284, out of scope here) shifts whichever "yours" row is most recently active OUT of the
-    // plain list and into a hero block that renders no badges at all. Giving THIS row the max
-    // timestamp, and none of the badge-relevant rows below it, keeps pub1/shr1/plain1 all in the
-    // plain list this check samples — otherwise which row gets promoted (and silently vanishes
-    // from every '.rw' query here) would depend on wall-clock T0 arithmetic alone.
-    {id:'hero1', title:'Zzz newest doc (promotion bait, not asserted)', project:'misc', kind:'markdown',
+    // plain list and into a hero block. This row is deliberately PUBLIC: a promoted document must
+    // not lose its only visible PUBLIC indicator, so this doubles as the hero-badge assertion
+    // below. Its max timestamp also keeps pub1/shr1/plain1 (below) all in the plain list this
+    // check samples elsewhere — otherwise which row gets promoted would depend on wall-clock T0
+    // arithmetic alone.
+    {id:'hero1', title:'Zzz newest doc (promotion bait, also public)', project:'misc', kind:'markdown',
      created:T0, source_updated:T0+99999, feedback_updated:0, revision:0, turn:'reviewer',
-     notes_total:1, notes_addressed:0, status:'feedback'},
+     notes_total:1, notes_addressed:0, status:'feedback',
+     share_public: boot==='main' ? 'view' : undefined},
     {id:'pub1', title:'Magic-link rate limiting', project:'auth-service', kind:'markdown',
      created:T0, source_updated:T0+300, feedback_updated:0, revision:0, turn:'reviewer',
      notes_total:3, notes_addressed:0, status:'feedback',
@@ -162,6 +164,7 @@ try {
   // ================= main fixture: badges + the "Shared with you" group =================
   const READY_MAIN = `document.querySelectorAll('.grp-shared .rw').length===2 && ` +
     `document.querySelectorAll('#list .rw-badge').length===2 && ` +
+    `document.querySelectorAll('#nextup .rw-badge').length===1 && ` +
     `document.querySelectorAll('.grp-h').length>=3`;
   const readyMain = await navReady('main', READY_MAIN);
   ok('dashboard loaded with the fixture rendered (probe is not vacuous)', readyMain,
@@ -198,11 +201,17 @@ try {
       grpHeads, grpOrder: JSON.stringify(grpHeads),
       inbRows: inbRows.map(rowInfo),
       ownedRowHasDel: !!pubRow.querySelector('.del'),
+      // The promotion bait (hero1) is PUBLIC and is the freshest "yours" row, so it must be the
+      // one lifted into #nextup — confirms the hero-badge fix, not a coincidence of fixture order.
+      heroTitle: (q('.nu-title')||{}).textContent,
+      heroBadgeText: q('#nextup .rw-badge.pub') ? q('#nextup .rw-badge.pub').textContent.trim() : null,
     });
   })()`);
 
   ok('AC2: PUBLIC badge text + title on the public-only row', s.pubBadgeText === 'PUBLIC' && s.pubBadgeTitle === 'Anyone with the link can open this', JSON.stringify(s));
   ok('AC2: people-count badge "2" + title on the named-share row', s.sharedBadgeText === '2' && s.sharedBadgeTitle === 'Shared with 2 people', JSON.stringify(s));
+  ok('AC2 (hero): a PROMOTED public row still shows its PUBLIC badge in the "next up" hero',
+     s.heroTitle === 'Zzz newest doc (promotion bait, also public)' && s.heroBadgeText === 'PUBLIC', JSON.stringify(s));
   ok('AC2: the unshared row renders NO badge element at all', s.plainRowBadgeCount === 0, s.plainRowBadgeCount);
   ok('AC1/AC6 order: "Shared with you" appears AFTER "With the agent"',
      s.grpHeads.indexOf('With the agent') >= 0 && s.grpHeads.indexOf('Shared with you') > s.grpHeads.indexOf('With the agent'),
