@@ -28,7 +28,9 @@ API
   GET    /api/reviews/{id}/comments/{cid}                     -> {comment}  (full thread + status_history)
   DELETE /api/reviews/{id}/comments/{cid}                     -> {deleted}  (hard-remove a junk comment)
   POST   /api/reviews/{id}/comments/{cid}/reply   {text}      -> {comment}  (append; status unchanged)
-  POST   /api/reviews/{id}/comments/{cid}/resolve {justification?} -> {comment}  (agent resolves; 409 if not open/reopened)
+  POST   /api/reviews/{id}/comments/{cid}/resolve {justification?} -> {comment}  (409 if not
+                                      open/reopened; attribution: cookie plane, or local +
+                                      X-Mdreview-Client: viewer, -> reviewer; else agent, #287)
   POST   /api/reviews/{id}/comments/{cid}/reopen  {text?}     -> {comment}  (reviewer reopens; 409 if not resolved)
   GET    /api/reviews/{id}/status                             -> {status, source_updated, feedback_updated, comments_updated, revision, can_edit, source_updated_by, ...}
   POST   /api/reviews/{id}/resolve    {resolved: true|false}  -> summary  (human sign-off; cookie plane ONLY, see the arm)
@@ -888,7 +890,16 @@ class H(BaseHTTPRequestHandler):
                 by = "reviewer" if plane == "cookie" else "agent" if plane == "token" else b.get("role", "reviewer")
                 text = b.get("text", "")
             elif action == "resolve":
-                by, text = "agent", b.get("justification")          # justification optional
+                # #287 D2: plane-derived, same disambiguator as the #289 source-PUT arm (:645) —
+                # resolve is can_write like that arm, not can_comment like reply above, so its
+                # local-plane ambiguity gets the header check rather than reply's spoofable body
+                # field. Both viewers already send X-Mdreview-Client: viewer on their PUT /source
+                # (editguard.js); resolveComment() sends it too so a human's click on the local
+                # (single-operator, no REQUIRE_AUTH) tier is not misattributed to the agent.
+                by = ("reviewer" if plane == "cookie"
+                      or (plane == "local" and self.headers.get("X-Mdreview-Client", "") == "viewer")
+                      else "agent")
+                text = b.get("justification")                        # justification optional
             else:                                                    # reopen
                 by, text = "reviewer", b.get("text")                 # reviewer reply optional
             with app.store.lock:
