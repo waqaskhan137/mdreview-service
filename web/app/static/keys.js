@@ -21,14 +21,17 @@
 //          from the sheet, so the sheet never advertises something inert.
 //   keepInField  optional. By default a binding is suppressed while focus is in a text field,
 //          because the comment composer would otherwise eat "c", "a" and "r". Only the help sheet
-//          and the composer's own submit set this.
+//          and the composer's own submit set this. It does NOT override the printable-character
+//          rule: a spec that types a character stays suppressed in a field whatever this says
+//          (#311), so setting it on a bare letter buys nothing.
 //
 // TWO TRAPS, both load-bearing:
 //   1. "/" and "?" are the SAME physical key. Branching on e.key === "/" alone makes the dashboard's
 //      search-focus binding swallow the help sheet. Every spec is normalised through keyOf(), which
 //      reads e.shiftKey, so "/" and "?" are distinct entries.
 //   2. The sheet must be reachable WHILE TYPING. It is the one thing a user hits when they are lost,
-//      and being lost includes being lost inside a textarea.
+//      and being lost includes being lost inside a textarea. But only through the CHORD: "?" is a
+//      character, and in a field the character wins (#311). So mid-sentence help is ⌘/ , not ?.
 
 (function (root) {
   var registry = [];          // every registered binding, in registration order
@@ -41,6 +44,17 @@
     if (el.isContentEditable) return true;
     var t = (el.tagName || "").toLowerCase();
     return t === "input" || t === "textarea" || t === "select";
+  }
+
+  // #311: does this spec mean "insert a character"? In a text field a printable key belongs to the
+  // text, and no binding may claim it — not even a keepInField one. The help sheet was registered
+  // on ["mod+/", "?"] with keepInField so it stays reachable mid-sentence, which is right for the
+  // chord and wrong for "?": typing a question mark into a comment opened the sheet instead.
+  // Structural rather than a special case for "?", so the next printable keepInField binding
+  // someone adds cannot reintroduce this.
+  function isTypable(spec) {
+    if (spec.indexOf("mod+") === 0) return false;   // a chord is never the character itself
+    return spec === "Space" || spec.length === 1;
   }
 
   // Canonical spec for an event: "mod+/" | "?" | "c" | "Escape". `mod` is Cmd on mac, Ctrl
@@ -190,7 +204,9 @@
     for (var i = 0; i < registry.length; i++) {
       var b = registry[i];
       if (b.keys.indexOf(spec) < 0) continue;
-      if (inField && !b.keepInField) continue;
+      // keepInField buys a binding the right to fire while typing; it does not buy the right to
+      // swallow a character the field is entitled to (#311).
+      if (inField && (!b.keepInField || isTypable(spec))) continue;
       if (b.when && !b.when()) continue;
       if (b.run(e) !== false) e.preventDefault();
       return;
@@ -219,6 +235,7 @@
     openSheet: openSheet, closeSheet: closeSheet,
     // exposed for tests/keys_selfcheck.js
     _keyOf: keyOf, _registry: registry, _visible: visible, _prettify: prettify, _isField: isField,
+    _isTypable: isTypable,
   };
 
   // The help sheet itself, registered first so it is the first row of every page's sheet.
