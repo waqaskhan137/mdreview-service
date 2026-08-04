@@ -117,6 +117,10 @@ try {
 
   await cmd('Page.enable'); await cmd('Runtime.enable'); await cmd('DOM.enable'); await cmd('Network.enable');
   await cmd('Emulation.setDeviceMetricsOverride', { width: 1200, height: 900, deviceScaleFactor: 1, mobile: false });
+  // Best-effort: headless Chrome without document focus routinely refuses clipboard writes even
+  // with permissions granted. If this doesn't make navigator.clipboard.writeText work, the AC12
+  // copy-button check below still passes via its documented escape hatch ("select to copy").
+  try { await cmd('Browser.grantPermissions', { permissions: ['clipboardReadWrite'], origin: BASE }); } catch {}
 
   async function hardNav(url) {
     await cmd('Page.navigate', { url: 'about:blank' });
@@ -267,6 +271,80 @@ try {
   await cmd('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 2, y: 2 });
   ok('AC3: hover changes computed border-color to resolved --text-subtle', afterHover !== beforeHover && afterHover === textSubtleLight,
      { beforeHover, afterHover, textSubtleLight });
+
+  // ================================================================================
+  // AC4 (behavioral half): aria-expanded flips on open/close, Escape closes and refocuses.
+  // account_menu_selfcheck.js only regexes the source for this; the trigger's children changed,
+  // so it is worth actually driving it once in a real browser.
+  // ================================================================================
+  await evaluate(`document.querySelector('#acct .acct-trig').click(); true`);
+  await sleep(80);
+  const openState = await evalJSON(`JSON.stringify({
+    expanded: document.querySelector('#acct .acct-trig').getAttribute('aria-expanded'),
+    menuHidden: document.querySelector('#acct .acct-menu').hidden,
+  })`);
+  ok('AC4: clicking the trigger sets aria-expanded=true and un-hides the menu', openState.expanded === 'true' && openState.menuHidden === false, openState);
+  await evaluate(`document.activeElement.blur(); document.querySelector('#acct .acct-menu [role=menuitem]').focus(); true`);
+  await evaluate(`document.querySelector('#acct .acct-menu').dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true})); true`);
+  await sleep(80);
+  const closedState = await evalJSON(`JSON.stringify({
+    expanded: document.querySelector('#acct .acct-trig').getAttribute('aria-expanded'),
+    menuHidden: document.querySelector('#acct .acct-menu').hidden,
+    refocused: document.activeElement === document.querySelector('#acct .acct-trig'),
+  })`);
+  ok('AC4: Escape closes the menu (aria-expanded=false, hidden) and refocuses the trigger',
+     closedState.expanded === 'false' && closedState.menuHidden === true && closedState.refocused, closedState);
+
+  // ================================================================================
+  // AC1 also names all FIVE pages account.js mounts on, not just /account. Create a real
+  // markdown review and (ENABLE_LATEX permitting) a real latex review with the primary session,
+  // then check the trigger inside the dashboard, the viewer, the latex viewer, and admin -- the
+  // specific risk being CSS INHERITANCE, not new markup: account.js declares no text-transform
+  // on .acct-trig itself (unlike the old .acct wrapper, which explicitly reset it "so the email
+  // reads right even inside the viewer's uppercase top bar"), so an ancestor rule on one of the
+  // other four pages could silently render "AK" instead of the mock's lowercase "ak".
+  // ================================================================================
+  async function mkReview(kind) {
+    const body = kind === 'latex'
+      ? { title: 'five-page trigger probe (latex)', kind: 'latex', markdown: '\\documentclass{article}\\begin{document}x\\end{document}' }
+      : { title: 'five-page trigger probe', markdown: '# x' };
+    const r = await fetch(BASE + '/api/reviews', { method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: primary.cookie, 'X-CSRF-Token': primary.csrf },
+      body: JSON.stringify(body) });
+    if (!r.ok) return null;
+    return (await r.json()).id;
+  }
+  const mdRid = await mkReview('markdown');
+  const latexRid = await mkReview('latex');
+  async function triggerOnPage(url, label) {
+    await hardNav(url);
+    let landed = false;
+    for (let i = 0; i < 60; i++) {
+      if (await evaluate(`document.readyState === 'complete' && !!document.querySelector('#acct .acct-trig')`)) { landed = true; break; }
+      await sleep(150);
+    }
+    if (!landed) { ok(`AC1 (${label}): the trigger actually rendered (probe is not vacuous)`, false, await evaluate(`document.readyState + ' ' + location.href`)); return; }
+    await sleep(150); // settle the same class-assignment transition the account-page READY buffer covers
+    const t = await evalJSON(`(() => {
+      const trig = document.querySelector('#acct .acct-trig');
+      const r = trig.getBoundingClientRect(), cs = getComputedStyle(trig);
+      return JSON.stringify({ text: trig.textContent.trim(), w: r.width, h: r.height, textTransform: cs.textTransform, letterSpacing: cs.letterSpacing });
+    })()`);
+    ok(`AC1 (${label}): trigger renders lowercase "ak" (no inherited text-transform), 28x28`,
+       t.text === 'ak' && t.textTransform === 'none' && Math.abs(t.w - 28) <= 1 && Math.abs(t.h - 28) <= 1, t);
+  }
+  await triggerOnPage(BASE + '/', 'dashboard /');
+  if (mdRid) await triggerOnPage(BASE + '/review/' + mdRid, 'viewer /review/<id>');
+  else ok('AC1 (viewer /review/<id>): could create a probe review', false, 'POST /api/reviews failed');
+  // The latex viewer has no separate URL: src/latex_review/module.py intercepts GET /review/{id}
+  // and serves latex-viewer.html instead of viewer.html when that review's kind === "latex" --
+  // "/review/<id>" is "the latex route in use" the ticket's own AC1 wording hedged for.
+  if (latexRid) await triggerOnPage(BASE + '/review/' + latexRid, 'latex viewer /review/<id> kind=latex');
+  else ok('AC1 (latex viewer /latex/<id>): skipped -- ENABLE_LATEX probe review could not be created (server may not have MDREVIEW_ENABLE_LATEX=1)', true, 'skipped, not a failure');
+  await triggerOnPage(BASE + '/admin', 'admin /admin');
+
+  const readyAfterTour = await navAccount();
+  ok('setup: back on /account after the five-page tour', readyAfterTour, readyAfterTour);
 
   // ================================================================================
   // AC6-8: nav structure, order, separator, active-row styling.
@@ -429,6 +507,25 @@ try {
      !!mcpJson1 && mcpJson1.mcpServers?.mdreview?.env?.MDREVIEW_TOKEN === mint1.plain &&
      mcpJson1.mcpServers?.mdreview?.env?.MDREVIEW_BASE === serverReportedBase,
      { mcpJson1, want: mint1.plain, serverReportedBase });
+  // AC12's copy affordances. A dead click handler would still leave everything above green, so
+  // this actually clicks both buttons and asserts their label changed (either "copied" -- the
+  // clipboard write succeeded -- or "select to copy" -- AC12's documented degrade-visibly
+  // escape hatch, since headless Chrome without document focus often refuses clipboard writes
+  // regardless of Browser.grantPermissions), then restored after the ticket's own timeout.
+  await evaluate(`document.getElementById('tok-copy').click(); true`);
+  await sleep(150);
+  const tokCopyLabel = await evaluate(`document.getElementById('tok-copy').textContent`);
+  await evaluate(`document.getElementById('cfg-copy').click(); true`);
+  await sleep(150);
+  const cfgCopyLabel = await evaluate(`document.getElementById('cfg-copy').textContent`);
+  ok('AC12: clicking the token copy affordance changes its label (copied, or a visible degrade)',
+     tokCopyLabel === 'copied' || tokCopyLabel === 'select to copy', tokCopyLabel);
+  ok('AC12: clicking the config copy affordance changes its label (copied, or a visible degrade)',
+     cfgCopyLabel === 'copied' || cfgCopyLabel === 'select to copy', cfgCopyLabel);
+  await sleep(1700);
+  const restoredLabels = await evalJSON(`JSON.stringify({tok: document.getElementById('tok-copy').textContent, cfg: document.getElementById('cfg-copy').textContent})`);
+  ok('AC12: both copy affordances restore to "copy" after their timeout', restoredLabels.tok === 'copy' && restoredLabels.cfg === 'copy', restoredLabels);
+
   // "Done" removes the block from the DOM (not display:none with the token still present).
   await evaluate(`document.getElementById('tok-done').click(); true`);
   await sleep(80);

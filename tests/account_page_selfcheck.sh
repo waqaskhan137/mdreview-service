@@ -21,10 +21,11 @@ trap cleanup EXIT
 
 # MDREVIEW_OWNER_EMAIL matches the check script's EMAIL constant on purpose: the mock's persona
 # (a.kerr@example.com) is Admin, and AC10's Role-row assertion tests the Admin branch.
+# ENABLE_LATEX=1: AC1 covers the trigger on all five pages, including /latex/<id>.
 MDREVIEW_DATA="$scratch/hosted" PORT="$port" MDREVIEW_WEB_DIR="$here/web/app" \
   MDREVIEW_REQUIRE_AUTH=1 MDREVIEW_ALLOW_PROXY_PLANE=0 MDREVIEW_PROXY_SECRET=inert-not-a-plane \
   MDREVIEW_SESSION_SECRET=s MDREVIEW_TOKEN_PEPPER=p MDREVIEW_OWNER_EMAIL=a.kerr@example.com \
-  MDREVIEW_ALLOW_STUB_EMAIL=1 MDREVIEW_PUBLIC_BASE=https://l.test \
+  MDREVIEW_ALLOW_STUB_EMAIL=1 MDREVIEW_PUBLIC_BASE=https://l.test MDREVIEW_ENABLE_LATEX=1 \
   PYTHONPATH="$here/src" python3 -m mdreview.hosted >"$scratch/hosted.log" 2>&1 &
 srv=$!
 
