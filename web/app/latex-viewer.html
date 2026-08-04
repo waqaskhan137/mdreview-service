@@ -47,10 +47,17 @@
   .vdiv{flex:0 0 5px;cursor:col-resize;background:var(--border);position:relative;}
   .vdiv::after{content:"";position:absolute;inset:0 -3px;}
   .vdiv:hover,.vdiv.drag{background:var(--accent);}
-  /* Rev 3: the recessed backdrop behind the PDF sheet is --code-bg (the design's own annotation
-     says "backdrop (--code-bg)"), not --canvas. The white sheet itself is drawn by the native PDF
-     viewer inside the iframe and is unthemable from here. */
-  .pdfpane{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--code-bg);}
+  /* #333: the recessed backdrop behind the PDF sheet is --canvas.
+     The rev-3 ROOT dc.html annotates it "backdrop (--code-bg)" and #280 built to that annotation.
+     The scraps/04-latex.html SCREEN draws it `background:var(--canvas)`, and the screens are the
+     source of truth for this epic (that is why phase 5 exists). --canvas's own definition in
+     tokens.json agrees: "recessed area behind a sheet (latex viewer)". So the screen wins.
+     The other five --code-bg uses in that screen are source-pane and gutter surfaces and stay.
+     The sheet ITSELF cannot take --paper: it is a real PDF drawn by the browser's native viewer
+     inside the iframe, unthemable from here. It renders white regardless, which is what --paper
+     is (#FFFFFF in BOTH themes, because a printed sheet does not invert), so the rendered result
+     matches the mock — but by the PDF's nature, not by our token. Recorded, not papered over. */
+  .pdfpane{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--canvas);}
 
   .panehead{flex:0 0 32px;height:32px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border-faint);
     background:var(--bg);font-family:var(--font-mono);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);}
@@ -187,7 +194,7 @@
   .errbar summary{cursor:pointer;font-weight:600;}
   .errbar pre{margin:6px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;font-family:var(--font-mono);font-size:11px;color:var(--text);}
   .pdfwrap{flex:1;min-height:0;position:relative;}
-  #pdfframe{border:0;width:100%;height:100%;background:var(--code-bg);}
+  #pdfframe{border:0;width:100%;height:100%;background:var(--canvas);}   /* #333: matches .pdfpane */
   .pdfmsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px;padding:20px;text-align:center;}
 
   #toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:90;background:var(--accent);color:var(--bg);
