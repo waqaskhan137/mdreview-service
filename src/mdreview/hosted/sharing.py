@@ -3,18 +3,26 @@ core feature-module seam (the same `handle(h, m, path) -> bool` protocol AuthMod
 the core router gains these routes with zero core changes. Hosted-only: build_hosted registers it;
 the local/core tier never does.
 
-Routes (all owner-only; a document's sharing is managed by its owner alone):
+Routes (owner-only, with ONE grantee exception carved out by #284 D2 — see DELETE .../shares below):
   GET    /api/reviews/{id}/shares            list the public state + named shares (owner view).
   POST   /api/reviews/{id}/public            make public (view-only; D3 — no anonymous comments).
   DELETE /api/reviews/{id}/public            make private (revoke the public share; immediate).
   POST   /api/reviews/{id}/shares  {email,right?}  invite a named grantee (right = view|comment).
-  DELETE /api/reviews/{id}/shares?subject=|email=  revoke one named share (immediate).
+  DELETE /api/reviews/{id}/shares?subject=|email=  revoke one share (immediate). Owner: any subject.
+                                              #284 D2: OR a non-owning grantee revoking EXACTLY their
+                                              own "user:<self>" row (dashboard "Remove from your
+                                              list"), destructive, no undo. See _revoke.
 
 Authorization (the load-bearing part):
-  - The caller must OWN the review, checked via reviews.can_access (the SAME durable-provider:sub
-    owner check the policy uses) — NEVER via policy.can_read, so a view/comment grantee can never
-    escalate to grant/revoke on a document they were merely shown. A non-owner (or an absent review)
-    gets 404, indistinguishable from absent (ownership is not probeable), matching custody.
+  - /public and the GET/POST arms of /shares stay OWNER-ONLY, checked via reviews.can_access (the
+    SAME durable-provider:sub owner check the policy uses) — NEVER via policy.can_read, so a
+    view/comment grantee can never escalate to grant a share or make a document public. A non-owner
+    (or an absent review) gets 404, indistinguishable from absent (ownership is not probeable).
+  - DELETE .../shares (_revoke) is the one arm with a second authorized caller (#284 D2): a grantee
+    may delete ONLY the row naming their own uid. Checked by exact string equality on the resolved
+    subject ("user:" + caller uid), never by policy.can_read or any fuzzier test — so a grantee can
+    never touch another grantee's row, and a stranger with no grant at all still gets the same 404
+    an owner-only route gives (not owner, not your own row -> indistinguishable from absent).
   - Authenticated via the session OR the agent token (either owner plane). CSRF is enforced only when
     a real app-owned session cookie verifies (defence-in-depth behind SameSite=Lax). The transitional
     proxy plane carries no such cookie and the token plane is not a browser, so neither presents a
@@ -207,8 +215,24 @@ class SharingModule:
         return True
 
     def _revoke(self, h, rid):
-        p = self._owner(h, rid, mutating=True)
-        if p is None:
+        """DELETE /api/reviews/{id}/shares — revoke one share. Two distinct authorized callers on
+        the SAME route (#284 D2):
+          - the OWNER may revoke ANY subject (public or named) — unchanged from before #284.
+          - a NAMED GRANTEE who does NOT own the document may revoke ONLY their own row (the
+            dashboard's "Remove from your list" X on the inbound "Shared with you" group) —
+            subject must equal EXACTLY "user:<their own uid>". Any other subject from a non-owner
+            is refused with the same 404 an owner-only route gives a stranger: ownership (or the
+            mere existence of some other grant) must never be probeable, and a grantee must never
+            be able to touch anyone else's share. Destructive — self-revoke deletes the row; regaining
+            access needs a fresh invite from the owner (#284 D2, no undo, no hide flag).
+
+        Identity is resolved and the anonymous case answered FIRST, before subject/email is even
+        parsed, so an unauthenticated caller still gets 401 and never reaches find_by_email (the
+        pre-#284 ordering, preserved)."""
+        app = h.server.app
+        p = app.identity.principal(h)
+        if p.is_anonymous:
+            self._json(h, 401, {"error": "authentication required"})
             return True
         q = parse_qs(urlparse(h.path).query)
         subject = (q.get("subject") or [""])[0].strip()
@@ -219,9 +243,22 @@ class SharingModule:
         if not subject:
             self._json(h, 400, {"error": "subject or email required"})
             return True
-        with h.server.app.store.lock:
+        is_owner = self.reviews.exists(rid) and self.reviews.can_access(rid, p.uid)
+        is_self = p.uid is not None and subject == "user:" + p.uid
+        if not is_owner and not is_self:
+            self._json(h, 404, {"error": "not found"})    # not owner, not your own row -> 404
+            return True
+        # Same cookie-plane CSRF gate _owner(mutating=True) applies to an owner's mutating calls;
+        # a self-revoke is equally mutating and gets the identical gate.
+        cookie = SessionService.read_cookie(h)
+        sess = self.sessions.verify(cookie) if cookie else None
+        if sess and not self.sessions.check_csrf(sess, h.headers.get("X-CSRF-Token", "")):
+            self._json(h, 403, {"error": "missing or invalid CSRF token"})
+            return True
+        with app.store.lock:
             removed = self.shares.revoke(rid, subject)
-        h._audit("share_revoke", uid=p.uid, rid=rid, detail=subject)
+        h._audit("share_revoke", uid=p.uid, rid=rid, detail=subject,
+                  self_revoke=(is_self and not is_owner))
         self._json(h, 200 if removed else 404,
                    {"revoked": subject} if removed else {"error": "no such share"})
         return True

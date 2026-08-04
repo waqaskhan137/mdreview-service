@@ -53,6 +53,10 @@ class ShareStore:
                     PRIMARY KEY (rid, subject)
                 );
                 CREATE INDEX IF NOT EXISTS idx_shares_rid ON shares(rid);
+                -- #284: the INVERSE lookup — every rid shared to one subject — has no index
+                -- without this; for_subject() would otherwise be a full table scan per dashboard
+                -- load. Additive + idempotent, like idx_shares_rid was.
+                CREATE INDEX IF NOT EXISTS idx_shares_subject ON shares(subject);
                 """
             )
 
@@ -92,6 +96,44 @@ class ShareStore:
                 "WHERE rid=? AND subject LIKE 'user:%' ORDER BY created DESC", (rid,)).fetchall()
         return [{"subject": r["subject"], "right": r["grant_right"], "created": r["created"]}
                 for r in rows]
+
+    # ---- #284: dashboard read paths (owned-row badges + the inbound "shared with you" scope) ----
+    def counts_for(self, rids):
+        """Batched per-row share state for OWNED rows the dashboard is about to list:
+        {rid: {"public": right|None, "named": count}}. ONE SELECT for every rid the caller owns,
+        not the 2N connections public_right()+list_named() would open per row (each opens its own
+        sqlite3 connection). Rows with no share of any kind are simply absent from the result —
+        the caller decides what "absent" means (badges keys become additive-default-safe)."""
+        rids = [r for r in rids if r]
+        if not rids:
+            return {}
+        with self._connect() as conn:
+            qmarks = ",".join("?" * len(rids))
+            rows = conn.execute(
+                "SELECT rid, subject, grant_right FROM shares WHERE rid IN (%s)" % qmarks,
+                rids).fetchall()
+        out = {}
+        for r in rows:
+            d = out.setdefault(r["rid"], {"public": None, "named": 0})
+            if r["subject"] == "public":
+                d["public"] = r["grant_right"]
+            else:
+                d["named"] += 1
+        return out
+
+    def for_subject(self, uid):
+        """Every NAMED share granted to this uid: [{"rid":..., "right":...}, ...]. Membership is
+        EXACTLY subject == 'user:<uid>' — a public share is a DIFFERENT subject ('public') and is
+        never matched here, so a public-only document can never surface through this method by
+        construction (the firehose custody.scope_list's docstring forbids — see #284 D1). super_read
+        is never consulted; this is a pure storage lookup keyed on one subject string via
+        idx_shares_subject."""
+        if not uid:
+            return []
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT rid, grant_right FROM shares WHERE subject=?", ("user:" + uid,)).fetchall()
+        return [{"rid": r["rid"], "right": r["grant_right"]} for r in rows]
 
     # ---- revoke / cleanup ----
     def revoke(self, rid, subject):

@@ -81,3 +81,13 @@ jobs:
       # local instance.
       - name: Latex edit UI selfcheck
         run: python3 tests/latex_edit_ui_selfcheck.py
+
+      # #284: owned-row share badges (share_public/share_count, additive-default-safe) + the
+      # inbound GET /api/reviews?scope=shared whitelist (membership, no public-only leak, D2
+      # self-revoke authorized to exactly the caller's own row, D3 local-part-only disclosure) +
+      # the local tier stays byte-identical. Stdlib-only, boots its own hosted + local instances.
+      # The rendered-outcome half (badges/group actually painting, both themes) is a browser check
+      # — tests/share_visibility_ui_selfcheck.sh — deliberately NOT run here: this workflow reads
+      # nothing in web/app/** (see the file header), so that check is run by hand each PR.
+      - name: Share scope selfcheck
+        run: python3 tests/share_scope_selfcheck.py

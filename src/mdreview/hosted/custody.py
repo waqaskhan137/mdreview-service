@@ -106,10 +106,26 @@ class CustodyPolicy:
         return self._owns(principal, rid)
 
     def scope_list(self, principal):
-        """The dashboard lists the caller's OWNED documents only. Shared-in documents are reached by
-        their link, not listed here (a "shared with me" listing is a v1 TODO), and super-read is a
-        per-document audited act — NEVER a firehose that dumps every stranger's work into an admin's
-        list. So the list scope stays a pure owner scope and list_reviews is untouched."""
+        """The BASE list scope: the caller's OWNED documents, via list_reviews' can_access filter.
+        Unchanged by #284 and not widened by it — list_reviews is still called with exactly this
+        uid for the default (no ?scope=) request, and the local/open tiers never call scope_list at
+        all, so their behaviour is untouched.
+
+        #284 D1 (owner decision, recorded here because this docstring used to say the opposite):
+        "shared-in documents are reached by their link, not listed" was the ORIGINAL posture and is
+        no longer accurate — the dashboard now has a "Shared with you" group. That group is served
+        by a SEPARATE, explicit opt-in query, GET /api/reviews?scope=shared (server.py), which reads
+        ShareStore.for_subject(uid) directly and bypasses this method and list_reviews' can_access
+        filter entirely. The owner explicitly accepted the consequence: an inbound list makes every
+        named grant discoverable and revocation observable (the row disappears), reversing the
+        original "not listed" choice for NAMED shares only.
+
+        What is still true and load-bearing: super-read stays a per-document audited act — this
+        method NEVER dumps every stranger's work into an admin's list, and the scope=shared path
+        never consults super_read either (see ShareStore.for_subject) — so the admin firehose this
+        docstring warned against remains impossible. A public-only share still confers NO listing
+        anywhere (reach-by-link only): membership in scope=shared is exactly a NAMED grant to the
+        caller's own uid, never the "public" subject."""
         return principal.uid
 
     def stamp_owner(self, principal):
