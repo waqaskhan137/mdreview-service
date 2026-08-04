@@ -151,6 +151,12 @@
   .gtext p{margin:.4em 0;}.gtext code{font-family:var(--font-mono);font-size:.9em;background:var(--code-bg);padding:.5px 4px;border-radius:var(--r-control);}
   .gtext pre{background:var(--code-bg);padding:7px 9px;border-radius:var(--r-control);overflow:auto;margin:.4em 0;}
   .gtext a{color:var(--accent);}
+  /* #320: view-only readers keep every READ surface and lose only the author ones. `.addb` is the
+     per-line "+" the source pane draws on every repaint, so it is gated in CSS, not per element. */
+  #viewonly{display:none;font-size:var(--t-meta);color:var(--text-muted);}
+  body.viewonly #viewonly{display:inline;}
+  body.viewonly .greply,body.viewonly .reopenbox,body.viewonly #addbtn,body.viewonly #pop,
+  body.viewonly .addb{display:none !important;}
   .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
   .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font:inherit;font-size:12.5px;border:1px solid var(--border);
     border-radius:var(--r-control);padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
@@ -326,7 +332,7 @@
   <textarea id="popnote" placeholder="Your comment on this line…"></textarea>
   <div class="row"><button class="btn" id="popcancel">Cancel</button><button class="btn primary" id="popsave">Comment</button></div>
 </div>
-<div id="dock"><div id="dockbar"><span id="count">0 open</span><button class="btn" id="cmtbtn" aria-pressed="true">Comments</button></div></div>
+<div id="dock"><div id="dockbar"><span id="count">0 open</span><span id="viewonly" title="Ask the owner for comment access">View only</span><button class="btn" id="cmtbtn" aria-pressed="true">Comments</button></div></div>
 <div id="cmtdock"></div>
 <div id="toast" role="status"></div>
 
@@ -407,6 +413,14 @@ let PREVROUND=null;      // newest archived round, or null when there is nothing
 // prevent); canEdit mirrors /status.can_edit, read once at boot like the Share button's ownership
 // gate (both viewers already poll /status, so this adds no requests).
 let EDITON=false, editRevision=null, canEdit=false;
+// #320: /status.can_comment, the gate POST /comments enforces. Defaults TRUE so a server without
+// the key behaves exactly as before. See viewer.html for the full note; both viewers share it.
+let CAN_COMMENT=true;
+function setCommentVisible(can){
+  CAN_COMMENT=can;
+  document.body.classList.toggle('viewonly',!can);
+  if(!can){const a=$('#addbtn');if(a)a.style.display='none';const p=$('#pop');if(p)p.style.display='none';}
+}
 
 function setDiffCount(c){
   const el=$('#diffcount');
@@ -483,20 +497,36 @@ async function onAgentPush(){
 async function fetchComments(){
   try{const d=await (await fetch(API+'/comments',{cache:'no-store'})).json();comments=(d&&d.comments)||[];}catch(e){}
 }
-async function createComment(anchor,text){
-  try{await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({anchor:anchor,text:text})});
-    await fetchComments();renderComments();toast('Comment added');}
-  catch(e){toast('Could not save comment');}
+// #320: these three posted WITHOUT checking r.ok, so a refused comment still toasted "Comment
+// added" and vanished on the next repaint — a worse failure than viewer.html's, which at least
+// said something was wrong. Same helper as viewer.html now: 401 -> sign in, 404 -> the custody
+// policy refused the note (view-only share, or a public link with no named grant), and the flag is
+// re-gated so a grant revoked mid-session settles here.
+function commentDenied(r,fallback){
+  if(r.status===401){toast('Sign in to comment');return true;}
+  if(r.status===404){setCommentVisible(false);toast('You have view-only access to this document');return true;}
+  if(!r.ok){toast(fallback);return true;}
+  return false;
 }
-async function replyTo(cid,text){if(!text)return;
-  try{await fetch(API+'/comments/'+cid+'/reply',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({text:text,role:'reviewer'})});await fetchComments();renderComments();}
-  catch(e){toast('Reply failed');}}
+async function createComment(anchor,text){
+  try{const r=await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({anchor:anchor,text:text})});
+    if(commentDenied(r,'Could not save comment'))return false;
+    await fetchComments();renderComments();toast('Comment added');return true;}
+  catch(e){toast('Could not save comment');return false;}
+}
+async function replyTo(cid,text){if(!text)return false;
+  try{const r=await fetch(API+'/comments/'+cid+'/reply',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text:text,role:'reviewer'})});
+    if(commentDenied(r,'Reply failed'))return false;
+    await fetchComments();renderComments();return true;}
+  catch(e){toast('Reply failed');return false;}}
 async function reopenComment(cid,text){
-  try{await fetch(API+'/comments/'+cid+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(text?{text:text}:{})});await fetchComments();renderComments();toast('Reopened');}
-  catch(e){toast('Reopen failed');}}
+  try{const r=await fetch(API+'/comments/'+cid+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(text?{text:text}:{})});
+    if(commentDenied(r,'Reopen failed'))return false;
+    await fetchComments();renderComments();toast('Reopened');return true;}
+  catch(e){toast('Reopen failed');return false;}}
 async function deleteComment(cid){
   try{const r=await fetch(API+'/comments/'+cid,{method:'DELETE'});
     if(!r.ok&&r.status!==404){toast('Could not delete');return;}
@@ -625,6 +655,7 @@ function wireLineAffordances(){
 const addbtn=$('#addbtn');
 $('#codecol').addEventListener('mouseup',e=>{
   setTimeout(()=>{
+    if(!CAN_COMMENT){addbtn.style.display='none';return;}   // #320
     const sel=window.getSelection();const t=(sel?sel.toString():'').trim();
     if(!t||!sel.rangeCount){addbtn.style.display='none';return;}
     const srcOf=nd=>{while(nd&&nd.nodeType!==1)nd=nd.parentNode;return nd&&nd.closest?nd.closest('.ln'):null;};
@@ -638,6 +669,10 @@ $('#codecol').addEventListener('mouseup',e=>{
 });
 addbtn.onclick=()=>{addbtn.style.display='none';openPop(cur);};
 function openPop(c,x,y){
+  // #320: the single choke for every author entry — the selection button, each line's "+", and the
+  // line-number click/Enter. Gating here rather than at each call site means a new entry point
+  // cannot be added that bypasses the right.
+  if(!CAN_COMMENT)return;
   cur=c;
   $('#popq').textContent=(c.quoted_text?'L'+c.block_num+': "'+c.quoted_text+'"':'Line '+c.block_num);
   $('#popnote').value='';
@@ -713,6 +748,7 @@ function poll(){
     if(addbtn.style.display==='block'||$('#pop').style.display==='block'||confirming)return;
     try{
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
+      setCommentVisible(s.can_comment!==false);   // #320: mid-session grant change settles here
       if(s.source_updated&&s.source_updated!==lastSrc){lastSrc=s.source_updated;await fetchComments();await loadSource();await onAgentPush();}
       else if(s.comments_updated&&s.comments_updated!==lastCmt){lastCmt=s.comments_updated;await fetchComments();renderComments();}
     }catch(e){}
@@ -784,7 +820,8 @@ async function boot(){
     // #291: can_edit (#288) is the SAME custody can_write the PUT arm enforces — owner on both
     // tiers, false for a comment/view grantee. One extra field off a request the page already
     // makes, not a new one.
-    canEdit=!!s.can_edit;$('#editbtn').hidden=!canEdit;}catch(e){}
+    canEdit=!!s.can_edit;$('#editbtn').hidden=!canEdit;
+    setCommentVisible(s.can_comment!==false);}catch(e){}   // #320
   await refreshDiffAvail();   // reveals the toggle if an earlier version exists; never opens it
   poll();
 }
