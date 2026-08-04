@@ -131,6 +131,7 @@
      a medium". basecoat-theme.css maps Basecoat's derived tokens onto these; see the long note
      there for why the base --radius cannot do it. */
   --r-control:8px;         /* buttons, inputs, selects, menus */
+  --r-item:6px;            /* #281: nav rows, list rows — smaller than a control, still rounded */
   --r-card:12px;           /* cards, toasts */
   --r-panel:16px;          /* floating surfaces: the share popover, the command palette */
   --r-pill:999px;          /* status badges */
@@ -344,6 +345,15 @@
 .acct-menu{ transition: opacity .12s, transform .12s; }
 .acct-menu[hidden]{ display:none; }
 .acct-menu.closing{ opacity:0; transform: translateY(-4px); }
+
+/* ---- #281 account page section entry -----------------------------------------------------
+   Same load-order rule as the menu above: account.html's own <style> block and any injected
+   string load AFTER this file's <link>, so an equal-specificity rule declared there would win on
+   source order and the reduced-motion guard below (scoped to the whole document already) could
+   not be trusted to be the one actually in effect. Keeping the @keyframes AND the rule that
+   applies it here means both the motion and its guard share one file, like the menu's. */
+@keyframes sectionIn{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:none; } }
+.acct-section{ animation: sectionIn .15s ease-out; }
 
 @media (prefers-reduced-motion: reduce){
   /* Opacity only, never transform: motion is what is reduced, not feedback. */

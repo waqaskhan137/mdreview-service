@@ -92,5 +92,25 @@ check("the guard actually neutralises transition duration",
       /prefers-reduced-motion: reduce\)\{[\s\S]*transition-duration:\s*\.01ms\s*!important/.test(theme),
       "a block that exists but neutralises nothing is the vacuous case");
 
+// ---- 7. #281 avatar-initials trigger (epic #276 reverses #262's "no avatar"). ----
+const trigBlock = (src.match(/'<button class="acct-trig"[\s\S]*?"<\/button>" \+/) || [""])[0];
+check("the trigger no longer renders an email text node",
+      !/acct-email/.test(trigBlock),
+      "AC1: email leaves the trigger (it stays in the title tooltip and the menu's .acct-who)");
+check("the trigger renders derived initials, not a static glyph",
+      /esc\(init\)/.test(trigBlock),
+      "AC1: text content must be exactly the two derived characters");
+check("the corner dot uses its OWN class, not the non-authenticated states' .acct-dot",
+      /acct-corner/.test(trigBlock) && !/class="acct-dot"/.test(trigBlock),
+      "AC5: Reconnecting's .acct-dot must stay byte-for-byte; a shared class would perturb it");
+check("the trigger's title carries the email (and Admin when applicable)",
+      /title="'\s*\+\s*tip\s*\+\s*'"/.test(src) && /is_admin\s*\?\s*"\s*\\u00b7 Admin"/.test(src),
+      "AC1's tooltip content, since the visible text can no longer carry it");
+check("an initials() deriver exists and is used for the trigger",
+      /function initials\(email\)/.test(src) && /var init = initials\(sess\.email\)/.test(src));
+check("initials() always returns exactly two characters",
+      /return s\.slice\(0,\s*2\)/.test(src),
+      "AC1: 'its text content is exactly two characters', including pathological short local-parts");
+
 console.log(failed ? "\n" + failed + " case(s) failed" : "\nall account-menu cases pass");
 process.exit(failed ? 1 : 0);
