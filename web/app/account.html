@@ -13,28 +13,146 @@
    CSS follows the OS. */
 (function(){try{var t=localStorage.getItem("mdr.theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
 </script>
-<!-- #152 Basecoat spike: vendored (self-hosted, no runtime CDN) — Basecoat CSS, then mdreview tokens,
-     then the token map that dresses Basecoat in mdreview's palette. -->
-<link rel="stylesheet" href="/static/basecoat.cdn.min.css">
 <link rel="stylesheet" href="/static/theme.css">
-<link rel="stylesheet" href="/static/basecoat-theme.css">
-<script src="/static/basecoat.all.min.js" defer></script>
 <style>
-  /* Page-specific only. The shell (.app-top/.app-col), the flash bar and every scale come from
-     theme.css; components come from Basecoat. Nothing here re-declares either. */
+  /* #281: the account page restyle (epic #276) is fully token-driven, hand-rolled CSS. The
+     sectioned nav+pane layout, row list and mint flow do not resemble any Basecoat component, so
+     this page no longer links basecoat.cdn.min.css / basecoat-theme.css / basecoat.all.min.js
+     (nothing here reads a Basecoat token or class; css_tokens_selfcheck.js's per-file allowlist
+     confirms it). Everything below resolves against theme.css tokens only. */
   *{box-sizing:border-box}
-  /* #285: longhand, NOT the `font:` shorthand — the shorthand resets font-weight to 400 and was
-     silently swallowing the theme's dark 350 (rev 3: dark body weight arrives from the theme). */
   body{margin:0;background:var(--bg);color:var(--text);
-       font-size:var(--t-body);line-height:1.55;
-       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
-  h1{font-size:var(--t-title);margin:0 0 var(--s-1)}
-  .sub{color:var(--text-muted);margin:0 0 var(--s-6)}
-  .stack{display:flex;flex-direction:column;gap:var(--s-4)}
-  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  pre{background:var(--code-bg);border:1px solid var(--border);border-radius:var(--r-control);padding:14px;overflow:auto;
-      font:var(--t-meta)/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text)}
-  .tok{font:var(--t-meta) ui-monospace,Menlo,monospace;word-break:break-all}
+       font-size:var(--t-body);line-height:1.55;font-family:var(--font-ui);}
+  code{font-family:var(--font-mono)}
+
+  /* ---- shell: header + nav/pane row, per 06/07/08-account*.html ------------------------- */
+  .acct-wrap{max-width:900px;margin:0 auto;padding:var(--s-12) var(--s-6) 48px}
+  .acct-cols{display:flex;gap:var(--s-8);align-items:flex-start}
+  .acct-nav{position:sticky;top:calc(var(--app-top-h) + var(--s-2));align-self:flex-start;flex:0 0 148px;
+            display:flex;flex-direction:column;gap:var(--s-1);padding-top:var(--s-1);margin:0}
+  .acct-navrow{position:relative;display:flex;align-items:center;width:100%;text-align:left;
+               font:inherit;font-size:var(--t-body);color:var(--text-muted);
+               background:none;border:0;border-radius:var(--r-item);margin:0;cursor:pointer;
+               padding:var(--s-1) var(--s-2) var(--s-1) 10px;
+               transition:color 160ms ease-out,background 160ms ease-out}
+  .acct-navrow:hover{color:var(--text);background:var(--code-bg)}
+  .acct-navrow.danger{color:var(--text-subtle)}
+  .acct-navrow.active{color:var(--text);font-weight:600;background:var(--code-bg)}
+  .acct-navbar{display:none;position:absolute;left:0;top:5px;bottom:5px;width:2px;
+               border-radius:2px;background:var(--accent)}
+  .acct-navrow.active .acct-navbar{display:block}
+  .acct-navsep{height:1px;background:var(--border-faint);margin:var(--s-2) var(--s-2)}
+
+  .acct-pane{flex:1 1 auto;min-width:0;max-width:600px;min-height:520px}
+  .acct-pane h1{margin:0 0 var(--s-1);font-size:var(--t-title);letter-spacing:-.025em;font-weight:600}
+  .acct-sub{margin:0 0 var(--s-8);font-size:var(--t-body);color:var(--text-muted)}
+  .acct-eyebrow{font-family:var(--font-mono);font-size:var(--t-eyebrow);letter-spacing:.1em;
+                text-transform:uppercase;color:var(--text-subtle);margin:0 0 var(--s-2)}
+  .acct-rowlist{margin:0 0 var(--s-8)}
+  .acct-empty{margin:0;font-size:var(--t-body);line-height:1.6;color:var(--text-muted);max-width:52ch}
+
+  /* ---- expandable rows (Profile / Security / Advanced) ----------------------------------- */
+  .acct-row{display:flex;align-items:center;gap:var(--s-4);width:100%;text-align:left;
+            font:inherit;background:none;border:0;cursor:pointer;color:inherit;
+            padding:var(--s-3) 0;border-radius:var(--r-item);
+            transition:background 160ms ease-out}
+  .acct-row:hover{background:var(--code-bg)}
+  .acct-row-label{font-size:var(--t-body);color:var(--text);flex:0 0 auto}
+  .acct-row-spacer{flex:1 1 auto}
+  .acct-row-value{font-size:var(--t-body);color:var(--text-muted);text-align:right;
+                   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+  .acct-row-chev{color:var(--text-subtle);display:flex;flex:0 0 auto;transition:transform 160ms ease-out}
+  .acct-row[aria-expanded="true"] .acct-row-chev{transform:rotate(90deg)}
+  .acct-reveal{padding:0 0 var(--s-2)}
+  .acct-note{margin:0 0 var(--s-2);font-size:var(--t-body);line-height:1.6;color:var(--text-muted);max-width:60ch}
+
+  /* ---- agent-token grid (AC11: computed grid-template-columns must resolve) --------------- */
+  .acct-tgrid-row{display:grid;grid-template-columns:1fr 136px 96px 72px;gap:var(--s-4);
+                  align-items:center;padding:var(--s-3) 0;font-size:var(--t-body)}
+  .acct-tgrid-head{font-family:var(--font-mono);font-size:var(--t-eyebrow);letter-spacing:.1em;
+                    text-transform:uppercase;color:var(--text-subtle);padding:0 0 8px}
+  .acct-tgrid .tid,.acct-tgrid .tcreated{font-family:var(--font-mono);font-size:var(--t-eyebrow);color:var(--text-muted)}
+  .acct-revoke{font:inherit;font-size:var(--t-eyebrow);color:var(--text-subtle);text-align:right;
+               background:none;border:0;cursor:pointer;padding:0;transition:color 160ms ease-out}
+  .acct-revoke:hover{color:var(--danger)}
+  .acct-tinput{height:32px;padding:0 10px;border:1px solid var(--border);border-radius:var(--r-control);
+               background:var(--surface);color:var(--text);font:inherit;font-size:var(--t-body);max-width:220px}
+
+  /* ---- buttons ----------------------------------------------------------------------------- */
+  .btn2{display:inline-flex;align-items:center;height:32px;padding:0 var(--s-3);border:0;
+        border-radius:var(--r-control);font-size:var(--t-body);font-weight:600;cursor:pointer;
+        background:var(--accent);color:var(--bg);transition:background 160ms ease-out}
+  .btn2:hover{background:var(--accent-strong)}
+  .btn2:disabled{opacity:.6;cursor:default}
+  .btn2.outline{background:var(--surface);color:var(--text-muted);border:1px solid var(--border);
+                font-weight:400;transition:color 160ms ease-out}
+  .btn2.outline:hover{color:var(--text)}
+  .btn2.danger-ghost{background:transparent;color:var(--danger);font-weight:400;
+                      border:1px solid transparent;transition:background 160ms ease-out}
+  .btn2.danger-ghost:hover{background:var(--danger-bg)}
+  .btn2.danger-solid{background:var(--danger);color:var(--bg)}
+  .acct-row-gap{display:flex;align-items:center;gap:var(--s-2);margin-top:var(--s-2)}
+
+  /* ---- mint flow ----------------------------------------------------------------------------- */
+  .acct-minted{display:flex;flex-direction:column;gap:var(--s-4);margin:var(--s-2) 0}
+  .acct-minted-step1{display:flex;flex-direction:column;gap:var(--s-2);padding:var(--s-4);
+                      border-radius:var(--r-card);background:var(--success-bg)}
+  .acct-minted-h{font-size:var(--t-body);font-weight:600;color:var(--success)}
+  .acct-minted-tokrow{display:flex;align-items:center;gap:var(--s-3)}
+  .acct-minted-tok{font-family:var(--font-mono);font-size:var(--t-eyebrow);color:var(--text);word-break:break-all}
+  .acct-copybtn{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);
+                font-size:var(--t-eyebrow);color:var(--success);background:none;border:0;
+                cursor:pointer;padding:0;flex:0 0 auto}
+  .acct-minted-step2{display:flex;flex-direction:column;gap:var(--s-2)}
+  .acct-minted-h2{font-size:var(--t-body);font-weight:600;color:var(--text)}
+  .acct-mcp-wrap{position:relative;border-radius:var(--r-card);background:var(--code-bg);padding:var(--s-4)}
+  .acct-mcp-copy{position:absolute;top:var(--s-2);right:var(--s-2);height:26px;padding:0 var(--s-2);
+                 border-radius:var(--r-item);background:var(--surface);color:var(--text-muted)}
+  .acct-mcp-copy:hover{color:var(--text)}
+  .acct-mcp-pre{margin:0;font-family:var(--font-mono);font-size:var(--t-eyebrow);line-height:1.7;
+                color:var(--text);white-space:pre;overflow-x:auto}
+
+  /* ---- devices ------------------------------------------------------------------------------- */
+  .acct-device-row{display:flex;align-items:center;gap:var(--s-3);padding:var(--s-2) 0}
+  .acct-device-info{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+  .acct-device-name{font-size:var(--t-body);color:var(--text)}
+  .acct-device-meta{font-size:var(--t-eyebrow);color:var(--text-muted);overflow:hidden;
+                     text-overflow:ellipsis;white-space:nowrap}
+
+  /* ---- theme + sharing (Advanced) ------------------------------------------------------------ */
+  .acct-theme-opts{display:flex;flex-direction:column;gap:var(--s-1)}
+  .acct-opt{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-2);border-radius:var(--r-item);
+            font-size:var(--t-body);color:var(--text-muted);background:none;border:0;cursor:pointer;
+            font:inherit;text-align:left}
+  .acct-opt.active{background:var(--surface);color:var(--text);font-weight:600}
+  .acct-opt-spacer,.acct-opt svg{flex:0 0 auto;width:14px;height:14px}
+  .acct-share-item{padding:var(--s-3) 0;border-top:1px solid var(--border-faint)}
+  .acct-share-item:first-child{border-top:0}
+  .acct-share-title{display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap}
+  .acct-share-named{margin:var(--s-2) 0 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+  .acct-share-named li{display:flex;align-items:center;gap:var(--s-2);font-size:var(--t-body)}
+
+  /* ---- danger zone ----------------------------------------------------------------------------- */
+  .acct-drow{display:flex;align-items:center;gap:var(--s-4);padding:var(--s-3) 0}
+  .acct-drow-text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+  .acct-drow-label{font-size:var(--t-body);color:var(--danger)}
+  .acct-drow-sub{font-size:var(--t-eyebrow);color:var(--text-muted)}
+  .acct-drow-actions{display:flex;align-items:center;gap:var(--s-2);flex:0 0 auto}
+  .acct-sure{font-family:var(--font-mono);font-size:var(--t-eyebrow);color:var(--text-muted)}
+
+  /* ---- mobile: side nav becomes a horizontal chip row (Q2: <=720px, per 08-account-mobile) --- */
+  @media (max-width:720px){
+    .acct-wrap{padding:var(--s-6) var(--s-4) var(--s-8)}
+    .acct-cols{flex-direction:column;gap:var(--s-4);align-items:stretch}
+    .acct-nav{position:static;flex:0 0 auto;flex-direction:row;align-self:stretch;
+              overflow-x:auto;gap:var(--s-1);padding:var(--s-1);
+              background:var(--code-bg);border-radius:var(--r-control)}
+    .acct-navrow{padding:var(--s-1) var(--s-3);white-space:nowrap;flex:0 0 auto}
+    .acct-navrow.active{background:var(--surface)}
+    .acct-navbar{display:none!important}
+    .acct-pane{max-width:none;min-height:0}
+    .acct-mcp-pre{white-space:pre-wrap;word-break:break-all;overflow-wrap:anywhere}
+  }
 </style>
 </head>
 <body>
@@ -43,81 +161,14 @@
   <span class="spacer"></span>
   <div id="acct"></div>
 </div>
-<div class="app-col">
+<div class="acct-wrap">
   <div id="flash" class="flash" role="status" aria-live="polite"></div>
-  <h1>Your account</h1>
-  <p class="sub" id="whoami">Loading…</p>
-
-  <div class="stack">
-    <!-- #262: outbound exposure. Tokens and sessions below are things that can act AS you; this is
-         what of yours other people can reach. Same verb both ways: revoke. -->
-    <div class="card">
-      <header>
-        <h2>Shared with others</h2>
-        <p>Documents of yours that are reachable by someone else, by public link or by name.</p>
-      </header>
-      <section>
-        <div id="shares"><p class="text-muted-foreground">Loading…</p></div>
-      </section>
-    </div>
-
-    <div class="card">
-      <header>
-        <h2>Connect your agent</h2>
-        <p>mdreview docs are created by <b>your agent</b>, not uploaded by hand. Mint a token, drop
-        it into the agent's MCP config <b>once</b>, and every <code>create_review</code> from then on
-        lands in your dashboard, scoped to you. Name it so you can tell your machines apart.</p>
-      </header>
-      <section>
-        <div class="row">
-          <input class="input" type="text" id="label" placeholder="label (e.g. laptop, ci)" autocomplete="off" style="max-width:260px">
-          <button class="btn" id="mint">Mint token</button>
-        </div>
-        <div id="minted" style="display:none;margin-top:16px">
-          <div class="alert" role="alert">
-            <h2>Copy it now — it is shown only once</h2>
-            <section class="tok" id="tokval"></section>
-          </div>
-          <h2 style="font-size:15px;margin:20px 0 6px">2. Paste this into your agent's MCP config</h2>
-          <p class="sub" style="margin:0 0 8px">Then reconnect the MCP client. Point <code>args</code> at your local checkout of <code>mdreview-service</code>.</p>
-          <pre id="mcpcfg"></pre>
-        </div>
-      </section>
-    </div>
-
-    <div class="card">
-      <header>
-        <h2>Your tokens</h2>
-        <p>Revoke any you no longer trust.</p>
-      </header>
-      <section>
-        <div class="table-container">
-          <table class="table">
-            <thead><tr><th>label</th><th>id</th><th>created</th><th></th></tr></thead>
-            <tbody id="rows"><tr><td class="text-muted-foreground" colspan="4">loading…</td></tr></tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-
-    <!-- #223: the same card/table/revoke shape as tokens above, because it is the same job:
-         see what has access and take it away. -->
-    <div class="card">
-      <header>
-        <h2>Active sessions</h2>
-        <p>Devices signed in to your account. Ending one signs it out immediately.</p>
-      </header>
-      <section>
-        <div id="sess-note" class="text-muted-foreground" style="margin:0 0 10px;display:none"></div>
-        <div class="table-container">
-          <table class="table">
-            <thead><tr><th>device</th><th>ip</th><th>last seen</th><th></th></tr></thead>
-            <tbody id="sessrows"><tr><td class="text-muted-foreground" colspan="4">loading…</td></tr></tbody>
-          </table>
-        </div>
-        <button class="btn" data-variant="outline" data-size="sm" id="revokeothers"
-                style="margin-top:12px;display:none">Sign out everywhere else</button>
-      </section>
+  <div class="acct-cols">
+    <nav aria-label="Sections" class="acct-nav" id="acct-nav"></nav>
+    <div class="acct-pane">
+      <h1>Account</h1>
+      <p class="acct-sub" id="whoami">Loading…</p>
+      <div id="acct-slot"></div>
     </div>
   </div>
 </div>
@@ -126,204 +177,505 @@
 <script src="/static/keys.js"></script>
 <script src="/static/session.js"></script>
 <script>
-const $ = s => document.querySelector(s);
-let BASE = location.origin;
+"use strict";
+const $ = (s, r) => (r || document).querySelector(s);
+const esc = s => (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = ts => ts ? new Date(ts * 1000).toISOString().slice(0, 10) : "-";
 
-function fmt(ts){ return ts ? new Date(ts*1000).toISOString().slice(0,10) : "-"; }
+let SESS = null, CSRF = "", BASE = location.origin;
+let TOKENS = null, SESSIONS = null, GRANDFATHERED = false, SHARES = null;
+let MINTED = null;         // { token, cfg }: JS-only, never storage/URL (shown-once honesty)
+let CURRENT = "profile";
 
-// Same shape admin already used, now reading the shared .flash from theme.css. Replaces alert():
-// a modal dialog for a failed mint blocks the page, cannot be styled, and reads as a browser
-// error rather than as part of the app.
-function flash(msg, kind){
+function flash(msg, kind) {
   const f = $("#flash");
   f.textContent = msg;
   f.className = "flash" + (kind ? " " + kind : "");
-  if(kind) setTimeout(() => { f.className = "flash"; }, 4000);
+  if (kind) setTimeout(() => { f.className = "flash"; }, 4000);
 }
 
-async function load(){
-  const r = await fetch("/account/tokens", {headers:{Accept:"application/json"}});
-  if(!r.ok){ $("#rows").innerHTML = '<tr><td class="text-muted-foreground" colspan="4">could not load</td></tr>'; return; }
-  const d = await r.json();
-  BASE = d.base || location.origin;
-  const t = d.tokens || [];
-  $("#rows").innerHTML = t.length ? t.map(x =>
-    `<tr><td>${x.label||"-"}</td><td><code>${x.tok_id}</code></td><td class="text-muted-foreground">${fmt(x.created)}</td>`
-    +`<td><button data-id="${x.tok_id}" class="btn rev" data-variant="outline" data-size="sm">revoke</button></td></tr>`).join("")
-    : '<tr><td class="text-muted-foreground" colspan="4">no tokens yet</td></tr>';
-  document.querySelectorAll(".rev").forEach(b => b.onclick = () => revoke(b.dataset.id));
+// ============================================================================================
+// Nav: six sections, all rendered (owner decision on #281: presence of a SECTION survives even
+// where a section's own capability is backend-blocked; only individual dead controls stay absent).
+// ============================================================================================
+const SECTIONS = [
+  { id: "profile", label: "Profile" },
+  { id: "billing", label: "Billing" },
+  { id: "security", label: "Security" },
+  { id: "notifications", label: "Notifications" },
+  { id: "advanced", label: "Advanced" },
+  { id: "danger", label: "Danger zone", danger: true },
+];
+const RENDER = { profile: renderProfile, billing: renderBilling, security: renderSecurity,
+                 notifications: renderNotifications, advanced: renderAdvanced, danger: renderDanger };
+
+function renderNav() {
+  const nav = $("#acct-nav");
+  nav.innerHTML = SECTIONS.map((s, i) => {
+    const sep = i === SECTIONS.length - 1 ? '<div class="acct-navsep" aria-hidden="true"></div>' : "";
+    return sep +
+      '<button type="button" class="acct-navrow' + (s.danger ? " danger" : "") + '" data-section="' + s.id + '">' +
+      '<span class="acct-navbar" aria-hidden="true"></span>' + esc(s.label) + "</button>";
+  }).join("");
+  nav.addEventListener("click", e => {
+    const b = e.target.closest(".acct-navrow");
+    if (b) switchSection(b.dataset.section);
+  });
+}
+function setActiveNav(id) {
+  document.querySelectorAll(".acct-navrow").forEach(b => {
+    const on = b.dataset.section === id;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-current", on ? "page" : "false");
+  });
+}
+function switchSection(id) {
+  CURRENT = id;
+  setActiveNav(id);
+  const root = RENDER[id]();
+  root.className = "acct-section";
+  root.setAttribute("data-section-root", id);
+  $("#acct-slot").replaceChildren(root);   // exactly one section root in the DOM (AC9)
 }
 
-function mcpBlock(token){
-  return JSON.stringify({mcpServers:{mdreview:{
-    command:"python3",
-    args:["/ABSOLUTE/PATH/TO/mdreview-service/src/mcp_server.py"],
-    env:{MDREVIEW_BASE:BASE, MDREVIEW_TOKEN:token}
-  }}}, null, 2);
+// Shared row builder for expandable rows (Profile/Security/Advanced): a real <button> (keyboard-
+// reachable, unlike the mock's div[data-nav]) with aria-expanded + a sibling reveal panel toggled
+// by a single delegated listener the caller wires with wireRows().
+const CHEV = '<span class="acct-row-chev" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>';
+function rowShell(id, label, value) {
+  return '<div class="acct-rowwrap">' +
+    '<button type="button" class="acct-row" data-row="' + id + '" aria-expanded="false" aria-controls="rev-' + id + '">' +
+    '<span class="acct-row-label">' + esc(label) + '</span><span class="acct-row-spacer"></span>' +
+    '<span class="acct-row-value">' + esc(value || "") + '</span>' + CHEV +
+    '</button><div class="acct-reveal" id="rev-' + id + '" hidden></div></div>';
+}
+function wireRows(root) {
+  root.querySelectorAll(".acct-row").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const open = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", open ? "false" : "true");
+      const rev = root.querySelector("#" + btn.getAttribute("aria-controls"));
+      if (rev) rev.hidden = open;
+    });
+  });
 }
 
-$("#mint").onclick = async () => {
-  $("#mint").disabled = true;
-  const r = await fetch("/account/tokens", {method:"POST",
-    headers:{"Content-Type":"application/json","X-CSRF-Token":CSRF},
-    body:JSON.stringify({label:$("#label").value})});
-  $("#mint").disabled = false;
-  if(!r.ok){ flash("Could not mint the token (" + r.status + "). Nothing was created.", "err"); return; }
+// ============================================================================================
+// Profile: Sign-in email + Role are the two truthful rows (#281 groom §2 AC10). Both stay
+// read-only: the chevron opens a short factual note rather than an editable panel. Display name
+// and the email-change flow are backend-blocked and stay entirely absent (groom §3 #4/#5), so a
+// clickable-looking row must not silently do nothing; it reveals why it can't be changed instead.
+// ============================================================================================
+function renderProfile() {
+  const root = document.createElement("div");
+  root.innerHTML =
+    '<div class="acct-eyebrow">Profile</div>' +
+    '<div class="acct-rowlist">' +
+    rowShell("email", "Sign-in email", SESS.email).replace(
+      '<div class="acct-reveal" id="rev-email" hidden></div>',
+      '<div class="acct-reveal" id="rev-email" hidden><p class="acct-note">This is the email you sign in with. Changing it is not supported yet.</p></div>') +
+    rowShell("role", "Role", SESS.is_admin ? "Admin" : "Member").replace(
+      '<div class="acct-reveal" id="rev-role" hidden></div>',
+      '<div class="acct-reveal" id="rev-role" hidden><p class="acct-note">Set by an administrator. You cannot change this yourself.</p></div>') +
+    "</div>";
+  wireRows(root);
+  return root;
+}
+
+// ============================================================================================
+// Billing / Notifications: nav sections present per the owner's #281 override; content is an
+// honest not-available state. No plan/payment/invoice or digest/reply-preference rows: none of
+// that exists in src/ (groom §3 #1, #3), and a row with no backing capability is exactly what
+// "no faking" forbids. Presence of the SECTION, absence of any CONTROL inside it.
+// ============================================================================================
+function renderBilling() {
+  const root = document.createElement("div");
+  root.innerHTML = '<div class="acct-eyebrow">Billing</div>' +
+    '<p class="acct-empty">mdreview does not have billing. There is no plan, payment method, or invoice to show: the product has neither today.</p>';
+  return root;
+}
+function renderNotifications() {
+  const root = document.createElement("div");
+  root.innerHTML = '<div class="acct-eyebrow">Notifications</div>' +
+    '<p class="acct-empty">There are no notification preferences to set yet. mdreview only ever emails you a sign-in link.</p>';
+  return root;
+}
+
+// ============================================================================================
+// Security: Agent tokens (list/mint/revoke) and Devices (list/end). Both capabilities exist
+// today (groom §3 "not backend-blocked" list). Two-factor is DELIBERATELY absent: it has no
+// backend at all, and rendering "Off" would claim a toggle that doesn't exist (groom §3 #2).
+// ============================================================================================
+function renderSecurity() {
+  const root = document.createElement("div");
+  root.innerHTML = '<div class="acct-eyebrow">Security</div>' +
+    '<div class="acct-rowlist">' +
+    rowShell("tokens", "Agent tokens", tokensSummary()) +
+    rowShell("devices", "Devices", devicesSummary()) +
+    "</div>";
+  wireRows(root);
+  const tokRow = root.querySelector('[data-row="tokens"]');
+  const tokVal = tokRow.querySelector(".acct-row-value");
+  const tokRev = root.querySelector("#rev-tokens");
+  paintTokensPanel(tokRev, tokVal);
+  const devRow = root.querySelector('[data-row="devices"]');
+  const devVal = devRow.querySelector(".acct-row-value");
+  const devRev = root.querySelector("#rev-devices");
+  paintDevicesPanel(devRev, devVal);
+  return root;
+}
+function tokensSummary() {
+  return TOKENS === null ? "could not load" : TOKENS.length + " active";
+}
+function devicesSummary() {
+  return SESSIONS === null ? "could not load" : SESSIONS.length + " signed in";
+}
+
+function mcpBlock(token) {
+  return JSON.stringify({ mcpServers: { mdreview: { command: "python3",
+    args: ["/ABSOLUTE/PATH/TO/mdreview-service/src/mcp_server.py"],
+    env: { MDREVIEW_BASE: BASE, MDREVIEW_TOKEN: token } } } }, null, 2);
+}
+const COPY_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16V4a2 2 0 0 1 2-2h10"/></svg>';
+
+async function copyText(btn, text) {
+  const label = btn.dataset.label || "copy";
+  try {
+    if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error("no clipboard API");
+    await navigator.clipboard.writeText(text);
+    btn.textContent = "copied";
+  } catch (e) {
+    btn.textContent = "select to copy";
+  }
+  setTimeout(() => { btn.innerHTML = COPY_ICON + label; }, 1600);
+}
+
+function paintTokensPanel(rev, valEl) {
+  const rows = (TOKENS || []).map(t =>
+    '<div class="acct-tgrid-row" role="row"><span role="cell">' + esc(t.label || "-") + '</span>' +
+    '<span role="cell" class="tid"><code>' + esc(t.tok_id) + '</code></span>' +
+    '<span role="cell" class="tcreated">' + fmt(t.created) + '</span>' +
+    '<span role="cell"><button type="button" class="acct-revoke" data-id="' + esc(t.tok_id) + '">Revoke</button></span></div>'
+  ).join("");
+  const table = TOKENS === null ? '<p class="acct-note">Could not load your tokens.</p>' :
+    '<div class="acct-tgrid" role="table" aria-label="Agent tokens">' +
+    '<div class="acct-tgrid-row acct-tgrid-head" role="row"><span role="columnheader">Label</span>' +
+    '<span role="columnheader">ID</span><span role="columnheader">Created</span><span role="columnheader"></span></div>' +
+    (rows || '<p class="acct-note">No tokens yet.</p>') + "</div>";
+  const mintOrDone = MINTED ?
+    '<div class="acct-minted">' +
+      '<div class="acct-minted-step1"><div class="acct-minted-h">1. Copy it now — it is shown only once</div>' +
+      '<div class="acct-minted-tokrow"><span class="acct-minted-tok" id="tok-plain">' + esc(MINTED.token) + '</span>' +
+      '<span style="flex:1 1 auto"></span><button type="button" class="acct-copybtn" id="tok-copy" data-label="copy">' + COPY_ICON + 'copy</button></div></div>' +
+      '<div class="acct-minted-step2"><div class="acct-minted-h2">2. Paste this into your agent\'s MCP config</div>' +
+      '<p class="acct-note">Then reconnect the MCP client. Point <code>args</code> at your local checkout of mdreview-service.</p>' +
+      '<div class="acct-mcp-wrap"><button type="button" class="acct-copybtn acct-mcp-copy" id="cfg-copy" data-label="copy">' + COPY_ICON + 'copy</button>' +
+      '<pre class="acct-mcp-pre" id="tok-mcp">' + esc(MINTED.cfg) + '</pre></div></div>' +
+      '<div class="acct-row-gap"><button type="button" class="btn2 outline" id="tok-done">Done</button></div></div>' :
+    '<div class="acct-row-gap"><input type="text" id="tok-label" class="acct-tinput" placeholder="label (e.g. laptop, ci)" autocomplete="off">' +
+    '<button type="button" class="btn2" id="tok-mint">Mint token</button></div>';
+  rev.innerHTML =
+    '<p class="acct-note">One token per machine. Paste it into the agent\'s MCP config once; every ' +
+    '<code>create_review</code> after that lands in your dashboard.</p>' + table + mintOrDone;
+  valEl.textContent = tokensSummary();
+  wireTokensPanel(rev, valEl);
+}
+function wireTokensPanel(rev, valEl) {
+  rev.querySelectorAll(".acct-revoke").forEach(b => b.onclick = () => revokeToken(b.dataset.id, rev, valEl));
+  const mint = rev.querySelector("#tok-mint");
+  if (mint) mint.onclick = () => doMint(rev, valEl);
+  const done = rev.querySelector("#tok-done");
+  if (done) done.onclick = () => { MINTED = null; paintTokensPanel(rev, valEl); };
+  const tcopy = rev.querySelector("#tok-copy");
+  if (tcopy) tcopy.onclick = () => copyText(tcopy, MINTED.token);
+  const ccopy = rev.querySelector("#cfg-copy");
+  if (ccopy) ccopy.onclick = () => copyText(ccopy, MINTED.cfg);
+}
+async function doMint(rev, valEl) {
+  const btn = rev.querySelector("#tok-mint");
+  const input = rev.querySelector("#tok-label");
+  btn.disabled = true;
+  let r;
+  try {
+    r = await fetch("/account/tokens", { method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF },
+      body: JSON.stringify({ label: input ? input.value : "" }) });
+  } catch (e) {
+    flash("Could not mint the token (network error). Nothing was created.", "err");
+    btn.disabled = false; return;
+  }
+  if (!r.ok) {
+    flash("Could not mint the token (" + r.status + "). Nothing was created.", "err");
+    btn.disabled = false; return;
+  }
   const d = await r.json();
   BASE = d.base || BASE;
-  $("#tokval").textContent = d.token;
-  $("#mcpcfg").textContent = mcpBlock(d.token);
-  $("#minted").style.display = "block";
-  $("#label").value = "";
-  load();
-};
-
-async function revoke(id){
-  const r = await fetch("/account/tokens/"+id, {method:"DELETE", headers:{"X-CSRF-Token":CSRF}});
-  if(r.ok){ flash("Token " + id + " revoked.", "ok"); load(); }
-  else flash("Could not revoke " + id + " (" + r.status + "). It is still active.", "err");
+  MINTED = { token: d.token, cfg: mcpBlock(d.token) };
+  await loadTokens();
+  paintTokensPanel(rev, valEl);
+}
+async function revokeToken(id, rev, valEl) {
+  const r = await fetch("/account/tokens/" + id, { method: "DELETE", headers: { "X-CSRF-Token": CSRF } });
+  if (!r.ok) { flash("Could not revoke " + id + " (" + r.status + "). It is still active.", "err"); return; }
+  flash("Token " + id + " revoked.", "ok");
+  await loadTokens();
+  paintTokensPanel(rev, valEl);
 }
 
-// ---- #223 active sessions --------------------------------------------------------------------
-let CSRF = "";
-function ago(ts){
-  if(!ts) return "-";
-  const s = Math.max(0, Math.floor(Date.now()/1000 - ts));
-  if(s < 90) return "just now";
-  if(s < 5400) return Math.round(s/60) + " min ago";
-  if(s < 172800) return Math.round(s/3600) + " h ago";
-  return Math.round(s/86400) + " d ago";
-}
-// A user-agent string is not a device name. This is a deliberately shallow read: enough to tell
-// your laptop from your phone, and honest ("Unknown device") when it cannot.
-function device(ua){
-  if(!ua) return "Unknown device";
+// A user-agent string is not a device name: a deliberately shallow read, honest ("Unknown
+// device") when it cannot tell.
+function deviceName(ua) {
+  if (!ua) return "Unknown device";
   const os = /iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android"
            : /Mac OS X/.test(ua) ? "macOS" : /Windows/.test(ua) ? "Windows"
            : /Linux/.test(ua) ? "Linux" : "";
   const br = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera"
            : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari"
            : /Firefox\//.test(ua) ? "Firefox" : "";
-  const s = [br, os].filter(Boolean).join(" · ");
-  return s || "Unknown device";
+  return [br, os].filter(Boolean).join(" · ") || "Unknown device";
+}
+function ago(ts) {
+  if (!ts) return "-";
+  const s = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+  if (s < 90) return "just now";
+  if (s < 5400) return Math.round(s / 60) + " min ago";
+  if (s < 172800) return Math.round(s / 3600) + " h ago";
+  return Math.round(s / 86400) + " d ago";
+}
+function paintDevicesPanel(rev, valEl) {
+  const list = SESSIONS === null ? '<p class="acct-note">Could not load your sessions.</p>' :
+    (SESSIONS.length ? SESSIONS.map(s =>
+      '<div class="acct-device-row"><span class="acct-device-info">' +
+      '<span class="acct-device-name">' + esc(deviceName(s.user_agent)) + (s.current ? " (this device)" : "") + "</span>" +
+      '<span class="acct-device-meta">' + esc(s.ip || "-") + " · " + ago(s.last_seen) + "</span></span>" +
+      '<button type="button" class="btn2 outline" data-jti="' + esc(s.jti) + '" data-cur="' + (s.current ? "1" : "0") + '">' +
+      (s.current ? "Sign out" : "End session") + "</button></div>"
+    ).join("") : '<p class="acct-note">No sessions recorded.</p>');
+  const note = GRANDFATHERED ?
+    '<p class="acct-note">This browser signed in before per-device tracking existed, so it is not listed and cannot be ended individually. Signing out and back in adds it.</p>' : "";
+  rev.innerHTML = list + note;
+  valEl.textContent = devicesSummary();
+  rev.querySelectorAll("[data-jti]").forEach(b => b.onclick = () => endSession(b, rev, valEl));
+}
+async function endSession(btn, rev, valEl) {
+  const jti = btn.dataset.jti, cur = btn.dataset.cur === "1";
+  const r = await fetch("/auth/sessions/" + encodeURIComponent(jti), { method: "DELETE", headers: { "X-CSRF-Token": CSRF } });
+  if (!r.ok) { flash("Could not end that session (" + r.status + "). It is still active.", "err"); return; }
+  if (cur) { location.href = "/"; return; }
+  flash("Session ended.", "ok");
+  await loadSessionsData();
+  paintDevicesPanel(rev, valEl);
 }
 
-// #262: what of mine can others reach. Public links and named shares are visually distinct on
-// purpose — a public link is reachable by anyone holding the URL, a named share is not, and
-// blurring the two is how someone misreads their own exposure.
-async function loadShares(){
-  const box = document.getElementById("shares");
-  let data;
-  try{
-    const r = await fetch("/api/account/shares", {cache:"no-store"});
-    if(r.status === 404){ box.innerHTML = ""; return; }   // no sharing plane on this build
-    if(!r.ok) throw new Error("HTTP " + r.status);
-    data = await r.json();
-  }catch(e){
-    box.innerHTML = '<p class="text-muted-foreground">Could not load sharing. Nothing was changed.</p>';
+// ============================================================================================
+// Advanced: Theme (a second control over the existing #285 preference) and Sharing (public
+// links + named shares, the shipped #262 capability; kept under its own row rather than dropped,
+// per groom §5 Q5). Reading width / Diff view / Export are absent: none of those capabilities
+// exist (groom §3 #6/#8/#9).
+// ============================================================================================
+function renderAdvanced() {
+  const root = document.createElement("div");
+  root.innerHTML = '<div class="acct-eyebrow">Advanced</div>' +
+    '<div class="acct-rowlist">' +
+    rowShell("theme", "Theme", themeLabelFor(window.mdTheme.mode())) +
+    rowShell("sharing", "Sharing", "…") +
+    "</div>";
+  wireRows(root);
+  const themeVal = root.querySelector('[data-row="theme"] .acct-row-value');
+  const themeRev = root.querySelector("#rev-theme");
+  paintThemePanel(themeRev, themeVal);
+  const shareVal = root.querySelector('[data-row="sharing"] .acct-row-value');
+  const shareRev = root.querySelector("#rev-sharing");
+  paintSharingPanel(shareRev, shareVal);
+  return root;
+}
+function themeLabelFor(mode) {
+  return mode === "light" ? "Light" : mode === "dark" ? "Dark" : "System default";
+}
+const CHECK_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+function paintThemePanel(rev, valEl) {
+  const mode = window.mdTheme.mode();
+  const OPTS = [["auto", "System default"], ["light", "Light"], ["dark", "Dark"]];
+  rev.innerHTML = '<div class="acct-theme-opts">' + OPTS.map(o => {
+    const on = o[0] === mode;
+    return '<button type="button" class="acct-opt' + (on ? " active" : "") + '" data-theme-opt="' + o[0] + '">' +
+      (on ? CHECK_ICON : '<span class="acct-opt-spacer"></span>') + esc(o[1]) + "</button>";
+  }).join("") + "</div>";
+  valEl.textContent = themeLabelFor(mode);
+  rev.querySelectorAll("[data-theme-opt]").forEach(b => b.onclick = () => {
+    window.mdTheme.set(b.dataset.themeOpt);
+    paintThemePanel(rev, valEl);
+  });
+}
+document.addEventListener("mdr:themechange", () => {
+  if (CURRENT !== "advanced") return;
+  const rev = $("#rev-theme"), valEl = rev && rev.previousElementSibling && rev.previousElementSibling.querySelector(".acct-row-value");
+  if (rev && valEl) paintThemePanel(rev, valEl);
+});
+
+function sharesSummary() {
+  if (SHARES === null) return "could not load";
+  const pub = SHARES.filter(i => i.public).length;
+  const named = SHARES.reduce((n, i) => n + (i.shares || []).length, 0);
+  if (!pub && !named) return "Nothing shared";
+  const parts = [];
+  if (pub) parts.push(pub + " public");
+  if (named) parts.push(named + " shared");
+  return parts.join(" · ");
+}
+function paintSharingPanel(rev, valEl) {
+  valEl.textContent = sharesSummary();
+  if (SHARES === null) { rev.innerHTML = '<p class="acct-note">Could not load sharing. Nothing was changed.</p>'; return; }
+  if (!SHARES.length) {
+    rev.innerHTML = '<p class="acct-note">Nothing of yours is shared. Documents you share by link or by name will appear here.</p>';
     return;
   }
-  const items = data.items || [];
-  if(!items.length){
-    box.innerHTML = '<p class="text-muted-foreground">Nothing of yours is shared. Documents you '
-      + 'share by link or by name will appear here.</p>';
-    return;
-  }
-  box.innerHTML = items.map(it => {
+  rev.innerHTML = SHARES.map(it => {
     const pub = it.public
-      ? `<span class="dpill minus" title="Anyone with the link can open this">Public · ${esc(it.public)}</span>`
+      ? '<span class="acct-note" style="margin:0;font-family:var(--font-mono);font-size:var(--t-eyebrow);color:var(--warning)">PUBLIC</span>' +
+        '<button type="button" class="acct-revoke" data-rid="' + esc(it.id) + '" data-kind="public">Make private</button>'
       : "";
-    const named = (it.shares||[]).map(sh =>
-      `<li>${esc(sh.email || sh.subject)}${sh.email ? "" : ' <span class="text-muted-foreground">(no email on record)</span>'}`
-      + ` — ${esc(sh.right||"view")}`
-      + ` <button class="btn rev-share" data-variant="outline" data-size="sm"`
-      + ` data-rid="${esc(it.id)}" data-subject="${esc(sh.subject)}">revoke</button></li>`).join("");
-    return `<div style="padding:10px 0;border-top:1px solid var(--border-faint,var(--border))">
-      <div><a href="/review/${encodeURIComponent(it.id)}">${esc(it.title)}</a> ${pub}
-      ${it.public ? `<button class="btn rev-public" data-variant="outline" data-size="sm" data-rid="${esc(it.id)}">make private</button>` : ""}</div>
-      ${named ? `<ul style="margin:6px 0 0 18px">${named}</ul>` : ""}</div>`;
+    const named = (it.shares || []).map(sh =>
+      "<li>" + esc(sh.email || sh.subject) + (sh.email ? "" : ' <span class="acct-note" style="display:inline;margin:0">(no email on record)</span>') +
+      " — " + esc(sh.right || "view") +
+      '<button type="button" class="acct-revoke" data-rid="' + esc(it.id) + '" data-kind="share" data-subject="' + esc(sh.subject) + '">revoke</button></li>'
+    ).join("");
+    return '<div class="acct-share-item"><div class="acct-share-title"><a href="/review/' + encodeURIComponent(it.id) + '">' +
+      esc(it.title) + "</a>" + pub + "</div>" +
+      (named ? '<ul class="acct-share-named">' + named + "</ul>" : "") + "</div>";
   }).join("");
+  rev.querySelectorAll(".acct-revoke").forEach(b => b.onclick = () => revokeShare(b, rev, valEl));
 }
-
-document.addEventListener("click", async (e) => {
-  const pubBtn = e.target.closest(".rev-public"), shBtn = e.target.closest(".rev-share");
-  if(!pubBtn && !shBtn) return;
-  const btn = pubBtn || shBtn; btn.disabled = true;
+async function revokeShare(btn, rev, valEl) {
+  btn.disabled = true;
   const rid = btn.dataset.rid;
-  const url = pubBtn ? `/api/reviews/${encodeURIComponent(rid)}/public`
-                     : `/api/reviews/${encodeURIComponent(rid)}/shares?subject=${encodeURIComponent(btn.dataset.subject)}`;
-  try{
-    const r = await fetch(url, {method:"DELETE", headers:{"X-CSRF-Token": CSRF}});
-    // The row reflects what the server SAID, not what the click hoped (#213).
-    if(!r.ok){ flash("Could not revoke — HTTP " + r.status + ". Nothing changed.", "err"); btn.disabled = false; return; }
-    flash("Revoked.", "ok"); loadShares();
-  }catch(err){ flash("Could not revoke — network error. Nothing changed.", "err"); btn.disabled = false; }
-});
-
-async function loadSessions(){
-  let r;
-  // A failed fetch is NOT "no sessions" (#221's lesson applied here): rendering an empty table
-  // would tell the user nothing is signed in, which is the opposite of unknown.
-  try { r = await fetch("/auth/sessions", {cache:"no-store"}); }
-  catch(e){ $("#sessrows").innerHTML = '<tr><td class="text-muted-foreground" colspan="4">could not reach the server</td></tr>'; return; }
-  if(!r.ok){ $("#sessrows").innerHTML = '<tr><td class="text-muted-foreground" colspan="4">could not load</td></tr>'; return; }
-  const d = await r.json();
-  const list = d.sessions || [];
-  $("#sessrows").innerHTML = list.length
-    ? list.map(s =>
-        `<tr><td>${esc(device(s.user_agent))}${s.current?' <strong>(this device)</strong>':''}</td>`+
-        `<td class="text-muted-foreground">${esc(s.ip||"-")}</td>`+
-        `<td class="text-muted-foreground">${esc(ago(s.last_seen))}</td>`+
-        `<td><button class="btn" data-variant="outline" data-size="sm" data-jti="${esc(s.jti)}" data-cur="${s.current?1:0}">`+
-        `${s.current?"Sign out":"End session"}</button></td></tr>`).join("")
-    : '<tr><td class="text-muted-foreground" colspan="4">no sessions recorded</td></tr>';
-  $("#revokeothers").style.display = list.filter(s=>!s.current).length ? "" : "none";
-  // Say it plainly when the list cannot be complete, rather than showing a short list as if it
-  // were the whole truth (owner decision D3: pre-#223 cookies keep working but have no record).
-  const note = $("#sess-note");
-  if(d.grandfathered){
-    note.textContent = "This browser signed in before per-device tracking existed, so it is not "
-      + "listed and cannot be ended individually. Signing out and back in adds it.";
-    note.style.display = "";
-  } else note.style.display = "none";
+  const url = btn.dataset.kind === "public"
+    ? "/api/reviews/" + encodeURIComponent(rid) + "/public"
+    : "/api/reviews/" + encodeURIComponent(rid) + "/shares?subject=" + encodeURIComponent(btn.dataset.subject);
+  try {
+    const r = await fetch(url, { method: "DELETE", headers: { "X-CSRF-Token": CSRF } });
+    if (!r.ok) { flash("Could not revoke — HTTP " + r.status + ". Nothing changed.", "err"); btn.disabled = false; return; }
+    flash("Revoked.", "ok");
+    await loadSharesData();
+    paintSharingPanel(rev, valEl);
+  } catch (e) { flash("Could not revoke — network error. Nothing changed.", "err"); btn.disabled = false; }
 }
-function esc(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
-document.addEventListener("click", async e => {
-  const b = e.target.closest("#sessrows button[data-jti]");
-  if(b){
-    const cur = b.dataset.cur === "1";
-    const r = await fetch("/auth/sessions/"+encodeURIComponent(b.dataset.jti),
-                          {method:"DELETE", headers:{"X-CSRF-Token": CSRF}});
-    if(!r.ok){ flash("Could not end that session ("+r.status+"). It is still active.", "err"); return; }
-    // Ending your own session really does sign you out; go to the sign-in screen rather than
-    // leaving a dead page that 401s on its next request.
-    if(cur){ location.href = "/"; return; }
-    flash("Session ended.", "ok"); loadSessions();
-    return;
+// ============================================================================================
+// Danger zone: two composable actions (revoke-all agent tokens, sign out everywhere), each
+// guarded by an inline confirm step (no DELETE fires on the first click, AC15). Delete account
+// is absent: there is no self-serve delete endpoint anywhere (groom §3 #7).
+//
+// "Sign out everywhere" really does end the current session too, not just the others: DELETE
+// /auth/sessions only revokes OTHER sessions, so ending with POST /auth/logout afterward (which
+// revokes-if-tracked AND always clears the cookie, working even for a grandfathered/untracked
+// current session) is what makes the mock's "including this one" copy true rather than a lie.
+// ============================================================================================
+function renderDanger() {
+  const root = document.createElement("div");
+  root.innerHTML = '<div class="acct-eyebrow">Danger zone</div>' +
+    dangerRow("revokeAll", "Revoke all agent tokens", "Every agent stops being able to create documents.", "Revoke all") +
+    dangerRow("signout", "Sign out everywhere", "Ends every session, including this one.", "Sign out all");
+  wireDangerRow(root, "revokeAll", revokeAllTokens);
+  wireDangerRow(root, "signout", signOutEverywhere);
+  return root;
+}
+function dangerRow(id, label, sub, actionLabel) {
+  return '<div class="acct-drow" data-drow="' + id + '"><div class="acct-drow-text">' +
+    '<span class="acct-drow-label">' + esc(label) + '</span><span class="acct-drow-sub">' + esc(sub) + "</span></div>" +
+    '<div class="acct-drow-actions" data-actions="' + id + '">' +
+    '<button type="button" class="btn2 danger-ghost" data-confirm-start="' + id + '">' + esc(actionLabel) + "</button></div></div>";
+}
+function wireDangerRow(root, id, action) {
+  const actions = root.querySelector('[data-actions="' + id + '"]');
+  const start = () => {
+    actions.innerHTML = '<span class="acct-sure">Sure?</span>' +
+      '<button type="button" class="btn2 danger-solid" data-go>Yes</button>' +
+      '<button type="button" class="btn2 outline" data-cancel>Cancel</button>';
+    actions.querySelector("[data-go]").onclick = async () => {
+      actions.querySelectorAll("button").forEach(b => b.disabled = true);
+      await action();
+    };
+    actions.querySelector("[data-cancel]").onclick = () => reset();
+  };
+  const reset = () => {
+    actions.innerHTML = '<button type="button" class="btn2 danger-ghost" data-confirm-start="' + id + '">' +
+      (id === "revokeAll" ? "Revoke all" : "Sign out all") + "</button>";
+    actions.querySelector("[data-confirm-start]").onclick = start;
+  };
+  actions.querySelector("[data-confirm-start]").onclick = start;
+}
+async function revokeAllTokens() {
+  await loadTokens();
+  const ids = (TOKENS || []).map(t => t.tok_id);
+  if (!ids.length) { flash("No agent tokens to revoke.", "ok"); if (CURRENT === "danger") switchSection("danger"); return; }
+  const failed = [];
+  for (const id of ids) {
+    const r = await fetch("/account/tokens/" + id, { method: "DELETE", headers: { "X-CSRF-Token": CSRF } });
+    if (!r.ok) failed.push(id);
   }
-  if(e.target.closest("#revokeothers")){
-    const r = await fetch("/auth/sessions", {method:"DELETE", headers:{"X-CSRF-Token": CSRF}});
-    if(!r.ok){ flash("Could not sign out the other devices ("+r.status+").", "err"); return; }
+  await loadTokens();
+  MINTED = null;
+  flash(failed.length
+    ? "Revoked " + (ids.length - failed.length) + " of " + ids.length + " tokens. " + failed.length + " could not be revoked."
+    : "All agent tokens revoked.", failed.length ? "err" : "ok");
+  if (CURRENT === "danger") switchSection("danger");
+}
+async function signOutEverywhere() {
+  const r1 = await fetch("/auth/sessions", { method: "DELETE", headers: { "X-CSRF-Token": CSRF } });
+  if (!r1.ok) { flash("Could not sign out the other sessions (" + r1.status + ").", "err"); if (CURRENT === "danger") switchSection("danger"); return; }
+  try { await fetch("/auth/logout", { method: "POST", headers: { "X-CSRF-Token": CSRF } }); }
+  catch (e) { /* the others are already gone server-side; clear locally regardless */ }
+  location.href = "/";
+}
+
+// ============================================================================================
+// Data loading: eager at boot so a row's summary ("2 active", "2 signed in") is correct the
+// first time its section is shown, never a placeholder that flips a moment later.
+// ============================================================================================
+async function loadTokens() {
+  try {
+    const r = await fetch("/account/tokens", { headers: { Accept: "application/json" }, cache: "no-store" });
+    if (!r.ok) { TOKENS = null; return; }
     const d = await r.json();
-    flash("Signed out "+d.revoked+" other session"+(d.revoked===1?"":"s")+".", "ok");
-    loadSessions();
-  }
-});
+    BASE = d.base || BASE;
+    TOKENS = d.tokens || [];
+  } catch (e) { TOKENS = null; }
+}
+async function loadSessionsData() {
+  try {
+    const r = await fetch("/auth/sessions", { cache: "no-store" });
+    if (!r.ok) { SESSIONS = null; return; }
+    const d = await r.json();
+    SESSIONS = d.sessions || [];
+    GRANDFATHERED = !!d.grandfathered;
+  } catch (e) { SESSIONS = null; }
+}
+async function loadSharesData() {
+  try {
+    const r = await fetch("/api/account/shares", { cache: "no-store" });
+    if (r.status === 404) { SHARES = []; return; }
+    if (!r.ok) throw new Error("http " + r.status);
+    const d = await r.json();
+    SHARES = d.items || [];
+  } catch (e) { SHARES = null; }
+}
 
 (async () => {
   const s = await window.mdSession.read();
-  if(s.reachable && s.sess.authenticated){
-    CSRF = s.sess.csrf || "";
-    const who = document.getElementById("whoami");
-    if(who) who.innerHTML = "Signed in as <b>" + esc(s.sess.email) + "</b>"
-      + (s.sess.is_admin ? ' · <span class="dpill">Admin</span>' : "");
-    loadSessions(); loadShares();
+  if (!(s.reachable && s.sess && s.sess.authenticated)) {
+    $("#whoami").textContent = s.reachable ? "Not signed in." : "Could not reach the server.";
+    $("#acct-nav").innerHTML = "";
+    $("#acct-slot").innerHTML = '<p class="acct-empty">Sign in to see your account.</p>';
+    return;
   }
-  else $("#sessrows").innerHTML = '<tr><td class="text-muted-foreground" colspan="4">not signed in</td></tr>';
+  SESS = s.sess;
+  CSRF = SESS.csrf || "";
+  $("#whoami").textContent = SESS.email;
+  await Promise.all([loadTokens(), loadSessionsData(), loadSharesData()]);
+  renderNav();
+  switchSection("profile");
 })();
-
-load();
 </script>
 <script src="/static/account.js"></script>
 </body>
