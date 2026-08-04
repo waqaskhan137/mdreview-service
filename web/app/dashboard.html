@@ -82,8 +82,11 @@
      crumb. Promotion rule and CTA logic are unchanged; only the skin moved. */
   #nextup:not(:empty){display:flex;flex-direction:column;gap:6px;padding:var(--s-4);
     margin:0 0 var(--s-6);border-radius:var(--r-card);background:var(--code-bg);}
+  /* #284: the crumb also carries the owned-row badges — the promotion rule (unchanged) can lift
+     the freshest "yours" row into this hero, and a promoted PUBLIC document must not lose its
+     only visible PUBLIC indicator. flex+wrap so a long crumb and a badge coexist at narrow width. */
   .nu-crumb{font-family:var(--font-mono);font-size:var(--t-meta);letter-spacing:.04em;
-    color:var(--text-subtle);margin:0;}
+    color:var(--text-subtle);margin:0;display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap;}
   .nu-title{font-size:20px;line-height:1.2;letter-spacing:-.015em;font-weight:600;margin:0;}
   .nu-say{font-size:var(--t-body);color:var(--text-muted);margin:0;}
   /* §05 rule 01: one violet per screen, and this is it. */
@@ -123,14 +126,28 @@
   .w-yours .rw-t{font-weight:600;color:var(--text);}
   .w-agent .rw-t{font-weight:400;color:var(--text-muted);}
   .w-resolved .rw-t{font-weight:400;color:var(--text-subtle);}
+  /* #284 Part 2: the inbound "Shared with you" group reads at the same weight as "With the
+     agent" — it is not yours to act on, just something you were shown. */
+  .w-shared .rw-t{font-weight:400;color:var(--text-muted);}
 
-  .del{position:absolute;top:50%;right:0;transform:translateY(-50%);
+  /* #284 Part 1: owned-row share badges (PUBLIC / people-count), per 01-dashboard.html — mono,
+     the mock's letter-spacing, sitting after the project crumb inside the same .rw-l anchor. */
+  .rw-badge{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);
+    font-size:var(--t-eyebrow);font-weight:600;letter-spacing:.08em;}
+  .rw-badge svg{flex:0 0 auto;}
+  .rw-badge.pub{color:var(--warning);}
+  .rw-badge.shared{color:var(--text-subtle);}
+
+  .del,.rm{position:absolute;top:50%;right:0;transform:translateY(-50%);
     display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;
     border-radius:var(--r-control);border:1px solid transparent;background:transparent;
     color:var(--text-subtle);cursor:pointer;opacity:0;transition:opacity .12s,color .12s,background .12s;}
-  .rw:hover .del{opacity:1;}
+  .rw:hover .del,.rw:hover .rm{opacity:1;}
   .del:hover{color:var(--danger);background:var(--danger-bg);}
-  .del:focus-visible{opacity:1;}   /* the ring itself is theme.css's one focus rule (§03) */
+  /* #284 Part 2: "Remove from your list" is a self-revoke, not a delete — no danger red, matching
+     the mock's quieter hover (text/code-bg, not the trash button's red). */
+  .rm:hover{color:var(--text);background:var(--code-bg);}
+  .del:focus-visible,.rm:focus-visible{opacity:1;}   /* the ring itself is theme.css's one focus rule (§03) */
   /* #187 manual resolve/reopen: the same hover-revealed row action as .del, one slot to its left
      (the meta text already fades out under both). */
   .res{position:absolute;top:50%;right:32px;transform:translateY(-50%);
@@ -370,9 +387,15 @@ const $=s=>document.querySelector(s);
 const TRASH='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
 const CHECK='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
 const UNDO='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
+// #284 Part 1 badges (globe = PUBLIC, people = named-share count) and Part 2's "remove from your
+// list" X — all three copied verbatim from 01-dashboard.html so the rendered icon matches the mock.
+const GLOBE='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>';
+const PEOPLE='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+const XICON='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
 // #187: the CSRF token from /auth/session, sent on the resolve POST. Stays "" on the local tier
 // (no auth plane), where the server correctly has no CSRF gate to satisfy.
 let CSRF="";
+let MY_EMAIL="";   // #284 D2: set in boot() once the session resolves; see the self-revoke handler
 function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function rel(ts){
   if(!ts)return "";
@@ -421,6 +444,16 @@ function countLabel(r){
   return open+" open"+(a?" · "+a+" resolved":"");
 }
 
+// #284 Part 1: owned-row badges from the additive share_public/share_count fields (absent when
+// default, per the kind/template precedent — so a plain "not in" check server-side pairs with a
+// plain falsy check here, never a "!==0" that would treat absence and zero differently).
+function shareBadges(r){
+  let h="";
+  if(r.share_public) h+=`<span class="rw-badge pub" title="Anyone with the link can open this">${GLOBE}PUBLIC</span>`;
+  if(r.share_count) h+=`<span class="rw-badge shared" title="Shared with ${r.share_count} people">${PEOPLE}${r.share_count}</span>`;
+  return h;
+}
+
 function row(r){
   const st=statusOf(r), grp=GROUP_OF[st];
   const t=esc(r.title||r.id), pr=esc(r.project||r.session||""), pa=esc(r.source_path||"");
@@ -437,23 +470,49 @@ function row(r){
   // rev 3 splits the old combined meta: the status/count span STAYS visible on hover, the
   // fixed-width timestamp span alone fades under the revealed actions.
   return `<div class="rw w-${grp}" data-id="${esc(r.id)}" data-title="${t}" data-project="${pr}" data-path="${pa}">
-    <a class="rw-l" href="/review/${encodeURIComponent(r.id)}">${kind}<span class="rw-t">${t}</span>${pr?`<span class="rw-p">${pr}</span>`:""}</a>
+    <a class="rw-l" href="/review/${encodeURIComponent(r.id)}">${kind}<span class="rw-t">${t}</span>${pr?`<span class="rw-p">${pr}</span>`:""}${shareBadges(r)}</a>
     <span class="rw-s${st==="agent-working"?" live":""}">${esc(STATUSTEXT[st](r))}</span>
     <span class="rw-m">${esc(rel(activity(r)))}</span>
     ${act}<button class="del" data-id="${esc(r.id)}" data-title="${t}" aria-label="Delete ${t}">${TRASH}</button>
   </div>`;
 }
 
+// #284 Part 2: rows in the inbound "Shared with you" group. A DIFFERENT shape from row() on
+// purpose — these come from the scope=shared whitelist, never summary(), so there is no status/
+// turn/notes_total to derive from and no delete control (DELETE would 404: the caller does not
+// own these). The only mutating control is "Remove from your list" (self-revoke, D2).
+function sharedRow(r){
+  const t=esc(r.title||r.id);
+  const kind=`<span class="rw-k">${r.kind==="latex"?"TEX":"MD"}</span>`;
+  // #284 D3: the label shows the LOCAL-PART only; from_email itself already carries only the
+  // local part (truncated server-side, never the full address). "" = unknown (#267), say so.
+  const from=r.from_email?esc(r.from_email):"someone unknown";
+  const rightText=r.right==="comment"?"can comment":"view only";
+  return `<div class="rw w-shared" data-id="${esc(r.id)}" data-title="${t}">
+    <a class="rw-l" href="/review/${encodeURIComponent(r.id)}">${kind}<span class="rw-t">${t}</span><span class="rw-p">from ${from}</span></a>
+    <span class="rw-s">${esc(rightText)}</span>
+    <span class="rw-m">${esc(rel(activity(r)))}</span>
+    <button class="rm" data-id="${esc(r.id)}" data-title="${t}" title="Remove from your list" aria-label="Remove ${t} from your list">${XICON}</button>
+  </div>`;
+}
+
 let allReviews=[];
+let sharedReviews=[];         // #284 Part 2: the inbound "Shared with you" group, a separate fetch
 let activeFilter="all";       // all | needs | working | resolved
 let activeProject="";         // "" = every project; otherwise an exact project name
 let showResolved=false;       // §05: resolved lives behind "browse all"
 
 async function load(){
-  let data;
-  try{ data=await fetch('/api/reviews',{cache:'no-store'}).then(r=>r.json()); }
+  let data, sdata;
+  try{
+    [data,sdata]=await Promise.all([
+      fetch('/api/reviews',{cache:'no-store'}).then(r=>r.json()),
+      fetch('/api/reviews?scope=shared',{cache:'no-store'}).then(r=>r.json()),
+    ]);
+  }
   catch(e){ $("#sub").textContent="Could not reach the service."; flash("Could not reach the service.","err"); return; }
   allReviews=(data&&data.reviews)||[];
+  sharedReviews=(sdata&&sdata.reviews)||[];
   render();
 }
 
@@ -508,7 +567,10 @@ function render(){
 
   $("#h1").textContent=filterTitle();
 
-  if(!allReviews.length){
+  // #284: a fresh grantee can own NOTHING and still have a "Shared with you" group (AC6) — the
+  // empty state below is "there is nothing to show at all", not "you own nothing", so it must
+  // check both fetches, not allReviews alone.
+  if(!allReviews.length && !sharedReviews.length){
     $("#nextup").innerHTML="";
     $("#noresults").style.display="none";
     $("#sub").textContent="No reviews yet.";
@@ -534,6 +596,11 @@ function render(){
   let h="";
   h+=group(next ? bucket.yours.length+" more waiting on you" : "Waiting on you", bucket.yours, "grp-yours");
   h+=group("With the agent", bucket.agent);
+  // #284 Part 2: the inbound group is NOT run through matchesFilter/search/project (D4 is an
+  // explicit open question, left to #330 — see the groom) — it always shows what is shared with
+  // you, independent of the owned-row view above it. Sorted newest-activity-first, same rule as
+  // the owned rows use.
+  h+=group("Shared with you", [...sharedReviews].sort((a,b)=>activity(b)-activity(a)), "grp-shared", sharedRow);
   if(bucket.resolved.length){
     h+=`<div class="grp"><div class="resline">`
       +`<button class="linklike" id="browseall">${resOpen?"Hide resolved":"Browse all "+bucket.resolved.length+" resolved"}</button></div>`
@@ -550,16 +617,20 @@ function render(){
   const projects=new Set(allReviews.filter(r=>r.project).map(r=>r.project)).size;
   $("#sub").textContent=`${shown} · ${projects} project${projects===1?"":"s"}`;
 }
-function group(label, rows, cls){
+function group(label, rows, cls, rowFn){
   if(!rows.length) return "";
-  return `<div class="grp${cls?" "+cls:""}"><div class="grp-h">${esc(label)}</div>${rows.map(row).join("")}</div>`;
+  const fn=rowFn||row;
+  return `<div class="grp${cls?" "+cls:""}"><div class="grp-h">${esc(label)}</div>${rows.map(fn).join("")}</div>`;
 }
 function nextUp(r){
   const crumb=[r.project||r.session||"", (r.revision||0)>0?"v"+r.revision:"", rel(activity(r))].filter(Boolean);
   const open=Math.max(0,(r.notes_total||0)-(r.notes_addressed||0));
   // rev 3 say line: "N open comments" while there is something to read; countLabel otherwise
   const say=open?`${open} open comment${open===1?"":"s"}`:countLabel(r);
-  return `<div class="nu-crumb">${esc(crumb.join(" · "))}</div>
+  // #284: badges follow the promoted row into the hero (see the .nu-crumb CSS comment) —
+  // crumb.join is escaped as ONE string, so the crumb text is its own span and the badges (their
+  // own markup, already safe: static titles + an integer count, nothing user-authored) sit beside it.
+  return `<div class="nu-crumb">${crumb.length?`<span>${esc(crumb.join(" · "))}</span>`:""}${shareBadges(r)}</div>
     <h2 class="nu-title">${esc(r.title||r.id)}</h2>
     <p class="nu-say">${esc(say)}${r.kind==="latex"?" · LaTeX paper":""}</p>
     <a class="btn nu-go" href="/review/${encodeURIComponent(r.id)}">${open?"Read the comments":"Open review"}</a>`;
@@ -595,6 +666,23 @@ document.addEventListener('click', e=>{
       try{ ok=(await fetch('/api/reviews/'+encodeURIComponent(del.dataset.id),{method:'DELETE'})).ok; }
       catch(_){}
       if(!ok) flash("Could not delete that review. Nothing was removed.","err");
+      load();
+    });
+    return;
+  }
+  // #284 D2: self-revoke — "Remove from your list" on an inbound shared row. Sent as ?email=
+  // (the existing owner-revoke convenience param, reused): the server resolves it to a subject
+  // and only ever lets it through when that subject is the caller's OWN row (sharing.py _revoke).
+  const rm=e.target.closest('.rm');
+  if(rm){
+    e.preventDefault();
+    askConfirm(`Remove "${rm.dataset.title}" from your list? You'll need a new invite to see it again.`, async ()=>{
+      let ok=false;
+      try{
+        ok=(await fetch('/api/reviews/'+encodeURIComponent(rm.dataset.id)+'/shares?email='+encodeURIComponent(MY_EMAIL),
+          {method:'DELETE',headers:{'X-CSRF-Token':CSRF}})).ok;
+      }catch(_){}
+      if(!ok) flash("Could not remove that from your list.","err");
       load();
     });
     return;
@@ -692,6 +780,11 @@ async function boot(){
   const sess=res.sess;
   if(sess && sess.authenticated){
     CSRF=sess.csrf||"";
+    // #284 D2: the caller's own email, for the "Remove from your list" self-revoke call (reuses
+    // the existing DELETE .../shares?email= convenience — no new query param, no raw uid on the
+    // client). "" on a plane where session.email is not carried; the button then simply 404s
+    // (fail-closed, never someone else's row).
+    MY_EMAIL=sess.email||"";
     // "" (not "flex"): #app is a plain block wrapping the shell's top line and column; forcing a
     // flex row here would sit them side by side.
     $("#signin").style.display="none"; $("#app").style.display="";
