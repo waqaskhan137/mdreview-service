@@ -85,6 +85,51 @@ function stub(outcomes) {
       f.calls[0].opts && f.calls[0].opts.cache === 'no-store');
   }
 
+
+// ---------------------------------------------------------------- #224: FOUR states, not two
+// The original two-state model (reachable / not) could not tell "this build has no auth plane"
+// from "the server is down", so the local tier's 404 hid the dashboard from self-hosters.
+// These four are the complete set a caller must be able to distinguish.
+
+// 7. NO AUTH PLANE. The local build serves no /auth/session at all.
+{
+  const f = stub([{ status: 404, body: { error: "no route" } }]);
+  const r = await read(f, 0);
+  check('404 -> noAuthPlane, a NAMED third state', r.noAuthPlane === true, JSON.stringify(r));
+  check('404 -> not reachable (it is still not an answer)', r.reachable === false);
+  check('404 -> never claims authenticated', r.sess.authenticated === false);
+  // A route that does not exist will not exist in 600ms. Retrying is pure latency on every page
+  // load of every local instance, and the sleep is what made this visible as a stall.
+  check('404 does NOT retry', f.calls.length === 1, 'calls=' + f.calls.length);
+}
+
+// 8. UNREACHABLE must stay distinct from no-auth-plane, both for a 5xx and for a throw.
+{
+  const f = stub([{ status: 502, body: null }]);
+  const r = await read(f, 0);
+  check('502 -> unreachable, NOT noAuthPlane', r.reachable === false && r.noAuthPlane === false, JSON.stringify(r));
+  check('502 still retries (a server can recover in 600ms)', f.calls.length === 2, 'calls=' + f.calls.length);
+}
+{
+  const f = stub([{ throws: 'network down' }]);
+  const r = await read(f, 0);
+  check('network throw -> unreachable, NOT noAuthPlane', r.reachable === false && r.noAuthPlane === false);
+}
+
+// 9. The two 200 states must be untouched by the new branch.
+{
+  const f = stub([{ status: 200, body: { authenticated: false } }]);
+  const r = await read(f, 0);
+  check('200 anonymous -> reachable, not authenticated, NOT noAuthPlane',
+    r.reachable === true && r.sess.authenticated === false && r.noAuthPlane === false, JSON.stringify(r));
+}
+{
+  const f = stub([{ status: 200, body: { authenticated: true, uid: 'u1' } }]);
+  const r = await read(f, 0);
+  check('200 authenticated -> reachable, authenticated, NOT noAuthPlane',
+    r.reachable === true && r.sess.authenticated === true && r.noAuthPlane === false, JSON.stringify(r));
+}
+
   console.log(failed ? '\n' + failed + ' case(s) failed' : '\nall session cases pass');
   process.exit(failed ? 1 : 0);
 })();

@@ -11,7 +11,7 @@ import json
 from .tools import (
     PROTOCOL_VERSION, SERVER_INFO, INSTRUCTIONS, TOOLS, TOOL_NAMES, _server_info,
 )
-from .client import http, route, ToolError, open_review, OPEN_IN_BROWSER
+from .client import http, route, ToolError, open_review, get_source_with_revision, OPEN_IN_BROWSER
 
 
 # ---- JSON-RPC stdio framing (isolated so a spec change is a one-function fix) ----
@@ -56,7 +56,12 @@ def handle_tools_call(rid, params):
     except KeyError as e:
         return _error(rid, -32602, "Missing required argument: %s" % e)
     try:
-        text = http(method, path, body)
+        if name == "get_source" and args.get("with_revision"):
+            # #288 opt-in envelope: body + revision from ONE response (the /source ETag). The
+            # default path below stays the raw document verbatim — the no-break contract.
+            text = get_source_with_revision(args["id"])
+        else:
+            text = http(method, path, body)
         _result(rid, {"content": [{"type": "text", "text": text}], "isError": False})
         if name == "create_review" and OPEN_IN_BROWSER:
             open_review(text)   # opt-in local-browser pop, after the result is sent

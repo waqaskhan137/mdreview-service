@@ -9,8 +9,14 @@ API
   POST   /api/reviews                 {markdown, title?}      -> {id, review_url, feedback_url, source_url}
   GET    /api/reviews/{id}                                    -> meta
   DELETE /api/reviews/{id}                                    -> {deleted}
-  GET    /api/reviews/{id}/source                             -> raw markdown
+  GET    /api/reviews/{id}/source                             -> raw markdown (+ ETag: "revision", the edit precondition token)
   PUT    /api/reviews/{id}/source     {markdown}              -> meta (agent applies edits; live-reloads viewer)
+                                      If-Match: "N" header or {expected_revision: N} body key (#288)
+                                      -> 409 + re-read instruction when stale; omit = unconditional
+                                      403 without X-CSRF-Token on a VERIFIED session (#289); other
+                                      planes pass. Attribution: cookie/proxy plane (or local +
+                                      X-Mdreview-Client: viewer) sets source_updated_by=reviewer,
+                                      an agent write deletes it (readers default "agent")
   GET    /api/reviews/{id}/feedback                           -> {markdown, notes, ...meta}  (notes = legacy notes + projected comments)
   POST   /api/reviews/{id}/feedback                           -> 410    (retired MR-036/MR-046; viewer authors comments — POST /comments)
   GET    /api/reviews/{id}/comments   ?status=open|resolved|reopened|all  -> {comments}
@@ -20,7 +26,8 @@ API
   POST   /api/reviews/{id}/comments/{cid}/reply   {text}      -> {comment}  (append; status unchanged)
   POST   /api/reviews/{id}/comments/{cid}/resolve {justification?} -> {comment}  (agent resolves; 409 if not open/reopened)
   POST   /api/reviews/{id}/comments/{cid}/reopen  {text?}     -> {comment}  (reviewer reopens; 409 if not resolved)
-  GET    /api/reviews/{id}/status                             -> {source_updated, feedback_updated, comments_updated}
+  GET    /api/reviews/{id}/status                             -> {status, source_updated, feedback_updated, comments_updated, revision, can_edit, source_updated_by, ...}
+  POST   /api/reviews/{id}/resolve    {resolved: true|false}  -> summary  (human sign-off; cookie plane ONLY, see the arm)
   GET    /review/{id}                                         -> viewer HTML (human opens)
   GET    /static/{file}                                       -> assets (marked/mermaid)
   GET    /healthz                                             -> {ok}
@@ -182,6 +189,25 @@ class H(BaseHTTPRequestHandler):
             self._json(401, {"error": "authentication required"})
             return None
         return p
+
+    def _csrf_ok(self):
+        """Cookie-plane CSRF gate for the state-changing /account/tokens arms (#266). Same posture
+        as SharingModule._owner(mutating=True) and the latex recompile gate (#250): only a request
+        carrying a VERIFIED app-owned session cookie must present a matching X-CSRF-Token. The
+        transitional proxy plane and the bearer-token plane carry no such cookie (neither is
+        reachable cross-site with credentials), so they pass unchanged. app.sessions exists only on
+        the hosted composition; the plain local tier has no cookie plane, so the gate is correctly
+        absent there. Returns True to proceed; False after the 403 was written."""
+        sessions = getattr(self.server.app, "sessions", None)
+        if sessions is None:
+            return True
+        from mdreview.hosted.sessions import SessionService
+        cookie = SessionService.read_cookie(self)
+        sess = sessions.verify(cookie) if cookie else None
+        if sess and not sessions.check_csrf(sess, self.headers.get("X-CSRF-Token", "")):
+            self._json(403, {"error": "missing or invalid CSRF token"})
+            return False
+        return True
 
     def _authz(self, rid):
         """Per-review gate, read-order INVERTED (#103): consult the AccessPolicy FIRST, then demand
@@ -366,6 +392,8 @@ class H(BaseHTTPRequestHandler):
             if m == "GET":
                 return self._json(200, {"tokens": app.users.list_tokens(p.uid), "base": self._base()})
             if m == "POST":
+                if not self._csrf_ok():                       # #266: cross-site mint
+                    return
                 label = (self._body_json().get("label") or "").strip()
                 with app.store.lock:
                     token = app.users.mint_token(p.uid, label)
@@ -377,6 +405,8 @@ class H(BaseHTTPRequestHandler):
                 return
             if p.plane == "token":
                 return self._json(403, {"error": "tokens are managed from the browser"})
+            if not self._csrf_ok():                           # #266: cross-site revoke
+                return
             with app.store.lock:
                 ok = app.users.revoke_token(p.uid, mo.group(1))
             return self._json(200 if ok else 404,
@@ -498,16 +528,63 @@ class H(BaseHTTPRequestHandler):
             if plane is None:
                 return
             if m == "GET":
-                return self._send(200, app.reviews.read_source(rid),
-                                  "text/markdown; charset=utf-8", extra_headers=NOINDEX)
+                # #288: the edit-precondition token (revision) is issued atomically WITH the source
+                # as an ETag — body and token read under the ONE lock, so no write can interleave
+                # and hand the caller old text with a new token (the lost update the guard exists
+                # to prevent). Fetching the token from a separate /status call is forbidden by
+                # design for exactly that reason.
+                with app.store.lock:
+                    body = app.reviews.read_source(rid)
+                    rev = app.reviews.meta(rid).get("revision", 0)
+                return self._send(200, body, "text/markdown; charset=utf-8",
+                                  extra_headers=NOINDEX + (("ETag", '"%d"' % rev),))
             if m == "PUT":
+                # #289: CSRF keys on a VERIFIED SESSION, never on plane — plane "cookie" also
+                # covers proxy-vouched callers, which carry no app cookie and must keep writing
+                # untouched (epic #273 round-1 finding 1). The predicate lives in the hosted
+                # composition as a bound app.check_csrf (build_hosted, next to app.sessions),
+                # reached via getattr so the local tier's import graph is unchanged: no attribute,
+                # no gate — the local tier has no cookie plane to protect. Checked before the body
+                # is read, the same order as the /account/tokens arms (#266).
+                check_csrf = getattr(app, "check_csrf", None)
+                if check_csrf is not None and not check_csrf(self):
+                    return self._json(403, {"error": "missing or invalid CSRF token"})
                 b = self._body_json()
+                # #288 precondition: If-Match (the browser path) or an expected_revision body key
+                # (the MCP-wrapper path; an old server drops it, an old wrapper never sends it —
+                # additive both ways). Absent = today's unconditional write. The compare itself
+                # happens in put_source, inside the same store.lock as the write.
+                expected = self.headers.get("If-Match")
+                if expected is not None:
+                    expected = expected.strip().strip('"')
+                    if expected == "*":            # RFC 9110: If-Match: * = "exists", no precondition
+                        expected = None
+                else:
+                    expected = b.get("expected_revision")
+                if expected is not None:
+                    try:
+                        expected = int(expected)
+                    except (TypeError, ValueError):
+                        return self._json(400, {"error": "If-Match / expected_revision must be "
+                                                         "the integer revision from GET /source"})
+                # #289 attribution: derived from the authenticated plane, never a spoofable body
+                # field (the comment-role precedent below). Cookie plane (session or proxy-vouched
+                # human) -> reviewer; on the local plane the viewer identifies itself with an
+                # X-Mdreview-Client: viewer header (spoofable only by the local operator, who is
+                # both parties — epic #273 named risk 2); everything else (bearer token, local
+                # wrapper) is an agent write.
+                reviewer = (plane == "cookie"
+                            or (plane == "local"
+                                and self.headers.get("X-Mdreview-Client", "") == "viewer"))
                 # Same seam the POST arm uses at :438 — a feature module rejects the write by
                 # raising the core-defined base type, and core renders it without importing the
                 # module. #188: the latex decorator raises when a latex review's body is not TeX.
+                # #288: a stale expected_revision raises the same base type with status 409.
                 try:
                     with app.store.lock:
-                        app.reviews.put_source(rid, b.get("markdown", ""))
+                        app.reviews.put_source(rid, b.get("markdown", ""),
+                                               expected_revision=expected,
+                                               updated_by="reviewer" if reviewer else "agent")
                 except ReviewWriteRejected as e:
                     return self._json(e.status, e.payload or {"error": str(e)})
                 return self._json(200, app.reviews.meta(rid))
@@ -537,8 +614,11 @@ class H(BaseHTTPRequestHandler):
             uid, plane = self._authz(rid)
             if plane is None:
                 return
-            mt = app.reviews.meta(rid)
+            # #187: summary(), not meta() - the poll now reports the derived status too (additive),
+            # so a manually resolved review reads "resolved" here as well as on the list/summary.
+            mt = app.reviews.summary(rid)
             return self._json(200, {
+                "status": mt.get("status"),
                 "source_updated": mt.get("source_updated", 0),
                 "feedback_updated": mt.get("feedback_updated", 0),
                 "comments_updated": mt.get("comments_updated", 0),
@@ -547,7 +627,58 @@ class H(BaseHTTPRequestHandler):
                 "turn_updated": mt.get("turn_updated", 0),
                 "handoff": mt.get("handoff"),
                 "agent_status": mt.get("agent_status"),
+                # #288: revision explicitly defaulted (legacy reviews predate the key), and
+                # can_edit derived from the SAME custody can_write the PUT arm enforces — true for
+                # the owner and the local tier (owner by construction), false for a share/comment
+                # grantee or an anonymous public-share reader. This key is unconditional, so every
+                # /status row in both golden-transcript tiers drifts; re-blessed under #288
+                # (epic #273 named risk 3, accepted at G1 sign-off).
+                "revision": mt.get("revision", 0),
+                "can_edit": bool(app.policy.can_write(self._principal(), rid)),
+                # #289: who authored the current draft. Lifecycle: a reviewer write SETS the meta
+                # key, an agent write DELETES it, readers default "agent" — so this echo is the
+                # documented default, not a new persisted field. /status is already exempt from
+                # the byte-identical contract (#288's unconditional can_edit); every other
+                # response stays untouched for an all-agent-plane review.
+                "source_updated_by": mt.get("source_updated_by", "agent"),
             })
+
+        # ---- manual resolve (#187): a human sign-off, APPROVAL-CLASS, cookie plane ONLY ----------
+        # product.md: "whatever a human can do in the viewer, an agent can do over MCP, except
+        # approve" - and a manual resolve IS an approval, not inbox tidying (owner decision,
+        # 2026-07-29, recorded on #187). So this route DELIBERATELY DIVERGES from the documented
+        # sharing posture (SharingModule's "authenticated via the session OR the agent token"): the
+        # bearer-token plane is REFUSED here, even for a token that owns the review and can write
+        # everywhere else, because an agent must never be able to mark its own work done. No MCP
+        # tool exists for this route, in any plane - do not "fix" the 403 below back to parity.
+        # Owner-only via the same custody can_write choke as every workflow write; CSRF-checked in
+        # the shape SharingModule._owner / LatexModule._recompile use (app.sessions exists only on
+        # the hosted composition; the local tier has no cookie plane, so the getattr gate is
+        # correctly absent there, and the transitional proxy plane carries no app cookie).
+        mo = re.fullmatch(r"/api/reviews/" + RID + r"/resolve", path)
+        if mo and m == "POST":
+            rid = mo.group(1)
+            uid, plane = self._authz(rid)
+            if plane is None:
+                return
+            if plane == "token":
+                self._audit("resolve_token_refused", uid=uid, rid=rid)
+                return self._json(403, {"error": "manual resolve is a human sign-off; "
+                                        "it cannot be performed with an API token"})
+            sessions = getattr(app, "sessions", None)
+            if sessions is not None:
+                from mdreview.hosted.sessions import SessionService
+                cookie = SessionService.read_cookie(self)
+                sess = sessions.verify(cookie) if cookie else None
+                if sess and not sessions.check_csrf(sess, self.headers.get("X-CSRF-Token", "")):
+                    return self._json(403, {"error": "missing or invalid CSRF token"})
+            resolved = self._body_json().get("resolved")
+            if not isinstance(resolved, bool):
+                return self._json(400, {"error": "resolved must be true or false"})
+            with app.store.lock:
+                app.reviews.set_resolved(rid, resolved)
+            self._audit("review_resolved" if resolved else "review_unresolved", uid=uid, rid=rid)
+            return self._json(200, app.reviews.summary(rid))
 
         # Turn baton handoff (MR-051/054/055). The guarded read-decide-write of the turn/lease state
         # lives in HandoffService.apply, called under the one lock so the write and the /wait wake are

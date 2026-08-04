@@ -120,15 +120,21 @@
 
   // Styles are injected rather than added to a stylesheet, for the same reason account.js does it:
   // the sheet appears on five pages and two of them (viewer, latex-viewer) are deliberately OFF
-  // Basecoat, so there is no single stylesheet that reaches all of them. Every colour is a var()
-  // with a literal fallback, so it picks up each page's tokens where they exist and still renders
-  // where they do not. No Basecoat classes: `.dialog` is unavailable on the viewers.
+  // Basecoat, so there is no single stylesheet that reaches all of them. Colours resolve through
+  // theme.css's contract tokens (#285): every page links theme.css, each token carries both
+  // themes via light-dark(), and the tokens follow the EFFECTIVE theme — data-theme override
+  // included — which is exactly what the old @media (prefers-color-scheme:dark) block here could
+  // not do (it consulted the OS and disagreed with an explicit override; #285 deleted it). The
+  // historical dark-keycap bug (kbd background restated without its COLOUR: unreadable keycaps
+  // that still passed DOM assertions) cannot recur in this shape — kbd colour and background now
+  // come from one token table. No literal fallbacks: theme.css is a hard dependency of every
+  // page that loads this file. No Basecoat classes: `.dialog` is unavailable on the viewers.
   var CSS = "#keysheet{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;" +
-    "justify-content:center;background:rgba(0,0,0,.45)}" +
-    "#keysheet .keysheet-card{background:var(--bg,#fff);color:var(--fg,#111);" +
-    "border:1px solid var(--border,#e3e3e8);border-radius:var(--radius-lg,10px);" +
+    "justify-content:center;background:var(--scrim)}" +
+    "#keysheet .keysheet-card{background:var(--surface-raised);color:var(--text);" +
+    "border:1px solid var(--border);border-radius:var(--r-panel,10px);" +
     "min-width:min(420px,92vw);max-height:80vh;overflow:auto;padding:16px 18px;" +
-    "box-shadow:0 10px 40px rgba(0,0,0,.25)}" +
+    "box-shadow:var(--shadow-menu)}" +
     "#keysheet .keysheet-head{display:flex;align-items:center;justify-content:space-between;" +
     "gap:16px;margin-bottom:10px}" +
     "#keysheet .keysheet-x{background:none;border:0;font-size:20px;line-height:1;cursor:pointer;" +
@@ -136,17 +142,9 @@
     "#keysheet table{border-collapse:collapse;width:100%}" +
     "#keysheet td{padding:5px 0;vertical-align:top;font-size:14px}" +
     "#keysheet td.k{white-space:nowrap;padding-right:18px;width:1%}" +
-    "#keysheet kbd{display:inline-block;border:1px solid var(--border,#d7d7de);border-bottom-width:2px;" +
-    "border-radius:5px;padding:1px 6px;font:inherit;font-size:12px;background:var(--muted,#f6f6f8);" +
-    "color:var(--fg,#111)}" +
-    // The dark block MUST restate the kbd COLOUR, not only its background. The viewers define
-    // --text/--rule, not --fg/--border, so every var() here falls through to its literal; without
-    // this line the keycaps kept the light-mode #111 and were near-invisible on a dark card. The
-    // assertions passed the whole time, because a kbd you cannot read is still a kbd in the DOM.
-    "@media (prefers-color-scheme:dark){#keysheet .keysheet-card{background:var(--bg,#16161a);" +
-    "color:var(--fg,#eee);border-color:var(--border,#2c2c33)}" +
-    "#keysheet kbd{background:var(--muted,#24242a);border-color:var(--border,#3a3a42);" +
-    "color:var(--fg,#eee)}}";
+    "#keysheet kbd{display:inline-block;border:1px solid var(--border);border-bottom-width:2px;" +
+    "border-radius:5px;padding:1px 6px;font:inherit;font-size:12px;background:var(--code-bg);" +
+    "color:var(--text)}";
 
   function injectCss() {
     if (document.getElementById("keysheet-css")) return;

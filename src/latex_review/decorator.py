@@ -81,12 +81,18 @@ class LatexAwareReviews:
             self._worker.enqueue(rid)
         return rid
 
-    def put_source(self, rid, markdown):
+    def put_source(self, rid, markdown, expected_revision=None, updated_by="agent"):
+        # Signature widened WITH ReviewService.put_source (#288, updated_by in #289): this is an
+        # explicit override, not __getattr__ delegation, so leaving it narrow would TypeError (500)
+        # every latex write the moment the core arm passes the new argument. The precondition
+        # compare and the attribution lifecycle both live in the inner service, under the
+        # caller-held store.lock.
         # kind is read BEFORE the write: put_source snapshots a history round and overwrites
         # source.md, so a body rejected afterwards would already have destroyed the good one.
         is_latex = self._inner.meta(rid).get("kind") == "latex"
         if is_latex:
             _require_tex(markdown, allow_empty=False)
-        self._inner.put_source(rid, markdown)
+        self._inner.put_source(rid, markdown, expected_revision=expected_revision,
+                               updated_by=updated_by)
         if is_latex:
             self._worker.enqueue(rid)

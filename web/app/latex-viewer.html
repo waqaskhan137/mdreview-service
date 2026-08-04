@@ -2,12 +2,22 @@
 <!-- LaTeX paper review viewer (MR-097). Overleaf-style split: LaTeX source (line-numbered,
      highlighted) left, live server-compiled PDF right. Reuses the shared comment store verbatim
      (block_num = source line number); no turn baton. Self-contained per the repo convention.
-     UI contract: mockup artifact b1132f25-daf3-43d8-ba92-d41655fb68d4. -->
+     UI contract: Polish design rev 3, screens 04 (split) and 05 (comments off), both themes
+     (#280; original layout from mockup artifact b1132f25-daf3-43d8-ba92-d41655fb68d4). -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · latex</title>
+<script>
+/* #285 pre-paint theme applier — IDENTICAL in all five page heads (dashboard, viewer,
+   latex-viewer, account, admin); edit all five together. It must run synchronously in <head>,
+   before first paint: account.js (which renders the toggle) is end-of-body and too late, and a
+   deferred applier would flash the wrong theme. An explicit stored choice pins data-theme;
+   anything else (key absent, garbage value, storage unavailable) means auto: attribute off,
+   CSS follows the OS. */
+(function(){try{var t=localStorage.getItem("mdr.theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
+</script>
 <link rel="stylesheet" href="/static/theme.css">
 <style>
   /* Colour tokens live in /static/theme.css (#153) — never redefine them per page. */
@@ -15,37 +25,42 @@
 
   *{box-sizing:border-box;}
   html,body{height:100%;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-ui);
     font-size:13px;display:flex;flex-direction:column;overflow:hidden;}
 
-  .topbar{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;
-    padding:11px 20px;border-bottom:1px solid var(--rule);background:var(--bg);}
-  .tb-left{display:flex;align-items:center;gap:10px;min-width:0;}
-  .home{color:var(--muted-fg);text-decoration:none;font-weight:500;white-space:nowrap;}
+  /* Rev 3 top bar (#280): 56px tall, hairline rule (--border-faint), no fill of its own. */
+  .topbar{flex:0 0 56px;height:56px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:0 16px;border-bottom:1px solid var(--border-faint);background:var(--bg);}
+  .tb-left{display:flex;align-items:center;gap:8px;min-width:0;}
+  .home{color:var(--text-muted);text-decoration:none;font-weight:500;white-space:nowrap;font-size:13px;}
   .home:hover{color:var(--text);}
-  .tb-sep{color:var(--rule);}
-  .filename{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--brand);
+  .tb-sep{color:var(--border);}
+  .filename{font-family:var(--font-mono);font-size:13px;color:var(--accent);
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .typechip{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--blue);background:var(--blue-bg);border-radius:var(--r-pill);padding:2px 6px;}
-  .tb-right{font-size:12px;color:var(--muted-fg);letter-spacing:.03em;white-space:nowrap;font-variant:small-caps;}
+  /* Rev 3: the LATEX chip is quiet chrome (mono on --code-bg), retiring the legacy blue badge. */
+  .typechip{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--text-subtle);background:var(--code-bg);border-radius:var(--r-pill);padding:2px 6px;}
+  .tb-right{font-size:12px;color:var(--text-muted);letter-spacing:.03em;white-space:nowrap;font-variant-numeric:tabular-nums;}
 
   .tabbar{display:none;}
   .split{flex:1;display:flex;min-height:0;}
   .srcpane{flex:0 0 46%;min-width:280px;display:flex;flex-direction:column;min-height:0;background:var(--bg);}
-  .vdiv{flex:0 0 5px;cursor:col-resize;background:var(--rule);position:relative;}
+  .vdiv{flex:0 0 5px;cursor:col-resize;background:var(--border);position:relative;}
   .vdiv::after{content:"";position:absolute;inset:0 -3px;}
-  .vdiv:hover,.vdiv.drag{background:var(--brand);}
-  .pdfpane{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--canvas);}
+  .vdiv:hover,.vdiv.drag{background:var(--accent);}
+  /* Rev 3: the recessed backdrop behind the PDF sheet is --code-bg (the design's own annotation
+     says "backdrop (--code-bg)"), not --canvas. The white sheet itself is drawn by the native PDF
+     viewer inside the iframe and is unthemable from here. */
+  .pdfpane{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--code-bg);}
 
-  .panehead{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--rule);
-    background:var(--bg);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);}
-  .panehead .mono{font-family:ui-monospace,Menlo,monospace;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text);}
+  .panehead{flex:0 0 32px;height:32px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border-faint);
+    background:var(--bg);font-family:var(--font-mono);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);}
+  .panehead .mono{font-family:var(--font-mono);text-transform:none;letter-spacing:0;font-size:12px;color:var(--text);}
   /* #189: copy the raw .tex. margin-left:auto parks it at the pane's trailing edge. */
-  .panehead .headbtn{margin-left:auto;font:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
-    color:var(--muted-fg);background:none;border:1px solid var(--rule);border-radius:var(--r-control);
+  .panehead .headbtn{margin-left:auto;font:inherit;font-size:12px;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:var(--r-control);
     padding:2px 9px;cursor:pointer;}
-  .panehead .headbtn:hover{color:var(--text);border-color:var(--muted-fg);}
-  .panehead .headbtn:focus-visible{outline:2px solid var(--brand);outline-offset:2px;}
+  .panehead .headbtn:hover{color:var(--text);border-color:var(--text-muted);}
+  .panehead .headbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 
   .srcscroll{flex:1;overflow:auto;position:relative;display:flex;align-items:flex-start;}
   /* An explicit `display` BEATS the [hidden] attribute's UA display:none, so hiding the source
@@ -55,104 +70,144 @@
      for codecol + railcol, and reusing it put the diff header beside the rows instead of above. */
   .diffscroll{flex:1;overflow:auto;position:relative;display:block;}
   .diffscroll[hidden]{display:none;}
+  /* #291: edit mode. A third source-pane view, same [hidden]-beats-flex contract as srcscroll and
+     diffscroll above (an explicit display beats the UA default or two panes stack, #208's bug
+     again). BLOCK layout, like diffscroll: it is a column (textarea + bottom bar), not the
+     codecol+railcol row srcscroll is built for. */
+  .editscroll{flex:1;display:flex;flex-direction:column;min-height:0;}
+  .editscroll[hidden]{display:none;}
+  .editscroll textarea{flex:1;width:100%;border:0;resize:none;padding:12px 14px;margin:0;
+    font-family:var(--font-mono);font-size:13px;line-height:1.62;
+    background:var(--bg);color:var(--text);outline:none;}
+  .editbar{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 14px;
+    border-top:1px solid var(--border);background:var(--bg);}
+  .editerr{flex:1;color:var(--warning);font-size:12px;line-height:1.4;}
+  .editerr[hidden]{display:none;}
+  /* Mutual exclusion (AC): edit mode always wins over diff mode (enterEdit forces DIFFON off), so
+     this is belt-and-suspenders — the diff toggle stays inert (JS guard) and visibly says so. */
+  body.editing #difftoggle{opacity:.35;pointer-events:none;}
+  /* theme.css's shared .difftoggle{display:inline-flex} is an AUTHOR rule, so it beats the UA's
+     [hidden]{display:none} — the explicit-display-beats-hidden trap #208 documents for .srcscroll,
+     on the button itself this time. Without this gate the Diff pill renders on a fresh review that
+     has never had an agent push (found by #279; same shared rule, same bug here). */
+  .difftoggle[hidden]{display:none;}
   .codecol{flex:1;min-width:0;padding:12px 0 60vh;}
   .ln{display:flex;padding:1px 14px 1px 0;line-height:1.62;position:relative;}
-  .ln:hover{background:rgba(127,127,127,.07);}
-  .ln .n{flex:0 0 46px;text-align:right;padding-right:12px;color:var(--muted2);opacity:.55;
-    font-family:ui-monospace,Menlo,monospace;font-size:11.5px;user-select:none;cursor:pointer;
+  .ln:hover{background:var(--code-bg);}
+  .ln .n{flex:0 0 46px;text-align:right;padding-right:12px;color:var(--text-subtle);opacity:.55;
+    font-family:var(--font-mono);font-size:12px;user-select:none;cursor:pointer;
     font-variant-numeric:tabular-nums;padding-top:1px;}
-  .ln .n:hover{opacity:1;color:var(--brand);}
-  .ln .src{flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;white-space:pre-wrap;word-break:break-word;}
-  .ln.has-c{box-shadow:inset 3px 0 0 var(--noteline);background:rgba(91,48,214,.06);}
+  .ln .n:hover{opacity:1;color:var(--accent);}
+  .ln .src{flex:1;font-family:var(--font-mono);font-size:13px;white-space:pre-wrap;word-break:break-word;}
+  /* Rev 3 commented-line marker: inset 3px accent rule + accent-muted tint, gutter at full strength. */
+  .ln.has-c{box-shadow:inset 3px 0 0 var(--accent);background:var(--accent-muted);}
   .ln.has-c .n{opacity:1;}
-  .ln.flash{background:var(--accent-bg);}
+  .ln.flash{background:var(--accent-muted);}
   .addb{position:absolute;left:3px;top:50%;transform:translateY(-50%);width:18px;height:18px;border:none;
-    border-radius:var(--r-control);background:var(--brand);color:#fff;font-size:14px;line-height:1;cursor:pointer;
-    display:none;padding:0;box-shadow:0 1px 4px rgba(0,0,0,.25);}
+    border-radius:var(--r-control);background:var(--accent);color:var(--bg);font-size:14px;line-height:1;cursor:pointer;
+    display:none;padding:0;}
   .ln:hover .addb,.addb:focus-visible{display:block;}
-  .tx-c{color:var(--blue);}          /* \command */
-  .tx-m{color:var(--brand);}        /* $math$ */
-  .tx-x{color:var(--muted2);font-style:italic;}   /* % comment */
-  mark.cmt{background:rgba(91,48,214,.18);color:inherit;border-radius:var(--r-control);cursor:pointer;}
-  mark.cmt.active{background:rgba(91,48,214,.40);}
+  /* Rev 3 syntax mapping: commands and $math$ both take the accent (the mock colours \section and
+     $\delta$ identically); % comments stay muted italic. Colours ONLY — highlightLatex() and its
+     concatenated-textContent contract are untouched. */
+  .tx-c{color:var(--accent);}        /* \command */
+  .tx-m{color:var(--accent);}        /* $math$ */
+  .tx-x{color:var(--text-subtle);font-style:italic;}   /* % comment */
+  /* Inline comment highlight = the design's text-highlight idiom (screen 03): accent-muted fill
+     plus a 1px accent underline, which is what keeps it legible INSIDE a .has-c line that already
+     carries the accent-muted tint. */
+  mark.cmt{background:var(--accent-muted);box-shadow:inset 0 -1px 0 var(--accent);color:inherit;border-radius:2px;cursor:pointer;}
+  mark.cmt.active{background:var(--accent);color:var(--bg);}
 
   /* comment rail inside the source scroll (mockup .railcol) */
   .railcol{flex:0 0 296px;position:relative;padding:12px 12px 60vh 0;min-height:100%;}
-  body.norail .railcol{display:none;}
-  .gcard{position:absolute;width:284px;background:var(--bg);border:1px solid var(--rule);border-left:3px solid var(--noteline);
-    border-radius:var(--r-control);padding:9px 11px;font-size:13px;line-height:1.4;box-shadow:0 1px 6px rgba(0,0,0,.06);
+  /* Two INDEPENDENT reasons to hide the rail, one visual rule. body.norail is the RESPONSIVE
+     state, owned by layoutCards(), which rewrites it on every repaint, resize and divider drag —
+     nothing else may touch it. body.rail-off is the reviewer's manual comments-off toggle (#280,
+     screen 05); it survives every layoutCards() rewrite precisely because it is a distinct class.
+     The rail renders only when NEITHER flag is set. */
+  body.norail .railcol,body.rail-off .railcol{display:none;}
+  .gcard{position:absolute;width:284px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);
+    border-radius:var(--r-card);padding:9px 11px;font-size:13px;line-height:1.4;box-shadow:var(--shadow-hair);
     transition:top .16s ease,box-shadow .15s,border-color .15s;}
-  .gcard:hover,.gcard.active{box-shadow:0 5px 18px rgba(0,0,0,.18);border-left-color:var(--brand);}
+  .gcard:hover,.gcard.active{box-shadow:var(--shadow-menu);border-left-color:var(--accent-strong);}
   .ghead{display:flex;gap:6px;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;}
-  .gref{color:var(--brand);font-weight:700;}
-  .gq{color:var(--muted-fg);font-style:italic;font-size:12px;max-height:48px;overflow:hidden;}
-  .gdel{margin-left:auto;background:none;border:none;cursor:pointer;font:inherit;font-size:11px;color:var(--muted-fg);padding:1px 5px;border-radius:var(--r-control);}
-  .gdel:hover{color:#c0392b;background:rgba(192,57,43,.10);}
-  .gdel.armed{color:#fff;background:#c0392b;font-weight:600;}
+  .gref{color:var(--accent);font-weight:700;}
+  .gq{color:var(--text-muted);font-style:italic;font-size:12px;max-height:48px;overflow:hidden;}
+  .gdel{margin-left:auto;background:none;border:none;cursor:pointer;font:inherit;font-size:11px;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
+  .gdel:hover{color:var(--danger);background:var(--danger-bg);}
+  .gdel.armed{color:var(--bg);background:var(--danger);font-weight:600;}
   .gthread{display:flex;flex-direction:column;gap:5px;}
-  .gentry{border-left:3px solid var(--rule);background:rgba(127,127,127,.05);border-radius:var(--r-control);padding:4px 8px;}
-  .gentry.reviewer{border-left-color:var(--noteline);background:rgba(91,48,214,.07);}
-  .gentry.agent{border-left-color:var(--blue);background:rgba(29,79,191,.08);}
-  .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted-fg);margin-right:5px;}
-  .gentry.reviewer .grole{color:var(--noteline);}
-  .gentry.agent .grole{color:var(--blue);}
+  .gentry{border-left:3px solid var(--border);background:var(--code-bg);border-radius:var(--r-control);padding:4px 8px;}
+  .gentry.reviewer{border-left-color:var(--accent);background:var(--accent-muted);}
+  /* Rev 3 has no blue: the agent's entries read as quiet chrome (code-bg + muted), the reviewer's
+     as accent — matching the mock's ak/ag avatar treatment. */
+  .gentry.agent{border-left-color:var(--border);background:var(--code-bg);}
+  .grole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--text-muted);margin-right:5px;}
+  .gentry.reviewer .grole{color:var(--accent);}
+  .gentry.agent .grole{color:var(--text-muted);}
   .gtext{color:var(--text);}
   .gtext>:first-child{margin-top:0;}.gtext>:last-child{margin-bottom:0;}
-  .gtext p{margin:.4em 0;}.gtext code{font-family:ui-monospace,Menlo,monospace;font-size:.9em;background:rgba(127,127,127,.16);padding:.5px 4px;border-radius:var(--r-control);}
-  .gtext pre{background:rgba(127,127,127,.12);padding:7px 9px;border-radius:var(--r-control);overflow:auto;margin:.4em 0;}
-  .gtext a{color:var(--brand);}
+  .gtext p{margin:.4em 0;}.gtext code{font-family:var(--font-mono);font-size:.9em;background:var(--code-bg);padding:.5px 4px;border-radius:var(--r-control);}
+  .gtext pre{background:var(--code-bg);padding:7px 9px;border-radius:var(--r-control);overflow:auto;margin:.4em 0;}
+  .gtext a{color:var(--accent);}
   .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
-  .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font:inherit;font-size:12.5px;border:1px solid var(--rule);
+  .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font:inherit;font-size:12.5px;border:1px solid var(--border);
     border-radius:var(--r-control);padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
-  .btn{font:inherit;font-size:12.5px;border-radius:var(--r-control);padding:6px 13px;cursor:pointer;border:1px solid var(--rule);background:var(--panel);color:var(--text);}
-  .btn:hover{border-color:var(--muted2);}
+  .btn{font:inherit;font-size:12.5px;border-radius:var(--r-control);padding:6px 13px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);}
+  .btn:hover{border-color:var(--text-subtle);}
   /* #152 slice C: primary buttons (composer "Comment", "Download PDF") use the app-wide brand violet
      with --bg text, matching Basecoat's --primary on the other pages and the viewer (slice B). --bg
      text keeps contrast correct in dark mode. Like the viewer, this page stays off Basecoat's CSS on
      purpose — its preflight would strip list markers from comment-body markdown — and instead aligns
      via the shared theme.css tokens. */
-  .btn.primary{background:var(--brand);color:var(--bg);border-color:var(--brand);}
-  .btn.primary:hover{filter:brightness(1.06);}
+  .btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+  .btn.primary:hover{background:var(--accent-strong);border-color:var(--accent-strong);}
   .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
 
-  /* PDF pane */
-  .pdfbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--rule);
-    background:var(--bg);font-size:12px;color:var(--muted-fg);}
+  /* PDF pane. The bar carries no fill of its own (rev 3): it sits on the pane's --code-bg. */
+  .pdfbar{flex:0 0 32px;height:32px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border-faint);
+    font-size:12px;color:var(--text-muted);}
   .pdfbar .st{font-variant-numeric:tabular-nums;}
   .pdfbar .dl{margin-left:auto;}
+  /* #250: retry a failed compile without editing the source. Same visibility contract as .errbar —
+     body.compile-failed drives it, so it appears on a COLD load of a failed review and never on ok. */
+  .pdfbar .recompile{display:none;}
+  body.compile-failed .pdfbar .recompile{display:inline-block;}
+  .pdfbar .recompile[disabled]{opacity:.55;cursor:default;}
   .dl{text-decoration:none;}
-  .errbar{display:none;flex:0 0 auto;padding:8px 14px;background:var(--warn-bg);border-bottom:1px solid var(--warn);color:var(--warn);font-size:12px;}
+  .errbar{display:none;flex:0 0 auto;padding:8px 14px;background:var(--warning-bg);border-bottom:1px solid var(--warning);color:var(--warning);font-size:12px;}
   body.compile-failed .errbar{display:block;}
   .errbar summary{cursor:pointer;font-weight:600;}
-  .errbar pre{margin:6px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--text);}
+  .errbar pre{margin:6px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;font-family:var(--font-mono);font-size:11px;color:var(--text);}
   .pdfwrap{flex:1;min-height:0;position:relative;}
-  #pdfframe{border:0;width:100%;height:100%;background:var(--canvas);}
-  .pdfmsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted-fg);font-size:13px;padding:20px;text-align:center;}
+  #pdfframe{border:0;width:100%;height:100%;background:var(--code-bg);}
+  .pdfmsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px;padding:20px;text-align:center;}
 
-  #toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:90;background:var(--brand);color:#fff;
-    font-size:13px;padding:8px 16px;border-radius:var(--r-card);box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;}
+  #toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:90;background:var(--accent);color:var(--bg);
+    font-size:13px;padding:8px 16px;border-radius:var(--r-card);box-shadow:var(--shadow-menu);opacity:0;transition:opacity .25s;pointer-events:none;}
   /* An action toast has to be clickable, which the default explicitly is not, and has to outlive
      the 1.8s fade or the action is decorative (#208). */
   #toast.hasaction{pointer-events:auto;display:flex;align-items:center;gap:12px;}
   #toast .toastbtn{font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;background:none;
-    border:1px solid rgba(255,255,255,.65);color:#fff;border-radius:var(--r-control);padding:2px 9px;}
-  #toast .toastbtn:hover{background:rgba(255,255,255,.15);}
-  #addbtn{position:fixed;z-index:50;display:none;background:var(--brand);color:#fff;border:none;border-radius:var(--r-control);
-    padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);}
-  #pop{position:fixed;z-index:60;display:none;width:320px;background:var(--bg);border:1px solid var(--rule);border-radius:var(--r-card);
-    box-shadow:0 8px 30px rgba(0,0,0,.3);padding:13px;}
-  #pop .q{font-size:12px;color:var(--muted-fg);font-style:italic;margin:0 0 8px;font-family:ui-monospace,Menlo,monospace;
+    border:1px solid var(--bg);color:var(--bg);border-radius:var(--r-control);padding:2px 9px;}
+  #toast .toastbtn:hover{background:var(--accent-strong);}
+  #addbtn{position:fixed;z-index:50;display:none;background:var(--accent);color:var(--bg);border:none;border-radius:var(--r-control);
+    padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;box-shadow:var(--shadow-menu);}
+  #pop{position:fixed;z-index:60;display:none;width:320px;background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--r-card);
+    box-shadow:var(--shadow-menu);padding:13px;}
+  #pop .q{font-size:12px;color:var(--text-muted);font-style:italic;margin:0 0 8px;font-family:var(--font-mono);
     white-space:pre-wrap;max-height:56px;overflow:auto;}
-  #pop textarea{width:100%;min-height:70px;font:inherit;font-size:13.5px;border:1px solid var(--rule);border-radius:var(--r-control);
+  #pop textarea{width:100%;min-height:70px;font:inherit;font-size:13.5px;border:1px solid var(--border);border-radius:var(--r-control);
     padding:8px;background:var(--bg);color:var(--text);resize:vertical;}
   #pop .row{display:flex;gap:8px;justify-content:flex-end;margin-top:9px;}
 
   #dock{position:fixed;right:18px;bottom:18px;z-index:55;}
-  #dockbar{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--rule);border-radius:var(--r-pill);
-    padding:8px 12px;box-shadow:0 4px 18px rgba(0,0,0,.2);}
-  #count{font-size:13px;color:var(--muted-fg);}
+  #dockbar{display:flex;gap:8px;align-items:center;background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--r-pill);
+    padding:8px 12px;box-shadow:var(--shadow-dock);}
+  #count{font-size:13px;color:var(--text-muted);}
   #cmtdock{display:none;position:fixed;right:18px;bottom:70px;z-index:55;width:340px;max-height:64vh;overflow:auto;
-    background:var(--bg);border:1px solid var(--rule);border-radius:var(--r-card);box-shadow:0 8px 30px rgba(0,0,0,.25);padding:12px;}
+    background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-dock);padding:12px;}
   #cmtdock.show{display:block;}
   #cmtdock .gcard{position:static;width:auto;margin-bottom:8px;box-shadow:none;}
 
@@ -161,62 +216,62 @@
     .vdiv{display:none;}
     .srcpane{flex:1;min-width:0;}
     .pdfpane{flex:1;}
-    .tabbar{display:flex;gap:6px;padding:7px 14px;border-bottom:1px solid var(--rule);background:var(--bg);}
-    .tabbar button{font:inherit;font-size:12px;border:1px solid var(--rule);background:var(--bg);color:var(--text);border-radius:var(--r-control);padding:4px 14px;cursor:pointer;}
-    .tabbar button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff;}
+    .tabbar{display:flex;gap:6px;padding:7px 14px;border-bottom:1px solid var(--border);background:var(--bg);}
+    .tabbar button{font:inherit;font-size:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:var(--r-control);padding:4px 14px;cursor:pointer;}
+    .tabbar button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg);}
     body.show-pdf .srcpane{display:none;}
     body:not(.show-pdf) .pdfpane{display:none;}
   }
-  button:focus-visible,a:focus-visible,.ln .n:focus-visible{outline:2px solid var(--brand);outline-offset:2px;}
+  button:focus-visible,a:focus-visible,.ln .n:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 
   /* ---- Share control (#133 public link, extended by #134 people) — copied verbatim from viewer.html
      so both viewers show the same panel (#152 latex share-parity). Keep in sync with viewer.html. ---- */
   .tb-btn{font:inherit;font-size:12.5px;font-weight:600;color:var(--text);background:none;
-    border:1px solid var(--rule);border-radius:var(--r-control);padding:5px 12px;cursor:pointer;
+    border:1px solid var(--border);border-radius:var(--r-control);padding:5px 12px;cursor:pointer;
     text-transform:none;letter-spacing:normal;}
-  .tb-btn:hover{border-color:var(--muted2,var(--muted-fg));}
+  .tb-btn:hover{border-color:var(--text-subtle,var(--text-muted));}
   .share-wrap{position:relative;display:flex;}
-  .sharepop{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--panel);
-    border:1px solid var(--rule);border-radius:var(--r-panel);box-shadow:0 12px 40px rgba(20,22,40,.16);
+  .sharepop{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--surface);
+    border:1px solid var(--border);border-radius:var(--r-panel);box-shadow:var(--shadow-menu);
     padding:16px;z-index:60;text-transform:none;letter-spacing:normal;text-align:left;}
   .sharepop h3{margin:0 0 12px;font-size:14px;font-weight:700;color:var(--text);}
   .share-row{display:flex;align-items:center;justify-content:space-between;gap:14px;}
   .share-lbl{font-size:13px;color:var(--text);}
-  .share-lbl small{display:block;color:var(--muted-fg);font-size:11.5px;margin-top:2px;font-weight:400;}
+  .share-lbl small{display:block;color:var(--text-muted);font-size:11.5px;margin-top:2px;font-weight:400;}
   .switch{position:relative;width:40px;height:22px;flex:0 0 auto;display:inline-block;}
   .switch input{opacity:0;width:0;height:0;position:absolute;}
-  .switch .track{position:absolute;inset:0;background:var(--rule);border-radius:var(--r-pill);transition:.15s;
+  .switch .track{position:absolute;inset:0;background:var(--border);border-radius:var(--r-pill);transition:.15s;
     cursor:pointer;display:block;}
   .switch .track:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;
-    background:#fff;border-radius:var(--r-pill);transition:.15s;}
-  .switch input:checked + .track{background:#5b46e6;}
+    background:var(--paper);border-radius:var(--r-pill);transition:.15s;}
+  .switch input:checked + .track{background:var(--accent);}
   .switch input:checked + .track:before{transform:translateX(18px);}
   .share-link{display:flex;gap:8px;margin-top:14px;}
   .share-link input{flex:1;min-width:0;font:inherit;font-size:12px;padding:8px 10px;
-    border:1px solid var(--rule);border-radius:var(--r-control);background:var(--bg);color:var(--muted-fg);}
+    border:1px solid var(--border);border-radius:var(--r-control);background:var(--bg);color:var(--text-muted);}
   .share-copy{font:inherit;font-size:12.5px;font-weight:600;padding:8px 14px;border:none;
-    border-radius:var(--r-control);background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
+    border-radius:var(--r-control);background:var(--accent);color:var(--bg);cursor:pointer;white-space:nowrap;}
   .share-copy:hover{opacity:.92;}
   /* #134 named-share / people section */
-  .share-sep{height:1px;background:var(--rule);margin:16px 0;}
+  .share-sep{height:1px;background:var(--border);margin:16px 0;}
   .share-people h4{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.05em;
-    text-transform:uppercase;color:var(--muted-fg);}
+    text-transform:uppercase;color:var(--text-muted);}
   .share-list{display:flex;flex-direction:column;gap:8px;margin:0 0 12px;}
   .share-item{display:flex;align-items:center;gap:8px;font-size:13px;}
   .share-item .em{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
-  .share-item .rt{font-size:11px;font-weight:600;color:var(--muted-fg);text-transform:capitalize;}
-  .share-item .rm{background:none;border:none;color:var(--muted2,var(--muted-fg));cursor:pointer;
+  .share-item .rt{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:capitalize;}
+  .share-item .rm{background:none;border:none;color:var(--text-subtle,var(--text-muted));cursor:pointer;
     font-size:16px;line-height:1;padding:1px 5px;border-radius:var(--r-control);}
-  .share-item .rm:hover{color:#c0392b;background:rgba(192,57,43,.1);}
-  .share-empty{color:var(--muted-fg);font-size:12.5px;margin:0 0 12px;}
+  .share-item .rm:hover{color:var(--danger);background:color-mix(in srgb, var(--danger) 10%, transparent);}
+  .share-empty{color:var(--text-muted);font-size:12.5px;margin:0 0 12px;}
   .share-invite{display:flex;gap:6px;align-items:center;}
   .share-invite input{flex:1;min-width:0;font:inherit;font-size:12.5px;padding:8px 10px;
-    border:1px solid var(--rule);border-radius:var(--r-control);background:var(--bg);color:var(--text);}
-  .share-invite select{font:inherit;font-size:12.5px;padding:8px 6px;border:1px solid var(--rule);
+    border:1px solid var(--border);border-radius:var(--r-control);background:var(--bg);color:var(--text);}
+  .share-invite select{font:inherit;font-size:12.5px;padding:8px 6px;border:1px solid var(--border);
     border-radius:var(--r-control);background:var(--bg);color:var(--text);}
   .share-invite button{font:inherit;font-size:12.5px;font-weight:600;padding:8px 12px;border:none;
-    border-radius:var(--r-control);background:#5b46e6;color:#fff;cursor:pointer;white-space:nowrap;}
-  .share-err{color:#c0392b;font-size:12px;margin:8px 0 0;}
+    border-radius:var(--r-control);background:var(--accent);color:var(--bg);cursor:pointer;white-space:nowrap;}
+  .share-err{color:var(--danger);font-size:12px;margin:8px 0 0;}
 </style>
 </head>
 <body class="norail">
@@ -231,7 +286,7 @@
 </div>
 <div class="split">
   <section class="srcpane" aria-label="LaTeX source">
-    <div class="panehead">Source <span class="mono" id="srcname">paper.tex</span><span id="srcmeta"></span><button type="button" class="headbtn difftoggle" id="difftoggle" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><button type="button" class="headbtn" id="copysrc" aria-label="Copy the LaTeX source to the clipboard">Copy</button></div>
+    <div class="panehead">Source <span class="mono" id="srcname">paper.tex</span><span id="srcmeta"></span><button type="button" class="headbtn difftoggle" id="difftoggle" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><button type="button" class="headbtn" id="editbtn" aria-label="Edit the LaTeX source" hidden>Edit</button><button type="button" class="headbtn" id="copysrc" aria-label="Copy the LaTeX source to the clipboard">Copy</button></div>
     <div class="srcscroll" id="srcscroll">
       <div class="codecol" id="codecol"><div class="pdfmsg">Loading source…</div></div>
       <div class="railcol" id="railcol"></div>
@@ -241,10 +296,24 @@
          comment rail is deliberately NOT shown here: comments anchor to current line numbers, and a
          unified diff interleaves old and new ones, so an anchor drawn against it would be a lie. -->
     <div class="diffscroll" id="texdiffpane" hidden></div>
+    <!-- #291: edit mode. A textarea over the .tex source, same pane, same mutual-exclusion rule as
+         diff mode above (only one of the three views is ever visible). editerr surfaces the two
+         DISTINCT #188 failure paths: 400 (rejected write, buffer kept, nothing written) and 409
+         (stale revision, buffer kept, "changed by the agent"). A 200 that later fails to COMPILE is
+         NOT an editor error — that surfaces in #errbar via the existing compile poll, after the
+         editor has already closed on the successful save. -->
+    <div class="editscroll" id="editpane" hidden>
+      <textarea id="edittext" spellcheck="false" aria-label="Edit the LaTeX source"></textarea>
+      <div class="editbar"><span class="editerr" id="editerr" hidden></span>
+        <button type="button" class="btn" id="editcancel">Cancel</button>
+        <button type="button" class="btn primary" id="editsave">Save</button>
+      </div>
+    </div>
   </section>
   <div class="vdiv" id="vdiv" role="separator" aria-label="Resize panes" aria-orientation="vertical"></div>
   <section class="pdfpane" aria-label="PDF preview">
     <div class="pdfbar"><span class="st" id="pdfstate">PDF</span>
+      <button class="btn recompile" id="recompilebtn" type="button" title="Re-run the compile at the current revision">Recompile</button>
       <a class="btn primary dl" id="dlbtn" href="#" download="paper.pdf">Download PDF</a></div>
     <details class="errbar" id="errbar"><summary id="errsum">Compile failed</summary><pre id="errlog"></pre></details>
     <div class="pdfwrap"><iframe id="pdfframe" title="compiled PDF"></iframe>
@@ -257,7 +326,7 @@
   <textarea id="popnote" placeholder="Your comment on this line…"></textarea>
   <div class="row"><button class="btn" id="popcancel">Cancel</button><button class="btn primary" id="popsave">Comment</button></div>
 </div>
-<div id="dock"><div id="dockbar"><span id="count">0 open</span><button class="btn" id="cmtbtn">Comments</button></div></div>
+<div id="dock"><div id="dockbar"><span id="count">0 open</span><button class="btn" id="cmtbtn" aria-pressed="true">Comments</button></div></div>
 <div id="cmtdock"></div>
 <div id="toast" role="status"></div>
 
@@ -270,8 +339,17 @@ const $=s=>document.querySelector(s);
 const ID=location.pathname.split('/').pop();
 const API='/api/reviews/'+ID, LATEX='/api/latex/'+ID;
 let comments=[], cur=null, confirming=null, lastSrc=0, lastCmt=0, pdfRev=null;
+// #280 comments-off (design screen 05). Session-only, rail ON on load — same persistence contract
+// as diff mode (OFF on load, sticky within the session). This flag must NEVER be body.norail:
+// layoutCards() rewrites norail on every repaint, resize and divider drag, so a toggle that
+// reused it would be silently reverted by the next 2s comment poll. body.rail-off is the manual
+// flag; the CSS hides the rail when EITHER class is present.
+let RAILOFF=false;
 
-function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+// String() first: comment anchors arrive as NUMBERS from API/MCP authors, and Number.replace is
+// a TypeError that killed renderComments() mid-pass (found by #279 on the markdown viewer; the
+// same helper lives here). A half-drawn render is worse than a wrong label.
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 const esc=escapeHtml;
 
 // ---- LaTeX line highlighting: split a line into command / comment / math / text spans. The
@@ -323,6 +401,12 @@ async function loadSource(){
 // ever hints. Only the source pane swaps; the PDF pane and the compile bar are untouched.
 let DIFFON=false;
 let PREVROUND=null;      // newest archived round, or null when there is nothing to compare against
+// #291: edit mode. EDITON gates the third source-pane view (syncDiffVisibility above); editRevision
+// is the #288 precondition token, taken ONLY from the GET /source response that seeds the textarea
+// (never a separate /status fetch — that ordering is the lost-update bug the guard exists to
+// prevent); canEdit mirrors /status.can_edit, read once at boot like the Share button's ownership
+// gate (both viewers already poll /status, so this adds no requests).
+let EDITON=false, editRevision=null, canEdit=false;
 
 function setDiffCount(c){
   const el=$('#diffcount');
@@ -355,11 +439,15 @@ async function paintTexDiff(){
   }catch(e){pane.innerHTML='<div class="diffempty">Could not load the diff.</div>';}
 }
 // DIFFON is the single source of truth for which pane shows; kept separate so a push can
-// re-assert it without also re-triggering a repaint.
+// re-assert it without also re-triggering a repaint. #291: EDITON is a THIRD pane sharing the same
+// slot, and it always wins — enterEdit() forces DIFFON off before opening, so the two are never
+// both true, but this stays defensive rather than trusting that invariant silently.
 function syncDiffVisibility(){
-  $('#srcscroll').hidden=DIFFON;
-  $('#texdiffpane').hidden=!DIFFON;
+  $('#srcscroll').hidden=DIFFON||EDITON;
+  $('#texdiffpane').hidden=!DIFFON||EDITON;
+  $('#editpane').hidden=!EDITON;
   $('#difftoggle').setAttribute('aria-pressed',DIFFON?'true':'false');
+  document.body.classList.toggle('editing',EDITON);
 }
 function applyDiffMode(){
   syncDiffVisibility();
@@ -380,7 +468,10 @@ async function onAgentPush(){
   // The toast is where the reviewer learns their paper was rewritten, so it is where the way to
   // see it belongs. Clicking is the reviewer ASKING — that is the one case where opening the diff
   // for them is correct, and it is still their action, not the push's.
-  if(changed)toastAction('Draft updated by AI','See what changed',()=>{DIFFON=true;$('#difftoggle').classList.remove('hinted');applyDiffMode();});
+  // #291: not while EDITON — the action would flip DIFFON under an open editor, and syncDiffVisibility
+  // keeps the edit pane on top regardless, so the click would silently do nothing visible. Plain
+  // notice instead; the diff is still one click away once they finish or cancel.
+  if(changed&&!EDITON)toastAction('Draft updated by AI','See what changed',()=>{DIFFON=true;$('#difftoggle').classList.remove('hinted');applyDiffMode();});
   else toast('Draft updated by AI');
   // Re-assert from DIFFON, always and last: loadSource() has just rebuilt the pane and several
   // awaits have passed, so this guarantees a push cannot leave the reviewer in a pane they did
@@ -475,7 +566,7 @@ function renderComments(){
   });
   wireCards(rail);
   // mirror into the narrow dock (static list)
-  dock.innerHTML='<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted-fg);margin-bottom:8px">Comments ('+active.length+')</div>';
+  dock.innerHTML='<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:8px">Comments ('+active.length+')</div>';
   cards.forEach(c=>dock.appendChild(c.cloneNode(true)));wireCards(dock);
   $('#count').textContent=active.length+' open';
   document.querySelectorAll('mark.cmt').forEach(m=>m.onclick=()=>focusPair(m.dataset.id));
@@ -500,9 +591,17 @@ function focusPair(id){
   const m=document.querySelector('mark.cmt[data-id="'+id+'"]');
   if(m){m.classList.add('active');m.scrollIntoView({block:'center',behavior:'smooth'});}
 }
+// #cmtbtn's pressed state mirrors what the button currently controls: the rail at rail-capable
+// widths (>=640px pane), the narrow dock below that. Re-synced from layoutCards() so a resize
+// that crosses the threshold re-labels the button with the surface it now governs.
+function syncCmtBtn(wide){
+  $('#cmtbtn').setAttribute('aria-pressed',
+    String(wide ? !RAILOFF : $('#cmtdock').classList.contains('show')));
+}
 function layoutCards(){
   const pane=$('.srcpane'),wide=pane&&pane.clientWidth>=640;
   document.body.classList.toggle('norail',!wide);
+  syncCmtBtn(wide);
   if(!wide)return;
   const col=$('#codecol');let prev=0;
   [...$('#railcol').querySelectorAll('.gcard')]
@@ -562,18 +661,49 @@ async function refreshPdf(){
   if(st.state==='ok'){
     bar.textContent='PDF · v'+rev+' · compiled';
     document.body.classList.remove('compile-failed');
-    dl.href=LATEX+'/pdf';msg.style.display='none';
+    // #205: a return to ok must CLEAR the staleness dressing the failed branch applied, or the
+    // Download button keeps advertising an old revision after the compile recovered.
+    dl.href=LATEX+'/pdf'; dl.textContent='Download PDF'; dl.removeAttribute('title');
+    msg.style.display='none';
     if(pdfRev!==rev){pdfRev=rev;frame.src=LATEX+'/pdf?v='+rev;}   // reload only on a new build
   }else if(st.state==='failed'){
+    // #205. Two bugs lived here. On a COLD load (fresh page, no prior 'ok' this session) pdfRev was
+    // null, so the viewer announced "No PDF yet" and never set frame.src — while a perfectly good
+    // PDF sat on disk. And #dlbtn kept whatever href the 'ok' branch last gave it, so Download
+    // handed over a previous revision's document with no indication it was stale.
+    // Both are answered by the SERVER now (has_pdf / pdf_revision) rather than by session memory.
     bar.textContent='PDF · v'+rev+' · compile failed';
     document.body.classList.add('compile-failed');
-    $('#errsum').textContent='Compile failed at v'+rev+(pdfRev!=null?' — showing v'+pdfRev:'');
+    const rb=$('#recompilebtn'); if(rb){ rb.disabled=false; rb.textContent='Recompile'; }  // #250: verdict is in
     $('#errlog').textContent=st.log_tail||'(no log)';
-    if(pdfRev==null)msg.textContent='No PDF yet — the compile failed. See the log above.';
-    msg.style.display=(pdfRev==null)?'flex':'none';
+    // "unknown" is deliberate for status files written before pdf_revision existed. st.revision is
+    // the ATTEMPTED revision — displaying it here would name a revision whose PDF was never built.
+    const shownRev = (st.pdf_revision!=null) ? ('v'+st.pdf_revision)
+                   : (pdfRev!=null ? ('v'+pdfRev) : 'an earlier revision (unknown)');
+    if(st.has_pdf){
+      $('#errsum').textContent='Compile failed at v'+rev+' — showing '+shownRev;
+      // Render the surviving PDF on a cold load too; the ok-branch guard never ran.
+      if(frame.src.indexOf(LATEX+'/pdf')===-1) frame.src=LATEX+'/pdf?stale='+rev;
+      msg.style.display='none';
+      // Say what it is, rather than silently handing over a document the reader thinks is current.
+      dl.href=LATEX+'/pdf';
+      dl.textContent='Download '+shownRev;
+      dl.title='The current compile (v'+rev+') failed. This downloads '+shownRev+'.';
+    }else{
+      $('#errsum').textContent='Compile failed at v'+rev;
+      msg.textContent='No PDF yet — the compile failed. See the log above.';
+      msg.style.display='flex';
+      dl.removeAttribute('href');            // nothing to download; do not offer a dead link
+      dl.textContent='Download PDF';
+      dl.title='No PDF has been produced yet.';
+    }
   }else{
     bar.textContent='PDF · '+st.state+'…';
     if(pdfRev==null){msg.textContent='Compiling…';msg.style.display='flex';}
+    // #250: while the server says queued/running, the control stays in-progress — state from the
+    // poll, not a client timer. (body.compile-failed is still set from the failed round, so the
+    // button remains visible until the verdict.)
+    const rb=$('#recompilebtn'); if(rb){ rb.disabled=true; rb.textContent='Recompiling…'; }
   }
 }
 
@@ -600,7 +730,21 @@ function poll(){
   const ts=$('#tab-src'),tp=$('#tab-pdf');
   function tab(pdf){document.body.classList.toggle('show-pdf',pdf);ts.setAttribute('aria-pressed',String(!pdf));tp.setAttribute('aria-pressed',String(pdf));}
   ts.onclick=()=>tab(false);tp.onclick=()=>tab(true);
-  $('#cmtbtn').onclick=()=>$('#cmtdock').classList.toggle('show');
+  // #280: at rail-capable pane widths the button toggles the RAIL (manual comments-off, screen
+  // 05); narrow keeps toggling the dock exactly as before. Re-showing re-runs layoutCards()
+  // because the cards were position:absolute-laid-out while display:none (offsetHeight 0), so
+  // their stacked tops are stale until a post-show pass recomputes them.
+  $('#cmtbtn').onclick=()=>{
+    const wide=$('.srcpane').clientWidth>=640;
+    if(wide){
+      RAILOFF=!RAILOFF;
+      document.body.classList.toggle('rail-off',RAILOFF);
+      if(!RAILOFF)layoutCards();else syncCmtBtn(true);
+    }else{
+      $('#cmtdock').classList.toggle('show');
+      syncCmtBtn(false);
+    }
+  };
   window.addEventListener('resize',()=>{try{layoutCards();}catch(e){}});
 })();
 let tTimer=null;
@@ -636,11 +780,16 @@ async function boot(){
   // lastSrc/lastCmt at their initial 0 and falsely fires a "Draft updated by AI" reload on a
   // review nothing changed (mirrors viewer.html's load()).
   try{const s=await (await fetch(API+'/status',{cache:'no-store'})).json();
-    lastSrc=s.source_updated||0;lastCmt=s.comments_updated||0;}catch(e){}
+    lastSrc=s.source_updated||0;lastCmt=s.comments_updated||0;
+    // #291: can_edit (#288) is the SAME custody can_write the PUT arm enforces — owner on both
+    // tiers, false for a comment/view grantee. One extra field off a request the page already
+    // makes, not a new one.
+    canEdit=!!s.can_edit;$('#editbtn').hidden=!canEdit;}catch(e){}
   await refreshDiffAvail();   // reveals the toggle if an earlier version exists; never opens it
   poll();
 }
 $('#difftoggle').onclick=()=>{
+  if(EDITON)return;   // #291 mutual exclusion: the click handler is the real gate; CSS just says so
   DIFFON=!DIFFON;
   $('#difftoggle').classList.remove('hinted');   // acted on; stop advertising
   applyDiffMode();
@@ -651,8 +800,11 @@ boot();
 // Copied verbatim from viewer.html so the latex viewer shows the same panel (#152 share-parity).
 // Depends only on API/ID (defined above) + the #sharebtn/#sharepop topbar markup. Keep in sync.
 let _shareCsrf = "", _pubRight = null, _shares = [];
-function _esc(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
-function _shareLabel(subject){ return (subject||"").replace(/^user:/,"").replace(/^email:/,""); } // grantee email
+function _esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+// Grantee label: prefer the server-resolved email in the /shares payload; "" or absent means the
+// account is genuinely unknown (#267), so show the opaque subject marked unresolved rather than
+// dressing a raw provider:sub uid up as an address.
+function _shareLabel(s){ if(s && s.email) return s.email; const raw=((s&&s.subject)||"").replace(/^user:/,""); return raw ? raw+" (unresolved)" : "(unknown)"; }
 async function initShare(){
   const btn = document.getElementById("sharebtn"), pop = document.getElementById("sharepop");
   if(!btn) return;
@@ -674,7 +826,7 @@ async function refreshShares(){
 function renderShare(){
   const pop = document.getElementById("sharepop"), on = !!_pubRight;
   const rows = _shares.length
-    ? _shares.map(s=>'<div class="share-item"><span class="em" title="'+_esc(_shareLabel(s.subject))+'">'+_esc(_shareLabel(s.subject))+'</span><span class="rt">'+_esc(s.right)+'</span><button class="rm" type="button" data-subject="'+_esc(s.subject)+'" title="Remove access">&times;</button></div>').join("")
+    ? _shares.map(s=>'<div class="share-item"><span class="em" title="'+_esc(_shareLabel(s))+'">'+_esc(_shareLabel(s))+'</span><span class="rt">'+_esc(s.right)+'</span><button class="rm" type="button" data-subject="'+_esc(s.subject)+'" title="Remove access">&times;</button></div>').join("")
     : '<div class="share-empty">No one yet.</div>';
   pop.innerHTML =
     '<h3>Share this review</h3>' +
@@ -697,10 +849,27 @@ function renderShare(){
     renderShare();
   });
   const cp = pop.querySelector("#pubcopy");
-  if(cp) cp.addEventListener("click", ()=>{
+  // #213: this said "Copied" whether or not anything was copied. TWO defects, not one:
+  //   1. writeText returns a PROMISE, so the try/catch only ever caught a synchronous throw. A
+  //      rejected permission (the common real failure) sailed straight past it.
+  //   2. "Copied" was set unconditionally on the next line regardless.
+  // The result was a UI that confidently reported success while the clipboard was untouched, which
+  // is worse than no feedback: the reader pastes a stale buffer somewhere else and blames that.
+  // Follows the pattern #copysrc in this same file already uses: await, then say what happened.
+  // A silent no-op on failure would not satisfy this ticket either — the failure must be VISIBLE.
+  if(cp) cp.addEventListener("click", async ()=>{
     const i = pop.querySelector("#publink"); i.select();
-    try{ navigator.clipboard.writeText(i.value); }catch(e){}
-    cp.textContent = "Copied"; setTimeout(()=>{ cp.textContent = "Copy"; }, 1400);
+    try{
+      await navigator.clipboard.writeText(i.value);
+      cp.textContent = "Copied";
+      setTimeout(()=>{ cp.textContent = "Copy"; }, 1400);
+    }catch(e){
+      // Name the reason: "it didn't work" sends people to the wrong place. The link stays
+      // selected above, so manual copy is still available and worth implying.
+      cp.textContent = "Copy failed";
+      toast('Copy failed — '+((e && e.name) ? e.name : 'clipboard unavailable')+'. The link is selected; copy it manually.');
+      setTimeout(()=>{ cp.textContent = "Copy"; }, 2600);
+    }
   });
   pop.querySelector("#invbtn").addEventListener("click", async ()=>{
     const email = (pop.querySelector("#invemail").value||"").trim();
@@ -726,7 +895,7 @@ mdKeys.pushEscape(()=>{const p=$('#pop');if(!p||p.style.display!=='block')return
 mdKeys.register([
   {keys:"1", label:"Show the LaTeX source",   run:()=>mdKeys.click("#tab-src")},
   {keys:"2", label:"Show the compiled PDF",   run:()=>mdKeys.click("#tab-pdf")},
-  {keys:"c", label:"Toggle the comments dock", run:()=>mdKeys.click("#cmtbtn")},
+  {keys:"c", label:"Toggle comments", run:()=>mdKeys.click("#cmtbtn")},
   {keys:"a", label:"Add a comment",            run:()=>mdKeys.click("#addbtn")},
   {keys:"mod+Enter", label:"Save the comment you are writing", keepInField:true, run:()=>{
     const pop=$('#pop');
@@ -734,6 +903,115 @@ mdKeys.register([
     return false;
   }},
 ]);
+
+// ---- #291: edit mode — swap #srcscroll for a textarea over the .tex source. Save rides the same
+// PUT /source the MCP path uses, widened by #288 (If-Match precondition) and #289 (session-keyed
+// CSRF + reviewer attribution). Two DISTINCT server outcomes on a rejected save, per #188, and the
+// UI must not conflate them: 400 = the write guard fired, NOTHING was written, buffer kept, show
+// the _NOT_TEX text verbatim; 409 = the write guard passed but the revision was stale, ALSO nothing
+// written, buffer kept, but the message is about the OTHER writer, not the content. A 200 that
+// later fails to COMPILE is neither of these — the editor has already closed on the 200, and that
+// failure surfaces through the existing #errbar / refreshPdf() poll, untouched by this feature.
+function editErr(msg){const e=$('#editerr');e.textContent=msg;e.hidden=!msg;}
+async function enterEdit(){
+  if(!canEdit||EDITON)return;
+  DIFFON=false;   // mutual exclusion: edit always wins, unconditionally
+  let text,rev;
+  try{
+    const r=await fetch(API+'/source',{cache:'no-store'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    text=await r.text();
+    // The precondition token comes from THIS response, never a separate /status fetch — reading it
+    // out of band is exactly the lost-update ordering #288 forbids.
+    rev=(r.headers.get('ETag')||'').replace(/"/g,'');
+  }catch(e){toast('Could not load the source for editing');return;}
+  editRevision=rev;
+  $('#edittext').value=text;
+  editErr('');
+  EDITON=true;
+  syncDiffVisibility();
+  $('#edittext').focus();
+}
+function exitEdit(){
+  EDITON=false;
+  editErr('');
+  syncDiffVisibility();
+}
+$('#editbtn').addEventListener('click',enterEdit);
+$('#editcancel').addEventListener('click',exitEdit);
+$('#editsave').addEventListener('click',async()=>{
+  const save=$('#editsave'),cancel=$('#editcancel'),markdown=$('#edittext').value;
+  save.disabled=true;cancel.disabled=true;save.textContent='Saving…';editErr('');
+  let csrf='';
+  try{csrf=((await fetch('/auth/session',{cache:'no-store'}).then(r=>r.json()))||{}).csrf||'';}catch(e){}
+  let r=null,body=null;
+  try{
+    r=await fetch(API+'/source',{method:'PUT',headers:{'Content-Type':'application/json',
+      'If-Match':'"'+editRevision+'"','X-CSRF-Token':csrf,'X-Mdreview-Client':'viewer'},
+      body:JSON.stringify({markdown:markdown})});
+    body=await r.json().catch(()=>({}));
+  }catch(e){
+    save.disabled=false;cancel.disabled=false;save.textContent='Save';
+    editErr('Save failed — network error. Your text below is unsaved.');
+    return;
+  }
+  save.disabled=false;cancel.disabled=false;save.textContent='Save';
+  if(r.status===200){
+    // This write IS the source_updated change the poll would otherwise see as a REMOTE one —
+    // seed lastSrc from the response so the next tick does not fire a false "Draft updated by AI"
+    // toast over the reviewer's own save (mirrors boot()'s cursor-seeding comment above).
+    lastSrc=body.source_updated||lastSrc;
+    EDITON=false;editErr('');syncDiffVisibility();
+    await loadSource();await refreshDiffAvail();refreshPdf();
+    toast('Saved — recompiling…');
+    return;
+  }
+  if(r.status===409){
+    // AC: buffer preserved, editor stays open, explicit "changed by the agent" message — never
+    // auto-reload, that would be this UI resending nothing while silently discarding the buffer.
+    // The buffer below is untouched by THIS failure, but reopening Edit fetches the latest text
+    // and REPLACES it (enterEdit always repopulates from the server) — so the warning has to say
+    // that plainly, or "Cancel, reopen Edit, re-apply" reads as a safe sequence when it is really
+    // "copy your text out first, or reopening will overwrite it".
+    editErr('Changed by the agent since you opened the editor. Your text below is unsaved and '
+      +'NOT yet lost — but reopening Edit will replace it with the latest version. Copy what you '
+      +'want to keep, then Cancel and reopen Edit to see the latest and re-apply it.');
+    return;
+  }
+  if(r.status===400){
+    // AC 7a: the #188 guard rejected the body before anything was written. Show its text verbatim
+    // (decorator.py's _NOT_TEX is written for exactly this reader) — never invent our own wording.
+    editErr((body&&body.error)||'Rejected: not a valid LaTeX document. Nothing was saved.');
+    return;
+  }
+  editErr('Save failed — HTTP '+r.status+'. Your text below is unsaved.');
+});
+mdKeys.pushEscape(()=>{if(!EDITON)return false;exitEdit();return true;});
+
+// #250 Recompile. Honest, server-driven states (the #213 #pubcopy pattern: await, then say what
+// happened). The in-progress label appears only after the POST returns 2xx; a refused POST names
+// its reason and re-enables; queued/running is driven by st.state in refreshPdf(), never a client
+// timer; and the poll NEVER posts — one explicit click is the only retry path (#250's whole point,
+// preserving _self_heal's anti-stacking rule).
+$('#recompilebtn').addEventListener('click', async ()=>{
+  const b=$('#recompilebtn');
+  b.disabled=true;                                   // instant, so a double-click cannot double-post
+  let csrf='';
+  try{ csrf=((await fetch('/auth/session',{cache:'no-store'}).then(r=>r.json()))||{}).csrf||''; }catch(e){}
+  let r=null;
+  try{ r=await fetch(LATEX+'/recompile',{method:'POST',headers:{'X-CSRF-Token':csrf}}); }catch(e){}
+  if(!r || !r.ok){
+    const why = r ? (r.status===401?'sign in required':r.status===404?'not available for this review'
+                    :r.status===403?'session expired — reload':r.status===507?'server disk is full'
+                    :'HTTP '+r.status) : 'network error';
+    toast('Recompile failed — '+why+'. Nothing was queued.');
+    b.textContent='Recompile'; b.disabled=false;     // never a fake in-progress state
+    return;
+  }
+  b.textContent='Recompiling…';                       // only AFTER the server said 2xx
+  refreshPdf();                                       // pick up queued/running immediately
+});
+
 // #dlbtn is deliberately unbound: it downloads a file, and a stray keystroke must not write to disk.
 </script>
 <script src="/static/session.js"></script>

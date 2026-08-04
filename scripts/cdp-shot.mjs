@@ -21,6 +21,11 @@
 //     --resize <WxH>         set the viewport via CDP Emulation.setDeviceMetricsOverride. This is a REAL
 //                            relayout that changes window.innerWidth — use it (NOT an OS window resize,
 //                            which leaves innerWidth unchanged) to exercise responsive breakpoints.
+//     --move <selector>      move the REAL pointer (Input.dispatchMouseEvent) to the centre of the
+//                            first match, so :hover actually applies (#278 hover-reveal rows). A
+//                            synthetic mouseover event does NOT set :hover; only the input pipeline
+//                            does. Fails if the selector matches nothing. Move to `body` (0-ish
+//                            corner) to un-hover.
 //     --eval <expr>          run JS; the step FAILS if it throws OR returns falsy. Use as an assertion,
 //                            e.g. --eval "document.querySelectorAll('.gcard').length===1"
 //     --shot <path>          write a PNG screenshot to <path>
@@ -53,8 +58,8 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const STEP_VERBS = ['url', 'wait', 'wait-for', 'click', 'type', 'resize', 'eval', 'shot', 'clipboard',
-  'cookie', 'block'];
+const STEP_VERBS = ['url', 'wait', 'wait-for', 'click', 'type', 'resize', 'move', 'eval', 'shot',
+  'clipboard', 'cookie', 'block'];
 const argv = process.argv.slice(2);
 if (argv.length === 0 || argv.includes('-h') || argv.includes('--help')) {
   console.error('usage: node scripts/cdp-shot.mjs --url <URL> [--click sel | --wait ms | --wait-for sel | --type sel=text | --resize WxH | --eval expr | --shot path | --clipboard origin]...');
@@ -211,6 +216,13 @@ for (const [verb, val] of steps) {
     const m = /^(\d+)x(\d+)$/.exec(val); if (!m) die('--resize needs WxH, got: ' + val);
     await check('Emulation.setDeviceMetricsOverride', { width: +m[1], height: +m[2], deviceScaleFactor: 1, mobile: false });
     console.log('ok  resize: ' + val);
+  } else if (verb === 'move') {
+    const pt = await evalOrDie(`(()=>{const el=document.querySelector(${JSON.stringify(val)});`
+      + `if(!el)throw new Error('no element: '+${JSON.stringify(val)});`
+      + `el.scrollIntoView({block:'center'});const b=el.getBoundingClientRect();`
+      + `return {x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)};})()`, 'move ' + val);
+    await check('Input.dispatchMouseEvent', { type: 'mouseMoved', x: pt.x, y: pt.y, buttons: 0 });
+    console.log('ok  move: ' + val + ' -> ' + pt.x + ',' + pt.y);
   } else if (verb === 'eval') {
     const v = await evalOrDie(val, 'eval');
     if (!v) die('assertion failed (--eval returned falsy): ' + val + '  => ' + JSON.stringify(v));

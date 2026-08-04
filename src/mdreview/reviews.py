@@ -12,6 +12,17 @@ import secrets
 import shutil
 import time
 
+from mdreview.errors import ReviewWriteRejected
+
+# The 409 contract (#288): the payload is the instruction, because the plausible agent reaction to a
+# bare 409 is "re-read the token and resend my buffer", which destroys the other writer's edit with
+# a 200. Wording pinned by tests/revision_precondition_selfcheck.py; keep it in sync with the
+# update_source tool description in src/mcp/tools.py.
+STALE_REVISION_MSG = (
+    "stale revision: the document changed since you read it. Re-read the source, re-apply your "
+    "change onto the new text, and save with the new revision. Never resend a buffered draft "
+    "after a 409 - it would silently overwrite the other writer's edit.")
+
 
 class ReviewService:
     def __init__(self, store, comments):
@@ -70,7 +81,29 @@ class ReviewService:
             m["status"] = "resolved"
         else:
             m["status"] = "feedback"
+        # #187: a human's manual resolve overrides the derived value, and it is STICKY - a comment
+        # arriving afterwards does not silently un-resolve the review (no state flapping under the
+        # user). Purely a status flag: nothing else about the review changes. Cleared by the same
+        # route, at which point the derived status above takes over again.
+        if m.get("resolved_by_human"):
+            m["status"] = "resolved"
         return m
+
+    def set_resolved(self, rid, resolved):
+        """Set or clear the human's manual resolve (#187). Caller holds store.lock.
+
+        Additive-default-safe like kind/template: the keys are persisted ONLY while set and popped
+        on un-resolve, so a review that was never (or is no longer) manually resolved keeps a
+        byte-identical meta.json and summary() echoes nothing extra."""
+        p = self._path(rid, "meta.json")
+        m = self.store.read_json(p, {})
+        if resolved:
+            m["resolved_by_human"] = True
+            m["resolved_at"] = time.time()
+        else:
+            m.pop("resolved_by_human", None)
+            m.pop("resolved_at", None)
+        self.store.write_text(p, json.dumps(m))
 
     def list_reviews(self, uid=None):
         """All review summaries, newest first. When uid is given (hosted multi-user), scope to the
@@ -100,9 +133,14 @@ class ReviewService:
         # era, the viewer authors comments since MR-036, and comments.json is not per-round
         # snapshotted, so a truthful count is unrecoverable). The comment-aware per-review
         # notes_total in summary() is a different field and is unaffected.
-        self.store.write_text(os.path.join(rd, "round.json"), json.dumps({
-            "round": n, "ts": time.time(),
-        }))
+        rj = {"round": n, "ts": time.time()}
+        # #289: "by" names the author of the draft this round archives, copied from the OUTGOING
+        # meta (m, read above) BEFORE put_source's overwrite updates attribution. Copied only when
+        # present: an agent-authored draft carries no key (readers default "agent"), keeping an
+        # all-agent-plane review byte-identical on disk and on GET /history.
+        if m.get("source_updated_by"):
+            rj["by"] = m["source_updated_by"]
+        self.store.write_text(os.path.join(rd, "round.json"), json.dumps(rj))
         m["revision"] = n + 1
         self.store.write_text(os.path.join(d, "meta.json"), json.dumps(m))
 
@@ -118,6 +156,10 @@ class ReviewService:
         meta = {
             "id": rid, "title": title or "", "created": now,
             "source_updated": now,
+            # #288: the edit-precondition token, explicit from birth. Only summary() defaulted it
+            # before; the new read paths (ETag on GET /source, GET /status) need it present so a
+            # fresh review issues token 0 rather than an absent key.
+            "revision": 0,
             "project": project or "", "source_path": source_path or "",
             "session": session or "",
             "owner": owner or "",       # account that owns it (hosted multi-user); "" for local
@@ -137,12 +179,42 @@ class ReviewService:
     def read_source(self, rid):
         return self.store.read_text(self._path(rid, "source.md"))
 
-    def put_source(self, rid, markdown):
+    def put_source(self, rid, markdown, expected_revision=None, updated_by="agent"):
         """Snapshot the outgoing round, overwrite source.md, bump source_updated. Caller holds
-        store.lock."""
+        store.lock.
+
+        expected_revision (#288) is the optimistic-concurrency precondition: when given, the write
+        proceeds only if it equals the CURRENT revision (the monotonic counter snapshot_round owns;
+        never source_updated, whose wall-clock values can collide). Compared here, under the
+        caller-held store.lock and BEFORE the snapshot, so a stale write changes nothing at all.
+        None = unconditional, exactly the pre-#288 behavior.
+
+        updated_by (#289) is the attribution lifecycle, a REQUIREMENT of epic #273 and not an
+        implementer choice: a "reviewer" write SETS meta.source_updated_by; any other write is an
+        agent write and DELETES the key; readers default "agent" via .get(...). The subtractive
+        write is deliberate and has no codebase precedent (kind/template are set-once) — do not
+        "simplify" it into set-both-values, which would break the all-agent-plane byte-identical
+        contract (meta.json on disk and every response except GET /status)."""
+        if expected_revision is not None:
+            current = int(self.meta(rid).get("revision", 0) or 0)
+            if int(expected_revision) != current:
+                raise ReviewWriteRejected(
+                    STALE_REVISION_MSG, status=409,
+                    payload={"error": STALE_REVISION_MSG,
+                             "expected_revision": int(expected_revision),
+                             "current_revision": current})
         self.snapshot_round(rid)
         self.store.write_text(self._path(rid, "source.md"), markdown)
         self.bump(rid, "source_updated")
+        p = self._path(rid, "meta.json")
+        m = self.store.read_json(p, {})
+        if updated_by == "reviewer":
+            changed = m.get("source_updated_by") != "reviewer"
+            m["source_updated_by"] = "reviewer"
+        else:
+            changed = m.pop("source_updated_by", None) is not None
+        if changed:
+            self.store.write_text(p, json.dumps(m))
 
     def feedback(self, rid):
         """meta + feedback.md + a union of on-disk notes and a read-time projection of comments, so

@@ -43,3 +43,41 @@ jobs:
 
       - name: Custody regression smoke
         run: python3 tests/custody_regression_smoke.py
+
+      # #266: CSRF on the /account/tokens write arms — cookie plane 403s without the per-session
+      # token; the proxy and bearer planes pass unchanged. Stdlib-only, boots its own server.
+      - name: Account tokens CSRF selfcheck
+        run: python3 tests/account_tokens_csrf_selfcheck.py
+
+      - name: Manual resolve smoke
+        run: python3 tests/manual_resolve_smoke.py
+
+      # #144: GET /admin/audit — cookie-plane-admin gate, newest-first, limit + before cursor,
+      # raw fields (the stated policy). Stdlib-only, boots its own server.
+      - name: Admin audit read selfcheck
+        run: python3 tests/admin_audit_selfcheck.py
+
+      # #288: the edit-precondition seam — revision ETag/If-Match + MCP expected_revision 409
+      # on stale, no-break when omitted; can_edit on /status; the widened latex override.
+      # Stdlib-only, boots its own local + hosted instances.
+      - name: Revision precondition selfcheck
+        run: python3 tests/revision_precondition_selfcheck.py
+
+      # #289: session-keyed CSRF on PUT /source (verified session 403s without the token; proxy
+      # and bearer planes pass unchanged) + the source_updated_by attribution lifecycle
+      # (reviewer sets, agent deletes, readers default) + round.json "by". Stdlib-only, boots
+      # its own local + hosted instances.
+      - name: Source CSRF + attribution selfcheck
+        run: python3 tests/source_csrf_attribution_selfcheck.py
+
+      # #267: GET /api/reviews/{id}/shares resolves `email` per named share; a resolvable subject
+      # yields the address, an unresolvable one yields "". Stdlib-only, boots its own server.
+      - name: Review shares email selfcheck
+        run: python3 tests/review_shares_email_selfcheck.py
+
+      # #291: the latex-viewer.html edit UI's exact HTTP contract against a real latex review —
+      # If-Match from GET /source, X-Mdreview-Client attribution, the 400-vs-409 distinction (AC
+      # 7a/7b) including the guard-wins-over-precondition ordering. Stdlib-only, boots its own
+      # local instance.
+      - name: Latex edit UI selfcheck
+        run: python3 tests/latex_edit_ui_selfcheck.py

@@ -1,70 +1,130 @@
-/* mdreview design tokens — the single source of truth for colour (#153).
+/* mdreview design tokens — the single source of truth for colour (#153, contract rev 3 via #277).
  *
  * Every page links this file and NO page redefines these values. Before #153 each page carried its
  * own inline copy, which is how they drifted (--violet vs --brand for the same colour, three
  * different --rule darks) and how /account + /admin ended up hardcoded dark with no media query.
  * Adding or changing a colour means editing THIS file, once.
  *
- * Light is the base on :root. Dark arrives two ways, and both are needed:
- *   - the system preference, scoped :not([data-theme="light"]) so an explicit light choice wins;
- *   - an explicit [data-theme="dark"], which wins regardless of the system.
- * Light needs no override block: it is the base, and the media query steps aside for it.
+ * #277 adopted the Polish rev-3 token contract: warm palette, the contract's own names
+ * (--surface, --border, --accent, --text-muted, ... replacing --panel, --rule, --brand,
+ * --muted-fg, ...), and the contract's rule: identical DOM in both themes, only these values
+ * change, and no component declares a colour literal. tests/css_palette_selfcheck.js enforces
+ * the exact values, the no-literal rule, and the font policy below.
  *
- * Self-hosted, no CDN — the project is self-contained by design.
+ * Every colour is declared ONCE, as light-dark(light, dark) on :root (#285). Which side renders
+ * is decided by `color-scheme` alone: the base is `light dark` (follow the OS, live), and the
+ * [data-theme] overrides below are one-line color-scheme flips. Before #285 the dark table
+ * existed twice (a media block plus an explicit [data-theme="dark"] block, kept value-identical
+ * by a selfcheck); rev 3's single-source contract retired that duplication. The ONE dark delta
+ * light-dark() cannot carry is font-weight (it only takes <color>), so that single declaration
+ * still ships via both arrival selectors, guarded by css_palette_selfcheck.js.
+ *
+ * data-theme on <html> is the toggle contract (#285): "light"/"dark" are explicit overrides,
+ * attribute ABSENT is auto. Auto is pure CSS — a live OS change re-resolves every light-dark()
+ * with no JS involved. The pre-paint applier in each page's <head> sets the attribute from
+ * localStorage `mdr.theme` before first paint; account.js renders the toggle button.
+ *
+ * Self-hosted, no CDN — the project is self-contained by design. That includes the fonts below.
  */
 
+/* ---- Fonts (#277) ---------------------------------------------------------------------------
+ * Vendored variable woff2, same-directory URLs, the KaTeX precedent. Variable cuts are required,
+ * not a preference: the dark theme sets font-weight:350 on the root and the design uses Geist
+ * Mono 550 for tabular emphasis, and neither weight exists as a static instance. Axis ranges
+ * below are the files' actual fvar ranges (Geist/Geist Mono wght 100-900; Source Serif 4
+ * wght 200-900, opsz 8-60). Licences ship alongside: Geist-OFL.txt (covers Geist and Geist
+ * Mono, one upstream package) and SourceSerif4-OFL.md. KaTeX's own @font-face rules are
+ * untouched and live in katex.min.css. */
+@font-face{
+  font-family:"Geist";
+  src:url(Geist-Variable.woff2) format("woff2");
+  font-weight:100 900; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:"Geist Mono";
+  src:url(GeistMono-Variable.woff2) format("woff2");
+  font-weight:100 900; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:"Source Serif 4";
+  src:url(SourceSerif4Variable-Roman.woff2) format("woff2");
+  font-weight:200 900; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:"Source Serif 4";
+  src:url(SourceSerif4Variable-Italic.woff2) format("woff2");
+  font-weight:200 900; font-style:italic; font-display:swap;
+}
+
 :root{
+  /* Follow the OS by default; the [data-theme] blocks below pin it. This is what makes every
+     light-dark() pair in this block resolve, and it also hands the UA the matching form-control /
+     scrollbar rendering in dark. */
+  color-scheme: light dark;
+
+  /* Families. Pages point their font-family declarations here, never at raw stacks.
+     (--font-mono also exists inside the Basecoat bundle's @layer theme with the same intent and
+     family; this unlayered definition wins and finally makes it resolve to a real file.) */
+  --font-ui:"Geist",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --font-serif:"Source Serif 4",Charter,Georgia,Cambria,"Times New Roman",serif;
+
   /* surfaces */
-  --bg:#fafafc;            /* page */
-  --panel:#fff;            /* cards, panels */
-  --canvas:#eceef3;        /* recessed area behind a sheet (latex viewer) */
-  --sheet:#fff;            /* the paper sheet itself — stays white in both themes */
-  --inset:#f0f1f6;         /* inputs, <pre>, <code> */
-  --btn:#f0f1f6;           /* neutral button face */
-  --nav-hover:#f5f6f9;
-  --nav-active:#f0f1f6;
+  --bg:light-dark(#FCFBF9, #14130F);              /* page */
+  --surface:light-dark(#FAF9F7, #1F1D19);         /* cards, panels */
+  --surface-raised:light-dark(#FFFFFF, #26231D);  /* menus, popovers: elevation is a lighter surface, not a shadow */
+  --canvas:light-dark(#EAE7E0, #100F0C);          /* recessed area behind a sheet (latex viewer) */
+  --paper:#FFFFFF;           /* the printed sheet itself — stays white in both themes by design */
+  --paper-ink:#1F1D1A;       /* ink on --paper: fixed, because the sheet never inverts */
+  --paper-ink-muted:#57534B;
+  --code-bg:light-dark(#F4F2EE, #24211C);         /* inputs, <pre>, <code> */
+  /* Nav surfaces are NOT contract tokens: legacy, retired with their consumers by the re-skin
+     tickets. Values are a judgement call (#277): the shipped cool greys sat visibly blue on the
+     warm paper, so these are the same relative steps rebuilt from --bg/--code-bg. */
+  --nav-hover:light-dark(#F5F3EF, #1B1915);
+  --nav-active:light-dark(#F0EDE7, #211E19);
 
   /* text */
-  --text:#181a20;
-  --muted-fg:#5c6270;
-  --muted2:#6e727e;
+  --text:light-dark(#1F1D1A, #E8E4DC);
+  --text-muted:light-dark(#57534B, #9A948A);
+  --text-subtle:light-dark(#6B6660, #8F897F);
 
   /* lines */
-  --rule:#e6e7ee;
+  --border:light-dark(#E6E2DC, #2E2B26);
+  --border-faint:light-dark(#EFECE6, #232019);    /* hairline row rule; fainter than --border (#177 §05 rule 02) */
 
-  /* accent (violet). --violet/--violet-bg are legacy aliases for the SAME colour: the dashboard
-     called it violet, the viewer called it accent. Kept so neither page needs rewriting. */
-  --brand:#5b30d6;
-  --accent-bg:#eee9fd;
-  --violet:var(--brand);
-  --violet-bg:var(--accent-bg);
-  --noteline:var(--brand);
+  /* accent (violet) */
+  --accent:light-dark(#5B30D6, #B5A7E6);
+  --accent-strong:light-dark(#4423B0, #C9BEEE);   /* hover/active step of --accent */
+  --accent-muted:light-dark(#F1ECFA, #2A2540);    /* tinted accent surface */
+  --noteline:var(--accent);
 
-  /* blue */
-  --blue:#1d4fbf;
-  --blue-bg:#e9f0fd;
-
-  /* link */
-  --link:#2f6fed;
+  /* blue + link: legacy, no contract equivalent (rev 3 has no blue anywhere). Kept at their
+     shipped values until the re-skin tickets (#278-#280) retire their consumers. */
+  --blue:light-dark(#1d4fbf, #9cc0f5);
+  --blue-bg:light-dark(#e9f0fd, #16243f);
+  --link:light-dark(#2f6fed, #7ba6f5);
 
   /* status */
-  --green:#2f8f5b;
-  --good:var(--green);
-  --good-bg:#e6f4ec;
-  --warn:#b8860b;
-  --warn-bg:rgba(212,160,23,.12);
-  --danger:#c0392b;
-  --danger-bg:#fdecea;
-  --danger-rule:#f0c8c2;
-  --good-rule:#b7e0c8;
-  --warn-rule:#e3d08a;
+  --success:light-dark(#1F7A49, #6DD39B);
+  --success-bg:light-dark(#E6F4EC, #1C2C22);
+  --success-border:light-dark(#B7E0C8, #2F4A39);
+  --warning:light-dark(#8A6100, #D0A24A);
+  --warning-bg:light-dark(#F7EFDC, #2B2317);
+  /* Rev 3 ships success/danger borders only; --warning-border is a documented judgement call
+     (#277) for symmetry, sitting between --warning-bg and --warning like its siblings do. */
+  --warning-border:light-dark(#E6D6AC, #4A3D20);
+  --danger:light-dark(#C0392B, #E07A7A);
+  --danger-bg:light-dark(#FDECEA, #33231D);
+  --danger-border:light-dark(#E8C6BF, #4A2F28);
 
-  /* Row rule (#177, design doc §05 rule 02). Fainter than --rule: the no-chrome dashboard
-     separates rows with a hairline instead of wrapping them in cards. Dark is a JUDGEMENT CALL,
-     not an interpolation — the doc gives light only. Light sits ~0.42 of the way from --bg to
-     --rule; applying 0.42 to the dark pair would give #191a1f, and dark separators need more
-     relative contrast than that, so this sits at ~0.67. DO NOT "correct" it to #191a1f. */
-  --rule-faint:#f2f2f6;
+  /* scrims + shadows: previously page literals, tokened by the rev-3 contract. light-dark() is a
+     <color>, so it sits on the colour PART of a shadow; the geometry stays written once. */
+  --scrim:light-dark(rgba(20,19,15,.42), rgba(0,0,0,.72));
+  --shadow-menu:0 18px 44px -18px light-dark(rgba(20,20,40,.35), rgba(0,0,0,.6));
+  --shadow-dock:0 18px 40px -18px light-dark(rgba(20,20,40,.28), rgba(0,0,0,.7));
+  --shadow-paper:0 10px 30px -12px light-dark(rgba(20,20,40,.3), rgba(0,0,0,.55));
+  --shadow-hair:0 1px 0 light-dark(rgba(20,20,40,.06), rgba(0,0,0,.35));
 
   /* ---- Shape (#177, §02) ------------------------------------------------------------------
      Four roles, not a t-shirt scale, so a rule reads as "this is a control" rather than "this is
@@ -79,20 +139,27 @@
   --s-1:4px;  --s-2:8px;  --s-3:12px; --s-4:16px;
   --s-6:24px; --s-8:32px; --s-12:48px;
 
-  /* ---- Type (§02) ---------------------------------------------------------------------------
-     UI is system sans; --f-doc is the reading column, which only the viewer uses and which
-     already has its own serif stack — the size/leading here describe what it does, they do not
-     change its family. */
-  --t-display:32px; --t-title:22px; --t-card:16px; --t-body:14px;
-  --t-meta:12.5px;  --t-eyebrow:11px;
+  /* ---- Type (§02, revalued by rev 3: title 22->25, body 14->13, eyebrow 11->12,
+     meta 12.5->13; card and display unchanged). --f-doc is the reading column, which only the
+     viewer uses; the size/leading here describe what it does, the family is --font-serif. */
+  --t-display:32px; --t-title:25px; --t-card:16px; --t-body:13px;
+  --t-meta:13px;    --t-eyebrow:12px;
   --f-doc:20px;     --lh-doc:1.7;
+}
+
+/* Mobile type scale (rev 3): body lifts to 16px because iOS zooms on focus below 16. Colour
+   tokens never change with width. */
+@media (max-width:767px){
+  :root{
+    --t-title:24px; --t-card:17px; --t-body:16px;
+  }
 }
 
 /* One focus ring, everywhere (§03). The design is explicit that no page may use `outline:none`
    without a replacement — a keyboard user who cannot see focus cannot use the app at all. Scoped
    to :focus-visible so it does not fire on mouse clicks. */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible{
-  outline:2px solid var(--brand);
+  outline:2px solid var(--accent);
   outline-offset:2px;
 }
 
@@ -118,7 +185,7 @@
 .app-top{
   display:flex; align-items:center; gap:var(--s-3);
   padding:var(--s-3) var(--s-6);
-  border-bottom:1px solid var(--rule-faint);
+  border-bottom:1px solid var(--border-faint);
   background:var(--bg);
   position:sticky; top:0; z-index:20;
 }
@@ -128,7 +195,7 @@
 }
 .app-top .brand .mark{
   width:26px; height:26px; border-radius:var(--r-control);
-  background:var(--brand); color:var(--bg);
+  background:var(--accent); color:var(--bg);
   display:flex; align-items:center; justify-content:center;
   font-size:11px; font-weight:700; letter-spacing:-.02em;
 }
@@ -142,153 +209,149 @@
 /* Shared flash bar. Replaces alert() on account and the duplicated #flash block on admin — same
    three-state shape (hidden / ok / err) both pages already used, promoted to one definition. */
 .flash{ display:none; padding:11px 14px; border-radius:var(--r-control); margin:0 0 var(--s-4); font-size:13px; }
-.flash.ok { display:block; background:var(--good-bg);   border:1px solid var(--good-rule);   color:var(--good); }
-.flash.err{ display:block; background:var(--danger-bg); border:1px solid var(--danger-rule); color:var(--danger); }
+.flash.ok { display:block; background:var(--success-bg); border:1px solid var(--success-border); color:var(--success); }
+.flash.err{ display:block; background:var(--danger-bg);  border:1px solid var(--danger-border);  color:var(--danger); }
 
 /* ---- Diff rows (#207 markdown viewer, #208 latex viewer) -------------------------------------
  * Authored HERE for the same reason the shell above is: BOTH viewers render this markup, from the
  * one renderer in /static/linediff.js, and two copies of the CSS would drift from each other and
  * from the renderer's class names. Same NAMED exception to "no page CSS in theme.css".
  *
- * Colours are the EXISTING --good / --danger status pairs, not new tokens: an addition is "good"
- * and a removal is "danger" in exactly the sense this file already means. The `.dsign` column
- * carries the add/remove distinction independently of colour, so the diff still reads in greyscale
- * and for a colourblind reader — which is why it is a real column and not a ::before decoration.
+ * Colours are the EXISTING --success / --danger status pairs, not new tokens: an addition is
+ * "success" and a removal is "danger" in exactly the sense this file already means. The `.dsign`
+ * column carries the add/remove distinction independently of colour, so the diff still reads in
+ * greyscale and for a colourblind reader — which is why it is a real column and not a ::before
+ * decoration.
  *
  * Neither viewer loads basecoat-theme.css (its preflight strips list markers), so everything here
  * resolves against the tokens above and nothing else.
  */
 .diffhead{
   display:flex; align-items:center; gap:9px;
-  padding:8px 13px; border-bottom:1px solid var(--rule); background:var(--bg);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  font-size:var(--t-meta); color:var(--muted2);
+  padding:8px 13px; border-bottom:1px solid var(--border); background:var(--bg);
+  font-family:var(--font-ui);
+  font-size:var(--t-meta); color:var(--text-subtle);
 }
 .diffhead .dgrow{ flex:1 1 auto; }
 .dpill{ font-size:10.5px; font-weight:700; letter-spacing:.04em; border-radius:var(--r-pill); padding:2px 8px; }
-.dpill.plus { background:var(--good-bg);   color:var(--good);   border:1px solid var(--good-rule); }
-.dpill.minus{ background:var(--danger-bg); color:var(--danger); border:1px solid var(--danger-rule); }
+.dpill.plus { background:var(--success-bg); color:var(--success); border:1px solid var(--success-border); }
+.dpill.minus{ background:var(--danger-bg);  color:var(--danger);  border:1px solid var(--danger-border); }
 
-.diffbody{ overflow-x:auto; background:var(--panel); }
+.diffbody{ overflow-x:auto; background:var(--surface); }
 .drow{ display:flex; align-items:flex-start; }
 .dnum{
   flex:0 0 auto; width:3.1em; text-align:right; padding:0 7px;
-  color:var(--muted2); font-size:11.5px; user-select:none; font-variant-numeric:tabular-nums;
+  color:var(--text-subtle); font-size:11.5px; user-select:none; font-variant-numeric:tabular-nums;
 }
-.dnum.b{ border-right:1px solid var(--rule); }
-.dsign{ flex:0 0 auto; width:1.5em; text-align:center; user-select:none; color:var(--muted2); }
+.dnum.b{ border-right:1px solid var(--border); }
+.dsign{ flex:0 0 auto; width:1.5em; text-align:center; user-select:none; color:var(--text-subtle); }
 .dtxt{ flex:1 1 auto; padding-right:14px; white-space:pre-wrap; word-break:break-word; }
-.drow.add{ background:var(--good-bg); }
-.drow.add .dsign{ color:var(--good); font-weight:700; }
+.drow.add{ background:var(--success-bg); }
+.drow.add .dsign{ color:var(--success); font-weight:700; }
 .drow.del{ background:var(--danger-bg); }
 .drow.del .dsign{ color:var(--danger); font-weight:700; }
-.drow.eq{ color:var(--muted-fg); }
+.drow.eq{ color:var(--text-muted); }
 
 .dfold{
   display:flex; align-items:center; gap:9px; width:100%; text-align:left;
-  font:inherit; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  font-size:11.5px; cursor:pointer; background:var(--inset); color:var(--muted2);
-  border:none; border-top:1px solid var(--rule); border-bottom:1px solid var(--rule);
+  font:inherit; font-family:var(--font-ui);
+  font-size:11.5px; cursor:pointer; background:var(--code-bg); color:var(--text-subtle);
+  border:none; border-top:1px solid var(--border); border-bottom:1px solid var(--border);
   padding:5px 13px;
 }
-.dfold:hover{ color:var(--brand); }
-.dfold .dchev{ font-family:ui-monospace,Menlo,monospace; font-size:11px; }
-.dfold .dmore{ margin-left:auto; font-family:ui-monospace,Menlo,monospace; font-size:10.5px; }
+.dfold:hover{ color:var(--accent); }
+.dfold .dchev{ font-family:var(--font-mono); font-size:11px; }
+.dfold .dmore{ margin-left:auto; font-family:var(--font-mono); font-size:10.5px; }
 
 .diffempty{
-  color:var(--muted-fg); padding:10px 13px;
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:13px;
+  color:var(--text-muted); padding:10px 13px;
+  font-family:var(--font-ui); font-size:13px;
 }
 
 /* The toggle that opens the diff. Shared shape; each viewer positions it in its own chrome. */
 .difftoggle{ display:inline-flex; align-items:center; gap:7px; }
 .difftoggle .dglyph{
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-  font-size:12px; letter-spacing:-1px; color:var(--muted2);
+  font-family:var(--font-mono);
+  font-size:12px; letter-spacing:-1px; color:var(--text-subtle);
 }
-.difftoggle[aria-pressed="true"]{ background:var(--accent-bg); border-color:var(--brand); color:var(--brand); }
-.difftoggle[aria-pressed="true"] .dglyph{ color:var(--brand); }
+.difftoggle[aria-pressed="true"]{ background:var(--accent-muted); border-color:var(--accent); color:var(--accent); }
+.difftoggle[aria-pressed="true"] .dglyph{ color:var(--accent); }
 .difftoggle .dcount{
-  font-family:ui-monospace,Menlo,monospace; font-size:11px; font-weight:700;
+  font-family:var(--font-mono); font-size:11px; font-weight:700;
   border-radius:var(--r-pill); padding:1px 7px;
-  background:var(--good-bg); border:1px solid var(--good-rule); color:var(--good);
+  background:var(--success-bg); border:1px solid var(--success-border); color:var(--success);
 }
 .difftoggle .dcount .dm{ color:var(--danger); }
 /* The hint after an agent push: the button advertises that a diff is available. It never opens it. */
-.difftoggle.hinted{ border-color:var(--brand); }
+.difftoggle.hinted{ border-color:var(--accent); }
 
-/* System dark — yields to an explicit [data-theme="light"]. */
+/* ---- Theme arrival (#285) --------------------------------------------------------------------
+ * Explicit overrides are ONLY color-scheme flips: the values above already carry both sides.
+ * "light"/"dark" pin the scheme regardless of the OS; attribute absent = the :root base
+ * (light dark) = follow the OS live. Set by the pre-paint applier in each page's <head> and by
+ * the toggle in account.js; nothing else may write data-theme.
+ *
+ * font-weight is the one dark delta light-dark() cannot express (it only takes <color>), so it
+ * alone keeps the old two-arrival duplication: the media block below (system dark, yielding to an
+ * explicit light) plus the explicit-dark block. css_palette_selfcheck.js pins the media block to
+ * exactly this one declaration so the retired dark table cannot creep back in. */
+:root[data-theme="light"]{ color-scheme: light; }
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  /* Rev 3: dark body weight drops 400 -> 350, from the theme, not per element. Needs the
+     variable Geist file above; a static cut cannot render 350. */
+  font-weight:350;
+}
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#0f1014;
-    --panel:#17181d;
-    --canvas:#0b0c10;
-    --sheet:#fff;
-    --inset:#0f1116;
-    --btn:#20232b;
-    --nav-hover:#1d1f25;
-    --nav-active:#22242b;
-
-    --text:#e9eaf0;
-    --muted-fg:#9a9fb0;
-    --muted2:#878c9c;
-
-    --rule:#26282f;
-    --rule-faint:#1e2027;    /* judgement call, not an interpolation — see the light block */
-
-    --brand:#b9a3f5;
-    --accent-bg:#2a2147;
-
-    --blue:#9cc0f5;
-    --blue-bg:#16243f;
-
-    --link:#7ba6f5;
-
-    --green:#6dd39b;
-    --good-bg:#123027;
-    --warn:#d4a017;
-    --warn-bg:rgba(212,160,23,.14);
-    --danger:#e07a7a;
-    --danger-bg:#3a1f1f;
-    --danger-rule:#4a2a2a;
-    --good-rule:#1f4a38;
-    --warn-rule:#5a4a1f;
+    font-weight:350;   /* same delta, system-dark arrival; see the note above */
   }
 }
 
-/* Explicit dark — wins over the system preference. */
-:root[data-theme="dark"]{
-  --bg:#0f1014;
-  --panel:#17181d;
-  --canvas:#0b0c10;
-  --sheet:#fff;
-  --inset:#0f1116;
-  --btn:#20232b;
-  --nav-hover:#1d1f25;
-  --nav-active:#22242b;
+/* ---- #285 theme toggle -----------------------------------------------------------------------
+ * The rev-3 top-bar icon button (data-theme-icon in the mock): 30x30, --border edge, --surface
+ * face, --text-muted glyph, control radius. Markup is rendered by account.js (the one injection
+ * point on all five pages) but the CSS lives HERE per the #262 ordering rule below: an injected
+ * style would beat this file on load order.
+ *
+ * The button carries all three glyphs; which one shows is driven by the SAME data-theme state the
+ * tokens read, so the icon can never disagree with the rendered theme. Sun = explicit light,
+ * moon = explicit dark (both from the mock). The mock's static screens never draw the auto state;
+ * the monitor glyph for "system" is the implementer's documented judgement call (the
+ * --warning-border precedent) — owner can veto at review. No transition here on purpose: the mock
+ * gives the icon button none, and motion would owe a reduced-motion story (#152). */
+.theme-toggle{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:30px; height:30px; flex:0 0 auto; padding:0; cursor:pointer;
+  background:var(--surface); color:var(--text-muted);
+  border:1px solid var(--border); border-radius:var(--r-control);
+}
+.theme-toggle:hover{ border-color:var(--text-subtle); color:var(--text); }
+.theme-toggle svg{ display:none; width:16px; height:16px; }
+:root[data-theme="light"] .theme-toggle .tt-sun{ display:block; }
+:root[data-theme="dark"] .theme-toggle .tt-moon{ display:block; }
+:root:not([data-theme]) .theme-toggle .tt-auto{ display:block; }
 
-  --text:#e9eaf0;
-  --muted-fg:#9a9fb0;
-  --muted2:#878c9c;
+/* ---- #262 account menu -------------------------------------------------------------------
+   The menu's transition lives HERE, not in account.js's injected <style>. account.js appends its
+   style AFTER this file's <link>, so an equal-specificity rule in the injected string wins on load
+   order: a prefers-reduced-motion guard placed there could not override it, and would sit green
+   while doing nothing. Both the motion and its guard must share this file.
 
-  --rule:#26282f;
-  --rule-faint:#1e2027;      /* judgement call, not an interpolation — see the light block */
+   The guard is scoped to the whole document, not to the menu, because it is the app's FIRST
+   reduced-motion block and the next animated surface should find it here rather than add a rival
+   (standing rule, epic #152, carried into docs/design/design-system-spec.md by #241). */
+.acct-menu{ transition: opacity .12s, transform .12s; }
+.acct-menu[hidden]{ display:none; }
+.acct-menu.closing{ opacity:0; transform: translateY(-4px); }
 
-  --brand:#b9a3f5;
-  --accent-bg:#2a2147;
-
-  --blue:#9cc0f5;
-  --blue-bg:#16243f;
-
-  --link:#7ba6f5;
-
-  --green:#6dd39b;
-  --good-bg:#123027;
-  --warn:#d4a017;
-  --warn-bg:rgba(212,160,23,.14);
-  --danger:#e07a7a;
-  --danger-bg:#3a1f1f;
-  --danger-rule:#4a2a2a;
-  --good-rule:#1f4a38;
-  --warn-rule:#5a4a1f;
+@media (prefers-reduced-motion: reduce){
+  /* Opacity only, never transform: motion is what is reduced, not feedback. */
+  *, *::before, *::after{
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .acct-menu.closing{ transform: none; }
 }

@@ -1,0 +1,93 @@
+sprint-38 G7: the sprint's runnable checks, re-run independently
+tree: origin/dev @ e2760057faa2a10a25dece0153cdeeb23bcdb943 (clean worktree, NOT the author's working tree)
+
+======== $ python3 tests/stage8_doc_selfcheck.py
+ok   - park reason `no-session` is in the taxonomy
+ok   - park reason `no-key-delivery` is in the taxonomy
+ok   - park reason `no-viewport-control` is in the taxonomy
+ok   - park reason `surface-unreachable` is in the taxonomy
+ok   - the taxonomy names its residue (what a human must do)
+ok   - 'I tried and it did not work' is framed as a claim about the approach
+
+all stage-8 doc cases pass
+   exit=0
+
+======== $ python3 tests/design_spec_selfcheck.py
+ok   - known divergences are recorded
+ok   - the 40px headline divergence is named
+ok   - the standing reduced-motion rule is carried across
+ok   - the rule is attributed to its dated source comment
+ok   - the rule keeps its verification method (computed style, never screenshot)
+ok   - the rule states what would falsify it
+
+all design-spec cases pass
+   exit=0
+
+======== $ bash tests/readme_shape_selfcheck.sh
+  ok   - no em dashes
+  ok   - every docs/ link resolves
+  ok   - keeps '## Getting started'
+  ok   - keeps '## Run'
+  ok   - keeps '## Config'
+  ok   - links out to the operator guides
+
+README shape OK
+   exit=0
+
+======== $ node tests/css_tokens_selfcheck.js
+ok   - web/app/account.html: every bare var(--token) is defined
+ok   - web/app/admin.html: every bare var(--token) is defined
+ok   - web/app/static/account.js: every bare var(--token) is defined
+ok   - --accent-soft is gone from dashboard.html
+ok   - the selected palette row uses a defined token
+ok   - selection carries a non-colour signal too
+
+all css-token cases pass
+   exit=0
+
+======== $ node tests/keys_selfcheck.js
+ok   - basecoat is told to leave the palette alone (one Escape owner)
+ok   - project items drive the real #projsel control
+ok   - results are reviews first, then projects
+ok   - palette rows reach 44px at narrow width
+ok   - menu items resolve through --radius-lg, not --radius
+ok   - --r-panel kept as the dialog radius
+
+all key cases pass
+   exit=0
+
+======== $ node tests/account_menu_selfcheck.js
+ok   - the retired #7c6cff is gone from account.js
+ok   - the admin colour is not a hardcoded hex
+ok   - the menu transition is declared in theme.css
+ok   - account.js does NOT declare the menu transition
+ok   - theme.css carries a prefers-reduced-motion block
+ok   - the guard actually neutralises transition duration
+
+all account-menu cases pass
+   exit=0
+
+======== $ python3 tests/account_shares_selfcheck.py
+ok   - 200 for the owner
+ok   - public review listed
+ok   - named-share review listed
+ok   - review with neither is ABSENT
+ok   - public right reported
+ok   - grantee email resolved (not a raw uid)
+ok   - grantee right reported
+ok   - a different user sees NONE of mine
+ok   - anonymous -> 401
+
+all account-shares cases pass
+   exit=
+
+======== $ bash tests/palette_fullscreen_selfcheck.sh   (headless CDP geometry, #265)
+  ok   - 606px: panel spans the full width (606px)
+  ok   - 606px: panel starts at the left edge
+  ok   - 606px: panel starts at the top edge
+  ok   - 606px: square corners, edge to edge
+  ok   - 1280px: panel stays centred and narrow (384px), unchanged
+
+palette full-screen OK
+tests/palette_fullscreen_selfcheck.sh: line 19:  2731 Terminated: 15          MDREVIEW_DATA="$tmp/data" PORT="$port" MDREVIEW_WEB_DIR="$here/web/app" PYTHONPATH="$here/src" python3 -m mdreview > "$tmp/server.log" 2>&1
+   exit=

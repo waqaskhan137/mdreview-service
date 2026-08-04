@@ -120,8 +120,24 @@ TOOLS = [
         "name": "get_source",
         "description": "Get a review's current source — the draft you edit (markdown, or raw LaTeX for a "
                        "kind=latex review). Read it before applying feedback when you didn't keep the "
-                       "draft in memory (e.g. a resumed session).",
-        "inputSchema": {"type": "object", "properties": {"id": _ID}, "required": ["id"]},
+                       "draft in memory (e.g. a resumed session). By default the result is the raw "
+                       "document verbatim, exactly as before. Pass with_revision=true to instead get a "
+                       "JSON envelope {\"source\": ..., \"revision\": N}: the revision is the "
+                       "optimistic-concurrency token for update_source's expected_revision, issued "
+                       "atomically with this read (same response), so use THIS — never a separate "
+                       "get_status poll — as the token source when you plan a guarded save.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": _ID,
+                "with_revision": {"type": "boolean",
+                                  "description": "opt-in: return {\"source\", \"revision\"} JSON instead "
+                                                 "of the raw document; the revision pairs with "
+                                                 "update_source's expected_revision. Default false = "
+                                                 "raw document, unchanged."},
+            },
+            "required": ["id"],
+        },
     },
     {
         "name": "get_feedback",
@@ -132,7 +148,13 @@ TOOLS = [
     {
         "name": "get_status",
         "description": "Cheap poll: a review's source_updated, feedback_updated, and comments_updated "
-                       "timestamps. Watch comments_updated for new/changed comment threads.",
+                       "timestamps. Watch comments_updated for new/changed comment threads. Also carries "
+                       "revision and can_edit (#288) — but for a guarded update_source take the revision "
+                       "from get_source(with_revision=true), the read that gave you the text, never from "
+                       "this poll. source_updated_by (#289) names who authored the current draft: "
+                       "\"reviewer\" means the human edited the document since your last write, so "
+                       "re-read the source before saving; \"agent\" (the default) means the last write "
+                       "was yours.",
         "inputSchema": {"type": "object", "properties": {"id": _ID}, "required": ["id"]},
     },
     {
@@ -143,10 +165,27 @@ TOOLS = [
                        "block, math in $…$/$$…$$, code in a language-labelled fence — not ASCII art or a "
                        "plain ```  fence. For a kind=latex review the draft is RAW LaTeX (a single .tex "
                        "document); the server recompiles it to PDF on each push, and the mermaid/markdown "
-                       "rule does not apply.",
+                       "rule does not apply. CONCURRENT EDITS: the human can now edit the document too, so "
+                       "prefer a guarded save — read via get_source(with_revision=true) and pass that "
+                       "revision as expected_revision. A stale revision fails with HTTP 409 and writes "
+                       "NOTHING; on a 409 you MUST re-read the source, re-apply your change onto the new "
+                       "text, and save with the fresh revision. NEVER resend a buffered draft after a 409 "
+                       "— it would silently overwrite the human's edit. Omitting expected_revision is the "
+                       "old unconditional write.",
         "inputSchema": {
             "type": "object",
-            "properties": {"id": _ID, "markdown": {"type": "string", "description": "the new draft"}},
+            "properties": {
+                "id": _ID,
+                "markdown": {"type": "string", "description": "the new draft"},
+                "expected_revision": {"type": "integer",
+                                      "description": "optional optimistic-concurrency guard: the revision "
+                                                     "your draft is based on, taken from "
+                                                     "get_source(with_revision=true) — the same read that "
+                                                     "gave you the text, never a separate status poll. "
+                                                     "409 = stale: re-read, re-apply onto the new text, "
+                                                     "retry with the new revision; never resend the old "
+                                                     "draft. Omit for an unconditional write."},
+            },
             "required": ["id", "markdown"],
         },
     },

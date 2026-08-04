@@ -4,9 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mdreview · reviews</title>
-<!-- #152 Basecoat: vendored (self-hosted, no runtime CDN). Basecoat skins the generic chrome (the
-     sign-in form, the search box, buttons). The inbox itself is hand CSS: design doc §05 rule 02 is
-     "no cards, no pills", which rules out the two Basecoat primitives this page used to lean on. -->
+<script>
+/* #285 pre-paint theme applier — IDENTICAL in all five page heads (dashboard, viewer,
+   latex-viewer, account, admin); edit all five together. It must run synchronously in <head>,
+   before first paint: account.js (which renders the toggle) is end-of-body and too late, and a
+   deferred applier would flash the wrong theme. An explicit stored choice pins data-theme;
+   anything else (key absent, garbage value, storage unavailable) means auto: attribute off,
+   CSS follows the OS. */
+(function(){try{var t=localStorage.getItem("mdr.theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
+</script>
+<!-- #152 Basecoat: vendored (self-hosted, no runtime CDN). Basecoat still skins the buttons and
+     the project select. The inbox, the search control and the sign-in screen are hand CSS to the
+     rev-3 mock (#278): §05 rule 02 is "no cards, no pills", and rev 3 drew both card-less. -->
 <link rel="stylesheet" href="/static/basecoat.cdn.min.css">
 <link rel="stylesheet" href="/static/theme.css">
 <link rel="stylesheet" href="/static/basecoat-theme.css">
@@ -19,166 +28,321 @@
      row never tests lease freshness. */
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-family:var(--font-ui);
     font-size:var(--t-body);line-height:1.45;-webkit-font-smoothing:antialiased;}
 
   /* ---- the top line ----------------------------------------------------------------------
-     .app-top is theme.css's. Everything below is either one of THIS page's occupants of it, or
-     the one page-local guard noted inline. */
-  /* Overflow guard, not a narrow-width pass: the dashboard puts five things on a line that
-     account puts two on, so it wraps instead of scrolling the body sideways. §10's real narrow
-     treatment (44px targets, headline ramp) is #184. */
+     .app-top is theme.css's. Rev 3 (#278) empties it down to brand / search / #acct: the filter
+     words and #projsel moved into the column below the heading. The search control is still the
+     REAL live-filtering input (the palette-launcher reading of the mock would delete shipped
+     behaviour no epic decision retired); the ⌘K chip is an adornment inside it. The line also
+     fits #285's 30x30 theme toggle between search and #acct without wrapping — account.js
+     mounts it before #acct, and tests/dashboard_reskin_selfcheck.sh measures the fit. */
+  /* Overflow guard, not a narrow-width pass: wrap instead of scrolling the body sideways. */
   #app .app-top{flex-wrap:wrap;row-gap:var(--s-2);}
 
-  .filters{display:flex;align-items:center;gap:var(--s-2);min-width:0;}
-  /* §05 rule 01/02: no violet, no pill. The active filter is carried by weight and text colour. */
-  .filt{font:inherit;font-size:var(--t-meta);background:none;border:0;padding:2px 0;cursor:pointer;
-    color:var(--muted-fg);white-space:nowrap;}
-  .filt:hover{color:var(--text);}
-  .filt.on{color:var(--text);font-weight:600;}
-  .filt .ct{font-weight:700;font-variant-numeric:tabular-nums;}
-  .fdot{color:var(--muted2);user-select:none;}
-  #search{flex:1 1 150px;min-width:0;max-width:250px;}   /* look comes from Basecoat .input */
-  #projsel{flex:0 0 auto;max-width:180px;}               /* a native select: no popover to clip */
+  .searchbox{display:flex;align-items:center;gap:var(--s-2);height:30px;padding:0 10px;
+    flex:0 1 260px;min-width:150px;border:1px solid var(--border);border-radius:var(--r-control);
+    background:var(--surface);color:var(--text-subtle);}
+  .searchbox:focus-within{border-color:var(--accent);}
+  #search{flex:1 1 auto;min-width:0;border:0;background:none;outline:none;padding:0;
+    font:inherit;font-size:var(--t-eyebrow);color:var(--text);}
+  #search::placeholder{color:var(--text-subtle);}
+  .kbd-hint{flex:0 0 auto;font-family:var(--font-mono);font-size:var(--t-eyebrow);
+    padding:1px 5px;border:1px solid var(--border);border-radius:4px;}
 
   /* ---- the column ------------------------------------------------------------------------ */
-  /* The visible headline is the "next up" title (§05: "one thing to do next"), so the document
-     heading is for assistive tech only. filterTitle() still writes it, so the active view is
-     announced even though nothing draws it. */
-  .vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
-    clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+  /* Rev 3 makes the document heading VISIBLE (owner decision in #276). filterTitle() stays its
+     single writer, so assistive tech and sighted users read the same node; the count line beside
+     it is #sub, relocated with its semantics intact. */
+  .head{display:flex;align-items:baseline;gap:var(--s-3);margin:0 0 var(--s-8);}
+  .head h1{margin:0;font-size:24px;line-height:1.15;letter-spacing:-.025em;font-weight:600;}
+  .head .sub{margin:0 0 0 auto;font-family:var(--font-mono);font-size:13px;letter-spacing:.04em;
+    color:var(--text-muted);font-variant-numeric:tabular-nums;}
+
+  .filtrow{display:flex;align-items:center;gap:var(--s-6);margin:0 0 var(--s-6);}
+  .filters{display:flex;align-items:center;gap:var(--s-6);min-width:0;}
+  /* §05 rule 01/02: no violet, no pill. The active filter is carried by weight and text colour. */
+  .filt{font:inherit;font-size:var(--t-body);background:none;border:0;padding:2px 0;cursor:pointer;
+    color:var(--text-muted);white-space:nowrap;transition:color .16s;}
+  .filt:hover{color:var(--text);}
+  .filt.on{color:var(--text);font-weight:600;}
+  .filt .ct{color:var(--text-subtle);font-weight:400;font-variant-numeric:tabular-nums;}
+  #projsel{flex:0 0 auto;max-width:200px;margin-left:auto;}   /* a native select: no popover to clip */
 
   /* Confirm bar: the same shape admin uses (#179), replacing confirm(). A modal confirm cannot be
      styled, blocks the page and reads as a browser error rather than as part of the app. */
-  #confirmbar{display:none;align-items:center;gap:10px;background:var(--warn-bg);
-    border:1px solid var(--warn-rule);border-radius:var(--r-control);padding:11px 14px;
+  #confirmbar{display:none;align-items:center;gap:10px;background:var(--warning-bg);
+    border:1px solid var(--warning-border);border-radius:var(--r-control);padding:11px 14px;
     margin:0 0 var(--s-4);}
   #confirmbar .msg{flex:1;}
 
   /* ---- next up ---- */
-  #nextup:not(:empty){margin:0 0 var(--s-8);}
-  .nu-crumb{font-size:var(--t-meta);color:var(--muted2);margin:0 0 var(--s-2);}
-  .nu-title{font-size:var(--t-display);line-height:1.15;letter-spacing:-.02em;font-weight:650;
-    margin:0 0 var(--s-3);}
-  .nu-say{color:var(--muted-fg);margin:0 0 var(--s-4);}
+  /* Rev 3: the hero is a tinted block on --code-bg, title 20px (down from --t-display), mono
+     crumb. Promotion rule and CTA logic are unchanged; only the skin moved. */
+  #nextup:not(:empty){display:flex;flex-direction:column;gap:6px;padding:var(--s-4);
+    margin:0 0 var(--s-6);border-radius:var(--r-card);background:var(--code-bg);}
+  .nu-crumb{font-family:var(--font-mono);font-size:var(--t-meta);letter-spacing:.04em;
+    color:var(--text-subtle);margin:0;}
+  .nu-title{font-size:20px;line-height:1.2;letter-spacing:-.015em;font-weight:600;margin:0;}
+  .nu-say{font-size:var(--t-body);color:var(--text-muted);margin:0;}
   /* §05 rule 01: one violet per screen, and this is it. */
-  .nu-go{text-decoration:none;}
+  .nu-go{align-self:flex-start;margin-top:4px;text-decoration:none;}
 
   /* ---- the quiet lists ---- */
-  .grp{margin:0 0 var(--s-6);}
-  .grp-h{font-size:var(--t-meta);color:var(--muted2);margin:0 0 var(--s-2);}
-  /* §05 rule 02: a 1px --rule-faint hairline SEPARATES rows. The container is the page: no card and
-     no border around the group, so the last row carries no rule. */
-  .rw{position:relative;display:flex;align-items:baseline;gap:var(--s-3);padding:9px 0;}
-  .rw+.rw{border-top:1px solid var(--rule-faint);}
-  .rw-l{display:flex;align-items:baseline;gap:var(--s-2);min-width:0;flex:1 1 auto;
+  .grp{margin:0 0 var(--s-8);}
+  /* Rev 3 eyebrows: mono uppercase, and a deliberate asymmetry — "Waiting on you" reads at
+     --text strength, "With the agent" stays subtle. */
+  .grp-h{font-family:var(--font-mono);font-size:12px;line-height:20px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--text-subtle);margin:0 0 var(--s-2);}
+  .grp-yours .grp-h{color:var(--text);}
+  /* Rev 3 rows: the hairline between rows is GONE; a hover tint on --code-bg replaces it, with
+     the row bleeding 12px past the column (negative margins) so the tint reads as a slab. */
+  .rw{position:relative;display:flex;align-items:center;gap:var(--s-3);min-height:52px;
+    padding:var(--s-2) 12px;margin:0 -12px;border-radius:var(--r-control);transition:background .16s;}
+  .rw:hover{background:var(--code-bg);}
+  .rw-l{display:flex;align-items:center;gap:var(--s-3);min-width:0;flex:1 1 auto;
     color:inherit;text-decoration:none;}
-  .rw:hover .rw-t{text-decoration:underline;text-underline-offset:2px;}
-  .rw-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .rw-p{flex:0 0 auto;font-size:var(--t-meta);color:var(--muted2);}
-  /* the LATEX marker (MR-098) demoted from a chip to plain text (§05 rule 02) */
-  .rw-k{flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--blue);}
-  .rw-m{flex:0 0 auto;font-size:var(--t-meta);color:var(--muted2);white-space:nowrap;
-    transition:opacity .12s;}
-  .rw:hover .rw-m{opacity:0;}   /* the delete button lands here, so get the meta out from under it */
+  .rw-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px;line-height:20px;}
+  .rw-p{flex:0 0 auto;font-size:13px;line-height:20px;color:var(--text-muted);}
+  /* the leading kind cell: every row carries one now, "MD" or "TEX" (rev 3) */
+  .rw-k{flex:0 0 32px;font-family:var(--font-mono);font-size:13px;line-height:20px;font-weight:600;
+    letter-spacing:.04em;color:var(--text-muted);font-variant-numeric:tabular-nums;}
+  /* status/count: its own span, VISIBLE through hover (only the timestamp fades) */
+  .rw-s{flex:0 0 auto;font-family:var(--font-mono);font-size:13px;line-height:20px;
+    color:var(--text-subtle);font-variant-numeric:tabular-nums;}
+  .w-yours .rw-s{font-weight:600;color:var(--text);}
+  .rw-s.live{display:inline-flex;align-items:center;gap:6px;color:var(--accent);}
+  .rw-s.live::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent);}
+  /* the timestamp: fixed-width right-aligned mono, and the ONLY thing that fades under the
+     hover-revealed actions */
+  .rw-m{flex:0 0 auto;width:76px;text-align:right;font-family:var(--font-mono);font-size:13px;
+    line-height:20px;color:var(--text-muted);font-variant-numeric:tabular-nums;transition:opacity .16s;}
+  .rw:hover .rw-m{opacity:0;}   /* the delete button lands here, so get the time out from under it */
   /* §05 rule 03, three weights of row: yours, the agent's, resolved. */
-  .w-yours .rw-t{font-weight:500;color:var(--text);}
-  .w-agent .rw-t{font-weight:400;color:var(--muted-fg);}
-  .w-resolved .rw-t{font-weight:400;color:var(--muted2);}
+  .w-yours .rw-t{font-weight:600;color:var(--text);}
+  .w-agent .rw-t{font-weight:400;color:var(--text-muted);}
+  .w-resolved .rw-t{font-weight:400;color:var(--text-subtle);}
 
   .del{position:absolute;top:50%;right:0;transform:translateY(-50%);
     display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;
     border-radius:var(--r-control);border:1px solid transparent;background:transparent;
-    color:var(--muted2);cursor:pointer;opacity:0;transition:opacity .12s,color .12s,background .12s;}
+    color:var(--text-subtle);cursor:pointer;opacity:0;transition:opacity .12s,color .12s,background .12s;}
   .rw:hover .del{opacity:1;}
   .del:hover{color:var(--danger);background:var(--danger-bg);}
   .del:focus-visible{opacity:1;}   /* the ring itself is theme.css's one focus rule (§03) */
+  /* #187 manual resolve/reopen: the same hover-revealed row action as .del, one slot to its left
+     (the meta text already fades out under both). */
+  .res{position:absolute;top:50%;right:32px;transform:translateY(-50%);
+    display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;
+    border-radius:var(--r-control);border:1px solid transparent;background:transparent;
+    color:var(--text-subtle);cursor:pointer;opacity:0;transition:opacity .12s,color .12s,background .12s;}
+  .rw:hover .res{opacity:1;}
+  .res:hover{color:var(--success);background:var(--code-bg);}
+  .res:focus-visible{opacity:1;}
 
-  .resline{font-size:var(--t-meta);color:var(--muted2);}
-  .resline .linklike{margin-top:0;font-size:var(--t-meta);}
+  /* Rev 3: the resolved control is a centred mono link, styled like an eyebrow */
+  .resline{display:flex;justify-content:center;padding-top:var(--s-4);margin:0 0 var(--s-2);}
+  .resline .linklike{margin-top:0;font-family:var(--font-mono);font-size:12px;line-height:20px;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);text-decoration:none;
+    transition:color .16s;}
+  .resline .linklike:hover{color:var(--accent);}
 
   /* Namespaced: a bare `.empty` now collides with Basecoat's own empty-state block, which is
      display:flex/flex:1 and would fight this outright. */
-  .dash-empty,.noresults{text-align:center;color:var(--muted-fg);padding:var(--s-12) 0;}
+  .dash-empty,.noresults{text-align:center;color:var(--text-muted);padding:var(--s-12) 0;}
   .noresults{display:none;}
-  .dash-empty code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-meta);
-    background:var(--inset);padding:2px 6px;border-radius:var(--r-control);}
+  .dash-empty code{font-family:var(--font-mono);font-size:var(--t-meta);
+    background:var(--code-bg);padding:2px 6px;border-radius:var(--r-control);}
 
-  .sub{color:var(--muted2);font-size:var(--t-meta);margin:var(--s-6) 0 0;}
-
-  /* ---- sign-in screen (anonymous; #131) — Basecoat card/input/btn + layout only ---- */
-  .signin-wrap{min-height:100vh;display:none;align-items:center;justify-content:center;padding:24px;}
-  #signin-card{width:100%;max-width:400px;}
-  .signin-brand{display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px;
-    font-weight:600;letter-spacing:-.15px;margin:0 0 12px;}
-  .signin-brand .logo{width:30px;height:30px;border-radius:var(--r-control);
-    background:linear-gradient(135deg,#2f6fed,#7c4dff);color:#fff;display:flex;align-items:center;
-    justify-content:center;font-size:12px;font-weight:700;}
-  #signin-card h1{font-size:21px;font-weight:700;letter-spacing:-.3px;margin:0 0 7px;text-align:center;}
-  #signin-card .lede{color:var(--muted-fg);font-size:13.5px;line-height:1.5;text-align:center;margin:0 0 20px;}
-  .signin-field label{display:block;margin:0 0 6px;}
-  .signin-note{color:var(--muted2);font-size:12px;text-align:center;margin:16px 0 0;}
+  /* ---- sign-in screen (anonymous; #131) — rev 3: card-less 400px block, brand top-left ---- */
+  .signin-wrap{min-height:100vh;display:none;align-items:center;justify-content:center;padding:var(--s-8);}
+  #signin-card{width:100%;max-width:400px;display:flex;flex-direction:column;}
+  .signin-brand{display:flex;align-items:center;gap:9px;font-size:var(--t-card);
+    font-weight:600;letter-spacing:-.01em;margin:0 0 var(--s-8);}
+  .signin-brand .logo{width:26px;height:26px;border-radius:var(--r-control);
+    background:var(--accent);color:var(--bg);display:flex;align-items:center;
+    justify-content:center;font-family:var(--font-mono);font-size:var(--t-eyebrow);font-weight:600;}
+  #signin-card h1{font-size:var(--t-title);line-height:1.15;font-weight:600;letter-spacing:-.025em;margin:0 0 var(--s-2);}
+  #signin-card .lede{color:var(--text-muted);font-size:var(--t-body);line-height:1.6;margin:0 0 var(--s-6);text-wrap:pretty;}
+  .signin-field label{display:block;font-family:var(--font-mono);font-size:var(--t-eyebrow);
+    letter-spacing:.1em;text-transform:uppercase;color:var(--text-subtle);margin:0 0 7px;}
+  #signin-email{width:100%;height:40px;padding:0 12px;border:1px solid var(--border);
+    border-radius:var(--r-control);background:var(--surface);font:inherit;font-size:var(--t-body);
+    color:var(--text);}
+  #signin-btn{width:100%;height:40px;margin-top:16px;border:0;border-radius:var(--r-control);
+    background:var(--accent);color:var(--bg);font:inherit;font-size:var(--t-body);font-weight:600;
+    cursor:pointer;transition:background .16s;}
+  #signin-btn:hover{background:var(--accent-strong);}
+  /* the footnote: mono, filled by JS from the mirrored magic-link constants */
+  .signin-note{font-family:var(--font-mono);font-size:var(--t-meta);line-height:1.6;
+    color:var(--text-subtle);margin:24px 0 0;}
   /* the always-shown "didn't get it?" note: quieter than the lede so it reads as a footnote */
-  #signin-card .lede.signin-fine{font-size:12px;color:var(--muted2,var(--muted-fg));margin:-8px 0 18px;}
+  #signin-card .lede.signin-fine{font-size:12px;color:var(--text-subtle,var(--text-muted));margin:-8px 0 18px;}
   .signin-ok{text-align:center;}
-  .signin-ok .check{width:46px;height:46px;border-radius:var(--r-pill);background:var(--accent-bg);
-    color:var(--brand);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .signin-ok .check{width:46px;height:46px;border-radius:var(--r-pill);background:var(--accent-muted);
+    color:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
   .signin-ok .addr{color:var(--text);font-weight:600;}
-  .linklike{background:none;border:none;color:var(--link);font:inherit;font-size:12.5px;cursor:pointer;
-    padding:0;margin-top:16px;text-decoration:underline;}
+  .linklike{background:none;border:none;color:var(--accent);font:inherit;font-size:12.5px;cursor:pointer;
+    padding:0;margin-top:16px;text-decoration:underline;text-underline-offset:3px;}
+
+  /* ---- #184: the narrow pass (§10) -------------------------------------------------------
+     Breakpoint 720px, chosen ABOVE the measured real-Chrome floor: a fresh window asked for
+     380px stops at innerWidth 606 on this display (W_min, recorded in the PR), so 720 keeps the
+     whole narrow treatment exercisable through the real path. Widths below 606 exist only on
+     actual phones; that boundary is recorded, not waived.
+     §10 rule 01: 44px minimum hit targets — rows, filter words, and the primary button (this
+     page's only primary CTA is #signin-btn). Targets grow by PADDING, not font size: §05 rule 02
+     (no cards, no pills) stays intact, and body/row text keeps its size — only the headline
+     steps down, 32px -> 24px, so the measure stays readable at 606. */
+  /* #183: menu items resolve through --radius-lg (8px) — the DERIVED token, per the standing
+     Basecoat rule that overriding --radius itself does nothing. --r-panel (16px) is KEPT on the
+     dialog: it is the shared floating-surface radius, and its other consumers are unchanged. */
+  .command-dialog{border-radius:var(--r-panel);}
+  :where(.command-dialog) :is(.command [role=menuitem]){border-radius:var(--radius-lg);}
+  /* #261. The selected row was INVISIBLE: --accent-soft does not exist and never did — it appears
+     exactly once in this repo, here, as its own consumer. Both selected and unselected measured
+     rgba(0,0,0,0), so arrow-key navigation produced no visible change at all. --accent-muted is the
+     defined token. Shipped in #183 and caught by a grooming pass, not by my checks. */
+  .cmdrow{display:flex;align-items:center;gap:var(--s-2);width:100%;padding:9px 10px;
+    background:none;border:0;font:inherit;text-align:left;cursor:pointer;color:var(--text);
+    transition:background .12s, color .12s;}
+  .cmdrow:hover{background:var(--code-bg);}
+  .cmdrow[aria-selected="true"]{background:var(--accent-muted);color:var(--accent);font-weight:550;}
+  /* The keyboard cursor needs a second, non-colour signal: hover and selection are otherwise two
+     tints of the same idea, and a hovering mouse would hide where the keyboard actually is. */
+  .cmdrow[aria-selected="true"]::before{content:"";position:absolute;left:0;width:2px;top:2px;
+    bottom:2px;background:var(--accent);border-radius:2px;}
+  .cmdrow{position:relative;}
+  .cmdrow .cmdhint{margin-left:auto;font-size:var(--t-meta);color:var(--text-subtle);
+    padding-left:var(--s-3);white-space:nowrap;}
+  .cmdrow[aria-selected="true"] .cmdhint{color:var(--accent);opacity:.75;}
+  .cmdempty{padding:14px 10px;color:var(--text-subtle);font-size:var(--t-meta);text-align:center;}
+  /* The query row reads as an input, not as a floating string of text. */
+  #cmdk .command>header{border-bottom:1px solid var(--border-faint,var(--border));padding:2px 4px;}
+  #cmdq{width:100%;font:inherit;font-size:15px;padding:11px 10px;border:0;background:none;
+    color:var(--text);outline:none;}
+  #cmdq::placeholder{color:var(--text-subtle);}
+  #cmdlist{padding:6px;max-height:min(52vh,420px);overflow:auto;}
+
+  @media (max-width: 720px){
+    /* §10 rule 02: at narrow width the palette becomes a full-screen tap surface, sharing the
+       breakpoint #184 established (720px, above the measured 606px real-window floor).
+
+       #265: the rules must land on `.command`, NOT on `.command-dialog`. The dialog is a
+       transparent wrapper; Basecoat pins the VISIBLE panel with
+         .command-dialog:is([open],:popover-open)>.command{position:fixed;top:33.3333%;left:50%;
+                                                           translate:-50% 0;max-width:calc(100% - 2rem)}
+       so styling the wrapper is user-invisible. #183 styled the wrapper, the panel stayed
+       574x176 at 606px, and a text-regex check called it full-screen for two days.
+
+       No specificity trick is needed for the geometry, and a mutation test proved it: dropping
+       `:is([open],:popover-open)` changed nothing, because these declarations are UNLAYERED and
+       Basecoat's live in `@layer components` — unlayered normal declarations beat layered ones
+       whatever the specificity. So the plain child selector is enough. (Recorded because the
+       obvious assumption, "match their specificity", is the wrong mental model here.)
+
+       The radius cannot be won that way at all. Basecoat ships
+       `.command-dialog>.command{border-radius:var(--radius-xl)!important}` inside
+       `@layer components`, and for IMPORTANT declarations the cascade inverts layer order: a
+       layered !important beats an unlayered one whatever its specificity. So we redefine the
+       TOKEN the rule reads instead of fighting the declaration. Same lesson this repo already
+       learned once: override the DERIVED token, never the base --radius. */
+    .command-dialog{border-radius:0;}
+    .command-dialog>.command{
+      position:fixed;inset:0;top:0;left:0;translate:none;
+      width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;
+      --radius-xl:0px;display:flex;flex-direction:column;}
+    /* The list, not the page, is what scrolls: a full-screen panel that scrolls the document
+       behind it is how a phone loses the query row mid-typing. */
+    #cmdk .command>header{flex:0 0 auto;}
+    #cmdlist{flex:1 1 auto;max-height:none;}
+    .cmdrow{min-height:44px;align-items:center;}
+    /* #184's 44px floors. Rev 3's base row is already 52px (>= 44), so .rw needs no override
+       here; .rw-l keeps its explicit floor so the tap surface, not just the row, is 44px.
+       The old 32 -> 24px headline step is gone with the headline it stepped: the rev-3 hero
+       title is 20px at every width. */
+    .rw-l{align-self:stretch;align-items:center;min-height:44px;}
+    .filt{min-height:44px;display:inline-flex;align-items:center;padding:0 var(--s-2);}
+    #signin-btn{min-height:44px;}
+  }
 </style>
 </head>
 <body>
 <div class="signin-wrap" id="signin">
-  <div class="card" id="signin-card"><section>
+  <div id="signin-card">
     <div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>
-    <h1>Sign in to mdreview</h1>
-    <p class="lede">Enter your email and we'll send you a one-time sign-in link. No password needed.</p>
+    <h1>Sign in</h1>
+    <p class="lede">We'll email you a one-time link. No password, and the same link signs you up.</p>
     <form id="signin-form" novalidate>
       <div class="signin-field">
-        <label class="label" for="signin-email">Email</label>
-        <input class="input" id="signin-email" type="email" autocomplete="email"
-               placeholder="you@example.com" required style="width:100%">
+        <label for="signin-email">Email</label>
+        <input id="signin-email" type="email" autocomplete="email"
+               placeholder="you@example.com" required>
       </div>
-      <button class="btn" id="signin-btn" type="submit" style="width:100%;margin-top:14px">Send sign-in link</button>
+      <button id="signin-btn" type="submit">Send sign-in link</button>
     </form>
-    <p class="signin-note">New here? The same link signs you up.</p>
-  </section></div>
+    <!-- filled by JS from the mirrored magic-link constants, so the numbers cannot fork -->
+    <p class="signin-note" id="signin-note"></p>
+  </div>
 </div>
 <!-- #app is INSIDE nothing and the top line is INSIDE it: the shell must not render over the
      sign-in screen, which draws its own brand and wants no account menu. -->
 <div id="app" style="display:none">
+  <!-- #285's 30x30 theme toggle sits between .searchbox and #acct: account.js mounts it as
+       #acct's previous sibling (element, icons, behaviour all live there + theme.css);
+       tests/dashboard_reskin_selfcheck.sh measures that the line fits it without wrapping. -->
   <div class="app-top">
     <a class="brand" href="/"><span class="mark">md</span><span>mdreview</span></a>
-    <nav class="filters" id="inbox" aria-label="Inbox filters">
-      <button type="button" class="filt" data-filter="needs">Yours <span class="ct" id="ct-needs">0</span></button>
-      <span class="fdot" aria-hidden="true">·</span>
-      <button type="button" class="filt" data-filter="working">Working <span class="ct" id="ct-working">0</span></button>
-      <span class="fdot" aria-hidden="true">·</span>
-      <button type="button" class="filt" data-filter="resolved">Resolved <span class="ct" id="ct-resolved">0</span></button>
-    </nav>
     <span class="spacer"></span>
-    <input id="search" class="input" type="search" placeholder="Search reviews…" autocomplete="off"
-           aria-label="Search reviews">
-    <select id="projsel" class="input" aria-label="Filter by project"><option value="">All projects</option></select>
+    <div class="searchbox">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="search" type="search" placeholder="Search reviews" autocomplete="off"
+             aria-label="Search reviews">
+      <span class="kbd-hint" aria-hidden="true">⌘K</span>
+    </div>
     <div id="acct"></div>
   </div>
   <div class="app-col">
-    <h1 class="vh" id="h1">All reviews</h1>
     <div id="confirmbar"><span class="msg"></span><button class="btn" data-variant="destructive" data-size="sm" id="cfy">Delete</button><button class="btn" data-variant="outline" data-size="sm" id="cfn">Cancel</button></div>
     <div id="flash" class="flash" role="status" aria-live="polite"></div>
     <section id="nextup"></section>
+    <div class="head">
+      <h1 id="h1">Documents</h1>
+      <p class="sub" id="sub">Loading…</p>
+    </div>
+    <div class="filtrow">
+      <nav class="filters" id="inbox" aria-label="Inbox filters">
+        <button type="button" class="filt" data-filter="needs">Yours <span class="ct" id="ct-needs">0</span></button>
+        <button type="button" class="filt" data-filter="working">Working <span class="ct" id="ct-working">0</span></button>
+        <button type="button" class="filt" data-filter="resolved">Resolved <span class="ct" id="ct-resolved">0</span></button>
+      </nav>
+      <select id="projsel" class="input" aria-label="Filter by project"><option value="">All projects</option></select>
+    </div>
     <div id="list"></div>
     <div class="noresults" id="noresults">No reviews match your search.</div>
-    <p class="sub" id="sub">Loading…</p>
   </div>
 </div>
 <!-- Before the inline block, not after it: boot() runs at parse time and needs window.mdSession. -->
+<!-- #183: ⌘K palette. Basecoat's .command markup for the styling contract, but marked
+     data-command-initialized so Basecoat's own JS leaves it alone — Escape must go through
+     mdKeys' shared layer stack (pushEscape), not a second component-local handler. -->
+<dialog id="cmdk" class="command-dialog" aria-label="Command palette">
+  <div class="command" data-command-initialized>
+    <header><input id="cmdq" type="text" placeholder="Search reviews and projects…" autocomplete="off" aria-label="Search reviews and projects"></header>
+    <div id="cmdlist" role="menu"></div>
+  </div>
+</dialog>
 <script src="/static/keys.js"></script>
 <script src="/static/session.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const TRASH='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+const CHECK='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+const UNDO='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
+// #187: the CSRF token from /auth/session, sent on the resolve POST. Stays "" on the local tier
+// (no auth plane), where the server correctly has no CSRF gate to satisfy.
+let CSRF="";
 function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function rel(ts){
   if(!ts)return "";
@@ -230,12 +394,23 @@ function countLabel(r){
 function row(r){
   const st=statusOf(r), grp=GROUP_OF[st];
   const t=esc(r.title||r.id), pr=esc(r.project||r.session||""), pa=esc(r.source_path||"");
-  const kind=(r.kind==="latex")?`<span class="rw-k">LATEX</span>`:"";
-  const meta=STATUSTEXT[st](r)+" · "+rel(activity(r));
+  // rev 3: EVERY row leads with a mono kind cell — "TEX" for latex, "MD" for markdown
+  const kind=`<span class="rw-k">${r.kind==="latex"?"TEX":"MD"}</span>`;
+  // #187 manual resolve. A manually resolved row offers "Reopen" (clears the sticky flag); an
+  // unresolved row offers "Mark resolved". A row that DERIVED resolved (every comment addressed)
+  // gets neither: there is no flag to clear, so a reopen control here would be a lie.
+  const act=r.resolved_by_human
+    ? `<button class="res" data-id="${esc(r.id)}" data-to="0" title="Reopen" aria-label="Reopen ${t}">${UNDO}</button>`
+    : (r.status!=="resolved"
+      ? `<button class="res" data-id="${esc(r.id)}" data-to="1" title="Mark resolved" aria-label="Mark ${t} resolved">${CHECK}</button>`
+      : "");
+  // rev 3 splits the old combined meta: the status/count span STAYS visible on hover, the
+  // fixed-width timestamp span alone fades under the revealed actions.
   return `<div class="rw w-${grp}" data-id="${esc(r.id)}" data-title="${t}" data-project="${pr}" data-path="${pa}">
     <a class="rw-l" href="/review/${encodeURIComponent(r.id)}">${kind}<span class="rw-t">${t}</span>${pr?`<span class="rw-p">${pr}</span>`:""}</a>
-    <span class="rw-m">${esc(meta)}</span>
-    <button class="del" data-id="${esc(r.id)}" data-title="${t}" aria-label="Delete ${t}">${TRASH}</button>
+    <span class="rw-s${st==="agent-working"?" live":""}">${esc(STATUSTEXT[st](r))}</span>
+    <span class="rw-m">${esc(rel(activity(r)))}</span>
+    ${act}<button class="del" data-id="${esc(r.id)}" data-title="${t}" aria-label="Delete ${t}">${TRASH}</button>
   </div>`;
 }
 
@@ -265,7 +440,8 @@ function matchesFilter(r){
   return (INBOX[activeFilter]||INBOX.all)(r);
 }
 function filterTitle(){
-  const base={all:"All reviews",needs:"Yours",working:"With the agent",resolved:"Resolved"}[activeFilter]||"All reviews";
+  // rev 3: "Documents" is the all-reviews resting label; the filter names stay per view
+  const base={all:"Documents",needs:"Yours",working:"With the agent",resolved:"Resolved"}[activeFilter]||"Documents";
   return activeProject ? base+" · "+activeProject : base;
 }
 
@@ -326,38 +502,59 @@ function render(){
   // Resolved is collapsed in the resting view and open whenever it was asked for by name.
   const resOpen = showResolved || activeFilter==="resolved" || !!q;
   let h="";
-  h+=group(next ? bucket.yours.length+" more for you" : "For you", bucket.yours);
+  h+=group(next ? bucket.yours.length+" more waiting on you" : "Waiting on you", bucket.yours, "grp-yours");
   h+=group("With the agent", bucket.agent);
   if(bucket.resolved.length){
-    h+=`<div class="grp"><div class="grp-h resline">${bucket.resolved.length} resolved · `
-      +`<button class="linklike" id="browseall">${resOpen?"hide":"browse all"}</button></div>`
+    h+=`<div class="grp"><div class="resline">`
+      +`<button class="linklike" id="browseall">${resOpen?"Hide resolved":"Browse all "+bucket.resolved.length+" resolved"}</button></div>`
       +(resOpen?bucket.resolved.map(row).join(""):"")+`</div>`;
   }
   $("#list").innerHTML=h;
 
   const shown=matched.length;
-  // The heading that used to say which view you were in is now visually hidden, so the empty
-  // result has to say whether it was the search or the filter that emptied it.
+  // The empty result still says whether it was the search or the filter that emptied it: the
+  // heading names the view, not the reason the view is empty.
   const nores=$("#noresults");
   nores.textContent=q?"No reviews match your search.":"Nothing in this view.";
   nores.style.display=(shown?"none":"block");
   const projects=new Set(allReviews.filter(r=>r.project).map(r=>r.project)).size;
-  $("#sub").textContent=`${shown} review${shown===1?"":"s"} · ${projects} project${projects===1?"":"s"}`;
+  $("#sub").textContent=`${shown} · ${projects} project${projects===1?"":"s"}`;
 }
-function group(label, rows){
+function group(label, rows, cls){
   if(!rows.length) return "";
-  return `<div class="grp"><div class="grp-h">${esc(label)}</div>${rows.map(row).join("")}</div>`;
+  return `<div class="grp${cls?" "+cls:""}"><div class="grp-h">${esc(label)}</div>${rows.map(row).join("")}</div>`;
 }
 function nextUp(r){
   const crumb=[r.project||r.session||"", (r.revision||0)>0?"v"+r.revision:"", rel(activity(r))].filter(Boolean);
   const open=Math.max(0,(r.notes_total||0)-(r.notes_addressed||0));
+  // rev 3 say line: "N open comments" while there is something to read; countLabel otherwise
+  const say=open?`${open} open comment${open===1?"":"s"}`:countLabel(r);
   return `<div class="nu-crumb">${esc(crumb.join(" · "))}</div>
     <h2 class="nu-title">${esc(r.title||r.id)}</h2>
-    <p class="nu-say">${esc(countLabel(r))}${r.kind==="latex"?" · LaTeX paper":""}</p>
+    <p class="nu-say">${esc(say)}${r.kind==="latex"?" · LaTeX paper":""}</p>
     <a class="btn nu-go" href="/review/${encodeURIComponent(r.id)}">${open?"Read the comments":"Open review"}</a>`;
 }
 
+// #187: flip the manual-resolve flag, then refetch and re-render in place (no page reload; the
+// row moves between groups because /api/reviews now reports the overridden status).
+async function setResolved(id, resolved){
+  let ok=false;
+  try{
+    ok=(await fetch('/api/reviews/'+encodeURIComponent(id)+'/resolve',
+      {method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':CSRF},
+       body:JSON.stringify({resolved})})).ok;
+  }catch(_){}
+  if(!ok) flash(resolved?"Could not resolve that review.":"Could not reopen that review.","err");
+  load();
+}
+
 document.addEventListener('click', e=>{
+  const res=e.target.closest('.res');
+  if(res){
+    e.preventDefault();
+    setResolved(res.dataset.id, res.dataset.to==="1");
+    return;
+  }
   const del=e.target.closest('.del');
   if(del){
     e.preventDefault();
@@ -382,10 +579,13 @@ $("#search").addEventListener('input', render);
 $("#projsel").addEventListener('change', e=>{ activeProject=e.target.value; render(); });
 // ---- auth gating (#131): anonymous visitors get the sign-in screen, not the empty dashboard ----
 const MAIL='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';
-// Magic-link send limits, mirrored from MagicLink's defaults in src/mdreview/hosted/magiclink.py
-// (max_per_address=3, address_window_s=900). Copy only — the SERVER stays the sole enforcer; this is
-// for telling the user why a link may not have arrived. Keep in sync if those defaults change.
-const LINK_MAX=3, LINK_WINDOW_MS=900000, LINK_KEY='mdr.linkreq.';
+// Magic-link limits, mirrored from MagicLink's defaults in src/mdreview/hosted/magiclink.py
+// (ttl_s=900 -> LINK_TTL_MIN, max_per_address=3, address_window_s=900). Copy only — the SERVER
+// stays the sole enforcer; this is for telling the user why a link may not have arrived (and,
+// via #signin-note, what to expect). Keep in sync if those defaults change.
+const LINK_MAX=3, LINK_WINDOW_MS=900000, LINK_TTL_MIN=15, LINK_KEY='mdr.linkreq.';
+// The resting footnote renders from the mirrored constants, never a second hard-coding.
+$("#signin-note").textContent=`Links last ${LINK_TTL_MIN} minutes · ${LINK_MAX} per address`;
 // Request timestamps are tracked HERE, in the browser, on purpose: the /auth/magic-link response is a
 // single constant body precisely so a caller cannot probe rate state or enumerate addresses. Reporting
 // the throttle from local history keeps the user informed without the server disclosing anything.
@@ -430,14 +630,14 @@ function initSignin(){
       : `If <span class="addr">${esc(addr)}</span> can sign in, a link is on its way.<br>`+
         `It's valid once and expires shortly.`;
     $("#signin-card").innerHTML=
-      `<section><div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
+      `<div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
       `<div class="signin-ok"><div class="check">${MAIL}</div>`+
       `<h1>Check your email</h1>`+
       `<p class="lede">${lede}</p>`+
       // Shown to everyone, always the same text, so it reveals nothing about this address.
       `<p class="lede signin-fine">Didn't get it? Check your spam folder. Sign-in links are limited to `+
       `${LINK_MAX} per 15 minutes per address.</p>`+
-      `<button class="linklike" onclick="location.reload()">Use a different email</button></div></section>`;
+      `<button class="linklike" onclick="location.reload()">Use a different email</button></div>`;
   });
 }
 // #221: a server we could not reach is not a server that signed us out. Showing the magic-link form
@@ -445,17 +645,23 @@ function initSignin(){
 function showUnreachable(){
   $("#app").style.display="none"; $("#signin").style.display="flex";
   $("#signin-card").innerHTML=
-    `<section><div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
+    `<div class="signin-brand"><span class="logo">md</span><span>mdreview</span></div>`+
     `<h1>Can't reach mdreview</h1>`+
     `<p class="lede">The server didn't answer. You have <b>not</b> been signed out, so there's no `+
     `need to request a new link.</p>`+
-    `<button class="linklike" onclick="location.reload()">Try again</button></section>`;
+    `<button class="linklike" onclick="location.reload()">Try again</button>`;
 }
 async function boot(){
   const res=await window.mdSession.read();
+  // #224: a build with NO auth plane is not a build that failed. The local tier serves no
+  // /auth/session, so this used to fall into the unreachable branch and hide the dashboard from
+  // self-hosters entirely — they saw either a magic-link form that can never work or a false
+  // "Can't reach mdreview". There is nobody to sign in as, so show the app.
+  if(res.noAuthPlane){ $("#signin").style.display="none"; $("#app").style.display=""; load(); return; }
   if(!res.reachable){ showUnreachable(); return; }
   const sess=res.sess;
   if(sess && sess.authenticated){
+    CSRF=sess.csrf||"";
     // "" (not "flex"): #app is a plain block wrapping the shell's top line and column; forcing a
     // flex row here would sit them side by side.
     $("#signin").style.display="none"; $("#app").style.display="";
@@ -479,6 +685,60 @@ mdKeys.register([
   {keys:"2", label:"Filter: Working",  when:appUp, run:()=>mdKeys.click('.filt[data-filter="working"]')},
   {keys:"3", label:"Filter: Resolved", when:appUp, run:()=>mdKeys.click('.filt[data-filter="resolved"]')},
 ]);
+// #183 ⌘K palette. ADDITIVE (proxy decision D5): the five bindings above keep working unchanged.
+// Registered through mdKeys so the ? sheet lists it automatically — the sheet is generated from
+// the registry, so an unregistered global listener would be an invisible binding.
+const cmdk=$("#cmdk"), cmdq=$("#cmdq"), cmdlist=$("#cmdlist");
+let cmdItems=[], cmdIdx=0;
+
+function cmdBuild(){
+  const s=cmdq.value.trim().toLowerCase();
+  const hit=t=>!s||(t||"").toLowerCase().includes(s);
+  // Reviews first, then projects (AC): the common act is opening a review.
+  const revs=allReviews.filter(r=>hit(r.title)||hit(r.project)).slice(0,8)
+    .map(r=>({kind:"review",id:r.id,label:r.title||r.id,hint:r.project||""}));
+  const projs=[...new Set(allReviews.map(r=>r.project).filter(Boolean))].filter(hit).slice(0,5)
+    .map(p=>({kind:"project",value:p,label:p,hint:"project"}));
+  cmdItems=revs.concat(projs); cmdIdx=0;
+  cmdlist.innerHTML = cmdItems.length
+    ? cmdItems.map((it,i)=>`<button class="cmdrow" role="menuitem" data-i="${i}" aria-selected="${i===0}">`
+        +`<span>${esc(it.label)}</span>`+(it.hint?`<span class="cmdhint">${esc(it.hint)}</span>`:"")+`</button>`).join("")
+    : `<div class="cmdempty">No matches</div>`;
+}
+function cmdMove(d){
+  if(!cmdItems.length) return;
+  cmdIdx=(cmdIdx+d+cmdItems.length)%cmdItems.length;
+  cmdlist.querySelectorAll('.cmdrow').forEach((b,i)=>b.setAttribute('aria-selected', i===cmdIdx));
+  cmdlist.querySelectorAll('.cmdrow')[cmdIdx].scrollIntoView({block:'nearest'});
+}
+function cmdRun(i){
+  const it=cmdItems[i]; if(!it) return;
+  cmdClose();
+  if(it.kind==="review"){ location.href="/review/"+encodeURIComponent(it.id); return; }
+  // Drive the REAL control (AC): set the native select and fire its change handler, so the
+  // palette can never drift from what the select does.
+  const sel=$("#projsel"); sel.value=it.value; sel.dispatchEvent(new Event('change'));
+}
+function cmdOpen(){ cmdq.value=""; cmdBuild(); cmdk.showModal(); cmdq.focus(); }
+function cmdClose(){ if(cmdk.open) cmdk.close(); }
+
+cmdq.addEventListener('input', cmdBuild);
+cmdq.addEventListener('keydown', e=>{
+  if(e.key==='ArrowDown'){e.preventDefault();cmdMove(1);}
+  else if(e.key==='ArrowUp'){e.preventDefault();cmdMove(-1);}
+  else if(e.key==='Enter'){e.preventDefault();cmdRun(cmdIdx);}
+});
+cmdlist.addEventListener('click', e=>{const b=e.target.closest('.cmdrow'); if(b) cmdRun(+b.dataset.i);});
+// The ONE Escape path: mdKeys' layer stack, so the palette composes with every other layer
+// instead of racing a component-local handler. <dialog>'s native Escape is cancelled and
+// delegated to the same function, so both routes run identical code.
+mdKeys.pushEscape(()=>{ if(!cmdk.open) return false; cmdClose(); return true; });
+cmdk.addEventListener('cancel', e=>{ e.preventDefault(); cmdClose(); });
+
+mdKeys.register([
+  {keys:"mod+k", label:"Command palette", when:appUp, keepInField:true, run:cmdOpen},
+]);
+
 // Escape inside the search box clears it. Registered as an Escape layer, not a binding, because
 // bindings are suppressed in text fields and this one must fire precisely while typing in one.
 mdKeys.pushEscape(()=>{

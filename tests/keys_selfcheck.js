@@ -16,6 +16,7 @@
 // Run: node tests/keys_selfcheck.js   (exit 0 = all cases pass, exit 1 = a case failed)
 
 const path = require('path');
+const fs = require('fs');
 
 // --- minimal DOM stub -------------------------------------------------------------------------
 // keys.js touches document at load only to attach the listener; everything asserted here is pure.
@@ -112,6 +113,53 @@ check('null target is not a field', keys._isField(null) === false);
 
 // 8. Platform rendering: the sheet must show the modifier the user actually has.
 check('mod renders as ⌘ on mac', keys._prettify('mod+/') === '⌘/');
+
+// 9. #183 ⌘K palette, asserted against the SHIPPED dashboard.html — not a reconstruction, because
+//    the failure mode this guards is the dashboard drifting from keys.js's contract, and a
+//    hand-copied binding table would keep passing while the page broke.
+{
+  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'app', 'dashboard.html'), 'utf8');
+
+  // The five #222 bindings must SURVIVE (proxy decision D5: ⌘K is additive, not a replacement).
+  for (const k of ['"/"', '"p"', '"1"', '"2"', '"3"']) {
+    check('#222 binding ' + k + ' still registered after ⌘K landed', src.includes('keys:' + k));
+  }
+
+  // The palette entry itself, against the five criteria keys.js actually enforces.
+  const entry = (src.match(/\{keys:"mod\+k"[^}]*\}/) || [''])[0];
+  check('palette registers mod+k through mdKeys.register', !!entry);
+  check('palette entry carries a label (the sheet is generated from labels)', /label:/.test(entry));
+  check('palette entry sets keepInField (⌘K must work while typing in search)',
+        /keepInField:\s*true/.test(entry));
+  check('palette entry carries a when guard, like the others', /when:\s*appUp/.test(entry));
+
+  // Escape goes through the SHARED layer stack, not a component-local handler.
+  check('palette closes via mdKeys.pushEscape', /mdKeys\.pushEscape\(\(\)\s*=>\s*\{[^}]*cmdk\.open/.test(src));
+  check('no second global keydown listener was added for the palette',
+        !/document\.addEventListener\(['"]keydown['"][^)]*cmdk/.test(src));
+  check('basecoat is told to leave the palette alone (one Escape owner)',
+        /class="command" data-command-initialized/.test(src));
+
+  // Project switching drives the REAL control, so the palette cannot drift from the select.
+  check('project items drive the real #projsel control',
+        /sel\.value=it\.value;\s*sel\.dispatchEvent\(new Event\('change'\)\)/.test(src));
+  // Reviews before projects (the common act is opening a review).
+  check('results are reviews first, then projects', /cmdItems=revs\.concat\(projs\)/.test(src));
+
+  // §10-02's full-screen assertion USED to live here as a regex over the CSS text. It was green
+  // from the day #183 merged while the rendered panel measured 574x176 at 606px and was never
+  // full-screen: the media block styles .command-dialog, a transparent wrapper, not the visible
+  // .command panel. A text assertion cannot see that. Removed rather than reworded, because a
+  // renamed false check is still a false check. #265 owns the fix and must assert RENDERED
+  // GEOMETRY, which is the only thing that could have caught this.
+  const media = (src.match(/@media \(max-width: 720px\)\{[\s\S]*?\n  \}/) || [''])[0];
+  check('palette rows reach 44px at narrow width', /\.cmdrow\{min-height:44px/.test(media));
+
+  // Radius: the DERIVED token, and --r-panel kept for the shared floating surface.
+  check('menu items resolve through --radius-lg, not --radius',
+        /:is\(\.command \[role=menuitem\]\)\{border-radius:var\(--radius-lg\)/.test(src));
+  check('--r-panel kept as the dialog radius', /\.command-dialog\{border-radius:var\(--r-panel\)/.test(src));
+}
 
 console.log(failed ? '\n' + failed + ' case(s) failed' : '\nall key cases pass');
 process.exit(failed ? 1 : 0);
