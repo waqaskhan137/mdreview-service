@@ -13,112 +13,209 @@
    CSS follows the OS. */
 (function(){try{var t=localStorage.getItem("mdr.theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
 </script>
-<!-- #152 Basecoat: vendored (self-hosted, no runtime CDN) — Basecoat CSS, mdreview tokens, then the map. -->
+<!-- #152 Basecoat: vendored (self-hosted, no runtime CDN) — Basecoat CSS, mdreview tokens, then the
+     map. #282 stopped drawing from Basecoat's visual component classes (.btn/.card/.badge/.chip/
+     .input/.table) — the re-skin's geometry (28px trigger, 30px confirm buttons, 34px blocklist
+     controls, the 1.4fr/112px/1fr/104px/88px table) is pixel-pinned and Basecoat's own [data-size]
+     scale does not hit those numbers. The bundle stays loaded for what still runs through it: the
+     #179 row-menu popover (position/visibility driven by [data-popover][aria-hidden]) and the
+     #toaster undo toast, both JS-driven and unchanged by this ticket. -->
 <link rel="stylesheet" href="/static/basecoat.cdn.min.css">
 <link rel="stylesheet" href="/static/theme.css">
 <link rel="stylesheet" href="/static/basecoat-theme.css">
 <script src="/static/basecoat.all.min.js" defer></script>
 <style>
-  /* Layout + admin-specific bits only. Buttons/cards/inputs/table come from Basecoat now. */
   *{box-sizing:border-box}
   /* #285: longhand, NOT the `font:` shorthand — the shorthand resets font-weight to 400 and was
      silently swallowing the theme's dark 350 (rev 3: dark body weight arrives from the theme). */
   body{margin:0;background:var(--bg);color:var(--text);
-       font-size:14px;line-height:1.55;
-       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
-  .wrap{max-width:940px;margin:0 auto;padding:40px 24px 80px;}
-  .tophead{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  h1{font-size:22px;margin:0 0 4px} .sub{color:var(--text-muted);margin:0 0 24px} h2{font-size:15px;margin:8px 0 2px}
+       font-size:var(--t-body);line-height:1.55;
+       font-family:var(--font-ui);}
+  .wrap{max-width:940px;margin:0 auto;padding:0 24px 80px;}
+
+  /* ---- #282 header: brand mark + wordmark + ADMIN badge, replacing the "← reviews" ghost link
+     (09-admin.html). The theme-icon + #acct trigger cluster is #281's scope, mounted by
+     account.js into #acct unchanged — this ticket only re-skins what sits to its left. */
+  .tophead{display:flex;align-items:center;gap:10px;padding:var(--s-3) 0;
+    border-bottom:1px solid var(--border-faint);margin-bottom:var(--s-12);}
+  .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;}
+  .brand-mark{width:24px;height:24px;border-radius:var(--r-control);background:var(--accent);
+    color:var(--bg);display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:var(--t-eyebrow);font-weight:600;}
+  .brand-word{font-weight:600;font-size:var(--t-card);letter-spacing:-.01em;color:var(--text);}
+  .brand-badge{font-family:var(--font-mono);font-size:var(--t-eyebrow);letter-spacing:.09em;
+    color:var(--accent);padding:2px 7px;border:1px solid var(--accent);border-radius:5px;}
+  .spacer{flex:1 1 auto;}
+
+  h1{margin:0 0 5px;font-size:var(--t-title);letter-spacing:-.025em;font-weight:600;}
+  .sub{margin:0 0 var(--s-8);font-size:var(--t-body);color:var(--text-muted);max-width:65ch;}
   .muted{color:var(--text-muted)} .email{font-weight:500}
-  .you{font-size:10px;color:var(--text-subtle);border:1px solid var(--border);border-radius:var(--r-pill);padding:1px 7px;margin-left:7px}
-  /* semantic role/status colours layered on Basecoat's .badge base */
-  .badge.b-owner{background:var(--accent-muted);color:var(--accent);border-color:transparent}
-  .badge.b-admin{background:var(--success-bg);color:var(--success);border-color:transparent}
-  .badge.b-super{background:var(--warning-bg);color:var(--warning);border-color:transparent}
-  .chip{font-size:11.5px;font-weight:600}
-  .chip.active{color:var(--success)} .chip.banned{color:var(--danger)}
-  .rowbanned td{opacity:.55}
-  .acts{text-align:right;white-space:normal}
+  .you{font-size:var(--t-eyebrow);color:var(--text-subtle);margin-left:7px;}
+
+  /* Confirm bar: danger variant (09-admin region 3). The message stays textContent, never
+     innerHTML — the mock bolds the email, but email is attacker-influenced input reaching this
+     string, and no AC asks for the bold; a safe plain string is the right trade. */
+  #confirmbar{display:none;align-items:center;gap:var(--s-3);padding:var(--s-3) 16px;
+    border-radius:var(--r-control);background:var(--danger-bg);border:1px solid var(--danger-border);
+    margin:0 0 var(--s-6);font-size:var(--t-body);}
+  #confirmbar .msg{flex:1;color:var(--danger);}
+  .cfybtn{display:inline-flex;align-items:center;height:30px;padding:0 12px;
+    border-radius:var(--r-control);border:0;background:var(--danger);color:var(--bg);
+    font-size:var(--t-eyebrow);font-weight:600;cursor:pointer;}
+  .cfnbtn{display:inline-flex;align-items:center;height:30px;padding:0 12px;
+    border-radius:var(--r-control);border:1px solid var(--border);background:var(--surface);
+    color:var(--text-muted);font-size:var(--t-eyebrow);cursor:pointer;}
+
   .notice{text-align:center;color:var(--text-muted);padding:52px 0}
   .notice b{color:var(--text);display:block;margin-bottom:6px;font-size:16px}
-  /* Confirm bar. The flash bar is theme.css's shared `.flash` (#178); admin does not redeclare it. */
-  #confirmbar{display:none;align-items:center;gap:10px;background:var(--warning-bg);border:1px solid var(--warning-border);
-    border-radius:var(--r-control);padding:11px 14px;margin:0 0 14px}
-  #confirmbar .msg{flex:1}
-  /* Row menu (#179). Basecoat positions [data-popover] `position:absolute` inside the relative
-     .dropdown-menu, NOT in the top layer, so every scrolling/clipping ancestor between the menu
-     and the page would cut it off: Basecoat's own `.card{overflow:hidden}` and `.table-container
-     {overflow-x:auto}` (one axis non-visible forces the other to `auto`). Both are opened up HERE,
-     scoped to the user card, rather than globally. The menu also sits in the right-aligned last
-     column, so it is anchored to the trigger's right edge or it spills past the card. */
-  #usercard{overflow:visible}
-  #panel .table-container{overflow:visible}
+
+  /* ---- Users table (region 5/6/7). CSS-grid-on-table: every <tr> declares the SAME
+     grid-template-columns, so columns align across rows without needing `subgrid`. table/tr/th/td
+     stay real table elements (explicit ARIA roles below back that up) — only their box generation
+     changes, not their AT exposure. */
+  .utable{width:100%;border-collapse:collapse;}
+  .utable thead, .utable tbody{display:contents;}
+  .utable tr{display:grid;grid-template-columns:1.4fr 112px 1fr 104px 88px;column-gap:var(--s-4);
+    align-items:center;}
+  .utable th, .utable td{padding:0;border:0;text-align:left;font-weight:normal;}
+  .utable thead tr{padding:0 0 8px;border-bottom:1px solid var(--border);
+    font-family:var(--font-mono);font-size:var(--t-eyebrow);letter-spacing:.1em;
+    text-transform:uppercase;color:var(--text-subtle);}
+  .utable tbody tr{padding:var(--s-3) 0;font-size:var(--t-body);}
+  .rowbanned{color:var(--text-muted);}   /* row-level, not the old per-cell opacity:.55 */
+  .joined{font-family:var(--font-mono);font-size:var(--t-eyebrow);color:var(--text-subtle);}
+  .acts{text-align:right;white-space:normal}
+  .noact{color:var(--text-subtle);font-size:var(--t-eyebrow);}
+
+  /* status dot + mono uppercase word (region 7) */
+  .stat{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);
+    font-size:var(--t-eyebrow);}
+  .stat-active{color:var(--success);}
+  .stat-active .statdot{width:5px;height:5px;border-radius:50%;background:var(--success);}
+  .stat-banned{color:var(--text-subtle);}
+  .stat-banned .statdot{width:5px;height:5px;border-radius:50%;background:transparent;
+    border:1.5px solid var(--text-subtle);box-sizing:border-box;}
+
+  /* roles: plain lowercase dot-separated text (region 8), no badges */
+  .roles{font-size:var(--t-eyebrow);color:var(--text-muted);}
+
+  /* row-menu trigger (region 10): 28px, outline, trailing chevron */
+  .mtrig{display:inline-flex;align-items:center;height:28px;padding:0 11px;
+    border-radius:var(--r-control);border:1px solid var(--border);background:var(--surface);
+    font-size:var(--t-eyebrow);color:var(--text-muted);cursor:pointer;
+    transition:color 160ms ease-out,border-color 160ms ease-out;}
+  .mtrig:hover{color:var(--text);border-color:var(--text-subtle);}
+  .mtrig .mtrig-chev{flex:0 0 auto;margin-left:4px;}
+
+  /* Row menu (#179), unchanged content — only positioning kept from the old card-clipping fix.
+     Basecoat positions [data-popover] `position:absolute` inside the relative .dropdown-menu; the
+     menu sits in the right-aligned last column, so it is anchored to the trigger's right edge. */
   .acts .dropdown-menu>[data-popover]{left:auto;right:0}
   .acts [role=menu]{min-width:190px}
   .acts [role=menuitem],.acts [role=menuitemcheckbox]{font:inherit;background:none;border:0;text-align:left}
   .acts [data-indicator]{font-size:12px;line-height:1}
+
   /* Basecoat gives a toast paragraph `word-break:break-all`, which suits a long opaque token and
      mangles a sentence ("Undo within 10 se / conds"). Break on words; keep `anywhere` so a long
      address in the title still wraps rather than overflowing the 360px toast. */
   #toaster .toast-content section p{word-break:normal;overflow-wrap:anywhere}
   #toaster .toast-content section h2{overflow-wrap:anywhere}
-  /* blocklist */
-  .blockadd{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
-  .blockadd input#blockval{max-width:200px} .blockadd input#blocknote{flex:1;min-width:140px}
-  .blockrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
-  .blockrow:last-child{border-bottom:none}
-  .blockrow .bv{font-weight:500}
-  .blockrow .bk{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-subtle);
-    border:1px solid var(--border);border-radius:var(--r-pill);padding:1px 7px}
-  .blockrow .bn{flex:1;color:var(--text-muted)} .blockrow .brm{margin-left:auto}
-  .blockempty{color:var(--text-muted);padding:8px 0}
-  /* audit log (#144) */
-  #auditcard .table-container{overflow-x:auto}
-  #auditpanel td{font-size:12.5px;vertical-align:top}
-  #auditpanel .ev{font-weight:600;white-space:nowrap}
-  #auditpanel .ts{white-space:nowrap}
-  #auditpanel .ip{font-family:var(--font-mono);font-size:11.5px}
+
+  /* ---- Shared section header idiom (region 12): h2 + hairline + right caption. Used by both the
+     blocklist and the audit log — neither sits inside a Basecoat card any more. */
+  .sechead{display:flex;align-items:baseline;gap:10px;margin:0 0 var(--s-4);}
+  .sechead h2{margin:0;font-size:var(--t-card);font-weight:600;}
+  .sechead .hr{flex:1 1 auto;height:1px;background:var(--border-faint);align-self:center;}
+  .sechead .caption{font-size:var(--t-eyebrow);color:var(--text-subtle);white-space:nowrap;}
+  .ctlbtn{display:inline-flex;align-items:center;height:34px;padding:0 14px;
+    border-radius:var(--r-control);border:1px solid var(--border);background:var(--surface);
+    color:var(--text);font-size:var(--t-body);cursor:pointer;transition:border-color 160ms ease-out;}
+  .ctlbtn:hover{border-color:var(--text-subtle);}
+
+  /* blocklist (#143, kept + restyled: Q2 answer keeps the entries list, Remove and the note field) */
+  .blocksec{margin-top:32px;}
+  .blockadd{display:flex;gap:var(--s-2);align-items:center;flex-wrap:wrap;margin-top:14px;}
+  .blockadd input{height:34px;border:1px solid var(--border);border-radius:var(--r-control);
+    background:var(--surface);padding:0 12px;font-size:var(--t-body);color:var(--text);}
+  .blockadd select{height:34px;border:1px solid var(--border);border-radius:var(--r-control);
+    background:var(--surface);padding:0 10px;font-size:var(--t-body);color:var(--text);}
+  #blockval{flex:1 1 200px;max-width:260px;}
+  #blocknote{flex:2 1 200px;min-width:140px;}
+  .blockrow{display:flex;align-items:center;gap:10px;padding:9px 0;
+    border-bottom:1px solid var(--border-faint);font-size:var(--t-body);}
+  .blockrow:last-child{border-bottom:none;}
+  .blockrow .bv{font-weight:500;color:var(--text);}
+  .blockrow .bk{font-family:var(--font-mono);font-size:var(--t-eyebrow);letter-spacing:.05em;
+    text-transform:uppercase;color:var(--text-subtle);border:1px solid var(--border);
+    border-radius:5px;padding:1px 7px;}
+  .blockrow .bn{flex:1;color:var(--text-muted);font-size:var(--t-eyebrow);}
+  .blockrow .brm{margin-left:auto;font-size:var(--t-eyebrow);color:var(--text-muted);
+    background:none;border:1px solid var(--border);border-radius:var(--r-control);height:26px;
+    padding:0 10px;cursor:pointer;}
+  .blockrow .brm:hover{color:var(--danger);border-color:var(--danger-border);}
+  .blockempty{color:var(--text-muted);padding:8px 0;font-size:var(--t-body);}
+
+  /* audit log (#144, kept + restyled: Q3 answer keeps the view; mono headers, no card) */
+  .auditsec{margin-top:32px;}
+  .auditnote{margin:0 0 var(--s-4);font-size:var(--t-eyebrow);color:var(--text-subtle);max-width:70ch;}
+  .audittable{width:100%;border-collapse:collapse;}
+  .audittable thead, .audittable tbody{display:contents;}
+  .audittable tr{display:grid;grid-template-columns:130px 150px 1fr 90px 1.4fr 110px;
+    column-gap:var(--s-3);align-items:start;}
+  .audittable th, .audittable td{padding:0;border:0;text-align:left;font-weight:normal;}
+  .audittable thead tr{padding:0 0 8px;border-bottom:1px solid var(--border);
+    font-family:var(--font-mono);font-size:var(--t-eyebrow);letter-spacing:.1em;
+    text-transform:uppercase;color:var(--text-subtle);}
+  .audittable tbody tr{padding:8px 0;border-bottom:1px solid var(--border-faint);font-size:12.5px;}
+  .audittable tbody tr:last-child{border-bottom:none;}
+  .audittable .ev{font-weight:600;white-space:nowrap;}
+  .audittable .ts{white-space:nowrap;color:var(--text-subtle);font-family:var(--font-mono);}
+  .audittable .ip{font-family:var(--font-mono);font-size:11.5px;color:var(--text-subtle);}
   .auditmore{margin-top:12px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="tophead">
-    <a class="btn" data-variant="ghost" data-size="sm" href="/">&larr; reviews</a>
+    <a class="brand" href="/">
+      <span class="brand-mark">md</span>
+      <span class="brand-word">mdreview</span>
+    </a>
+    <span class="brand-badge">ADMIN</span>
+    <span class="spacer"></span>
     <div id="acct"></div>
   </div>
-  <h1>Admin</h1>
-  <p class="sub">Manage the people on this mdreview instance.</p>
-  <div id="confirmbar"><span class="msg"></span><button class="btn mini danger" data-variant="destructive" data-size="sm" id="cfy">Confirm</button><button class="btn mini" data-variant="outline" data-size="sm" id="cfn">Cancel</button></div>
+  <h1>People</h1>
+  <p class="sub">Everyone on this instance, and who they can act as.</p>
+  <div id="confirmbar"><span class="msg"></span><button class="cfybtn" id="cfy">Confirm</button><button class="cfnbtn" id="cfn">Cancel</button></div>
   <div id="flash" class="flash" role="status" aria-live="polite"></div>
-  <div class="card" id="usercard"><section><div id="panel" class="notice">Loading…</div></section></div>
+  <div id="panel" class="notice">Loading…</div>
 
-  <div class="card" id="blockcard" style="display:none">
-    <header>
+  <div class="blocksec" id="blockcard" style="display:none">
+    <div class="sechead">
       <h2>Blocklist</h2>
-      <p>A blocked email or IP is refused at the sign-in link step.</p>
-    </header>
-    <section>
-      <div id="blockpanel" class="blockempty">Loading…</div>
-      <div class="blockadd">
-        <input class="input" type="text" id="blockval" placeholder="email or IP" autocomplete="off">
-        <select class="input" id="blockkind"><option value="email">Email</option><option value="ip">IP</option></select>
-        <input class="input" type="text" id="blocknote" placeholder="note (optional)" autocomplete="off">
-        <button class="btn" id="blockbtn" type="button">Block</button>
-      </div>
-    </section>
+      <span class="hr"></span>
+      <span class="caption">refused at the sign-in link step</span>
+    </div>
+    <div id="blockpanel" class="blockempty">Loading…</div>
+    <div class="blockadd">
+      <input type="text" id="blockval" placeholder="email or IP" autocomplete="off">
+      <select id="blockkind"><option value="email">Email</option><option value="ip">IP</option></select>
+      <input type="text" id="blocknote" placeholder="note (optional)" autocomplete="off">
+      <button class="ctlbtn" id="blockbtn" type="button">Block</button>
+    </div>
   </div>
 
-  <div class="card" id="auditcard" style="display:none">
-    <header>
+  <div class="auditsec" id="auditcard" style="display:none">
+    <div class="sechead">
       <h2>Audit log</h2>
-      <p>Auth and admin events, newest first. Entries show raw emails and IP addresses: this
-         audit trail is the instance's own security log, visible to administrators only.</p>
-    </header>
-    <section>
-      <div id="auditpanel" class="blockempty">Loading…</div>
-      <div class="auditmore"><button class="btn" data-variant="outline" data-size="sm" id="auditmorebtn" style="display:none" type="button">Load more</button></div>
-    </section>
+      <span class="hr"></span>
+      <span class="caption">auth and admin events, newest first</span>
+    </div>
+    <p class="auditnote">Entries show raw emails and IP addresses: this audit trail is the
+       instance's own security log, visible to administrators only.</p>
+    <div id="auditpanel" class="blockempty">Loading…</div>
+    <div class="auditmore"><button class="ctlbtn" id="auditmorebtn" style="display:none" type="button">Load more</button></div>
   </div>
 </div>
 <!-- Undo surface for the ban (#179). OUTSIDE .wrap and outside #panel: the `#panel .mini` re-bind at
@@ -139,8 +236,12 @@ function notice(title, body){ return '<div class="notice"><b>'+esc(title)+'</b>'
 function flash(msg, kind){ const f=$("#flash"); f.textContent=msg; f.className=kind?("flash "+kind):"flash";
   if(kind){ setTimeout(()=>{ f.className="flash"; }, 4000); } }
 
-function askConfirm(msg, onYes){
-  const bar=$("#confirmbar"); bar.querySelector(".msg").textContent=msg; bar.style.display="flex";
+// confirmLabel: the button now reads the VERB it is about to run ("Ban", "Revoke admin",
+// "Unblock", ...) instead of a generic "Confirm" — the 09-admin mock's confirm bar always shows
+// the action word on its primary button.
+function askConfirm(msg, confirmLabel, onYes){
+  const bar=$("#confirmbar"); bar.querySelector(".msg").textContent=msg;
+  $("#cfy").textContent=confirmLabel; bar.style.display="flex";
   bar.scrollIntoView({block:"center", behavior:"smooth"});   // the action may be far down (blocklist)
   $("#cfy").onclick=()=>{ bar.style.display="none"; onYes(); };
   $("#cfn").onclick=()=>{ bar.style.display="none"; };
@@ -167,14 +268,18 @@ async function loadUsers(){
   const d=await r.json(); renderUsers(d.users||[]); loadBlock(); loadAudit(false);
 }
 
+// Plain lowercase, dot-separated (09-admin region 8). `reviewer` is not a real role (see the
+// groom's BACKEND-BLOCKED note) — these are the actual server-side booleans, is_owner first.
 function roles(u){
-  const b=[];
-  if(u.is_owner) b.push('<span class="badge b-owner">Owner</span>');
-  if(u.is_admin) b.push('<span class="badge b-admin">Admin</span>');
-  if(u.super_read) b.push('<span class="badge b-super">Super-read</span>');
-  return b.length ? b.join("") : '<span class="muted">member</span>';
+  if(u.is_owner) return "owner";
+  const r=[]; if(u.is_admin) r.push("admin"); if(u.super_read) r.push("super-read");
+  return r.length ? r.join(" · ") : "member";
 }
-function statusChip(st){ return st==="banned" ? '<span class="chip banned">Banned</span>' : '<span class="chip active">Active</span>'; }
+function statusChip(st){
+  return st==="banned"
+    ? '<span class="stat stat-banned"><span class="statdot"></span>BANNED</span>'
+    : '<span class="stat stat-active"><span class="statdot"></span>ACTIVE</span>';
+}
 // act(action, label, value, danger) -> one menu item carrying its intent; uid/email added by the row.
 // `text` is what the item reads on screen; `label` stays the sentence the flash and the confirm use.
 // `checked` is null for a plain command and true/false for a role toggle, which renders it as a
@@ -192,7 +297,12 @@ function act(action, label, value, danger, text, checked){
 // simply the state where neither is checked, which `roles()` already prints in the Roles column.
 //
 // The isMe carve-outs mirror the server's self-lockout guards (adminroutes.py:123-128): an admin can
-// neither ban themselves nor drop their own admin role, so those items are not offered.
+// neither ban themselves nor drop their own admin role, so those items are not offered. This is
+// also why the 09-admin mock's "you" row draws `—`: (09-admin's canvas depicts a THREE-row instance
+// where the viewer is the sole admin and every other row is a plain member, so the mock's own "you"
+// row happens to coincide with the protected owner case.) On an instance where "you" is a non-owner
+// admin, the self-service items below (super-read, revoke own tokens/sessions) still render — #179's
+// shipped behaviour, kept and restyled rather than deleted (owner decision, groom Q1).
 function actionsFor(u){
   if(u.is_owner) return [];                       // the owner row is protected: no actions
   const isMe=u.uid===ME, banned=u.status==="banned";
@@ -218,31 +328,36 @@ function menuItem(u, x){
 }
 function rowMenu(u){
   const groups=actionsFor(u).filter(g=>g.items.length);
-  if(!groups.length) return '<span class="muted">&mdash;</span>';   // the owner: nothing to arm
+  if(!groups.length) return '<span class="noact">&mdash;</span>';   // the owner: nothing to arm
   const id="m-"+esc(u.uid);
   const body=groups.map(g=>(g.heading?'<div role="heading">'+esc(g.heading)+'</div>':"")
     +g.items.map(x=>menuItem(u,x)).join("")).join('<hr role="separator">');
   return '<div class="dropdown-menu">'
-    +'<button type="button" class="btn" data-variant="outline" data-size="sm" aria-haspopup="menu"'
-    +' aria-controls="'+id+'" id="t-'+id+'">Manage</button>'
+    +'<button type="button" class="mtrig" aria-haspopup="menu"'
+    +' aria-controls="'+id+'" id="t-'+id+'">Manage'
+    +'<svg class="mtrig-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>'
+    +'</button>'
     +'<div data-popover aria-hidden="true" id="'+id+'">'
     +'<div role="menu" aria-labelledby="t-'+id+'">'+body+'</div></div></div>';
 }
 function renderUsers(users){
   const rows = users.map(u=>{
     const acts = rowMenu(u);
-    return '<tr'+(u.status==="banned"?' class="rowbanned"':'')+'>'
-      +'<td class="email">'+esc(u.email)+(u.uid===ME?' <span class="you">you</span>':'')+'</td>'
-      +'<td>'+statusChip(u.status)+'</td>'
-      +'<td>'+roles(u)+'</td>'
-      +'<td class="muted">'+fmt(u.created)+'</td>'
-      +'<td class="acts">'+acts+'</td></tr>';
+    return '<tr'+(u.status==="banned"?' class="rowbanned"':'')+' role="row">'
+      +'<td class="email" role="cell">'+esc(u.email)+(u.uid===ME?' <span class="you">you</span>':'')+'</td>'
+      +'<td role="cell">'+statusChip(u.status)+'</td>'
+      +'<td class="roles" role="cell">'+esc(roles(u))+'</td>'
+      +'<td class="joined" role="cell">'+fmt(u.created)+'</td>'
+      +'<td class="acts" role="cell">'+acts+'</td></tr>';
   }).join("");
   $("#panel").className=""; $("#panel").removeAttribute("style");
-  $("#panel").innerHTML='<div class="table-container"><table class="table"><thead><tr><th>User</th><th>Status</th><th>Roles</th><th>Joined</th><th class="acts">Actions</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  $("#panel").innerHTML='<table class="utable" role="table"><thead><tr role="row">'
+    +'<th role="columnheader">User</th><th role="columnheader">Status</th><th role="columnheader">Roles</th>'
+    +'<th role="columnheader">Joined</th><th class="acts" role="columnheader" aria-label="Actions"></th>'
+    +'</tr></thead><tbody>'+rows+'</tbody></table>';
   document.querySelectorAll("#panel .mini").forEach(b=>b.addEventListener("click",()=>{
     const {action, uid, email, label} = b.dataset, value = b.dataset.value==="true";
-    if(b.classList.contains("danger")) askConfirm(confirmCopy(action, email, label), ()=>doAction(action, uid, email, value, label));
+    if(b.classList.contains("danger")) askConfirm(confirmCopy(action, email, label), label, ()=>doAction(action, uid, email, value, label));
     else doAction(action, uid, email, value, label);
   }));
 }
@@ -290,10 +405,10 @@ async function loadBlock(){
   $("#blockpanel").innerHTML = items.length ? items.map(x=>
     '<div class="blockrow"><span class="bv">'+esc(x.value)+'</span><span class="bk">'+esc(x.kind)+'</span>'
     +'<span class="bn">'+esc(x.note||"")+'</span>'
-    +'<button class="btn mini danger brm" data-variant="destructive" data-size="sm" data-value="'+esc(x.value)+'">Remove</button></div>').join("")
+    +'<button class="brm" type="button" data-value="'+esc(x.value)+'">Remove</button></div>').join("")
     : "Nothing blocked.";
   document.querySelectorAll("#blockpanel .brm").forEach(b=>b.addEventListener("click",()=>
-    askConfirm("Unblock "+b.dataset.value+"?", ()=>removeBlock(b.dataset.value))));
+    askConfirm("Unblock "+b.dataset.value+"?", "Unblock", ()=>removeBlock(b.dataset.value))));
 }
 async function addBlock(){
   const value=($("#blockval").value||"").trim(); if(!value) return;
@@ -315,18 +430,19 @@ function renderAudit(){
   const p=$("#auditpanel");
   if(!auditRows.length){ p.className="blockempty"; p.textContent="No audit events yet."; return; }
   p.className="";
-  p.innerHTML='<div class="table-container"><table class="table"><thead><tr>'
-    +'<th>Time</th><th>Event</th><th>Actor</th><th>Target</th><th>Detail</th><th>IP</th>'
+  p.innerHTML='<table class="audittable" role="table"><thead><tr role="row">'
+    +'<th role="columnheader">Time</th><th role="columnheader">Event</th><th role="columnheader">Actor</th>'
+    +'<th role="columnheader">Target</th><th role="columnheader">Detail</th><th role="columnheader">IP</th>'
     +'</tr></thead><tbody>'
-    +auditRows.map(e=>'<tr>'
-      +'<td class="ts muted">'+esc(fmtTs(e.ts))+'</td>'
-      +'<td class="ev">'+esc(e.event)+'</td>'
+    +auditRows.map(e=>'<tr role="row">'
+      +'<td class="ts muted" role="cell">'+esc(fmtTs(e.ts))+'</td>'
+      +'<td class="ev" role="cell">'+esc(e.event)+'</td>'
       // actor uid is provider:sub; the email column carries the address on auth events
-      +'<td>'+esc(e.email||e.actor||"-")+'</td>'
-      +'<td>'+esc(e.target||"-")+'</td>'
-      +'<td class="muted">'+esc(e.detail||"-")+'</td>'
-      +'<td class="ip">'+esc(e.ip||"-")+'</td></tr>').join("")
-    +'</tbody></table></div>';
+      +'<td role="cell">'+esc(e.email||e.actor||"-")+'</td>'
+      +'<td role="cell">'+esc(e.target||"-")+'</td>'
+      +'<td class="muted" role="cell">'+esc(e.detail||"-")+'</td>'
+      +'<td class="ip" role="cell">'+esc(e.ip||"-")+'</td></tr>').join("")
+    +'</tbody></table>';
 }
 async function loadAudit(more){
   $("#auditcard").style.display="";
