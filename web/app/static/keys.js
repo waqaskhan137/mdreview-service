@@ -30,8 +30,9 @@
 //      search-focus binding swallow the help sheet. Every spec is normalised through keyOf(), which
 //      reads e.shiftKey, so "/" and "?" are distinct entries.
 //   2. The sheet must be reachable WHILE TYPING. It is the one thing a user hits when they are lost,
-//      and being lost includes being lost inside a textarea. But only through the CHORD: "?" is a
-//      character, and in a field the character wins (#311). So mid-sentence help is ⌘/ , not ?.
+//      and being lost includes being lost inside a textarea. That is why the sheet's binding is a
+//      CHORD: mod+/ is not a character, so it is safe in a field. "?" used to open it too and was
+//      removed (#311) — a printable key cannot be a global shortcut in an app built for writing.
 
 (function (root) {
   var registry = [];          // every registered binding, in registration order
@@ -73,6 +74,12 @@
     //
     // So normalise rather than trust: with Shift held, Slash means "?" whichever form arrives.
     // On a path that already reports "?" this is a no-op.
+    //
+    // #311 dropped "?" as a binding, which makes this normalisation MORE load-bearing, not less:
+    // nothing matches "?" now, so a Shift+/ press falls through and does nothing, which is what we
+    // want. Delete these two lines and Shift+/ resolves to "/" instead — and the dashboard binds
+    // bare "/" to focus search, so it would silently start opening search again. That is exactly
+    // the #222 bug, reintroduced from the other direction.
     if (e.shiftKey && k === "/") k = "?";
     return (mod ? "mod+" : "") + k;
   }
@@ -239,8 +246,17 @@
   };
 
   // The help sheet itself, registered first so it is the first row of every page's sheet.
-  // keepInField: you look for help precisely when you are stuck, including mid-sentence.
-  register([{ keys: ["mod+/", "?"], label: "Show this help", keepInField: true,
+  //
+  // CHORD ONLY, no "?" (owner decision, #311). "?" is the convention elsewhere (GitHub, Gmail) and
+  // suppressing it inside fields would have been enough to fix the reported bug, but in an app whose
+  // whole purpose is writing prose the owner chose to remove the collision rather than scope it.
+  // keepInField stays: mod+/ is not a character, so it is safe mid-sentence, which is the situation
+  // the sheet exists for.
+  //
+  // ONE SPEC, THREE PLATFORMS: keyOf() folds metaKey and ctrlKey into "mod", so this is Cmd+/ on a
+  // Mac and Ctrl+/ on Windows and Linux with no second registration, and prettify() renders whichever
+  // the reader actually has.
+  register([{ keys: ["mod+/"], label: "Show this help", keepInField: true,
               run: function () { openSheet(); } }]);
 
   if (typeof document !== "undefined") {
