@@ -103,11 +103,16 @@ try {
     const last=entries[entries.length-1];
     const badge=last&&last.querySelector('.gaddr');
     return JSON.stringify({present:true,lastRole:last&&last.className,
-      badgeText:badge?badge.textContent:null, badgeColor:badge?getComputedStyle(badge).color:null});
+      badgeText:badge?badge.textContent:null, badgeColor:badge?getComputedStyle(badge).color:null,
+      badgeTransform:badge?getComputedStyle(badge).textTransform:null});
   })()`));
   ok('case A (open, agent replied last): card renders in the gutter', a.present, JSON.stringify(a));
   ok('case A: the agent\'s (last) entry carries the Addressed badge', a.present && !!a.badgeText && /addressed/i.test(a.badgeText), JSON.stringify(a));
   ok('case A: badge computed colour equals resolved --success', a.present && a.badgeColor === controls.success, `badge=${a.badgeColor} success=${controls.success}`);
+  // Capitalisation is a CSS text-transform, not literal "ADDRESSED" text (matches this file's own
+  // .ghdr "Comments" convention) — assert what actually PAINTS uppercase, not the source string,
+  // so deleting the transform is caught here rather than passing on textContent alone.
+  ok('case A: badge actually PAINTS uppercase (text-transform, not just source text)', a.present && a.badgeTransform === 'uppercase', `transform=${a.badgeTransform}`);
 
   // Case B: open thread, human replied last -> no badge anywhere in the card.
   const b = JSON.parse(await evalJs(`(()=>{
