@@ -141,7 +141,9 @@
   #dockbar .btn:hover{background:var(--code-bg);color:var(--text);border:0;}
   #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--accent);color:var(--bg);font-family:var(--font-ui);font-size:13px;padding:8px 16px;border-radius:var(--r-card);box-shadow:var(--shadow-menu);opacity:0;transition:opacity .25s;pointer-events:none;}
   /* MR-006/MR-036: Google-Docs style margin comments (threaded), rev-3 card skin.
-     (.gcard.addressed and .gcard .gx are GONE: dead CSS with no JS setter, removed by #279.) */
+     (.gcard.addressed and .gcard .gx were dead CSS with no JS setter, removed by #279. #331
+     reinstates an ADDRESSED indicator with real semantics as .gentry .gaddr, below — a per-entry
+     badge driven by threadHtml()'s isAddressed() derivation, not a static card-level class.) */
   #gutter{position:absolute;top:0;width:284px;z-index:5;display:none;}
   body.gutter-on #cmtbtn{display:none;}
   /* rail header: written by renderAll() from the same pass as the dock counts (#279 AC23) */
@@ -188,6 +190,10 @@
   .gentry.you .gav{background:var(--accent-muted);color:var(--accent);}
   .gentry .gwho{font-size:12px;font-weight:600;color:var(--text);}
   .gentry.agent .gwho{color:var(--text-muted);}
+  /* #331: ADDRESSED badge — set via threadHtml()'s `addressed` arg (isAddressed(), a real JS
+     derivation), never a static class on the card. Sits after .gwho, before the (margin-left:auto)
+     timestamp, matching scraps/03-viewer.html. */
+  .gentry .gaddr{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--success);}
   .gentry .gts{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-subtle);white-space:nowrap;}
   .gentry .gtext{color:var(--text);}
   .gentry .gtext>:first-child{margin-top:0;}
@@ -736,15 +742,28 @@ function mdComment(raw){
   return tpl.innerHTML;
 }
 function qsnippet(c){const q=(c.anchor&&c.anchor.quoted_text)||'';return q?'"'+q+'"':'(whole block)';}
+// #331: ADDRESSED = an OPEN thread (not resolved -> not .rcard) whose most recent entry is
+// authored by the agent. Derived purely from data the viewer already has (thread + status), so
+// there is no server field to drift from. A thread the human last touched, or that is resolved,
+// is never addressed — resolved already has its own surface (.rcard in #resolved).
+function isAddressed(c){
+  const t=c.thread||[];
+  return c.status!=='resolved' && t.length>0 && t[t.length-1].role==='agent';
+}
 // rev 3 entries: initials chip + label ("You" only for the signed-in author, see entryLabel) +
 // relative time from thread[].ts (absent on legacy entries -> no time span, never "just now").
-function threadHtml(c){
-  return '<div class="gthread">'+((c.thread||[]).map(e=>{
+// `addressed` (isAddressed(c), always false for resolved threads) puts the ADDRESSED badge on
+// the one entry that earned it: the thread's last, agent-authored entry, never any other.
+function threadHtml(c,addressed){
+  const entries=c.thread||[];
+  return '<div class="gthread">'+(entries.map((e,i)=>{
     const role=e.role==='agent'?'agent':'reviewer';
     const label=entryLabel(e);
+    const showAddr=addressed&&role==='agent'&&i===entries.length-1;
     return '<div class="gentry '+role+(label==='You'?' you':'')+'">'
       +'<div class="gmeta"><span class="gav" aria-hidden="true">'+esc(initialsOf(label))+'</span>'
       +'<span class="gwho">'+esc(label)+'</span>'
+      +(showAddr?'<span class="gaddr">Addressed</span>':'')
       +(e.ts?'<span class="gts">'+esc(ago(e.ts))+'</span>':'')+'</div>'
       +'<div class="gtext">'+mdComment(e.text||'')+'</div></div>';
   }).join(''))+'</div>';
@@ -807,7 +826,7 @@ function renderAll(){
     card.innerHTML='<div class="ghead"><span class="gref">'+(ref?'#'+esc(ref):'')+'</span>'+
       (deletable?'<button class="gdel" data-act="delete" title="Delete this comment — permanent, no undo">Delete</button>':'')+'</div>'+
       '<span class="gq">'+esc(qsnippet(c))+'</span>'+
-      threadHtml(c)+
+      threadHtml(c,isAddressed(c))+
       '<div class="greply"><textarea placeholder="Reply…"></textarea><button class="btn" data-act="reply">Reply</button></div>';
     card._anchor=mk||blk;G.appendChild(card);
   });
@@ -817,7 +836,7 @@ function renderAll(){
     const r=document.createElement('div');r.className='rcard';r.dataset.id=c.comment_id;
     r.innerHTML='<div class="ghead"><span class="gref">#'+esc(c.anchor.block_num||'')+'</span></div>'+
       '<span class="gq">'+esc(qsnippet(c))+'</span>'+
-      threadHtml(c)+
+      threadHtml(c,false)+ // resolved is never addressed — it already has its own surface (.rcard)
       '<div class="reopenbox"><textarea placeholder="Optional reply when reopening…"></textarea><button class="btn" data-act="reopen">Reopen</button></div>';
     RI.appendChild(r);
   });
