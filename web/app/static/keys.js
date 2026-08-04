@@ -21,14 +21,18 @@
 //          from the sheet, so the sheet never advertises something inert.
 //   keepInField  optional. By default a binding is suppressed while focus is in a text field,
 //          because the comment composer would otherwise eat "c", "a" and "r". Only the help sheet
-//          and the composer's own submit set this.
+//          and the composer's own submit set this. It does NOT override the printable-character
+//          rule: a spec that types a character stays suppressed in a field whatever this says
+//          (#311), so setting it on a bare letter buys nothing.
 //
 // TWO TRAPS, both load-bearing:
 //   1. "/" and "?" are the SAME physical key. Branching on e.key === "/" alone makes the dashboard's
 //      search-focus binding swallow the help sheet. Every spec is normalised through keyOf(), which
 //      reads e.shiftKey, so "/" and "?" are distinct entries.
 //   2. The sheet must be reachable WHILE TYPING. It is the one thing a user hits when they are lost,
-//      and being lost includes being lost inside a textarea.
+//      and being lost includes being lost inside a textarea. That is why the sheet's binding is a
+//      CHORD: mod+/ is not a character, so it is safe in a field. "?" used to open it too and was
+//      removed (#311) — a printable key cannot be a global shortcut in an app built for writing.
 
 (function (root) {
   var registry = [];          // every registered binding, in registration order
@@ -41,6 +45,17 @@
     if (el.isContentEditable) return true;
     var t = (el.tagName || "").toLowerCase();
     return t === "input" || t === "textarea" || t === "select";
+  }
+
+  // #311: does this spec mean "insert a character"? In a text field a printable key belongs to the
+  // text, and no binding may claim it — not even a keepInField one. The help sheet was registered
+  // on ["mod+/", "?"] with keepInField so it stays reachable mid-sentence, which is right for the
+  // chord and wrong for "?": typing a question mark into a comment opened the sheet instead.
+  // Structural rather than a special case for "?", so the next printable keepInField binding
+  // someone adds cannot reintroduce this.
+  function isTypable(spec) {
+    if (spec.indexOf("mod+") === 0) return false;   // a chord is never the character itself
+    return spec === "Space" || spec.length === 1;
   }
 
   // Canonical spec for an event: "mod+/" | "?" | "c" | "Escape". `mod` is Cmd on mac, Ctrl
@@ -59,6 +74,12 @@
     //
     // So normalise rather than trust: with Shift held, Slash means "?" whichever form arrives.
     // On a path that already reports "?" this is a no-op.
+    //
+    // #311 dropped "?" as a binding, which makes this normalisation MORE load-bearing, not less:
+    // nothing matches "?" now, so a Shift+/ press falls through and does nothing, which is what we
+    // want. Delete these two lines and Shift+/ resolves to "/" instead — and the dashboard binds
+    // bare "/" to focus search, so it would silently start opening search again. That is exactly
+    // the #222 bug, reintroduced from the other direction.
     if (e.shiftKey && k === "/") k = "?";
     return (mod ? "mod+" : "") + k;
   }
@@ -190,7 +211,9 @@
     for (var i = 0; i < registry.length; i++) {
       var b = registry[i];
       if (b.keys.indexOf(spec) < 0) continue;
-      if (inField && !b.keepInField) continue;
+      // keepInField buys a binding the right to fire while typing; it does not buy the right to
+      // swallow a character the field is entitled to (#311).
+      if (inField && (!b.keepInField || isTypable(spec))) continue;
       if (b.when && !b.when()) continue;
       if (b.run(e) !== false) e.preventDefault();
       return;
@@ -219,11 +242,21 @@
     openSheet: openSheet, closeSheet: closeSheet,
     // exposed for tests/keys_selfcheck.js
     _keyOf: keyOf, _registry: registry, _visible: visible, _prettify: prettify, _isField: isField,
+    _isTypable: isTypable,
   };
 
   // The help sheet itself, registered first so it is the first row of every page's sheet.
-  // keepInField: you look for help precisely when you are stuck, including mid-sentence.
-  register([{ keys: ["mod+/", "?"], label: "Show this help", keepInField: true,
+  //
+  // CHORD ONLY, no "?" (owner decision, #311). "?" is the convention elsewhere (GitHub, Gmail) and
+  // suppressing it inside fields would have been enough to fix the reported bug, but in an app whose
+  // whole purpose is writing prose the owner chose to remove the collision rather than scope it.
+  // keepInField stays: mod+/ is not a character, so it is safe mid-sentence, which is the situation
+  // the sheet exists for.
+  //
+  // ONE SPEC, THREE PLATFORMS: keyOf() folds metaKey and ctrlKey into "mod", so this is Cmd+/ on a
+  // Mac and Ctrl+/ on Windows and Linux with no second registration, and prettify() renders whichever
+  // the reader actually has.
+  register([{ keys: ["mod+/"], label: "Show this help", keepInField: true,
               run: function () { openSheet(); } }]);
 
   if (typeof document !== "undefined") {

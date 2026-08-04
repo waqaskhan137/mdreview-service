@@ -83,14 +83,99 @@ check('contenteditable is a field', keys._isField({ isContentEditable: true }) =
 check('a button is NOT a field', keys._isField({ tagName: 'BUTTON' }) === false);
 check('null target is not a field', keys._isField(null) === false);
 
-// 5. The help binding registers itself and is reachable while typing. If keepInField were false
-//    here, the sheet would be unreachable from exactly the situation it exists for.
+// 5. The help binding is CHORD-ONLY (#311 owner decision). keepInField is what makes it work
+//    mid-sentence, and it is safe there precisely because a chord is not a character.
 {
-  const help = keys._registry.filter(b => b.keys.includes('?'))[0];
-  check('help sheet is registered on both mod+/ and ?',
-    !!help && help.keys.includes('mod+/') && help.keys.includes('?'));
-  check('help sheet works while typing (keepInField)', !!help && help.keepInField === true);
+  const help = keys._registry.filter(b => b.keys.includes('mod+/'))[0];
+  check('help sheet is registered on mod+/', !!help);
+  check('help sheet is NOT registered on "?" any more (#311)',
+    !!help && !help.keys.includes('?'));
+  check('no OTHER binding claimed "?" either',
+    keys._registry.filter(b => b.keys.includes('?')).length === 0);
+  check('help sheet sets keepInField (what makes the chord work mid-sentence)',
+    !!help && help.keepInField === true);
   check('help sheet has a label, so it appears in its own sheet', !!help && !!help.label);
+}
+
+// 5b. #311 — THE DISPATCH, not the registry. Everything above inspects registration; the reported
+//     bug lived in onKeydown, where keepInField let "?" fire inside a textarea and swallow the
+//     character. So drive the real listener and watch whether the binding runs and whether the
+//     event is preventDefault()ed — preventDefault is what actually stops the character being
+//     typed, so asserting only "did not run" would miss half of it.
+//
+//     The help entry's run is swapped for a counter: the sheet's real openSheet builds DOM this
+//     stub cannot host, and the thing under test is the dispatcher's decision, not the sheet.
+{
+  const help = keys._registry.filter(b => b.keys.includes('mod+/'))[0];
+  const origRun = help.run;
+  let ran = 0, prevented = 0;
+  help.run = function () { ran++; };
+  const fire = (over) => {
+    prevented = 0;
+    listeners.keydown(Object.assign(ev(over), { preventDefault() { prevented++; } }));
+  };
+  const TEXTAREA = { tagName: 'TEXTAREA' };
+  const BODY = { tagName: 'BODY' };
+
+  // The reported bug, in the place it was reported.
+  fire({ key: '?', shiftKey: true, target: TEXTAREA });
+  check('#311 "?" in a textarea does not open the sheet', ran === 0);
+  check('#311 "?" in a textarea is not preventDefault()ed, so the character types', prevented === 0);
+
+  // The delivery form case 1b caught in a real browser: the UNSHIFTED char with shiftKey set.
+  fire({ key: '/', shiftKey: true, target: TEXTAREA });
+  check('#311 unshifted-"/"-with-shift in a textarea is suppressed too', ran === 0);
+
+  fire({ key: '?', shiftKey: true, target: { tagName: 'INPUT' } });
+  check('#311 "?" in an input is suppressed', ran === 0);
+  fire({ key: '?', shiftKey: true, target: { isContentEditable: true } });
+  check('#311 "?" in a contenteditable is suppressed', ran === 0);
+
+  // The owner's decision: "?" is inert EVERYWHERE now, not merely inside fields.
+  fire({ key: '?', shiftKey: true, target: BODY });
+  check('#311 "?" outside a field does nothing either (binding dropped)', ran === 0);
+  check('#311 "?" outside a field is not preventDefault()ed', prevented === 0);
+
+  // The chord, on every platform. metaKey = Mac, ctrlKey = Windows/Linux, one spec.
+  fire({ key: '/', metaKey: true, target: TEXTAREA });
+  check('Cmd+/ opens the sheet while typing (mac)', ran === 1);
+  fire({ key: '/', ctrlKey: true, target: TEXTAREA });
+  check('Ctrl+/ opens the sheet while typing (windows/linux)', ran === 2);
+  fire({ key: '/', ctrlKey: true, target: BODY });
+  check('Ctrl+/ opens the sheet outside a field too', ran === 3);
+
+  help.run = origRun;
+}
+
+// 5b-ii. THE REGRESSION THE OWNER'S CHOICE COULD HAVE CAUSED. keyOf() normalises Shift+"/" to "?".
+//        With "?" no longer bound, that normalisation is what makes Shift+"/" a no-op. Remove it and
+//        the press resolves to "/" — which the dashboard binds to focus search. That is #222's bug
+//        arriving from the other direction, so it gets its own case rather than being assumed.
+{
+  let slashRan = 0;
+  keys.register([{ keys: '/', label: 'probe: search focus', run() { slashRan++; } }]);
+  const fire = (over) => listeners.keydown(Object.assign(ev(over), { preventDefault() {} }));
+  const BODY = { tagName: 'BODY' };
+
+  fire({ key: '?', shiftKey: true, target: BODY });
+  check('Shift+/ does NOT trigger the bare "/" binding (shifted form)', slashRan === 0);
+  fire({ key: '/', shiftKey: true, target: BODY });
+  check('Shift+/ does NOT trigger the bare "/" binding (unshifted form)', slashRan === 0);
+
+  fire({ key: '/', target: BODY });
+  check('a bare "/" still triggers it, so the probe is real', slashRan === 1);
+}
+
+// 5c. The rule is structural, so state it directly: a printable spec can never survive in a field,
+//     whatever a future binding sets keepInField to.
+{
+  check('a bare letter is typable', keys._isTypable('a') === true);
+  check('"?" is typable', keys._isTypable('?') === true);
+  check('Space is typable', keys._isTypable('Space') === true);
+  check('a chord is not typable', keys._isTypable('mod+/') === false);
+  check('mod+Enter is not typable (composer submit keeps working)',
+    keys._isTypable('mod+Enter') === false);
+  check('Escape is not typable', keys._isTypable('Escape') === false);
 }
 
 // 6. A binding without a label cannot exist: the sheet is generated from labels, so an unlabelled
@@ -111,8 +196,25 @@ check('null target is not a field', keys._isField(null) === false);
   check('a guarded-on binding appears in the sheet', keys._visible().length === before + 1);
 }
 
-// 8. Platform rendering: the sheet must show the modifier the user actually has.
-check('mod renders as ⌘ on mac', keys._prettify('mod+/') === '⌘/');
+// 8. Platform rendering: the sheet must show the modifier the reader actually has. Users are on
+//    Windows and Linux too, and the sheet is now the ONLY route to the shortcut list, so printing
+//    "⌘/" to a Windows user would leave them with no way in at all. isMac() reads
+//    navigator.platform at CALL time, so swapping the stub between assertions exercises each path
+//    against the shipped function rather than a reimplementation of it.
+{
+  const platform = (p) => { global.window.navigator.platform = p; };
+  platform('MacIntel');
+  check('mod renders as ⌘ on mac', keys._prettify('mod+/') === '⌘/');
+  platform('Win32');
+  check('mod renders as Ctrl+ on windows', keys._prettify('mod+/') === 'Ctrl+/',
+    'got ' + keys._prettify('mod+/'));
+  platform('Linux x86_64');
+  check('mod renders as Ctrl+ on linux', keys._prettify('mod+/') === 'Ctrl+/',
+    'got ' + keys._prettify('mod+/'));
+  platform('iPhone');
+  check('iPhone counts as mac for the modifier glyph', keys._prettify('mod+/') === '⌘/');
+  platform('MacIntel');   // restore, later cases assume mac
+}
 
 // 9. #183 ⌘K palette, asserted against the SHIPPED dashboard.html — not a reconstruction, because
 //    the failure mode this guards is the dashboard drifting from keys.js's contract, and a
