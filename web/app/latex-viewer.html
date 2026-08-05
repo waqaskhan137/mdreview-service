@@ -144,6 +144,15 @@
   .gdel{margin-left:auto;background:none;border:none;cursor:pointer;font:inherit;font-size:11px;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
   .gdel:hover{color:var(--danger);background:var(--danger-bg);}
   .gdel.armed{color:var(--bg);background:var(--danger);font-weight:600;}
+  /* #286: optimistic "posting a comment" card (AC9) — opacity .6 while in flight, full opacity
+     with a danger edge once failed, matching the mock's two-state card. */
+  .gcard.pending{opacity:.6;}
+  .gcard.pending.failed{opacity:1;border-left-color:var(--danger);}
+  .gpending-status{display:flex;align-items:center;gap:6px;margin-top:6px;font-family:var(--font-mono);font-size:11px;color:var(--text-subtle);}
+  .gpending-err{margin-top:6px;font-size:13px;color:var(--danger);}
+  .gpending-actions{display:flex;gap:14px;margin-top:6px;font-family:var(--font-mono);font-size:11px;}
+  .gpending-actions .glink{background:none;border:none;padding:0;cursor:pointer;font:inherit;color:var(--accent);}
+  .gpending-actions .glink.muted{color:var(--text-subtle);}
   .gthread{display:flex;flex-direction:column;gap:5px;}
   .gentry{border-left:3px solid var(--border);background:var(--code-bg);border-radius:var(--r-control);padding:4px 8px;}
   .gentry.reviewer{border-left-color:var(--accent);background:var(--accent-muted);}
@@ -189,10 +198,29 @@
   body.compile-failed .pdfbar .recompile{display:inline-block;}
   .pdfbar .recompile[disabled]{opacity:.55;cursor:default;}
   .dl{text-decoration:none;}
-  .errbar{display:none;flex:0 0 auto;padding:8px 14px;background:var(--warning-bg);border-bottom:1px solid var(--warning);color:var(--warning);font-size:12px;}
-  body.compile-failed .errbar{display:block;}
-  .errbar summary{cursor:pointer;font-weight:600;}
+  /* #286 D2/AC8: danger-tinted (was warning), restructured to headline / mono revision+log line /
+     full-log disclosure, matching mock 11-states.html's "Compile failed" card. */
+  .errbar{display:none;flex-direction:column;gap:var(--s-2);flex:0 0 auto;padding:var(--s-3) 16px;
+    background:var(--danger-bg);border-bottom:1px solid var(--danger-border);color:var(--danger);font-size:12px;}
+  body.compile-failed .errbar{display:flex;}
+  .errbar .errhead{font-size:13px;color:var(--danger);}
+  .errbar .errline{font-family:var(--font-mono);font-size:11px;color:var(--danger);}
+  .errbar details{margin:0;}
+  .errbar summary{cursor:pointer;font-family:var(--font-mono);font-size:11px;color:var(--danger);
+    text-decoration:underline;text-underline-offset:3px;list-style:none;}
+  .errbar summary::-webkit-details-marker{display:none;}
   .errbar pre{margin:6px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;font-family:var(--font-mono);font-size:11px;color:var(--text);}
+  /* #286 D1: indeterminate compile progress — the compiler reports queued/running/ok/failed only
+     (src/latex_review/compiler.py _write_status), no percentage, so a determinate bar would be a
+     lie. animation reverts to the base (non-animated) `left:0` on the SAME universal reduced-motion
+     guard theme.css already carries (duration collapses to .01ms, 1 iteration, fill-mode default
+     'none'), which is what makes the D1 "static tint" fallback a partial-width bar sitting still
+     at the left edge rather than a bar frozen mid-sweep. */
+  .compileprogress{display:none;height:2px;border-radius:2px;background:var(--code-bg);overflow:hidden;position:relative;}
+  body.compile-running .compileprogress{display:block;}
+  .compileprogress .fill{position:absolute;top:0;left:0;width:40%;height:100%;background:var(--accent);
+    animation:barslide 1.1s ease-in-out infinite;}
+  @keyframes barslide{ 0%{ left:-40%; } 100%{ left:100%; } }
   .pdfwrap{flex:1;min-height:0;position:relative;}
   #pdfframe{border:0;width:100%;height:100%;background:var(--canvas);}   /* #333: matches .pdfpane */
   .pdfmsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px;padding:20px;text-align:center;}
@@ -328,7 +356,12 @@
     <div class="pdfbar"><span class="st" id="pdfstate">PDF</span>
       <button class="btn recompile" id="recompilebtn" type="button" title="Re-run the compile at the current revision">Recompile</button>
       <a class="btn primary dl" id="dlbtn" href="#" download="paper.pdf">Download PDF</a></div>
-    <details class="errbar" id="errbar"><summary id="errsum">Compile failed</summary><pre id="errlog"></pre></details>
+    <div class="compileprogress" id="compileprogress"><span class="fill"></span></div>
+    <div class="errbar" id="errbar">
+      <div class="errhead" id="errhead">Compile failed</div>
+      <div class="errline" id="errline"></div>
+      <details id="errdetails"><summary>full log</summary><pre id="errlog"></pre></details>
+    </div>
     <div class="pdfwrap"><iframe id="pdfframe" title="compiled PDF"></iframe>
       <div class="pdfmsg" id="pdfmsg">No PDF yet.</div></div>
   </section>
@@ -352,6 +385,15 @@ const $=s=>document.querySelector(s);
 const ID=location.pathname.split('/').pop();
 const API='/api/reviews/'+ID, LATEX='/api/latex/'+ID;
 let comments=[], cur=null, confirming=null, lastSrc=0, lastCmt=0, pdfRev=null;
+// #286: the optimistic "posting a comment" card. Set by createComment() before the POST resolves;
+// null once it settles (2xx) or the human discards a failed one. Non-null blocks the live poll's
+// full renderComments() (same reason `confirming` already does for an armed delete), and
+// renderComments() itself paints the extra card whenever this is set.
+let pendingPost=null;
+// #286: shared arc spinner (theme.css's .spin keyframe + reduced-motion guard). Two sizes per the
+// mock: 14px for the Compiling bar, 12px for a "posting…" comment card.
+const SPIN_ICON='<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+const SPIN_ICON_SM='<svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
 // #280 comments-off (design screen 05). Session-only, rail ON on load — same persistence contract
 // as diff mode (OFF on load, sticky within the session). This flag must NEVER be body.norail:
 // layoutCards() rewrites norail on every repaint, resize and divider drag, so a toggle that
@@ -515,12 +557,43 @@ function commentDenied(r,fallback){
   if(!r.ok){toast(fallback);return true;}
   return false;
 }
+// #286: optimistic post. Renders the pending card (via renderComments(), below) immediately, then
+// resolves it: 2xx clears pendingPost and the normal fetch+repaint takes over (the pending card is
+// gone, replaced by the real one); a network error or non-2xx leaves pendingPost.failed=true so
+// renderComments() keeps showing the SAME card with "Not posted — your text is kept." + retry
+// (calls this again with the identical anchor/text) / discard (clears pendingPost and repaints).
 async function createComment(anchor,text){
-  try{const r=await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({anchor:anchor,text:text})});
-    if(commentDenied(r,'Could not save comment'))return false;
-    await fetchComments();renderComments();toast('Comment added');return true;}
-  catch(e){toast('Could not save comment');return false;}
+  pendingPost={anchor:anchor,text:text,failed:false};
+  renderComments();
+  return submitPendingPost();
+}
+async function submitPendingPost(){
+  if(!pendingPost)return true;   // discarded before this call started
+  pendingPost.failed=false;
+  let r;
+  try{
+    r=await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({anchor:pendingPost.anchor,text:pendingPost.text})});
+  }catch(e){ pendingPost.failed=true; renderComments(); return false; }
+  if(commentDenied(r,'Could not save comment')){ pendingPost.failed=true; renderComments(); return false; }
+  pendingPost=null;
+  await fetchComments();renderComments();toast('Comment added');return true;
+}
+function discardPending(){ pendingPost=null; renderComments(); }
+function pendingCardHtml(p){
+  if(!p.failed)
+    return '<div class="gcard pending"><div class="ghead"><span class="gref"></span></div>'+
+      '<span class="gq"></span><div class="gtext">'+esc(p.text)+'</div>'+
+      '<div class="gpending-status">'+SPIN_ICON_SM+'posting…</div></div>';
+  return '<div class="gcard pending failed"><div class="ghead"><span class="gref"></span></div>'+
+    '<span class="gq"></span><div class="gtext">'+esc(p.text)+'</div>'+
+    '<div class="gpending-err">Not posted — your text is kept.</div>'+
+    '<div class="gpending-actions"><button type="button" class="glink" data-act="retry">retry</button>'+
+    '<button type="button" class="glink muted" data-act="discard">discard</button></div></div>';
+}
+function wirePendingCard(el){
+  const retry=el.querySelector('[data-act=retry]');if(retry)retry.onclick=e=>{e.stopPropagation();submitPendingPost();};
+  const discard=el.querySelector('[data-act=discard]');if(discard)discard.onclick=e=>{e.stopPropagation();discardPending();};
 }
 async function replyTo(cid,text){if(!text)return false;
   try{const r=await fetch(API+'/comments/'+cid+'/reply',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -601,10 +674,18 @@ function renderComments(){
       threadHtml(c)+'<div class="greply"><textarea placeholder="Reply…"></textarea><button class="btn" data-act="reply">Reply</button></div>';
     card._anchor=ln;rail.appendChild(card);cards.push(card);
   });
+  // #286: the optimistic pending/failed card, appended last so it reads as the newest thing —
+  // anchored to its target line like a real card would once it exists, so layoutCards() stacks it
+  // in the right place instead of pinning it to the top.
+  if(pendingPost){
+    const pln=document.querySelector('.ln[data-num="'+(pendingPost.anchor.block_num||'')+'"]');
+    const pcard=document.createElement('div');pcard.innerHTML=pendingCardHtml(pendingPost);
+    const pel=pcard.firstElementChild;pel._anchor=pln;rail.appendChild(pel);wirePendingCard(pel);cards.push(pel);
+  }
   wireCards(rail);
   // mirror into the narrow dock (static list)
   dock.innerHTML='<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:8px">Comments ('+active.length+')</div>';
-  cards.forEach(c=>dock.appendChild(c.cloneNode(true)));wireCards(dock);
+  cards.forEach(c=>{const clone=c.cloneNode(true);dock.appendChild(clone);wirePendingCard(clone);});wireCards(dock);
   $('#count').textContent=active.length+' open';
   document.querySelectorAll('mark.cmt').forEach(m=>m.onclick=()=>focusPair(m.dataset.id));
   layoutCards();
@@ -689,22 +770,31 @@ function openPop(c,x,y){
   pop.style.left=Math.max(12,px)+'px';pop.style.top=Math.max(12,py)+'px';$('#popnote').focus();
 }
 $('#popcancel').onclick=()=>$('#pop').style.display='none';
-// #334: gate the close on the RESULT. createComment returns false when the post was refused
-// (#320), and closing regardless threw that away along with whatever the human had typed —
-// reachable on a session that expired with the composer open, or a grant revoked mid-session.
-// viewer.html has always done it this way; this is the LaTeX side catching up.
-$('#popsave').onclick=async()=>{const v=$('#popnote').value.trim();if(!v)return;
-  if(!await createComment({quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null},v))return;
-  $('#pop').style.display='none';window.getSelection().removeAllRanges();};
+// #286: close the composer immediately and post optimistically — createComment() below renders a
+// pending card in the thread (opacity .6, spinner + "posting…") and, on failure, leaves that card
+// in place with "Not posted — your text is kept." + retry/discard, so the typed text now lives
+// with the comment rather than in a composer the human has to remember is still open. This is a
+// strictly stronger guarantee than #334's "await before closing" (still true: the card, not the
+// composer, is what survives a refusal), so #334's own regression check moves to asserting the
+// card contract instead of the old close-timing one — see comment_gate_selfcheck.py.
+$('#popsave').onclick=()=>{
+  const v=$('#popnote').value.trim();if(!v)return;
+  const anchor={quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null};
+  $('#pop').style.display='none';window.getSelection().removeAllRanges();
+  createComment(anchor,v);
+};
 
 // ---- PDF pane: compile status + iframe reload + download + error banner ----
+// #286 D1/D2/AC7/AC8: indeterminate progress bar + spinner while running, danger-tinted failure
+// card with the mock's headline and #205's revision detail kept on the mono line + Download label.
 async function refreshPdf(){
   let st=null;
   try{const r=await fetch(LATEX+'/compile',{cache:'no-store'});if(r.ok)st=await r.json();}catch(e){}
-  const bar=$('#pdfstate'),msg=$('#pdfmsg'),frame=$('#pdfframe'),dl=$('#dlbtn'),errbar=$('#errbar');
-  if(!st){bar.textContent='PDF';return;}
+  const bar=$('#pdfstate'),msg=$('#pdfmsg'),frame=$('#pdfframe'),dl=$('#dlbtn');
+  if(!st){bar.textContent='PDF';document.body.classList.remove('compile-running');return;}
   const rev=st.revision;
   if(st.state==='ok'){
+    document.body.classList.remove('compile-running');
     bar.textContent='PDF · v'+rev+' · compiled';
     document.body.classList.remove('compile-failed');
     // #205: a return to ok must CLEAR the staleness dressing the failed branch applied, or the
@@ -718,25 +808,42 @@ async function refreshPdf(){
     // PDF sat on disk. And #dlbtn kept whatever href the 'ok' branch last gave it, so Download
     // handed over a previous revision's document with no indication it was stale.
     // Both are answered by the SERVER now (has_pdf / pdf_revision) rather than by session memory.
+    document.body.classList.remove('compile-running');
     bar.textContent='PDF · v'+rev+' · compile failed';
     document.body.classList.add('compile-failed');
     const rb=$('#recompilebtn'); if(rb){ rb.disabled=false; rb.textContent='Recompile'; }  // #250: verdict is in
-    $('#errlog').textContent=st.log_tail||'(no log)';
+    const fullLog=st.log_tail||'(no log)';
+    $('#errlog').textContent=fullLog;
+    // AC8: surface the log's own pointer to the failing line on the mono line, distinct from the
+    // full log the "full log" disclosure reveals underneath. Two REAL shapes exist, checked
+    // against this backend's actual compiler.py output (never against the mock's example alone):
+    // classic engines write "l.<num> ..." into their .log file, but src/latex_review/compiler.py
+    // captures the tectonic PROCESS's own stdout/stderr as log_tail, and tectonic's line pointer
+    // reads "error: paper.tex:<num>: <message>" instead — verified with a direct `tectonic -X
+    // compile` run on an undefined-control-sequence fixture. Both are matched so the pointer line
+    // is real against what this backend ships, not just against the mock's literal l.214 example.
+    const lLine=(fullLog.split('\n').find(l=>/^\s*l\.\d/.test(l)||/error:.*:\d+:/.test(l))||'').trim();
     // "unknown" is deliberate for status files written before pdf_revision existed. st.revision is
     // the ATTEMPTED revision — displaying it here would name a revision whose PDF was never built.
     const shownRev = (st.pdf_revision!=null) ? ('v'+st.pdf_revision)
-                   : (pdfRev!=null ? ('v'+pdfRev) : 'an earlier revision (unknown)');
+                   : (pdfRev!=null ? ('v'+pdfRev) : null);
     if(st.has_pdf){
-      $('#errsum').textContent='Compile failed at v'+rev+' — showing '+shownRev;
+      // D2: the mock's sentence is the headline; #205's revision detail (which vN failed, which
+      // vM is shown) moves to the mono line below it, alongside the l.NNN pointer AC8 asks for —
+      // and the Download label two lines down keeps naming the shown revision, unchanged.
+      $('#errhead').textContent='Compile failed — the last good PDF is still shown.';
+      $('#errline').textContent='v'+rev+' failed — showing '+(shownRev||'an earlier revision (unknown)')+(lLine?' · '+lLine:'');
       // Render the surviving PDF on a cold load too; the ok-branch guard never ran.
       if(frame.src.indexOf(LATEX+'/pdf')===-1) frame.src=LATEX+'/pdf?stale='+rev;
       msg.style.display='none';
       // Say what it is, rather than silently handing over a document the reader thinks is current.
       dl.href=LATEX+'/pdf';
-      dl.textContent='Download '+shownRev;
-      dl.title='The current compile (v'+rev+') failed. This downloads '+shownRev+'.';
+      dl.textContent='Download '+(shownRev||'an earlier revision');
+      dl.title='The current compile (v'+rev+') failed. This downloads '+(shownRev||'an earlier revision')+'.';
     }else{
-      $('#errsum').textContent='Compile failed at v'+rev;
+      // The mock's sentence would be a lie with nothing on screen — no PDF exists to still show.
+      $('#errhead').textContent='Compile failed — no PDF has been produced yet.';
+      $('#errline').textContent='v'+rev+' failed'+(lLine?' · '+lLine:'');
       msg.textContent='No PDF yet — the compile failed. See the log above.';
       msg.style.display='flex';
       dl.removeAttribute('href');            // nothing to download; do not offer a dead link
@@ -744,7 +851,13 @@ async function refreshPdf(){
       dl.title='No PDF has been produced yet.';
     }
   }else{
-    bar.textContent='PDF · '+st.state+'…';
+    // queued|running: AC7's spinner + "Compiling <name>…", <name> the same string #filename
+    // shows. #filename starts as the literal "loading…" until boot()'s meta fetch resolves; fall
+    // back to a neutral word rather than compounding that placeholder into "Compiling loading…".
+    document.body.classList.add('compile-running');
+    const fn=$('#filename').textContent;
+    const docName=(fn&&fn!=='loading…')?fn:'the document';
+    bar.innerHTML=SPIN_ICON+' Compiling '+esc(docName)+'…';
     if(pdfRev==null){msg.textContent='Compiling…';msg.style.display='flex';}
     // #250: while the server says queued/running, the control stays in-progress — state from the
     // poll, not a client timer. (body.compile-failed is still set from the failed round, so the
@@ -756,7 +869,7 @@ async function refreshPdf(){
 // ---- live poll: source / comments / compile status off the same interval ----
 function poll(){
   setInterval(async()=>{
-    if(addbtn.style.display==='block'||$('#pop').style.display==='block'||confirming)return;
+    if(addbtn.style.display==='block'||$('#pop').style.display==='block'||confirming||pendingPost)return;
     try{
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
       setCommentVisible(s.can_comment!==false);   // #320: mid-session grant change settles here

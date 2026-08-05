@@ -144,15 +144,17 @@ try:
     # anonymous visitor the wrong message entirely.
     ok("anonymous POST -> 401", posts(c, ANON) == 401)
 
-    print("4. a refused post keeps what the human typed (#334)")
-    # The composer must close only when the post SUCCEEDED. latex-viewer's handler used to fire
-    # createComment without awaiting and close regardless, so a refusal lost the text — the other
-    # half of #320, which fixed only the message.
+    print("4. a refused post keeps what the human typed (#334, carried forward by #286)")
+    # #286 changed the MECHANISM (composer now closes immediately and posts optimistically; a
+    # refused post's text lives in a retryable in-thread card, not in a composer the human has to
+    # notice is still open) while keeping the GUARANTEE #334 introduced: a refusal never loses
+    # what was typed. Assert the contract that now holds, not the old close-timing shape.
     for name in ("viewer.html", "latex-viewer.html"):
         src = open(os.path.join(ROOT, "web", "app", name)).read()
-        ok("%-18s popsave awaits the result before closing" % name,
-           re.search(r"#popsave.{0,40}onclick\s*=\s*async", src, re.S) is not None
-           and re.search(r"if\(!await createComment\(", src) is not None)
+        ok("%-18s a refused post keeps the text in a retryable card" % name,
+           "Not posted — your text is kept." in src
+           and re.search(r"data-act=.?retry", src) is not None
+           and re.search(r"data-act=.?discard", src) is not None)
 
     print("5. the viewers gate their author surfaces on the flag")
     for name in ("viewer.html", "latex-viewer.html"):

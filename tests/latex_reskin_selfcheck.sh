@@ -258,7 +258,10 @@ b5="$(meas "$runB" RB5)"
 [ -z "$b5" ] && bad "RB5: no measurement"
 
 # ---- run C: #250 Recompile after a REAL failed compile (cold load, read-only) ----------------
-C1=$PRE'(()=>{const rb=$q("#recompilebtn"),s=getComputedStyle(rb);const rc=(()=>{const p=document.createElement("div");p.style.cssText="display:none;border-radius:var(--r-control)";document.body.appendChild(p);const v=getComputedStyle(p).borderRadius;p.remove();return v;})();return "C1 failed="+document.body.classList.contains("compile-failed")+"|vis="+(s.display!=="none")+"|en="+(!rb.disabled)+"|rad="+(s.borderRadius===rc)+"|bg="+(s.backgroundColor===T("--surface"))+"|bord="+(s.borderTopColor===(()=>{const p=document.createElement("div");p.style.cssText="display:none;color:var(--border)";document.body.appendChild(p);const v=getComputedStyle(p).color;p.remove();return v;})())+"|dt="+(getComputedStyle($q("#difftoggle")).display!=="none")+"|sum="+btoa(unescape(encodeURIComponent($q("#errsum").textContent)))+"|";})()'
+# #286 restructured the failure card: #errsum is gone, replaced by #errhead (the D2 headline) and
+# #errline (the mono line retaining #205's failed/shown revision detail plus the first l.NNN log
+# line). Everything else C1 pins (recompilebtn styling, diff pill) is untouched by that ticket.
+C1=$PRE'(()=>{const rb=$q("#recompilebtn"),s=getComputedStyle(rb);const rc=(()=>{const p=document.createElement("div");p.style.cssText="display:none;border-radius:var(--r-control)";document.body.appendChild(p);const v=getComputedStyle(p).borderRadius;p.remove();return v;})();return "C1 failed="+document.body.classList.contains("compile-failed")+"|vis="+(s.display!=="none")+"|en="+(!rb.disabled)+"|rad="+(s.borderRadius===rc)+"|bg="+(s.backgroundColor===T("--surface"))+"|bord="+(s.borderTopColor===(()=>{const p=document.createElement("div");p.style.cssText="display:none;color:var(--border)";document.body.appendChild(p);const v=getComputedStyle(p).color;p.remove();return v;})())+"|dt="+(getComputedStyle($q("#difftoggle")).display!=="none")+"|head="+btoa(unescape(encodeURIComponent($q("#errhead").textContent)))+"|line="+btoa(unescape(encodeURIComponent($q("#errline").textContent)))+"|";})()'
 runC="$(retry_if_empty '=> "C1 ' node "$here/scripts/cdp-shot.mjs" --url "$url2" \
   --resize 1500x900 --wait-for ".ln" --wait 1500 --eval "$C1")"
 c1="$(meas "$runC" C1)"
@@ -266,9 +269,13 @@ if [ -z "$c1" ]; then bad "C1: no measurement"; else
   case "$c1" in *"failed=true|vis=true|en=true|rad=true|bg=true|bord=true|dt=true"*)
       ok "C1: cold-load failed compile -> #recompilebtn visible, enabled, token-styled; diff pill visible (history exists)";;
     *) bad "C1: $c1";; esac
-  sum="$(field "$c1" sum | python3 -c 'import sys,base64;print(base64.b64decode(sys.stdin.read().strip()).decode("utf-8"))' 2>/dev/null)"
-  case "$sum" in "Compile failed at v1"*"showing v0") ok "C1: #errsum names the failed and the shown revision ('$sum')";;
-    *) bad "C1: #errsum '$sum', expected 'Compile failed at v1 ... showing v0'";; esac
+  head="$(field "$c1" head | python3 -c 'import sys,base64;print(base64.b64decode(sys.stdin.read().strip()).decode("utf-8"))' 2>/dev/null)"
+  line="$(field "$c1" line | python3 -c 'import sys,base64;print(base64.b64decode(sys.stdin.read().strip()).decode("utf-8"))' 2>/dev/null)"
+  [ "$head" = "Compile failed — the last good PDF is still shown." ] \
+    && ok "C1: #errhead reads the #286/D2 headline ('$head')" \
+    || bad "C1: #errhead '$head', expected the D2 headline verbatim"
+  case "$line" in "v1 failed"*"showing v0"*) ok "C1: #errline retains #205's failed/shown revisions ('$line')";;
+    *) bad "C1: #errline '$line', expected 'v1 failed ... showing v0 ...'";; esac
 fi
 
 # ---- run D: fresh review (no agent push): the Diff pill stays hidden -------------------------

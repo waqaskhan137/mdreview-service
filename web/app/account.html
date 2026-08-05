@@ -79,7 +79,7 @@
                background:var(--surface);color:var(--text);font:inherit;font-size:var(--t-body);max-width:220px}
 
   /* ---- buttons ----------------------------------------------------------------------------- */
-  .btn2{display:inline-flex;align-items:center;height:32px;padding:0 var(--s-3);border:0;
+  .btn2{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 var(--s-3);border:0;
         border-radius:var(--r-control);font-size:var(--t-body);font-weight:600;cursor:pointer;
         background:var(--accent);color:var(--bg);transition:background 160ms ease-out}
   .btn2:hover{background:var(--accent-strong)}
@@ -337,6 +337,8 @@ function mcpBlock(token) {
     env: { MDREVIEW_BASE: BASE, MDREVIEW_TOKEN: token } } } }, null, 2);
 }
 const COPY_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16V4a2 2 0 0 1 2-2h10"/></svg>';
+// #286: shared arc spinner (theme.css's .spin keyframe + reduced-motion guard), mock 11-states.html.
+const SPIN_ICON = '<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
 
 async function copyText(btn, text) {
   const label = btn.dataset.label || "copy";
@@ -394,7 +396,11 @@ function wireTokensPanel(rev, valEl) {
 async function doMint(rev, valEl) {
   const btn = rev.querySelector("#tok-mint");
   const input = rev.querySelector("#tok-label");
+  const restLabel = btn.textContent;
+  // #286: pending state (mock 11-states.html) — disabled, spinner + "Minting…", restored on
+  // either failure branch below so a retry click sees the plain button again.
   btn.disabled = true;
+  btn.innerHTML = SPIN_ICON + "Minting…";
   let r;
   try {
     r = await fetch("/account/tokens", { method: "POST",
@@ -402,11 +408,11 @@ async function doMint(rev, valEl) {
       body: JSON.stringify({ label: input ? input.value : "" }) });
   } catch (e) {
     flash("Could not mint the token (network error). Nothing was created.", "err");
-    btn.disabled = false; return;
+    btn.disabled = false; btn.textContent = restLabel; return;
   }
   if (!r.ok) {
     flash("Could not mint the token (" + r.status + "). Nothing was created.", "err");
-    btn.disabled = false; return;
+    btn.disabled = false; btn.textContent = restLabel; return;
   }
   const d = await r.json();
   BASE = d.base || BASE;
