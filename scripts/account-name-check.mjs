@@ -440,6 +440,8 @@ try {
      secondReadable.who.every(w => w === 'Grace Hopper'), secondReadable);
   ok('AC (universal): SECOND does not get the .you highlight on PRIMARY\'s entries — a name is attribution, not ownership',
      !secondReadable.hasYouClass, secondReadable);
+  ok('AC (universal): the avatar-chip initials ALSO derive from the name in SECOND\'s browser, not just the label text',
+     secondReadable.avatar.every(a => a === 'gh'), secondReadable);
   const secondPageText = await evaluate(`document.body.innerText`);
   ok('AC (#267): no raw uid (e.g. "email:primary@...") is rendered anywhere on SECOND\'s page',
      !secondPageText.includes('email:') && !secondPageText.includes(PRIMARY_EMAIL), 'uid or raw email text found');

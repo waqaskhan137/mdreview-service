@@ -206,6 +206,39 @@ try:
     check("setting user 1's name does not appear on user 2's session (no cross-account leak)",
           session_of(ck2).get("name") == "", session_of(ck2).get("name"))
 
+    # ---- the comments API carries the resolved name (#309 universal attribution, API layer) -----
+    # scripts/account-name-check.mjs covers this as a RENDERED outcome in a real browser; this is
+    # the same fact asserted directly on the JSON, on BOTH the list and single-comment GET routes
+    # (CommentService.with_author_names is wired into both independently in server.py).
+    set_name(ck, csrf, "")   # start from unset, so the first comment is genuinely pre-name
+    code, raw = req(base + "/api/reviews", "POST", json.dumps({"title": "name-api probe", "markdown": "# x"}).encode(),
+                    {"Content-Type": "application/json", "Cookie": ck, "X-CSRF-Token": csrf})
+    rid = json.loads(raw)["id"]
+    code, raw = req(base + f"/api/reviews/{rid}/comments", "POST",
+                    json.dumps({"anchor": {"block_num": 1}, "text": "pre-name"}).encode(),
+                    {"Content-Type": "application/json", "Cookie": ck})
+    cid = json.loads(raw)["comment_id"]
+    _, raw = req(base + f"/api/reviews/{rid}/comments", h={"Cookie": ck})
+    check("before naming: list GET's thread[0].name is \"\" (unset renders exactly as before #309)",
+          json.loads(raw)["comments"][0]["thread"][0].get("name") == "", raw[:300])
+
+    set_name(ck, csrf, "API Probe Name")
+    _, raw = req(base + f"/api/reviews/{rid}/comments", h={"Cookie": ck})
+    check("after naming: list GET's thread[0].name is the CURRENT name, on the pre-existing comment",
+          json.loads(raw)["comments"][0]["thread"][0].get("name") == "API Probe Name", raw[:300])
+    _, raw = req(base + f"/api/reviews/{rid}/comments/{cid}", h={"Cookie": ck})
+    single = json.loads(raw)
+    check("the SINGLE-comment GET route independently carries the same resolved name",
+          single["thread"][0].get("name") == "API Probe Name", raw[:300])
+    # create()'s FIRST entry records status_history[0].by as the cookie-plane UID itself ("email:
+    # owner@example.com" -- this test's ck is that same owner login), not a role literal; that
+    # literal-vs-uid split only starts at reply/resolve/reopen. The point of this assertion is
+    # that with_author_names left it UNCHANGED, not any particular value.
+    check("with_author_names does NOT touch resolved_by/status_history (#287 must stay exactly as-is)",
+          single.get("resolved_by") is None and single["status_history"][0].get("by") == "email:owner@example.com",
+          (single.get("resolved_by"), single.get("status_history")))
+    set_name(ck, csrf, "")   # leave state clean for whatever runs next
+
     # ---- missing/wrong-typed body -----------------------------------------------------------------
     code, raw = req(base + "/auth/profile", "POST", json.dumps({}).encode(),
                     {"Content-Type": "application/json", "Cookie": ck, "X-CSRF-Token": csrf})
