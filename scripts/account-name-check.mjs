@@ -422,28 +422,61 @@ try {
      after2.who.length === 2 && after2.who.every(w => w === 'Grace Hopper'), after2);
 
   // ================================================================================
-  // XSS on the THIRD surface a name reaches: the comment gutter's .gwho label (threadHtml). The
-  // account-row and top-bar checks earlier do not cover this — it is a distinct innerHTML call
-  // site (viewer.html, not account.html/account.js) with its own esc() call to get right.
+  // UNIVERSAL attribution (the corrected #309 reading): the name must render to OTHER viewers too,
+  // not only to PRIMARY looking at their own words. Grant SECOND a real named share on `rid` (a
+  // genuine #68 collaboration grant, not a bypass) and confirm SECOND's OWN browser — a completely
+  // different session/account — renders PRIMARY's name on PRIMARY's pre-existing comment.
   // ================================================================================
   await useCookie(primary.cookie);
+  const invite = await fetch(BASE + `/api/reviews/${rid}/shares`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: primary.cookie, 'X-CSRF-Token': primary.csrf },
+    body: JSON.stringify({ email: SECOND_EMAIL, right: 'view' }) });
+  ok('setup: PRIMARY granted SECOND a real named share on the probe review', invite.ok, invite.status);
+
+  const secondReadable = await labelSnapshot(viewerUrl, second.cookie);
+  ok('AC (universal): a genuinely different account (named-share grantee) now sees PRIMARY\'s comments at all',
+     secondReadable.who.length === 2, secondReadable);
+  ok('AC (universal): PRIMARY\'s name renders in SECOND\'s OWN browser — on the SAME pre-existing comment, not just PRIMARY\'s view',
+     secondReadable.who.every(w => w === 'Grace Hopper'), secondReadable);
+  ok('AC (universal): SECOND does not get the .you highlight on PRIMARY\'s entries — a name is attribution, not ownership',
+     !secondReadable.hasYouClass, secondReadable);
+  const secondPageText = await evaluate(`document.body.innerText`);
+  ok('AC (#267): no raw uid (e.g. "email:primary@...") is rendered anywhere on SECOND\'s page',
+     !secondPageText.includes('email:') && !secondPageText.includes(PRIMARY_EMAIL), 'uid or raw email text found');
+
+  // ================================================================================
+  // XSS, now on the surface that matters most per the coordinator: a name rendered in SOMEONE
+  // ELSE'S browser. Checked in BOTH PRIMARY's own view (isOwnEntry=true code path, the .you
+  // branch) and SECOND's (isOwnEntry=false, the plain-Reviewer-slot-now-carrying-a-name path) —
+  // threadHtml's single esc(label) call site serves both, but the two are reached by different
+  // branches in entryLabel/initialsOf, so both are worth proving independently.
+  // ================================================================================
+  await useCookie(primary.cookie);
+  const XSS_GWHO = '<img src=x onerror=window.__xssFired=9>';   // 41 chars
   const setXssName = await fetch(BASE + '/auth/profile', { method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: primary.cookie, 'X-CSRF-Token': primary.csrf },
-    body: JSON.stringify({ name: '<img src=x onerror=window.__xssFired=9>' }) });   // 41 chars
+    body: JSON.stringify({ name: XSS_GWHO }) });
   ok('setup: PRIMARY set an XSS-payload name for the comment-gwho check', setXssName.ok, setXssName.status);
-  await hardNav(viewerUrl);
-  for (let i = 0; i < 60; i++) { if (await evaluate(`document.readyState==='complete' && document.querySelectorAll('#gutter .gcard').length>0`)) break; await sleep(150); }
-  await evaluate(`window.__xssFired = 0; true`);
-  const gwhoXss = await evalJSON(`(() => {
-    // force a fresh render so the (possibly unescaped) label is actually inserted after the flag reset
-    if (typeof renderAll === 'function') renderAll();
-    const who = [...document.querySelectorAll('#gutter .gwho')].map(x => x.textContent);
-    const hasImg = !!document.querySelector('#gutter img');
-    return JSON.stringify({ who, hasImg, fired: window.__xssFired });
-  })()`);
-  ok('AC (XSS/comment label): the .gwho text is the literal payload, no injected <img>, handler never fired',
-     gwhoXss.who.every(w => w === '<img src=x onerror=window.__xssFired=9>') &&
-     !gwhoXss.hasImg && gwhoXss.fired === 0, gwhoXss);
+
+  async function gwhoXssSnapshot(cookie) {
+    await useCookie(cookie);
+    await hardNav(viewerUrl);
+    for (let i = 0; i < 60; i++) { if (await evaluate(`document.readyState==='complete' && document.querySelectorAll('#gutter .gcard').length>0`)) break; await sleep(150); }
+    await evaluate(`window.__xssFired = 0; true`);
+    return evalJSON(`(() => {
+      // force a fresh render so the (possibly unescaped) label is actually inserted after the flag reset
+      if (typeof renderAll === 'function') renderAll();
+      const who = [...document.querySelectorAll('#gutter .gwho')].map(x => x.textContent);
+      const hasImg = !!document.querySelector('#gutter img');
+      return JSON.stringify({ who, hasImg, fired: window.__xssFired });
+    })()`);
+  }
+  const gwhoXssOwn = await gwhoXssSnapshot(primary.cookie);
+  ok('AC (XSS/comment label, own view): the .gwho text is the literal payload, no injected <img>, handler never fired',
+     gwhoXssOwn.who.every(w => w === XSS_GWHO) && !gwhoXssOwn.hasImg && gwhoXssOwn.fired === 0, gwhoXssOwn);
+  const gwhoXssOther = await gwhoXssSnapshot(second.cookie);
+  ok('AC (XSS/comment label, ANOTHER viewer): the .gwho text is the literal payload, no injected <img>, handler never fired',
+     gwhoXssOther.who.every(w => w === XSS_GWHO) && !gwhoXssOther.hasImg && gwhoXssOther.fired === 0, gwhoXssOther);
 
   // ================================================================================
   // Positive control: SECOND, who never named themselves, still reads "You" on THEIR OWN comment

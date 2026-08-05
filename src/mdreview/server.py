@@ -851,7 +851,10 @@ class H(BaseHTTPRequestHandler):
             if m == "GET":
                 q = parse_qs(urlparse(self.path).query)
                 status = (q.get("status") or ["all"])[0] or "all"
-                return self._json(200, {"comments": app.comments.list(rid, status)})
+                # #309: an ADDITIVE read-time projection (thread[].name), never a stored write —
+                # see CommentService.with_author_names for what it does and does not touch.
+                comments = app.comments.with_author_names(app.comments.list(rid, status), app.users)
+                return self._json(200, {"comments": comments})
             if m == "POST":
                 b = self._body_json()
                 # Attribution from the authenticated plane, not spoofable body fields: a human on the
@@ -879,7 +882,7 @@ class H(BaseHTTPRequestHandler):
                 c = app.comments.get(rid, cid)
                 if not c:
                     return self._json(404, {"error": "no such comment"})
-                return self._json(200, c)
+                return self._json(200, app.comments.with_author_names([c], app.users)[0])
             # DELETE: hard-remove a comment (junk cleanup), distinct from resolve, which only hides it.
             with app.store.lock:
                 if not app.comments.delete(rid, cid):

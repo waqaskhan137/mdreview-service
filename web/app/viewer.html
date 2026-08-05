@@ -508,44 +508,52 @@ function renderDocMeta(st){
     +'<span class="mwords">'+WORDS.toLocaleString()+' words · '+Math.max(1,Math.round(WORDS/200))+' min</span>';
 }
 
-// ---- who is reading (#279 AC6, #309 retroactive attribution) -----------------------------------
-// The hosted plane has /auth/session ({uid,email,name,...}); the local tier has NO such route (404)
-// and is single-user by construction. Card labels depend on this: a reviewer entry is "yours" only
-// when its author IS the signed-in uid — on a shared review another grantee's words must never be
-// labelled as yours, and (#309) never carry another grantee's name either: only YOUR OWN entries
-// ever read anything but the generic "Reviewer"/"Agent". Any non-404 failure is treated as an
-// anonymous hosted visitor (labels fall back to "Reviewer"), the direction that can never mislabel
-// someone else's words.
+// ---- who is reading (#279 AC6) + universal attribution (#309) ----------------------------------
+// The hosted plane has /auth/session ({uid,email,...}); the local tier has NO such route (404) and
+// is single-user by construction. isOwnEntry answers "is this MINE" for the .you highlight and the
+// "unnamed" fallback below — a reviewer entry is "yours" only when its author IS the signed-in
+// uid, so on a shared review another grantee's words are never highlighted or defaulted as yours.
 //
-// #309 retroactive attribution: SESSION.name is read fresh from /auth/session on every page load,
-// never snapshotted onto a comment. A comment written before you set a name, and one written after,
-// render identically once the name exists — both are read from the SAME author uid at render time.
-let SESSION={tier:'unknown',uid:null,email:'',name:''};
+// #309 UNIVERSAL attribution (owner decision, corrected from an earlier ego-centric draft): the
+// comments API resolves each thread entry's CURRENT display name server-side
+// (CommentService.with_author_names, read fresh from the user record on every GET, never
+// snapshotted onto the comment) and hands it to EVERY reader as e.name — not only the author
+// viewing their own words. entryLabel/initialsOf read that field directly, for anyone's entry.
+// SESSION is consulted only for the "no name set yet" fallback (own entry -> "You", anyone else's
+// -> "Reviewer"), which is exactly today's pre-#309 behaviour, unperturbed.
+let SESSION={tier:'unknown',uid:null,email:''};
 async function initSession(){
   try{
     const r=await fetch('/auth/session',{cache:'no-store'});
-    if(r.status===404){SESSION={tier:'local',uid:null,email:'',name:''};return;}
-    if(r.ok){const d=await r.json().catch(()=>({}));SESSION={tier:'hosted',uid:d.uid||null,email:d.email||'',name:d.name||''};return;}
-    SESSION={tier:'hosted',uid:null,email:'',name:''};
-  }catch(e){SESSION={tier:'hosted',uid:null,email:'',name:''};}
+    if(r.status===404){SESSION={tier:'local',uid:null,email:''};return;}
+    if(r.ok){const d=await r.json().catch(()=>({}));SESSION={tier:'hosted',uid:d.uid||null,email:d.email||''};return;}
+    SESSION={tier:'hosted',uid:null,email:''};
+  }catch(e){SESSION={tier:'hosted',uid:null,email:''};}
 }
-// True for an entry that is YOURS to label/style specially — never for an agent entry (that always
-// reads "Agent" regardless of who is looking), so callers that only check role need no extra guard.
+// True for an entry that is YOURS to highlight/default specially — never for an agent entry (that
+// always reads "Agent" regardless of who is looking), so callers that only check role need no
+// extra guard.
 function isOwnEntry(e){
   return e.role!=='agent' && (SESSION.tier==='local' || (SESSION.uid&&e.author===SESSION.uid));
 }
 function entryLabel(e){
   if(e.role==='agent')return 'Agent';
-  if(isOwnEntry(e))return SESSION.name||'You';   // #309: your own name if you set one, else "You"
-  return 'Reviewer';
+  if(e.name)return e.name;                 // #309: the author's CURRENT name, visible to ANY reader
+  return isOwnEntry(e)?'You':'Reviewer';   // unset: today's behaviour, unperturbed
 }
 function initialsOf(e){
   if(e.role==='agent')return 'ag';
+  if(e.name){
+    // First letters of the first two whitespace-split words ("Ada Lovelace" -> "al"), else the
+    // name's own first two characters (a single-word name) — same shape as account.js's nameInitials.
+    const parts=e.name.trim().split(/\s+/).filter(Boolean);
+    if(parts.length>=2)return (parts[0][0]+parts[1][0]).toLowerCase();
+    if(parts.length)return parts[0].slice(0,2).toLowerCase();
+  }
   if(!isOwnEntry(e))return 'rv';
-  // #309: derive from your display name when set (first letters of the first two words), else the
-  // pre-#309 email heuristic (first letters of the first two separator-split local-part segments).
-  const src=SESSION.name||SESSION.email||'';
-  const parts=src.split(SESSION.name?/\s+/:/[._-]+/).filter(Boolean);
+  // own, unnamed: the pre-#309 email heuristic (first letters of the first two separator-split
+  // local-part segments).
+  const parts=(SESSION.email||'').split('@')[0].split(/[._-]+/).filter(Boolean);
   if(parts.length>=2)return (parts[0][0]+parts[1][0]).toLowerCase();
   if(parts.length)return parts[0].slice(0,2).toLowerCase();
   return 'me';
