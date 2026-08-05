@@ -50,6 +50,14 @@ jobs:
       - name: Custody tripwire selfcheck
         run: python3 tests/custody_tripwire_selfcheck.py
 
+      # #360: the prod drift check, plus the guard that its hardcoded expected-key list still
+      # matches docker-compose.prod.yml. Gated here because without it the list is discipline,
+      # not enforcement: someone adds MDREVIEW_FOO to the compose, the tripwire silently stops
+      # covering it, and the next twelve-day config gap looks exactly like the last one.
+      # CI-safe by construction — it stubs ssh and docker and never reaches a host.
+      - name: Prod drift selfcheck
+        run: bash tests/drift_prod_selfcheck.sh
+
       # #266: CSRF on the /account/tokens write arms — cookie plane 403s without the per-session
       # token; the proxy and bearer planes pass unchanged. Stdlib-only, boots its own server.
       - name: Account tokens CSRF selfcheck
