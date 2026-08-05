@@ -42,5 +42,27 @@ echo "$cfg" | grep -qF 'redirect_url = "https://app.mdreview.space/oauth2/callba
 n=$(run "grep -vcE '^#|^[[:space:]]*$' ~/mdreview-deploy/oauth2-proxy/invited-emails.txt" 2>/dev/null || echo 0)
 [ "${n:-0}" -ge 2 ] && ok "allowlist has $n members (>=2 invited users)" || drift "allowlist has only ${n:-0} member(s) — an invite may have been dropped"
 
+# 6. every MDREVIEW_* key the repo's docker-compose.prod.yml declares for the `mdreview` service must
+#    be PRESENT in the running container's env (#360: MDREVIEW_SESSION_TTL_S sat undeclared on the
+#    host for 12 days because the host's copy of that file was stale — auto-update.sh recreates FROM
+#    the host's file, so a repo-side fix to it is inert until synced, and was inert silently). Presence
+#    only, not value: several of these are per-host secrets with no reproducible expected value here.
+#    An explicitly-set-EMPTY value ("KEY=" in `docker inspect`) still counts as present — the compose
+#    file declared it and the container has the slot; only a key with NO line at all is drift. (Checks
+#    3 above additionally assert an exact VALUE for REQUIRE_AUTH/PUBLIC_BASE; this sweep is presence
+#    only and deliberately re-covers those two as well, so "declared but absent" is never a gap between
+#    the two checks.)
+#    The list is embedded here rather than read from the repo (mirrors REQUIRE_AUTH/PUBLIC_BASE above)
+#    because the host does not check out the repo — check #1 exists to enforce exactly that, so this
+#    script cannot read infra/deploy/docker-compose.prod.yml live. Kept in sync by
+#    tests/drift_prod_selfcheck.sh, which parses the repo's actual compose file and fails if its
+#    MDREVIEW_* key set no longer matches this list — a silent rot here would reproduce #360 one level
+#    up. Kept on ONE line (not wrapped) so that selfcheck's sync guard can extract it with a plain grep.
+EXPECTED_MDREVIEW_KEYS="MDREVIEW_PUBLIC_BASE MDREVIEW_REQUIRE_AUTH MDREVIEW_PROXY_SECRET MDREVIEW_TOKEN_PEPPER MDREVIEW_SESSION_SECRET MDREVIEW_SESSION_TTL_S"
+for k in $EXPECTED_MDREVIEW_KEYS; do
+  echo "$env" | grep -qE "^${k}=" && ok "$k declared in running env" \
+    || drift "$k missing from running env (compose declares it, container does not have it)"
+done
+
 echo "== $( [ $fail -eq 0 ] && echo 'CLEAN: live matches the repo intent' || echo 'DRIFT DETECTED — reconcile before any redeploy' ) =="
 exit $fail
