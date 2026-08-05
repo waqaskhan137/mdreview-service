@@ -138,9 +138,13 @@ def mint(base, token=None, title="disposable-205-fixture"):
     st1 = _wait_compile(base, rid, token=token)
     if st1.get("state") != "ok":
         log = (st1.get("log_tail") or "")
-        if "not found" in log or "not the latex image" in log:
-            raise FixtureUnavailable("mint: v1 (the good revision) could not compile — no LaTeX "
-                                      "toolchain in this environment: %s" % log[:200])
+        # "timed out" (compiler.py's COMPILE_TIMEOUT_S, 60s default): a cold Tectonic bundle cache
+        # fetches CTAN packages mid-compile on its first run anywhere, which can outrun the timeout
+        # through no fault of the mint. That is an environment limitation, not a broken shape —
+        # exactly the distinction FixtureUnavailable exists to keep separate from a real regression.
+        if ("not found" in log or "not the latex image" in log or "timed out" in log):
+            raise FixtureUnavailable("mint: v1 (the good revision) could not compile in this "
+                                      "environment: %s" % log[:200])
         raise RuntimeError("mint: v1 (the good revision) did not compile ok: %r" % st1)
 
     code, _, raw = _req(base, "/api/reviews/%s" % rid, token=token)
