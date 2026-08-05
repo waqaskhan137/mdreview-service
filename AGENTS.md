@@ -19,6 +19,16 @@ before touching process state (labels, milestones, epic issues, gates). Non-nego
    templates/`, plus `TRACKER.md` and `backlog.md`) are read-only archive. Never edit them.
 5. **Commits**: conventional subject referencing the issue (`fix(ui): anchor comments to the
    clicked block (#15)`); keep the repo's `Co-Authored-By` trailer convention.
+6. **Typography is FROZEN.** Never change a font family, font size, line-height, letter-spacing
+   or weight under `web/app/**` — including `theme.css`'s `--font-*` and `--t-*` tokens — unless
+   the owner asked for that specific change in the request you are answering. The reading face
+   and type scale were chosen deliberately, and were twice changed as a *side effect* of other
+   work (#277 moved the reading face to a webfont; #279 dropped the body from 20px to 18px with
+   no ticket asking for it). A re-skin, a design-fidelity pass, or "matching the mock" is not
+   permission. If a mock implies different type, flag it and ask. If a check fails because
+   typography drifted, fix the drift, never the assertion. The reading surface is
+   `Charter,Georgia,Cambria,"Times New Roman",serif` at 20px / 1.7, pinned by
+   `tests/reading_font_selfcheck.sh` and `tests/viewer_polish_selfcheck.sh`.
 
 The roadmap is the GitHub Project "mdreview Roadmap" (repo Projects tab); board state is
 owner intent, do not re-sequence it.

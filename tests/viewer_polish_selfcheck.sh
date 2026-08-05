@@ -3,7 +3,8 @@
 # lesson: never assert that a declaration exists; assert what the browser computed).
 #
 # WHAT IT GUARDS (the #279 acceptance criteria that are measurable on the local tier):
-#   typography  — #article p is Source Serif 4 18px/30.6px with the FACE APPLIED (fonts.check),
+#   typography  — #article p is Charter 20px/34px with a serif face APPLIED (fonts.check); the owner
+#                 reverted #277/#279's Source Serif 4 at 18px on 2026-08-05,
 #                 #article h2 is sentence-case Geist, #doctitle is serif 40px/600 (AC 1-3)
 #   markers     — #article li keeps its list marker and NO stylesheet is Basecoat: the viewer is
 #                 deliberately off Basecoat (its preflight strips list markers) (AC 4)
@@ -102,7 +103,7 @@ const fam=s=>s.split(",")[0].replace(/"/g,"").trim().replace(/ /g,"_");
 const alphaOf=c=>{const m=c.match(/^rgba\([^)]*,\s*([0-9.]+)\)/)||c.match(/\/\s*([0-9.]+)\)/);return m?m[1]:"1";};
 const bga=alphaOf(mk.backgroundColor);
 return "TYPO pfs="+p.fontSize+" plh="+p.lineHeight+" pfam="+fam(p.fontFamily)
- +" face="+document.fonts.check("18px \"Source Serif 4\"")
+ +" face="+(document.fonts.check("20px Charter")||document.fonts.check("20px Georgia"))
  +" h2tt="+h2.textTransform+" h2fam="+fam(h2.fontFamily)
  +" tfs="+t.fontSize+" tfw="+t.fontWeight+" tfam="+fam(t.fontFamily)
  +" li="+li.listStyleType+" bc="+[...document.styleSheets].some(s=>/basecoat/i.test(s.href||""))
@@ -159,15 +160,19 @@ p1="$(retry_if_empty TYPO node "$here/scripts/cdp-shot.mjs" --url "$url" \
 
 m="$(line "$p1" TYPO)"
 if [ -z "$m" ]; then bad "typography: no measurement (browser step failed)"; else
-  [ "$(field "$m" pfs)" = "18px" ] && ok "AC1: body paragraph 18px" || bad "AC1: paragraph font-size $(field "$m" pfs), expected 18px"
+  # OWNER DECISION 2026-08-05: the reading face is Charter at 20px again, not Source Serif 4 at
+  # 18px. #277 put the webfont at the front of --font-serif and #279 shrank the body; the owner
+  # reverted both. These assertions are UPDATED rather than relaxed — same three properties, new
+  # contracted values — so a future drift still fails. See tests/reading_font_selfcheck.sh.
+  [ "$(field "$m" pfs)" = "20px" ] && ok "AC1: body paragraph 20px" || bad "AC1: paragraph font-size $(field "$m" pfs), expected 20px"
   plh="$(field "$m" plh)"; plhn="${plh%px}"
-  awk "BEGIN{exit !($plhn>=30.0 && $plhn<=31.2)}" && ok "AC1: line-height $plh (30.6 ±0.6)" || bad "AC1: line-height $plh outside 30.0–31.2px"
-  [ "$(field "$m" pfam)" = "Source_Serif_4" ] && ok "AC1: first family Source Serif 4" || bad "AC1: first family $(field "$m" pfam)"
-  [ "$(field "$m" face)" = "true" ] && ok "AC1: Source Serif 4 face APPLIED (fonts.check)" || bad "AC1: fonts.check says the serif face never loaded"
+  awk "BEGIN{exit !($plhn>=33.4 && $plhn<=34.6)}" && ok "AC1: line-height $plh (34.0 ±0.6)" || bad "AC1: line-height $plh outside 33.4–34.6px"
+  [ "$(field "$m" pfam)" = "Charter" ] && ok "AC1: first family Charter" || bad "AC1: first family $(field "$m" pfam)"
+  [ "$(field "$m" face)" = "true" ] && ok "AC1: a serif face in the stack is APPLIED (fonts.check)" || bad "AC1: fonts.check says no serif in the stack is available"
   [ "$(field "$m" h2tt)" = "none" ] && ok "AC2: h2 sentence case (text-transform none)" || bad "AC2: h2 text-transform $(field "$m" h2tt) — the uppercase eyebrow is back"
   [ "$(field "$m" h2fam)" = "Geist" ] && ok "AC2: h2 first family Geist" || bad "AC2: h2 family $(field "$m" h2fam)"
-  [ "$(field "$m" tfs)" = "40px" ] && [ "$(field "$m" tfw)" = "600" ] && [ "$(field "$m" tfam)" = "Source_Serif_4" ] \
-    && ok "AC3: doctitle serif 40px/600" || bad "AC3: doctitle $(field "$m" tfam) $(field "$m" tfs)/$(field "$m" tfw), expected Source_Serif_4 40px/600"
+  [ "$(field "$m" tfs)" = "40px" ] && [ "$(field "$m" tfw)" = "600" ] && [ "$(field "$m" tfam)" = "Charter" ] \
+    && ok "AC3: doctitle serif 40px/600" || bad "AC3: doctitle $(field "$m" tfam) $(field "$m" tfs)/$(field "$m" tfw), expected Charter 40px/600"
   [ "$(field "$m" li)" != "none" ] && ok "AC4: list markers intact (list-style-type $(field "$m" li))" \
     || bad "AC4: li list-style-type none — Basecoat's preflight symptom"
   [ "$(field "$m" bc)" = "false" ] && ok "AC4: no Basecoat stylesheet on /review/*" || bad "AC4: a stylesheet href matches /basecoat/i"
