@@ -44,6 +44,12 @@ jobs:
       - name: Custody regression smoke
         run: python3 tests/custody_regression_smoke.py
 
+      # #361: the unowned-record tripwire, exercised against a synthetic fixture. Gated here
+      # because a tripwire that silently stops firing is worse than none — the check proves it
+      # FAILS on a planted record, so bit-rot surfaces as a red PR rather than as quiet safety.
+      - name: Custody tripwire selfcheck
+        run: python3 tests/custody_tripwire_selfcheck.py
+
       # #266: CSRF on the /account/tokens write arms — cookie plane 403s without the per-session
       # token; the proxy and bearer planes pass unchanged. Stdlib-only, boots its own server.
       - name: Account tokens CSRF selfcheck
