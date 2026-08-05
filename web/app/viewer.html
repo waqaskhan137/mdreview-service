@@ -1315,6 +1315,24 @@ async function renderDiff(a,b){
     paintDiff(view,ta,tb);                      // same renderer as the inline toggle (#207)
   }catch(e){view.innerHTML='<div class="diffempty">Could not load the diff.</div>';}
 }
+// #310: the wrapper that `7fcd840` (#208) dropped while moving the renderer out; everything
+// below (the .cmpbar CSS, versionSource, renderDiff, paintDiff) survived that refactor untouched.
+// Builds the two-picker .cmpbar from HISTVERS into #histbody and drives renderDiff on change,
+// so compare goes through the same shared renderer as the inline toggle (#207/#208), not a copy.
+function renderCompare(){
+  const body=$("#histbody");
+  if(HISTVERS.length<2){
+    body.innerHTML='<p class="diffempty">Need at least two versions to compare: a version is saved each time the AI pushes a revised draft.</p>';
+    return;
+  }
+  const opts=sel=>HISTVERS.map((v,idx)=>'<option value="'+escapeHtml(v.n)+'"'+(idx===sel?' selected':'')+'>'+escapeHtml(v.label)+'</option>').join('');
+  // Default A = previous round (index 1), B = current draft (index 0): the most common "what just changed".
+  body.innerHTML='<div class="cmpbar"><span>Compare</span><select id="cmpA">'+opts(1)+'</select>'
+    +'<span>&rarr;</span><select id="cmpB">'+opts(0)+'</select></div>'
+    +'<div id="diffview" class="diffdoc"></div>';
+  const run=()=>renderDiff($("#cmpA").value,$("#cmpB").value);
+  $("#cmpA").onchange=run;$("#cmpB").onchange=run;run();
+}
 // --- #207: inline "what changed" toggle -------------------------------------------------------
 // OFF on load and STICKY once the reviewer turns it on. Sticky matters: a push while the diff is
 // open must show the newer change, not close the pane at the moment it becomes most useful.
