@@ -27,7 +27,9 @@
      from this page (rev 3 has no blue); --noteline = the comment margin bar (accent violet). */
   *{box-sizing:border-box;}
   /* Rev 3 reading measure: Source Serif 4 18px/1.7 (was Charter 20px). */
-  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-serif);font-size:18px;line-height:1.7;}
+  /* 20px, not 18px: #279 shrank the reading measure as part of the re-skin; the owner reverted
+     it 2026-08-05. Kept alongside --font-serif so the face and its size move together. */
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-serif);font-size:20px;line-height:1.7;}
   /* #199: the reading column yields so the comment rail can sit beside the text.
      The rail needs `#article.right + 320 <= innerWidth`. With .wrap centred that reduces to
      `column <= W - 592` (rail 284 + gap 24 + the 24/64 padding either side). Reserving 620

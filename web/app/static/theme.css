@@ -67,7 +67,14 @@
      family; this unlayered definition wins and finally makes it resolve to a real file.) */
   --font-ui:"Geist",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   --font-mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  --font-serif:"Source Serif 4",Charter,Georgia,Cambria,"Times New Roman",serif;
+  /* OWNER DECISION, 2026-08-05: the reading face is Charter again, not Source Serif 4.
+     #277 put "Source Serif 4" at the front of this stack and #279 dropped the viewer's body from
+     20px to 18px; together those changed how the document actually reads, and the owner prefers
+     the original. Only viewer.html consumes --font-serif (5 rules), so this reverts the reading
+     surface and nothing else. The @font-face for Source Serif 4 is deliberately LEFT in place
+     just below: a face nobody references is never downloaded, so it costs nothing, and putting
+     it back is this one line. */
+  --font-serif:Charter,Georgia,Cambria,"Times New Roman",serif;
 
   /* surfaces */
   --bg:light-dark(#FCFBF9, #14130F);              /* page */
