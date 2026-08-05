@@ -151,8 +151,11 @@ try:
     # what was typed. Assert the contract that now holds, not the old close-timing shape.
     for name in ("viewer.html", "latex-viewer.html"):
         src = open(os.path.join(ROOT, "web", "app", name)).read()
+        # >...< anchors on the RENDERED markup, not a prose mention of the same words in a comment
+        # (this file has three: two comments plus the real one) — a plain substring search would
+        # pass even with the actual copy mutated, as long as a comment nearby still quoted it.
         ok("%-18s a refused post keeps the text in a retryable card" % name,
-           "Not posted — your text is kept." in src
+           re.search(r">Not posted — your text is kept\.<", src) is not None
            and re.search(r"data-act=.?retry", src) is not None
            and re.search(r"data-act=.?discard", src) is not None)
 
