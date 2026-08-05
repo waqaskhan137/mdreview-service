@@ -103,14 +103,24 @@ check("the trigger renders derived initials, not a static glyph",
 check("the corner dot uses its OWN class, not the non-authenticated states' .acct-dot",
       /acct-corner/.test(trigBlock) && !/class="acct-dot"/.test(trigBlock),
       "AC5: Reconnecting's .acct-dot must stay byte-for-byte; a shared class would perturb it");
-check("the trigger's title carries the email (and Admin when applicable)",
+check("the trigger's title carries the email/name (and Admin when applicable)",
       /title="'\s*\+\s*tip\s*\+\s*'"/.test(src) && /is_admin\s*\?\s*"\s*\\u00b7 Admin"/.test(src),
       "AC1's tooltip content, since the visible text can no longer carry it");
-check("an initials() deriver exists and is used for the trigger",
-      /function initials\(email\)/.test(src) && /var init = initials\(sess\.email\)/.test(src));
-check("initials() always returns exactly two characters",
-      /return s\.slice\(0,\s*2\)/.test(src),
-      "AC1: 'its text content is exactly two characters', including pathological short local-parts");
+// #309: a display name now exists on the user record. The trigger initials and the tooltip/menu
+// "who" text prefer it, falling back to the #281 email-derived heuristic only while it is unset —
+// both derivers must exist and the call site must actually branch on sess.name, not just email.
+check("an initials() deriver exists (the #281 email-derived fallback)",
+      /function initials\(email\)/.test(src));
+check("a nameInitials() deriver exists (the #309 name-derived preference)",
+      /function nameInitials\(name\)/.test(src));
+check("the trigger prefers the display name, falling back to email, for both initials and the tooltip/menu text",
+      /var whoName = sess\.name \|\| sess\.email/.test(src) &&
+      /var init = sess\.name \? nameInitials\(sess\.name\) : initials\(sess\.email\)/.test(src),
+      "AC1 (#309): a user who has set a name must see it, not their email");
+check("both initials derivers always return exactly two characters (shared twoChars floor)",
+      /function twoChars\(s\)/.test(src) && /return s\.slice\(0,\s*2\)/.test(src) &&
+      (src.match(/twoChars\(/g) || []).length >= 3,   // definition + a call from each deriver
+      "AC1: 'its text content is exactly two characters', including pathological short inputs — now true for names too");
 
 console.log(failed ? "\n" + failed + " case(s) failed" : "\nall account-menu cases pass");
 process.exit(failed ? 1 : 0);

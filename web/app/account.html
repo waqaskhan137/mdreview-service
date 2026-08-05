@@ -261,16 +261,22 @@ function wireRows(root) {
 }
 
 // ============================================================================================
-// Profile: Sign-in email + Role are the two truthful rows (#281 groom §2 AC10). Both stay
-// read-only: the chevron opens a short factual note rather than an editable panel. Display name
-// and the email-change flow are backend-blocked and stay entirely absent (groom §3 #4/#5), so a
-// clickable-looking row must not silently do nothing; it reveals why it can't be changed instead.
+// Profile: Display name (#309) is now backed by a real write endpoint (POST /auth/profile) and is
+// editable in place, same expandable-row shape as Security's Agent tokens/Devices. Sign-in email +
+// Role stay the two READ-ONLY truthful rows (#281 groom §2 AC10): the chevron opens a short
+// factual note rather than an editable panel. The email-change flow stays backend-blocked and
+// absent (groom §3 #5).
 // ============================================================================================
+const NAME_MAX = 60;   // mirrors UserService.MAX_NAME_LEN (src/mdreview/users.py) — server is authoritative
+function nameRowValue() {
+  return SESS.name ? SESS.name : "Not set";
+}
 function renderProfile() {
   const root = document.createElement("div");
   root.innerHTML =
     '<div class="acct-eyebrow">Profile</div>' +
     '<div class="acct-rowlist">' +
+    rowShell("name", "Display name", nameRowValue()) +
     rowShell("email", "Sign-in email", SESS.email).replace(
       '<div class="acct-reveal" id="rev-email" hidden></div>',
       '<div class="acct-reveal" id="rev-email" hidden><p class="acct-note">This is the email you sign in with. Changing it is not supported yet.</p></div>') +
@@ -279,7 +285,53 @@ function renderProfile() {
       '<div class="acct-reveal" id="rev-role" hidden><p class="acct-note">Set by an administrator. You cannot change this yourself.</p></div>') +
     "</div>";
   wireRows(root);
+  const nameRow = root.querySelector('[data-row="name"]');
+  paintNamePanel(root.querySelector("#rev-name"), nameRow.querySelector(".acct-row-value"));
   return root;
+}
+function paintNamePanel(rev, valEl) {
+  rev.innerHTML =
+    '<p class="acct-note">Shown instead of your email wherever your account appears — comments ' +
+    '(including ones you already wrote), shares, and the admin console. Up to ' + NAME_MAX +
+    ' characters; leave blank to show your email instead.</p>' +
+    '<div class="acct-row-gap"><input type="text" id="name-input" class="acct-tinput" ' +
+    'maxlength="' + NAME_MAX + '" placeholder="e.g. Ada Lovelace" autocomplete="name" value="' +
+    esc(SESS.name || "") + '">' +
+    '<button type="button" class="btn2" id="name-save">Save</button></div>';
+  valEl.textContent = nameRowValue();
+  const btn = rev.querySelector("#name-save");
+  const input = rev.querySelector("#name-input");
+  btn.onclick = () => saveName(rev, valEl, input, btn);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); btn.click(); } });
+}
+async function saveName(rev, valEl, input, btn) {
+  const name = input.value.trim();
+  if (name.length > NAME_MAX) {
+    flash("Display name must be " + NAME_MAX + " characters or fewer.", "err");
+    return;
+  }
+  const restLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = "Saving…";
+  let r;
+  try {
+    r = await fetch("/auth/profile", { method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF },
+      body: JSON.stringify({ name }) });
+  } catch (e) {
+    flash("Could not save your display name (network error). Nothing was changed.", "err");
+    btn.disabled = false; btn.textContent = restLabel; return;
+  }
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    flash(body.error || ("Could not save your display name (" + r.status + "). Nothing was changed."), "err");
+    btn.disabled = false; btn.textContent = restLabel; return;
+  }
+  const d = await r.json();
+  SESS.name = d.name || "";
+  flash(SESS.name ? "Display name saved." : "Display name cleared — your email will show instead.", "ok");
+  btn.disabled = false; btn.textContent = restLabel;
+  paintNamePanel(rev, valEl);
+  if (window.mdreviewAccount) window.mdreviewAccount();   // refresh the top-bar trigger/menu (#309)
 }
 
 // ============================================================================================

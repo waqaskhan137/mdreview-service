@@ -16,6 +16,11 @@ import time
 
 
 class UserService:
+    # #309: trimmed, 1-60 chars, display-only (no uniqueness claim). 60 keeps a name from wrapping
+    # the .acct-row-value column (max-width:220px) or the comment-thread .gwho onto a second line at
+    # any of the type sizes theme.css defines; it is not a database limit, it is a layout budget.
+    MAX_NAME_LEN = 60
+
     def __init__(self, store, pepper, owner_email=""):
         self.store = store
         self._pepper = (pepper or "").encode()
@@ -92,6 +97,41 @@ class UserService:
         if dirty:
             self._save(data)
         return uid
+
+    # ---- display name (#309) ----
+    # Absent means unset: ensure_user writes no "name" key, and no migration touches existing
+    # records, so name_for() reading "" for a legacy/never-set user is the SAME state as a freshly
+    # cleared one — one falsy value, not two. The RENDERER (account.js, viewer.html, the Account
+    # page) owns the "" -> email fallback; this stays a plain field read so a caller who wants the
+    # raw absent-vs-set fact can have it without the renderer's opinion baked in.
+    def name_for(self, uid):
+        if not uid:
+            return ""
+        return (self._load().get("users", {}).get(uid) or {}).get("name", "") or ""
+
+    def set_name(self, uid, name):
+        """Set (or CLEAR) uid's display name. `name` is trimmed; a trimmed-empty result clears the
+        stored name rather than erroring, so "Skip" and "clear the field" are the same call (#309
+        AC4: clearing falls back to email everywhere). Rejects control characters (incl. newlines/
+        tabs) outright rather than silently stripping them — a name is single-line, rendered inline
+        in a row value and a comment's .gwho, and a caller that thinks it sent "Ann\\nBan" should
+        see the rejection, not a silently mangled "AnnBan". Length is checked AFTER trimming, so
+        pure leading/trailing whitespace never counts against the 60. Returns "ok" / "invalid" /
+        "toolong" / "missing_user"; the route picks the status code, this stays http-agnostic like
+        the rest of the class. Caller holds store.lock."""
+        data = self._load()
+        u = data["users"].get(uid)
+        if not u:
+            return "missing_user"
+        name = (name or "").strip()
+        if any(ord(c) < 0x20 or ord(c) == 0x7f for c in name):
+            return "invalid"
+        if len(name) > self.MAX_NAME_LEN:
+            return "toolong"
+        if u.get("name", "") != name:
+            u["name"] = name
+            self._save(data)
+        return "ok"
 
     def is_active(self, uid):
         u = self._load()["users"].get(uid)
