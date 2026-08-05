@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# drift_prod_selfcheck.sh — self-check for infra/deploy/check-drift.sh (#360), which #360 schedules
-# via infra/deploy/systemd/mdreview-driftcheck.{service,timer} but does NOT rewrite: check-drift.sh's
-# five invariants are unchanged, only their cadence and visibility are new. Runs anywhere: stubs
-# `docker` and `ssh` on PATH, sets HOST= (local mode -- the exact invocation the new systemd unit
-# uses) and HOME=<fixture> so the script's hardcoded `~/mdreview-deploy/...` reads resolve into a
-# synthetic fixture, never the real host.
+# drift_prod_selfcheck.sh — self-check for infra/deploy/check-drift.sh (#360). #360 schedules
+# check-drift.sh's original five invariants unchanged (cadence + visibility only), and ADDS a sixth:
+# every MDREVIEW_* key docker-compose.prod.yml declares for the `mdreview` service must be present in
+# the running container's env. That sixth check exists because the first five would NOT have caught
+# the incident that opened #360 -- MDREVIEW_SESSION_TTL_S sitting undeclared on the host for 12 days --
+# since none of them reads that key. Runs anywhere: stubs `docker` and `ssh` on PATH, sets HOST=
+# (local mode -- the exact invocation the new systemd unit uses) and HOME=<fixture> so the script's
+# hardcoded `~/mdreview-deploy/...` reads resolve into a synthetic fixture, never the real host.
 #
 #   bash tests/drift_prod_selfcheck.sh    # exit 0 = pass
 #
@@ -81,6 +83,10 @@ M
   cat >"$dir/docker/env-mdreview.txt" <<'E'
 MDREVIEW_REQUIRE_AUTH=1
 MDREVIEW_PUBLIC_BASE=https://app.mdreview.space
+MDREVIEW_PROXY_SECRET=test-proxy-secret
+MDREVIEW_TOKEN_PEPPER=test-token-pepper
+MDREVIEW_SESSION_SECRET=test-session-secret
+MDREVIEW_SESSION_TTL_S=2592000
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 E
 
@@ -108,6 +114,12 @@ A
       printf 'provider = "oidc"\nredirect_url = "https://app.mdreview.space/oauth2/callback"\n' \
         >"$dir/home/mdreview-deploy/oauth2-proxy/oauth2-proxy.cfg"
       ;;
+    drift-session-ttl)
+      # The #360 incident's LITERAL variable: every other key stays present (REQUIRE_AUTH, PUBLIC_BASE,
+      # oauth cfg, allowlist all clean) so this isolates the one gap none of checks 1-5 can see.
+      grep -v MDREVIEW_SESSION_TTL_S "$dir/docker/env-mdreview.txt" >"$dir/docker/env-mdreview.txt.tmp"
+      mv "$dir/docker/env-mdreview.txt.tmp" "$dir/docker/env-mdreview.txt"
+      ;;
     *) echo "build_fixture: unknown mode $mode" >&2; exit 9 ;;
   esac
 }
@@ -120,12 +132,16 @@ run_check() {
     SSH_MARKER="$tmp/ssh-called" bash "$script" 2>&1
 }
 
-# Reused verbatim in the mutation test (step 4) and the healed-fixture test (step 5) -- the same
-# positive assertion, not a fresh one, is what proves this selfcheck would notice either the detector
-# going silent or a genuinely-fixed host going quiet again.
-fires_on_auth_drift() {  # $1=stdout $2=exit-code
+# Reused verbatim across the real-behaviour, mutation, and healed-fixture steps for each invariant --
+# the same positive assertion, not a fresh one, is what proves this selfcheck would notice either the
+# detector going silent or a genuinely-fixed host going quiet again.
+fires_on_auth_drift() {  # $1=stdout $2=exit-code -- check #3 (exact-value REQUIRE_AUTH)
   local out="$1" rc="$2"
   [ "$rc" -ne 0 ] && grep -qF "DRIFT: REQUIRE_AUTH not =1" <<<"$out"
+}
+fires_on_session_ttl_drift() {  # $1=stdout $2=exit-code -- check #6 (presence sweep), the #360 key itself
+  local out="$1" rc="$2"
+  [ "$rc" -ne 0 ] && grep -qF "DRIFT: MDREVIEW_SESSION_TTL_S missing from running env" <<<"$out"
 }
 
 echo "== 0. HOST= truly avoids ssh (the load-bearing assumption behind mdreview-driftcheck.service) =="
@@ -139,7 +155,7 @@ else
 fi
 
 echo
-echo "== 1. clean fixture: all 5 invariants pass, zero DRIFT lines, exit 0 (stays quiet on an identical pair) =="
+echo "== 1. clean fixture: all 6 invariants pass, zero DRIFT lines, exit 0 (stays quiet on an identical pair) =="
 if [ "$rc0" -eq 0 ]; then ok "clean fixture exits 0"; else bad "clean fixture exited $rc0 (expected 0)"; fi
 if grep -q "DRIFT" <<<"$out0"; then
   bad "clean fixture reported DRIFT"; echo "$out0" | sed 's/^/        /'
@@ -151,22 +167,36 @@ for line in "no stray ~/mdreview-src deploy dir" \
             "mdreview-oauth2-proxy mounts from mdreview-deploy" \
             "REQUIRE_AUTH=1" "PUBLIC_BASE canonical" \
             "oauth whitelist_domains set" "oauth redirect_url canonical" \
-            "allowlist has 2 members"; do
+            "allowlist has 2 members" \
+            "MDREVIEW_PUBLIC_BASE declared in running env" \
+            "MDREVIEW_REQUIRE_AUTH declared in running env" \
+            "MDREVIEW_PROXY_SECRET declared in running env" \
+            "MDREVIEW_TOKEN_PEPPER declared in running env" \
+            "MDREVIEW_SESSION_SECRET declared in running env" \
+            "MDREVIEW_SESSION_TTL_S declared in running env"; do
   if grep -qF "$line" <<<"$out0"; then ok "clean fixture: '$line'"
   else bad "clean fixture missing expected ok line: '$line'"; fi
 done
 
 echo
-echo "== 2. planted divergence (REQUIRE_AUTH absent): fires, and ONLY that check -- no false-positive cascade =="
+echo "== 2. planted divergence (REQUIRE_AUTH absent): fires, and ONLY the checks that reference it -- no false-positive cascade =="
 build_fixture "$tmp/drift-auth" drift-auth
 out2="$(run_check "$tmp/drift-auth")"; rc2=$?
 if fires_on_auth_drift "$out2" "$rc2"; then
-  ok "fires: exit non-zero and names REQUIRE_AUTH"
+  ok "fires (check #3, exact-value): exit non-zero and names REQUIRE_AUTH"
 else
-  bad "did NOT fire on planted REQUIRE_AUTH drift"; echo "$out2" | sed 's/^/        /'
+  bad "did NOT fire on planted REQUIRE_AUTH drift (check #3)"; echo "$out2" | sed 's/^/        /'
+fi
+# Deliberate double coverage (documented in check-drift.sh #6's header comment): the presence sweep
+# also names MDREVIEW_REQUIRE_AUTH, independently of check #3's exact-value assertion above.
+if grep -qF "DRIFT: MDREVIEW_REQUIRE_AUTH missing from running env" <<<"$out2"; then
+  ok "fires (check #6, presence sweep): also names MDREVIEW_REQUIRE_AUTH -- intentional double coverage, not a bug"
+else
+  bad "check #6's presence sweep did NOT also name MDREVIEW_REQUIRE_AUTH"
 fi
 for line in "no stray ~/mdreview-src deploy dir" "mdreview mounts from mdreview-deploy" \
-            "oauth whitelist_domains set" "allowlist has 2 members"; do
+            "oauth whitelist_domains set" "allowlist has 2 members" \
+            "MDREVIEW_SESSION_TTL_S declared in running env" "MDREVIEW_PROXY_SECRET declared in running env"; do
   if grep -qF "$line" <<<"$out2"; then ok "drift-auth fixture: unrelated check still ok ('$line')"
   else bad "drift-auth fixture: unrelated check '$line' wrongly not-ok (false-positive cascade)"; fi
 done
@@ -182,9 +212,31 @@ else
 fi
 if grep -qF "REQUIRE_AUTH=1" <<<"$out3"; then ok "drift-oauth fixture: REQUIRE_AUTH still ok (unrelated check unaffected)"
 else bad "drift-oauth fixture: REQUIRE_AUTH wrongly not-ok"; fi
+if grep -qF "MDREVIEW_SESSION_TTL_S declared in running env" <<<"$out3"; then
+  ok "drift-oauth fixture: check #6's presence sweep still clean (unrelated check unaffected)"
+else bad "drift-oauth fixture: MDREVIEW_SESSION_TTL_S wrongly not-ok"; fi
 
 echo
-echo "== 4. mutation test: neuter check-drift.sh's REQUIRE_AUTH comparison, prove THIS selfcheck notices the detector going silent =="
+echo "== 4. planted divergence (MDREVIEW_SESSION_TTL_S absent -- the #360 incident's LITERAL variable): fires, and checks 1-5 alone would have missed it =="
+build_fixture "$tmp/drift-session-ttl" drift-session-ttl
+out4a="$(run_check "$tmp/drift-session-ttl")"; rc4a=$?
+if fires_on_session_ttl_drift "$out4a" "$rc4a"; then
+  ok "fires: exit non-zero and names MDREVIEW_SESSION_TTL_S"
+else
+  bad "did NOT fire on planted MDREVIEW_SESSION_TTL_S drift"; echo "$out4a" | sed 's/^/        /'
+fi
+# The point of this whole addition: prove it's EXACTLY one finding (check #6 on this one key), so
+# checks 1-5 -- which is all #360's original scope would have scheduled -- provably say nothing.
+ndrift="$(grep -c "DRIFT:" <<<"$out4a")"
+if [ "$ndrift" -eq 1 ]; then
+  ok "exactly one DRIFT line -- checks 1-5 all still report ok, confirming they cannot see this key"
+else
+  bad "expected exactly 1 DRIFT line, got $ndrift -- either a false-positive cascade or the wrong finding"
+  echo "$out4a" | sed 's/^/        /'
+fi
+
+echo
+echo "== 5. mutation test: neuter check-drift.sh's REQUIRE_AUTH comparison (check #3), prove THIS selfcheck notices the detector going silent =="
 ANCHOR='grep -qx "MDREVIEW_REQUIRE_AUTH=1"'
 if ! grep -qF "$ANCHOR" "$script"; then
   bad "mutation harness: expected anchor not found in check-drift.sh (script changed -- update this selfcheck's anchor)"
@@ -193,25 +245,89 @@ else
   sed "s/${ANCHOR//\//\\/}/grep -q \"\"/" "$script" >"$mutated"
   chmod +x "$mutated"
   real_script="$script"; script="$mutated"
-  out4="$(run_check "$tmp/drift-auth")"; rc4=$?
+  out5="$(run_check "$tmp/drift-auth")"; rc5=$?
   script="$real_script"
-  if fires_on_auth_drift "$out4" "$rc4"; then
+  if fires_on_auth_drift "$out5" "$rc5"; then
     bad "MUTATION NOT CAUGHT -- neutered comparison still reported drift (this selfcheck's patch is wrong, not a real result)"
-    echo "$out4" | sed 's/^/        /'
+    echo "$out5" | sed 's/^/        /'
   else
     ok "MUTATION CAUGHT: the SAME 'fires on planted drift' assertion used in step 2 now evaluates false against the neutered detector -- this selfcheck would notice check-drift.sh's comparison going silent"
   fi
 fi
 
 echo
-echo "== 5. fixture healed in place: the SAME assertion correctly flips back to quiet (it isn't a tautology that always reports drift) =="
-printf 'MDREVIEW_REQUIRE_AUTH=1\nMDREVIEW_PUBLIC_BASE=https://app.mdreview.space\n' >"$tmp/drift-auth/docker/env-mdreview.txt"
-out5="$(run_check "$tmp/drift-auth")"; rc5=$?
-if fires_on_auth_drift "$out5" "$rc5"; then
+echo "== 6. drift-auth fixture healed in place: the SAME check-#3 assertion correctly flips back to quiet (it isn't a tautology that always reports drift) =="
+build_fixture "$tmp/drift-auth" clean   # rebuild the FULL 6-key clean env, not just the 2 keys check #3 cares about
+out6="$(run_check "$tmp/drift-auth")"; rc6=$?
+if fires_on_auth_drift "$out6" "$rc6"; then
   bad "healed fixture still reads as drifted -- the assertion is not actually discriminating"
-  echo "$out5" | sed 's/^/        /'
+  echo "$out6" | sed 's/^/        /'
 else
-  ok "healed fixture is quiet again (exit $rc5, no REQUIRE_AUTH DRIFT line) -- same assertion, real signal"
+  ok "healed fixture is quiet again (exit $rc6, no REQUIRE_AUTH DRIFT line) -- same assertion, real signal"
+fi
+
+echo
+echo "== 7. mutation test: neuter check-drift.sh's #6 presence sweep, prove THIS selfcheck notices IT going silent =="
+ANCHOR6='grep -qE "^${k}="'
+if ! grep -qF "$ANCHOR6" "$script"; then
+  bad "mutation harness: expected anchor not found in check-drift.sh (script changed -- update this selfcheck's anchor)"
+else
+  mutated6="$tmp/mutated-check-drift-6.sh"
+  sed "s/${ANCHOR6//\//\\/}/grep -q \"\"/" "$script" >"$mutated6"
+  chmod +x "$mutated6"
+  real_script="$script"; script="$mutated6"
+  out7="$(run_check "$tmp/drift-session-ttl")"; rc7=$?
+  script="$real_script"
+  if fires_on_session_ttl_drift "$out7" "$rc7"; then
+    bad "MUTATION NOT CAUGHT -- neutered presence sweep still reported drift (this selfcheck's patch is wrong, not a real result)"
+    echo "$out7" | sed 's/^/        /'
+  else
+    ok "MUTATION CAUGHT: the SAME 'fires on planted MDREVIEW_SESSION_TTL_S drift' assertion used in step 4 now evaluates false against the neutered detector -- this selfcheck would notice check #6 going silent"
+  fi
+fi
+
+echo
+echo "== 8. drift-session-ttl fixture healed in place: the SAME check-#6 assertion correctly flips back to quiet =="
+build_fixture "$tmp/drift-session-ttl" clean
+out8="$(run_check "$tmp/drift-session-ttl")"; rc8=$?
+if fires_on_session_ttl_drift "$out8" "$rc8"; then
+  bad "healed fixture still reads as drifted -- the assertion is not actually discriminating"
+  echo "$out8" | sed 's/^/        /'
+else
+  ok "healed fixture is quiet again (exit $rc8, no MDREVIEW_SESSION_TTL_S DRIFT line) -- same assertion, real signal"
+fi
+
+echo
+echo "== 9. sync guard: check-drift.sh's embedded MDREVIEW_* key list matches docker-compose.prod.yml's (a silent mismatch here reproduces #360 one level up) =="
+compose_file="$here/infra/deploy/docker-compose.prod.yml"
+extract_compose_keys() {  # $1 = compose file path
+  grep -oE '^[[:space:]]+MDREVIEW_[A-Z0-9_]+:' "$1" | sed -E 's/^[[:space:]]+//; s/:$//' | sort -u
+}
+extract_script_keys() {  # $1 = check-drift.sh path
+  grep -oE '^EXPECTED_MDREVIEW_KEYS="[^"]*"' "$1" | sed -E 's/^EXPECTED_MDREVIEW_KEYS="//; s/"$//' \
+    | tr ' ' '\n' | sort -u
+}
+compose_keys="$(extract_compose_keys "$compose_file")"
+script_keys="$(extract_script_keys "$script")"
+if [ -z "$compose_keys" ] || [ -z "$script_keys" ]; then
+  bad "sync guard: could not extract keys (compose=${compose_keys:-<empty>} script=${script_keys:-<empty>}) -- unreadable is not the same as matching"
+elif [ "$compose_keys" = "$script_keys" ]; then
+  ok "check-drift.sh's embedded list matches docker-compose.prod.yml exactly ($(wc -l <<<"$compose_keys" | tr -d ' ') keys)"
+else
+  bad "check-drift.sh's embedded MDREVIEW_* key list has drifted from docker-compose.prod.yml -- update EXPECTED_MDREVIEW_KEYS"
+  echo "        compose declares: $(tr '\n' ' ' <<<"$compose_keys")"
+  echo "        script expects  : $(tr '\n' ' ' <<<"$script_keys")"
+fi
+
+echo
+echo "== 10. sync guard self-test: a corrupted COPY of the compose file (never the real one) must fail the same guard =="
+corrupt_compose="$tmp/docker-compose.prod.corrupt.yml"
+grep -v MDREVIEW_SESSION_TTL_S "$compose_file" >"$corrupt_compose"
+corrupt_keys="$(extract_compose_keys "$corrupt_compose")"
+if [ "$corrupt_keys" != "$script_keys" ]; then
+  ok "MUTATION CAUGHT: the SAME comparison used in step 9 correctly flags a corrupted compose copy as mismatched"
+else
+  bad "sync guard did not notice a key removed from a corrupted compose copy"
 fi
 
 echo
