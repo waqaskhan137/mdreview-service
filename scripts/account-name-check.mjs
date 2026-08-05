@@ -422,6 +422,30 @@ try {
      after2.who.length === 2 && after2.who.every(w => w === 'Grace Hopper'), after2);
 
   // ================================================================================
+  // XSS on the THIRD surface a name reaches: the comment gutter's .gwho label (threadHtml). The
+  // account-row and top-bar checks earlier do not cover this — it is a distinct innerHTML call
+  // site (viewer.html, not account.html/account.js) with its own esc() call to get right.
+  // ================================================================================
+  await useCookie(primary.cookie);
+  const setXssName = await fetch(BASE + '/auth/profile', { method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: primary.cookie, 'X-CSRF-Token': primary.csrf },
+    body: JSON.stringify({ name: '<img src=x onerror=window.__xssFired=9>' }) });   // 41 chars
+  ok('setup: PRIMARY set an XSS-payload name for the comment-gwho check', setXssName.ok, setXssName.status);
+  await hardNav(viewerUrl);
+  for (let i = 0; i < 60; i++) { if (await evaluate(`document.readyState==='complete' && document.querySelectorAll('#gutter .gcard').length>0`)) break; await sleep(150); }
+  await evaluate(`window.__xssFired = 0; true`);
+  const gwhoXss = await evalJSON(`(() => {
+    // force a fresh render so the (possibly unescaped) label is actually inserted after the flag reset
+    if (typeof renderAll === 'function') renderAll();
+    const who = [...document.querySelectorAll('#gutter .gwho')].map(x => x.textContent);
+    const hasImg = !!document.querySelector('#gutter img');
+    return JSON.stringify({ who, hasImg, fired: window.__xssFired });
+  })()`);
+  ok('AC (XSS/comment label): the .gwho text is the literal payload, no injected <img>, handler never fired',
+     gwhoXss.who.every(w => w === '<img src=x onerror=window.__xssFired=9>') &&
+     !gwhoXss.hasImg && gwhoXss.fired === 0, gwhoXss);
+
+  // ================================================================================
   // Positive control: SECOND, who never named themselves, still reads "You" on THEIR OWN comment
   // on THEIR OWN review — proves the baseline (#309 "absent means unset ... works everywhere") is
   // unperturbed, not merely "no exception was thrown".
