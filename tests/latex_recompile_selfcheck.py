@@ -13,8 +13,11 @@ Three parts, mirroring the AC groups:
      tectonic happens to be installed on the machine running this check — a TeX error when it
      is (this exact posture is verified live against staging review ad8722a00e in #250's
      grounding), "tectonic binary not found" when it is not. Either way `failed` is exactly the
-     fixture the retry ACs need: retry works, anti-stacking holds, pdf_revision survives via
-     _KEEP, 404s, 507 on a full disk.
+     fixture the retry ACs need: retry works, pdf_revision survives via _KEEP, 404s, 507 on a
+     full disk. Anti-stacking itself (AC 4) is checked twice: once at the HTTP level (a
+     byte-stable finished_at across repeated polls) and once directly against `_self_heal`'s
+     recorded enqueue calls with no server (A2, the same style as B below) — the HTTP form alone
+     cannot distinguish "no enqueue" from "enqueued a redo that left status.json untouched".
   B  CompileWorker coalescing, asserted directly with no server (AC 5): N clicks can never make
      more than 1 queued + 1 redo.
   C  hosted instance (stub email, magic-link from the log — the pubcopy stand-up): 401 anonymous,
@@ -155,11 +158,15 @@ finally:
 srv, base, data = boot({})
 try:
     # Must look enough like TeX to pass the #188 create-time guard (a non-empty body with none of
-    # \documentclass/\begin{document}/\input/\include is rejected 400 before a review even exists);
-    # unlike case A this one doesn't care whether the compile itself ok's or fails (wait_state below
-    # accepts either), so a genuine minimal document is simplest.
+    # \documentclass/\begin{document}/\input/\include is rejected 400 before a review even exists).
+    # This case doesn't care whether the compile itself ok's or fails (wait_state below accepts
+    # either) so, unlike case A, correctness doesn't force a malformed body — but reuse the same
+    # deliberately-broken shape anyway: it fails fast (no font/glyph-list fetch tail), where a
+    # valid document pays the full bundle-download cost off-image (~7s, verified locally) for an
+    # outcome this case discards either way.
     body = json.dumps({"title": "floor", "kind": "latex",
-                       "markdown": "\\documentclass{article}\\begin{document}floor\\end{document}"}).encode()
+                       "markdown": "\\documentclass{article}\\begin{document}"
+                                   "\\mdreviewSelfcheckUndefinedXyz\\end{document}"}).encode()
     _, _, raw = req(base + "/api/reviews", "POST", body, {"Content-Type": "application/json"})
     rid2 = json.loads(raw)["id"]
     wait_state(base, rid2, ("failed", "ok"))
@@ -183,6 +190,60 @@ try:
     check("A: disk under floor -> 507, never a silent 200", code == 507, code)
 finally:
     srv.terminate(); shutil.rmtree(data, ignore_errors=True)
+
+# ============ A2: _self_heal anti-stacking, asserted directly against the recorded calls =========
+# The HTTP-level "finished_at byte-stable" check above only proves status.json was not REWRITTEN.
+# It cannot tell that from "no enqueue call": CompileWorker.enqueue's mid-compile branch (rid ==
+# self._running) marks _redo and returns WITHOUT touching status.json at all, so a poll that lands
+# while a redo is already in flight can enqueue and still leave finished_at untouched. Confirmed
+# empirically: mutating _self_heal's revision guard from `<` to `<=` (so it re-enqueues a failed
+# compile at the CURRENT revision, exactly the regression this case exists to catch) left the
+# byte-stable check green in 2/2 runs; the suite still went red, but only on OTHER checks racing
+# against ~7-8s network-bound compiles, which is a fragile, indirect way to catch a direct logic
+# bug. Assert on the recorded enqueue calls instead, exactly as case B asserts on CompileWorker
+# with no server.
+os.environ.setdefault("MDREVIEW_DATA", tempfile.mkdtemp(prefix="mdr250a2-"))
+sys.path.insert(0, os.path.join(ROOT, "src"))
+from latex_review.module import LatexModule                 # noqa: E402
+
+
+class _HealWorker:
+    def __init__(self, status):
+        self._status = status
+        self.enqueued = []
+
+    def status(self, rid):
+        return self._status
+
+    def enqueue(self, rid):
+        self.enqueued.append(rid)
+
+
+class _HealReviews:
+    def __init__(self, revision):
+        self._revision = revision
+
+    def meta(self, rid):
+        return {"revision": self._revision}
+
+
+# The orphan path MUST still enqueue (a stubbed-out heal that never fires would pass the next
+# assertion vacuously): a PDF built from an older revision with nothing pending.
+heal_worker_stale = _HealWorker({"state": "ok", "revision": 0})
+heal_mod_stale = LatexModule(None, _HealReviews(1), None, heal_worker_stale)
+for _ in range(5):
+    heal_mod_stale._self_heal("stale")
+check("A2: self_heal enqueues the true orphan path (PDF older than current revision)",
+      heal_worker_stale.enqueued == ["stale"] * 5, heal_worker_stale.enqueued)
+
+# THE GAP THIS GUARDS (module docstring, verbatim): a failed compile at the CURRENT revision must
+# never be re-enqueued by the poll, so a persistently-failing source cannot stack compiles.
+heal_worker_current = _HealWorker({"state": "failed", "revision": 1})
+heal_mod_current = LatexModule(None, _HealReviews(1), None, heal_worker_current)
+for _ in range(5):
+    heal_mod_current._self_heal("current")
+check("A2: self_heal never re-enqueues a failed compile at the current revision",
+      heal_worker_current.enqueued == [], heal_worker_current.enqueued)
 
 # ================= B: CompileWorker coalescing, no server (AC 5) ==============================
 os.environ["MDREVIEW_DATA"] = tempfile.mkdtemp(prefix="mdr250b-")
