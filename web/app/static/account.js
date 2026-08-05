@@ -7,17 +7,29 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
     });
   }
-  // #281 Q6: two-character trigger initials, derived from the email since no display name exists.
+  // Always exactly two characters (AC1), even for a pathological one-character source: pad by
+  // repeating the first char, and "u" is the last-resort floor when there is nothing to derive from.
+  function twoChars(s) {
+    if (!s) s = "u";
+    if (s.length < 2) s += s[0];
+    return s.slice(0, 2);
+  }
+  // #281 Q6: two-character trigger initials, derived from the email when no display name is set.
   // "a.kerr@x.com" -> "ak" (first letter of the first two dot/underscore/hyphen-split local-part
-  // segments); a local part with no such split falls back to its own first two characters. Always
-  // returns exactly two characters (AC1) even for a pathological one-character local part.
+  // segments); a local part with no such split falls back to its own first two characters.
   function initials(email) {
     var local = String(email || "").split("@")[0].toLowerCase();
     var segs = local.split(/[._-]+/).filter(Boolean);
     var s = segs.length >= 2 ? segs[0][0] + segs[1][0] : local.replace(/[^a-z0-9]/g, "").slice(0, 2);
-    if (!s) s = "u";
-    if (s.length < 2) s += s[0];
-    return s.slice(0, 2);
+    return twoChars(s);
+  }
+  // #309: once a display name is set, the trigger derives from IT instead — first letters of the
+  // first two whitespace-split words ("Ada Lovelace" -> "al"), else the name's own first two
+  // characters (a single-word name, e.g. "Cher" -> "ch"). Same two-character floor as initials().
+  function nameInitials(name) {
+    var words = String(name || "").trim().split(/\s+/).filter(Boolean);
+    var s = words.length >= 2 ? words[0][0] + words[1][0] : (words[0] || "").slice(0, 2);
+    return twoChars(s.toLowerCase());
   }
   var CSS =
     // normal-case + no letter-spacing so the email reads right even inside the viewer's uppercase top bar
@@ -168,13 +180,14 @@
     var sess = res.sess;
 
     if (sess && sess.authenticated) {
-      // #281 (epic #276 avatar-initials decision, reversing #262's "no avatar"): no display name
-      // exists anywhere in the user record (grooming confirmed), so the trigger's two characters
-      // are DERIVED from the email, not chosen. Documented judgement call (groom #281, Q6):
-      // first letters of the first two separator-split local-part segments ("a.kerr" -> "ak"),
-      // else the first two characters of the local part. Always exactly two characters.
-      var init = initials(sess.email);
-      var tip = esc(sess.email) + (sess.is_admin ? " \u00b7 Admin" : "");
+      // #281 (epic #276 avatar-initials decision, reversing #262's "no avatar"): the trigger's two
+      // characters are DERIVED, never chosen. #309 gave the account a real display-name field, so
+      // this now prefers it (nameInitials) and falls back to the #281 email-derived heuristic
+      // (initials) only while unset \u2014 documented judgement call (groom #281, Q6) for the fallback
+      // itself. Always exactly two characters either way.
+      var whoName = sess.name || sess.email;
+      var init = sess.name ? nameInitials(sess.name) : initials(sess.email);
+      var tip = esc(whoName) + (sess.is_admin ? " \u00b7 Admin" : "");
       var adminItem = sess.is_admin
         ? '<a class="acct-item" href="/admin">Admin console</a>' : "";
       el.innerHTML =
@@ -183,7 +196,7 @@
           '<span class="acct-corner" title="Signed in"></span>' +
         "</button>" +
         '<div class="acct-menu" role="menu" hidden>' +
-          '<div class="acct-who"><b>' + esc(sess.email) + "</b>" +
+          '<div class="acct-who"><b>' + esc(whoName) + "</b>" +
             "<span>" + (sess.is_admin ? "Admin" : "Signed in") + "</span></div>" +
           '<a class="acct-item" href="/account" role="menuitem">Account</a>' +
           adminItem +

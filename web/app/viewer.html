@@ -508,30 +508,44 @@ function renderDocMeta(st){
     +'<span class="mwords">'+WORDS.toLocaleString()+' words · '+Math.max(1,Math.round(WORDS/200))+' min</span>';
 }
 
-// ---- who is reading (#279 AC6) ----------------------------------------------------------------
-// The hosted plane has /auth/session ({uid,email,...}); the local tier has NO such route (404) and
-// is single-user by construction. Card labels depend on this: a reviewer entry is "You" only when
-// its author IS the signed-in uid — on a shared review another grantee's words must never be
-// labelled as yours. Any non-404 failure is treated as an anonymous hosted visitor (labels fall
-// back to "Reviewer"), the direction that can never mislabel someone else's words.
-let SESSION={tier:'unknown',uid:null,email:''};
+// ---- who is reading (#279 AC6, #309 retroactive attribution) -----------------------------------
+// The hosted plane has /auth/session ({uid,email,name,...}); the local tier has NO such route (404)
+// and is single-user by construction. Card labels depend on this: a reviewer entry is "yours" only
+// when its author IS the signed-in uid — on a shared review another grantee's words must never be
+// labelled as yours, and (#309) never carry another grantee's name either: only YOUR OWN entries
+// ever read anything but the generic "Reviewer"/"Agent". Any non-404 failure is treated as an
+// anonymous hosted visitor (labels fall back to "Reviewer"), the direction that can never mislabel
+// someone else's words.
+//
+// #309 retroactive attribution: SESSION.name is read fresh from /auth/session on every page load,
+// never snapshotted onto a comment. A comment written before you set a name, and one written after,
+// render identically once the name exists — both are read from the SAME author uid at render time.
+let SESSION={tier:'unknown',uid:null,email:'',name:''};
 async function initSession(){
   try{
     const r=await fetch('/auth/session',{cache:'no-store'});
-    if(r.status===404){SESSION={tier:'local',uid:null,email:''};return;}
-    if(r.ok){const d=await r.json().catch(()=>({}));SESSION={tier:'hosted',uid:d.uid||null,email:d.email||''};return;}
-    SESSION={tier:'hosted',uid:null,email:''};
-  }catch(e){SESSION={tier:'hosted',uid:null,email:''};}
+    if(r.status===404){SESSION={tier:'local',uid:null,email:'',name:''};return;}
+    if(r.ok){const d=await r.json().catch(()=>({}));SESSION={tier:'hosted',uid:d.uid||null,email:d.email||'',name:d.name||''};return;}
+    SESSION={tier:'hosted',uid:null,email:'',name:''};
+  }catch(e){SESSION={tier:'hosted',uid:null,email:'',name:''};}
+}
+// True for an entry that is YOURS to label/style specially — never for an agent entry (that always
+// reads "Agent" regardless of who is looking), so callers that only check role need no extra guard.
+function isOwnEntry(e){
+  return e.role!=='agent' && (SESSION.tier==='local' || (SESSION.uid&&e.author===SESSION.uid));
 }
 function entryLabel(e){
   if(e.role==='agent')return 'Agent';
-  if(SESSION.tier==='local')return 'You';
-  return (SESSION.uid&&e.author===SESSION.uid)?'You':'Reviewer';
+  if(isOwnEntry(e))return SESSION.name||'You';   // #309: your own name if you set one, else "You"
+  return 'Reviewer';
 }
-function initialsOf(label){
-  if(label==='Agent')return 'ag';
-  if(label!=='You')return 'rv';
-  const parts=(SESSION.email||'').split('@')[0].split(/[._-]+/).filter(Boolean);
+function initialsOf(e){
+  if(e.role==='agent')return 'ag';
+  if(!isOwnEntry(e))return 'rv';
+  // #309: derive from your display name when set (first letters of the first two words), else the
+  // pre-#309 email heuristic (first letters of the first two separator-split local-part segments).
+  const src=SESSION.name||SESSION.email||'';
+  const parts=src.split(SESSION.name?/\s+/:/[._-]+/).filter(Boolean);
   if(parts.length>=2)return (parts[0][0]+parts[1][0]).toLowerCase();
   if(parts.length)return parts[0].slice(0,2).toLowerCase();
   return 'me';
@@ -857,18 +871,21 @@ function isAddressed(c){
   const t=c.thread||[];
   return c.status!=='resolved' && t.length>0 && t[t.length-1].role==='agent';
 }
-// rev 3 entries: initials chip + label ("You" only for the signed-in author, see entryLabel) +
+// rev 3 entries: initials chip + label (your own name, or "You" while unset — see entryLabel) +
 // relative time from thread[].ts (absent on legacy entries -> no time span, never "just now").
 // `addressed` (isAddressed(c), always false for resolved threads) puts the ADDRESSED badge on
 // the one entry that earned it: the thread's last, agent-authored entry, never any other.
+// `.you` styling keys on isOwnEntry(e), NOT on the label text — #309 made the label a real name
+// for your own entries, so a text comparison against the literal string "You" would silently stop
+// highlighting them the moment you set one.
 function threadHtml(c,addressed){
   const entries=c.thread||[];
   return '<div class="gthread">'+(entries.map((e,i)=>{
     const role=e.role==='agent'?'agent':'reviewer';
     const label=entryLabel(e);
     const showAddr=addressed&&role==='agent'&&i===entries.length-1;
-    return '<div class="gentry '+role+(label==='You'?' you':'')+'">'
-      +'<div class="gmeta"><span class="gav" aria-hidden="true">'+esc(initialsOf(label))+'</span>'
+    return '<div class="gentry '+role+(isOwnEntry(e)?' you':'')+'">'
+      +'<div class="gmeta"><span class="gav" aria-hidden="true">'+esc(initialsOf(e))+'</span>'
       +'<span class="gwho">'+esc(label)+'</span>'
       +(showAddr?'<span class="gaddr">Addressed</span>':'')
       +(e.ts?'<span class="gts">'+esc(ago(e.ts))+'</span>':'')+'</div>'

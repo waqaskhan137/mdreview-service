@@ -662,8 +662,11 @@ try {
   const notif = await evalJSON(`JSON.stringify({hasControls: document.querySelectorAll('#acct-slot button, #acct-slot input').length, text: document.getElementById('acct-slot').textContent.trim()})`);
   ok('Notifications: section renders, contains an honest not-available message, zero controls', notif.hasControls === 0 && notif.text.length > 0, notif);
   ok('No fake Two-factor row anywhere on the page', !(await evaluate(`document.body.innerText.includes('Two-factor')`)), 'found "Two-factor"');
-  ok('No fake Display name / Reading width / Diff view / Export / Delete account row anywhere',
-     !(await evaluate(`/Display name|Reading width|Diff view|Export your data|Delete account/.test(document.body.innerText)`)), 'found a backend-blocked row');
+  // #309 made Display name real (a genuine write endpoint backs it, see scripts/account-name-check.mjs
+  // for its own coverage) — it is INTENTIONALLY no longer in this forbidden list. The rest are still
+  // backend-blocked and must stay absent.
+  ok('No fake Reading width / Diff view / Export / Delete account row anywhere',
+     !(await evaluate(`/Reading width|Diff view|Export your data|Delete account/.test(document.body.innerText)`)), 'found a backend-blocked row');
 
   // ================================================================================
   // AC16-17: mobile <=720px -- chip nav, no page overflow, minted <pre> wraps.
