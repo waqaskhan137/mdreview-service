@@ -36,4 +36,20 @@ PY
 )
 [ -n "$rid" ] || { echo "FAIL - could not create a review"; exit 1; }
 
-node "$here/scripts/history-compare-check.mjs" "http://127.0.0.1:$port/review/$rid"
+# Second fixture: a fresh review with NO archived rounds (HISTVERS.length===1), every review's
+# default state until an agent pushes a revision. Compare's own too-few-versions branch has to
+# stay consistent here too, not just once there are 2+ versions to pick from.
+zrid=$(python3 - "$port" <<'PY'
+import json, sys, urllib.request
+port = sys.argv[1]
+op = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+r = urllib.request.Request("http://127.0.0.1:%s/api/reviews" % port,
+                            data=json.dumps({"markdown": "# Doc\n\nOnly one version exists.\n",
+                                              "title": "history-compare-zero-round"}).encode(),
+                            headers={"Content-Type": "application/json"}, method="POST")
+print(json.load(op.open(r, timeout=15))["id"])
+PY
+)
+[ -n "$zrid" ] || { echo "FAIL - could not create the zero-round review"; exit 1; }
+
+node "$here/scripts/history-compare-check.mjs" "http://127.0.0.1:$port/review/$rid" "http://127.0.0.1:$port/review/$zrid"

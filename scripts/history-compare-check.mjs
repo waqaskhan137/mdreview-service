@@ -31,7 +31,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const URL_ARG = process.argv[2];
-if (!URL_ARG) { console.error('usage: node scripts/history-compare-check.mjs <local-review-url>'); process.exit(2); }
+const ZERO_URL_ARG = process.argv[3];   // second fixture: a review with NO archived rounds yet
+if (!URL_ARG || !ZERO_URL_ARG) {
+  console.error('usage: node scripts/history-compare-check.mjs <local-review-url> <fresh-no-history-review-url>');
+  process.exit(2);
+}
 const u = new URL(URL_ARG);
 const ORIGIN = u.origin;
 const RID = u.pathname.replace(/^\/review\//, '');
@@ -159,10 +163,13 @@ async function main() {
     diffhead:!!document.querySelector('#diffview .diffhead'),
     diffbody:(document.querySelector('#diffview .diffbody')||{textContent:''}).textContent})`));
 
-  ok('AC2: clicking Compare flips mode to compare AND label to Browse together (no lying state)',
-    cmp1.mode === 'compare' && cmp1.label === 'Browse', JSON.stringify({ mode: cmp1.mode, label: cmp1.label }));
-  ok('AC1: the browse list is replaced by the compare view (no stale list left showing)',
-    cmp1.histlist === false, JSON.stringify(cmp1.histlist));
+  // AC2 is a conjunction, not just mode-agrees-with-label: the exact pre-fix bug had mode and
+  // label flip together (both read 'compare'/'Browse') while the browse list kept showing, which
+  // a label-vs-mode-only check would NOT catch. So this asserts the label against the VIEW too:
+  // no state where the label says Browse and the list is still showing.
+  ok('AC2: clicking Compare flips mode+label together AND the view follows (no lying state: label says Browse, list gone, cmpbar up)',
+    cmp1.mode === 'compare' && cmp1.label === 'Browse' && cmp1.histlist === false && cmp1.cmpbar === true,
+    JSON.stringify({ mode: cmp1.mode, label: cmp1.label, histlist: cmp1.histlist, cmpbar: cmp1.cmpbar }));
   ok('AC1: two pickers render (.cmpbar #cmpA and #cmpB both present)',
     cmp1.cmpbar === true && cmp1.optsA.length > 0 && cmp1.optsB.length > 0, JSON.stringify(cmp1));
   ok('AC1: pickers are populated from the REAL /history revisions, not placeholders (3 options each: current + 2 rounds)',
@@ -217,6 +224,36 @@ async function main() {
 
   const errsFinal = await evaluate(`JSON.stringify(window.__errs)`);
   ok('AC5: no console error across the whole open/switch/toggle-back flow', JSON.parse(errsFinal).length === 0, errsFinal);
+
+  // ================= edge case: a fresh review with ZERO archived rounds =========================
+  // HISTVERS = [{n:'current'}] only (length 1) on a review nobody has pushed a revision to yet, so
+  // the click handler's `if(!HISTVERS.length)return` guard does NOT fire (1 is truthy) and mode+
+  // label DO flip. renderCompare()'s own `HISTVERS.length<2` branch is what has to keep this
+  // consistent: no stale list, no cmpbar with nothing to populate, just the explanatory message.
+  // This is every fresh review's default state, so it needs its own coverage, not just the
+  // two-or-more-versions path above.
+  const zeroReady = await gotoAndWait(ZERO_URL_ARG, '#histbtn');
+  ok('zero-round fixture: the viewer loaded', zeroReady);
+  await evaluate(`(()=>{window.__errs=[];
+    window.addEventListener('error', e => window.__errs.push(String((e.error&&e.error.message)||e.message)));
+    return true;})()`);
+  await evaluate(`document.querySelector('#histbtn').click(); true`);
+  let zeroHistReady = false;
+  for (let i = 0; i < 40; i++) { if (await evaluate(`!!document.querySelector('.histitem')`)) { zeroHistReady = true; break; } await sleep(150); }
+  ok('zero-round fixture: History modal opened', zeroHistReady);
+  await evaluate(`document.querySelector('#histcmp').click(); true`);
+  await sleep(400);
+  const zero = JSON.parse(await evaluate(`JSON.stringify({mode:HISTMODE,
+    label:document.querySelector('#histcmp').textContent,
+    histlist:!!document.querySelector('.histlist'), cmpbar:!!document.querySelector('.cmpbar'),
+    body:(document.querySelector('#histbody')||{textContent:''}).textContent.trim()})`));
+  ok('zero-round edge case: mode+label flip together, no stale browse list, no cmpbar with nothing to show',
+    zero.mode === 'compare' && zero.label === 'Browse' && zero.histlist === false && zero.cmpbar === false,
+    JSON.stringify(zero));
+  ok('zero-round edge case: the explanatory message renders instead of a broken picker',
+    zero.body.includes('Need at least two versions to compare'), JSON.stringify(zero.body));
+  const zeroErrs = await evaluate(`JSON.stringify(window.__errs)`);
+  ok('zero-round edge case: no console error', JSON.parse(zeroErrs).length === 0, zeroErrs);
 
   console.log(failed ? `\n${failed} case(s) failed` : '\nall history-compare cases pass');
   cleanup();
