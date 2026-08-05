@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""latex_empty_create_selfcheck.py — POST /api/reviews {kind:"latex"} with no body (#363).
+"""latex_empty_create_selfcheck.py: POST /api/reviews {kind:"latex"} with no body (#363).
 
 THE GAP THIS GUARDS: #363 asked whether an empty latex create (201, empty source) is deliberate
 or an accident. It is deliberate: `_require_tex` (latex_review/decorator.py) passes
@@ -7,7 +7,7 @@ allow_empty=True only on create, and hosted_boot_smoke.py already asserts "A bla
 stays legal (start a paper, fill it in later)" with no template involved at all. #355 shows the
 cost of that permissiveness going undocumented: a fixture posted its content under "source"
 instead of "markdown", the create arm silently ignored the unknown key, and a 201 with an EMPTY
-document passed for "created" — a test then asserted behaviour against a document nobody wrote.
+document passed for "created". A test then asserted behaviour against a document nobody wrote.
 This suite does not change that decision (a mixed "empty is an error unless a template supplies
 the source" rule was considered and rejected: the hosted_boot_smoke.py case above has no template
 and is still asserted legal, so a stricter rule would break a deliberate, CI-gated assertion). It
@@ -21,12 +21,12 @@ not a silent regression:
   3. no markdown, WITH a template -> 201, source is the template's starter .tex (seeding runs
      before the empty-body carve-out, so the two arms are independent; a template create is never
      silently empty).
-  4. the markdown (non-latex) kind allows an empty create too — this is not a latex/markdown
-     asymmetry, it's a create/edit asymmetry: latex's PUT rejects empty (already covered by
-     hosted_boot_smoke.py case 3), create does not, for either kind.
+  4. the markdown (non-latex) kind allows an empty create too. This is a create/edit asymmetry:
+     latex's PUT rejects empty (already covered by hosted_boot_smoke.py case 3), create does not,
+     for either kind.
 
 No compile is awaited anywhere here (an empty or malformed source enqueues a compile that will
-fail, and waiting for it just eats the ~7-8s tectonic bundle pull #363 separately flags) — every
+fail, and waiting for it just eats the ~7-8s tectonic bundle pull #363 separately flags). Every
 assertion below reads back GET .../source, never /api/latex/{id}/compile.
 
 Run: python3 tests/latex_empty_create_selfcheck.py     (exit 0 = pass)
@@ -131,10 +131,10 @@ try:
               scode == 200 and sraw.strip().startswith(b"\\documentclass"),
               (scode, sraw[:80]))
 
-    # 4. The markdown (non-latex) kind allows an empty create too: this is a create/edit
-    #    asymmetry (PUT is strict for latex, lax for markdown), not a latex/markdown asymmetry at
-    #    create time. looks_like_latex("", "") is False (empty body has no preamble to detect), so
-    #    this does not trip the MR-100 "looks like LaTeX" 400 either.
+    # 4. The markdown (non-latex) kind allows an empty create too, the same create/edit asymmetry
+    #    as case 2 (PUT is strict for latex, lax for markdown; create is lax for both).
+    #    looks_like_latex("", "") is False (empty body has no preamble to detect), so this does not
+    #    trip the MR-100 "looks like LaTeX" 400 either.
     code, raw = create(base, {"title": "blank-md"})
     check("4: markdown kind, no body -> 201 (create-time symmetry with latex)", code == 201, (code, raw[:200]))
     rid4 = json.loads(raw).get("id") if code == 201 else None
@@ -142,7 +142,7 @@ try:
         scode, sraw = source_of(base, rid4)
         check("4: blank markdown create's source is empty", scode == 200 and sraw == b"", (scode, sraw[:80]))
 finally:
-    srv.terminate(); srv.wait(timeout=10); shutil.rmtree(data, ignore_errors=True)
+    srv.terminate(); shutil.rmtree(data, ignore_errors=True)
 
 print("\n" + ("%d case(s) failed" % len(failed) if failed else "all empty-latex-create cases pass"))
 sys.exit(1 if failed else 0)
