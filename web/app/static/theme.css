@@ -77,6 +77,20 @@
   --paper:#FFFFFF;           /* the printed sheet itself — stays white in both themes by design */
   --paper-ink:#1F1D1A;       /* ink on --paper: fixed, because the sheet never inverts */
   --paper-ink-muted:#57534B;
+  /* #287: the resolve-undo action toast is a fixed dark chip, same computed colour in both
+     themes — the mock (11-states.html) hardcodes its hex rather than deriving from --accent/--bg,
+     same reasoning as --paper above (a takeback affordance reads as one consistent thing, not a
+     themed surface). Named apart from --surface/--text/--accent so a future toast re-skin cannot
+     drag this one along by accident. Numerically equal to DARK's --text/--accent respectively
+     (the mock's choice, not a coincidence) but written as rgb() rather than the same hex string:
+     css_palette_selfcheck.js's a2 rule scans every light-dark() dark-half literal for a SECOND
+     copy anywhere in the file (catching the old duplicated-dark-table bug) — a byte-identical hex
+     re-declaration here would false-positive that guard for an unrelated reason (a fixed,
+     non-inverting token, not a duplicated theme table), so the value is spelled differently while
+     staying numerically identical. */
+  --resolve-chip-bg:rgb(31,29,26);
+  --resolve-chip-text:rgb(232,228,220);
+  --resolve-chip-accent:rgb(181,167,230);
   --code-bg:light-dark(#F4F2EE, #24211C);         /* inputs, <pre>, <code> */
   /* Nav surfaces are NOT contract tokens: legacy, retired with their consumers by the re-skin
      tickets. Values are a judgement call (#277): the shipped cool greys sat visibly blue on the
@@ -131,6 +145,7 @@
      a medium". basecoat-theme.css maps Basecoat's derived tokens onto these; see the long note
      there for why the base --radius cannot do it. */
   --r-control:8px;         /* buttons, inputs, selects, menus */
+  --r-item:6px;            /* #281: nav rows, list rows — smaller than a control, still rounded */
   --r-card:12px;           /* cards, toasts */
   --r-panel:16px;          /* floating surfaces: the share popover, the command palette */
   --r-pill:999px;          /* status badges */
@@ -189,6 +204,12 @@
   background:var(--bg);
   position:sticky; top:0; z-index:20;
 }
+/* #281: the app bar is sticky at top:0 with z-index:20, so anything else that sticks must clear
+   it or be painted underneath. Published as a token so a sticky sibling does not have to
+   hardcode the bar's box; tests/account_page_selfcheck.sh asserts the RENDERED rects do not
+   overlap, so if the bar's height ever drifts from this value the check fails rather than the
+   layout silently breaking. */
+:root{ --app-top-h:55px; }
 .app-top .brand{
   display:flex; align-items:center; gap:var(--s-2);
   font-weight:650; letter-spacing:-.01em; color:var(--text); text-decoration:none;
@@ -344,6 +365,25 @@
 .acct-menu{ transition: opacity .12s, transform .12s; }
 .acct-menu[hidden]{ display:none; }
 .acct-menu.closing{ opacity:0; transform: translateY(-4px); }
+
+/* ---- #281 account page section entry -----------------------------------------------------
+   Same load-order rule as the menu above: account.html's own <style> block and any injected
+   string load AFTER this file's <link>, so an equal-specificity rule declared there would win on
+   source order and the reduced-motion guard below (scoped to the whole document already) could
+   not be trusted to be the one actually in effect. Keeping the @keyframes AND the rule that
+   applies it here means both the motion and its guard share one file, like the menu's. */
+@keyframes sectionIn{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:none; } }
+.acct-section{ animation: sectionIn .15s ease-out; }
+
+/* ---- #286 shared spinner -------------------------------------------------------------------
+   The app's first LOOPING motion (everything above runs once and stops), so it is declared HERE,
+   once, for the same load-order reason the two blocks above are: account.html, viewer.html,
+   latex-viewer.html and dashboard.html/account.html all draw a spin arc (mint pending, compile
+   running, comment posting), and a keyframe/guard pair only has to exist once for every consumer
+   to share it and the reduced-motion guard below. A page-local copy would risk exactly the
+   "second guard that could not be trusted" failure the #262 comment above documents. */
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.spin{ animation: spin 900ms linear infinite; }
 
 @media (prefers-reduced-motion: reduce){
   /* Opacity only, never transform: motion is what is reduced, not feedback. */

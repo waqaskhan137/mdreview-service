@@ -140,8 +140,20 @@
   #dockbar .btn{height:32px;padding:0 12px;border:0;background:transparent;color:var(--text-muted);font-size:12px;font-weight:600;border-radius:var(--r-control);}
   #dockbar .btn:hover{background:var(--code-bg);color:var(--text);border:0;}
   #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--accent);color:var(--bg);font-family:var(--font-ui);font-size:13px;padding:8px 16px;border-radius:var(--r-card);box-shadow:var(--shadow-menu);opacity:0;transition:opacity .25s;pointer-events:none;}
+  /* #287: an action toast has to be clickable (the default explicitly is not) and outlive a
+     plain toast's fade, or the action is decorative. .resolve is the "Comment resolved · undo"
+     skin: a fixed dark chip in BOTH themes (--resolve-chip-*, see theme.css), distinct from the
+     ordinary accent toast above it in the cascade — .hasaction alone (no .resolve) stays
+     available for a future action toast that SHOULD track the page theme. */
+  #toast.hasaction{pointer-events:auto;display:flex;align-items:center;gap:var(--s-3);}
+  #toast.hasaction .toastbtn{font:inherit;background:none;border:none;cursor:pointer;padding:0;}
+  #toast.hasaction.resolve{background:var(--resolve-chip-bg);color:var(--resolve-chip-text);border-radius:var(--r-control);padding:var(--s-3) 16px;}
+  #toast.hasaction.resolve .toastbtn{font-family:var(--font-mono);font-size:11px;color:var(--resolve-chip-accent);}
+  #toast.hasaction.resolve .toastbtn:hover{text-decoration:underline;}
   /* MR-006/MR-036: Google-Docs style margin comments (threaded), rev-3 card skin.
-     (.gcard.addressed and .gcard .gx are GONE: dead CSS with no JS setter, removed by #279.) */
+     (.gcard.addressed and .gcard .gx were dead CSS with no JS setter, removed by #279. #331
+     reinstates an ADDRESSED indicator with real semantics as .gentry .gaddr, below — a per-entry
+     badge driven by threadHtml()'s isAddressed() derivation, not a static card-level class.) */
   #gutter{position:absolute;top:0;width:284px;z-index:5;display:none;}
   body.gutter-on #cmtbtn{display:none;}
   /* rail header: written by renderAll() from the same pass as the dock counts (#279 AC23) */
@@ -176,10 +188,24 @@
   .blk.has-comment .num::after{content:" \25CF";color:var(--noteline);}
   /* MR-036: threaded comment cards (gutter when wide, docked panel when narrow) */
   .gcard .ghead,.rcard .ghead{display:flex;gap:6px;align-items:baseline;margin-bottom:2px;flex-wrap:wrap;}
+  /* #287: Resolve — the mock's md-viewer.html:54 action, hover -> --success. Always first of the
+     .ghead actions when present (every open, can_comment-gated card gets one), so it alone carries
+     margin-left:auto; Delete (conditional) simply follows it in DOM order and rides along. */
+  .gcard .ghead .gres{margin-left:auto;align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
+  .gcard .ghead .gres:hover{color:var(--success);background:color-mix(in srgb,var(--success) 10%,transparent);}
   /* MR-050: secondary, muted Delete affordance — only on the reviewer's own un-engaged comment */
-  .gcard .ghead .gdel{margin-left:auto;align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
+  .gcard .ghead .gdel{align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
   .gcard .ghead .gdel:hover{color:var(--danger);background:color-mix(in srgb,var(--danger) 10%,transparent);}
   .gcard .ghead .gdel.armed{color:var(--bg);background:var(--danger);font-weight:600;}
+  /* #286: optimistic "posting a comment" card (AC9) — opacity .6 while in flight, full opacity
+     with a danger edge once failed, matching the mock's two-state card. */
+  .gcard.pending{opacity:.6;}
+  .gcard.pending.failed{opacity:1;border-color:var(--danger);}
+  .gpending-status{display:flex;align-items:center;gap:6px;margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--text-subtle);}
+  .gpending-err{margin-top:8px;font-size:13px;color:var(--danger);}
+  .gpending-actions{display:flex;gap:16px;margin-top:8px;font-family:var(--font-mono);font-size:11px;}
+  .gpending-actions .glink{background:none;border:none;padding:0;cursor:pointer;font:inherit;color:var(--accent);}
+  .gpending-actions .glink.muted{color:var(--text-subtle);}
   /* rev 3 thread entries: initials chip + label + relative time, hairline-separated (#279 AC6/7) */
   .gthread{display:flex;flex-direction:column;gap:8px;}
   .gentry+.gentry{border-top:1px solid var(--border-faint);padding-top:8px;}
@@ -188,6 +214,10 @@
   .gentry.you .gav{background:var(--accent-muted);color:var(--accent);}
   .gentry .gwho{font-size:12px;font-weight:600;color:var(--text);}
   .gentry.agent .gwho{color:var(--text-muted);}
+  /* #331: ADDRESSED badge — set via threadHtml()'s `addressed` arg (isAddressed(), a real JS
+     derivation), never a static class on the card. Sits after .gwho, before the (margin-left:auto)
+     timestamp, matching scraps/03-viewer.html. */
+  .gentry .gaddr{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--success);}
   .gentry .gts{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-subtle);white-space:nowrap;}
   .gentry .gtext{color:var(--text);}
   .gentry .gtext>:first-child{margin-top:0;}
@@ -207,7 +237,13 @@
      author surfaces. One class, so a repaint cannot resurrect a box the policy refuses. */
   #viewonly{display:none;font-size:var(--t-meta);color:var(--text-muted);letter-spacing:.01em;}
   body.viewonly #viewonly{display:inline;}
-  body.viewonly .greply,body.viewonly .reopenbox,body.viewonly #addbtn,body.viewonly #pop{display:none !important;}
+  body.viewonly .greply,body.viewonly .reopenbox,body.viewonly #addbtn,body.viewonly #pop,body.viewonly .gres{display:none !important;}
+  /* .gres carries the .ghead row's only margin-left:auto (see :194); body.viewonly hiding it
+     takes that auto margin out of the flex flow too, which would otherwise leave a viewonly
+     .gdel (deletable=true, no agent reply yet — exactly the reader's own un-engaged comment)
+     packed left instead of flush right. Two auto margins would split the free space and park
+     .gres mid-row, so this is additive to :194, not a duplicate of it. */
+  body.viewonly .gcard .ghead .gdel{margin-left:auto;}
   .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
   .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font-family:var(--font-ui);font-size:12.5px;border:1px solid var(--border);border-radius:var(--r-control);padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
   .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
@@ -363,7 +399,7 @@
 </div></div>
 
 <div id="lightbox"><img alt="zoomed figure"></div>
-<div id="toast"></div>
+<div id="toast" role="status"></div>
 <script src="/static/linediff.js"></script>
 <script src="/static/editguard.js"></script>
 <script src="/static/marked.min.js"></script>
@@ -385,6 +421,14 @@ let lastCmt=0;          // comments_updated (thread live-reload)
 let confirming=null;    // comment_id with a pending inline delete-confirm (guards the poll re-render)
 let WORDS=0;            // prose word count, cached by load() for the title meta line
 let LASTTURN=null,LASTSTATUS=null;  // last turn/status painted, so the poll repaints only on change
+// #286: the optimistic "posting a comment" card. Set by createComment() before the POST resolves;
+// null once it settles (2xx) or the human discards a failed one. Non-null blocks the live poll's
+// full renderAll() (same reason `confirming` already does for an armed delete), and renderAll()
+// itself paints the extra card whenever this is set.
+let pendingPost=null;
+// #286: shared arc spinner (theme.css's .spin keyframe + reduced-motion guard), 12px per the
+// mock's "posting…" card.
+const SPIN_ICON_SM='<svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
 
 // #320: /status.can_comment — the custody policy's can_comment, the SAME gate POST /comments
 // enforces. Defaults TRUE so a server that predates the key behaves exactly as before (the owner
@@ -402,7 +446,25 @@ let EDITORIG="";        // the buffer's value as loaded/reloaded, to ask before 
 let EDITACK=null;       // remote revision the user already dismissed the change-notice for, so
                          // the 2s poll doesn't re-nag about the same change every tick
 
-function toast(msg){const t=$("#toast");t.textContent=msg;t.style.opacity=1;clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.opacity=0,1800);}
+function toast(msg){const t=$("#toast");t.classList.remove('hasaction','resolve');t.textContent=msg;t.style.opacity=1;clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.opacity=0,1800);}
+// #287: the resolve-undo window, the #179 UNDO_MS shape (one constant, toast lifetime derives
+// from it — a UI promising 10s cannot be served by a toast that lives 3). Reused nowhere else
+// yet, so it stays a plain top-level const rather than a config knob.
+const UNDO_MS=10000;
+// A toast carrying one clickable action. cls (optional) adds a skin modifier class alongside
+// .hasaction — 'resolve' is the mock's fixed dark chip (theme.css --resolve-chip-*); omit it for
+// an ordinary accent-skinned action toast. ms (optional) is the lifetime; defaults to the plain
+// toast's 1800ms, but resolveComment() below always passes UNDO_MS explicitly.
+function toastAction(msg,label,fn,cls,ms){
+  const t=$("#toast");
+  t.classList.add('hasaction');if(cls)t.classList.add(cls);
+  t.innerHTML='<span></span><button type="button" class="toastbtn"></button>';
+  t.querySelector('span').textContent=msg;
+  const b=t.querySelector('.toastbtn');b.textContent=label;
+  const clear=()=>{t.style.opacity=0;t.classList.remove('hasaction');if(cls)t.classList.remove(cls);};
+  b.onclick=()=>{clear();fn();};
+  t.style.opacity=1;clearTimeout(window._tt);window._tt=setTimeout(clear,ms||1800);
+}
 // String() first: anchor.block_num arrives as a NUMBER from API/MCP authors (the viewer itself
 // sends strings), and Number.replace is a TypeError that used to kill renderAll() mid-pass,
 // leaving the counters stale and the resolved panel empty.
@@ -680,13 +742,41 @@ function commentDenied(r,fallback){
   if(!r.ok){toast(fallback);return true;}
   return false;
 }
+// #286: optimistic post. Renders the pending card (via renderAll(), below) immediately, then
+// resolves it: 2xx clears pendingPost and the normal fetch+repaint takes over (the pending card is
+// gone, replaced by the real one); a network error or non-2xx leaves pendingPost.failed=true so
+// renderAll() keeps showing the SAME card with "Not posted — your text is kept." + retry (calls
+// this again with the identical anchor/text) / discard (clears pendingPost and repaints).
 async function createComment(anchor,text){
+  pendingPost={anchor:anchor,text:text,failed:false};
+  renderAll();
+  return submitPendingPost();
+}
+async function submitPendingPost(){
+  if(!pendingPost)return true;   // discarded before this call started
+  pendingPost.failed=false;
+  let r;
   try{
-    const r=await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({anchor:anchor,text:text})});
-    if(commentDenied(r,'Could not save comment'))return false;
-    await fetchComments();renderAll();toast('Comment added');return true;
-  }catch(e){toast('Could not save comment');return false;}
+    r=await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({anchor:pendingPost.anchor,text:pendingPost.text})});
+  }catch(e){ pendingPost.failed=true; renderAll(); return false; }
+  if(commentDenied(r,'Could not save comment')){ pendingPost.failed=true; renderAll(); return false; }
+  pendingPost=null;
+  await fetchComments();renderAll();toast('Comment added');return true;
+}
+function discardPending(){ pendingPost=null; renderAll(); }
+function pendingCardHtml(p){
+  if(!p.failed)
+    return '<div class="gcard pending"><span class="gq"></span><div class="gtext">'+esc(p.text)+'</div>'+
+      '<div class="gpending-status">'+SPIN_ICON_SM+'posting…</div></div>';
+  return '<div class="gcard pending failed"><span class="gq"></span><div class="gtext">'+esc(p.text)+'</div>'+
+    '<div class="gpending-err">Not posted — your text is kept.</div>'+
+    '<div class="gpending-actions"><button type="button" class="glink" data-act="retry">retry</button>'+
+    '<button type="button" class="glink muted" data-act="discard">discard</button></div></div>';
+}
+function wirePendingCard(el){
+  const retry=el.querySelector('[data-act=retry]');if(retry)retry.onclick=e=>{e.stopPropagation();submitPendingPost();};
+  const discard=el.querySelector('[data-act=discard]');if(discard)discard.onclick=e=>{e.stopPropagation();discardPending();};
 }
 async function replyTo(cid,text){
   if(!text)return false;
@@ -701,9 +791,30 @@ async function reopenComment(cid,text){
   try{
     const r=await fetch(API+'/comments/'+cid+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(text?{text:text}:{})});
+    // #287: reopen can race another tab/agent that got there first. 409 means the end state IS
+    // what the caller wanted (already reopened) — that is a fact to report, not the 'Reopen
+    // failed' error tone. commentDenied's 404 stays as-is for this route (it also fires when the
+    // comment itself was deleted meanwhile, a case this file does not try to distinguish from
+    // lost custody by inspecting the error body — out of scope here).
+    if(r.status===409){await fetchComments();renderAll();toast('Already reopened');return true;}
     if(commentDenied(r,'Reopen failed'))return false;
     await fetchComments();renderAll();toast('Reopened');return true;
   }catch(e){toast('Reopen failed');return false;}
+}
+async function resolveComment(cid){
+  try{
+    // X-Mdreview-Client: viewer (editguard.js's existing convention, #289) is what lets the
+    // server tell a human's click apart from an agent's MCP call on the local/single-operator
+    // tier, where both share plane="local" with no other signal (#287 D2).
+    const r=await fetch(API+'/comments/'+cid+'/resolve',{method:'POST',
+      headers:{'Content-Type':'application/json','X-Mdreview-Client':'viewer'},body:'{}'});
+    if(commentDenied(r,'Could not resolve'))return false;
+    await fetchComments();renderAll();
+    // Commit-then-inverse (#179 shape): the resolve is already committed (200 received) before
+    // this toast shows. Undo is just the existing reopen call, offered back for UNDO_MS.
+    toastAction('Comment resolved','undo',()=>{reopenComment(cid,'');},'resolve',UNDO_MS);
+    return true;
+  }catch(e){toast('Could not resolve');return false;}
 }
 async function deleteComment(cid){
   // Hard-remove a comment the reviewer made by mistake (DELETE /comments/{cid}). A 404 means it's
@@ -736,15 +847,28 @@ function mdComment(raw){
   return tpl.innerHTML;
 }
 function qsnippet(c){const q=(c.anchor&&c.anchor.quoted_text)||'';return q?'"'+q+'"':'(whole block)';}
+// #331: ADDRESSED = an OPEN thread (not resolved -> not .rcard) whose most recent entry is
+// authored by the agent. Derived purely from data the viewer already has (thread + status), so
+// there is no server field to drift from. A thread the human last touched, or that is resolved,
+// is never addressed — resolved already has its own surface (.rcard in #resolved).
+function isAddressed(c){
+  const t=c.thread||[];
+  return c.status!=='resolved' && t.length>0 && t[t.length-1].role==='agent';
+}
 // rev 3 entries: initials chip + label ("You" only for the signed-in author, see entryLabel) +
 // relative time from thread[].ts (absent on legacy entries -> no time span, never "just now").
-function threadHtml(c){
-  return '<div class="gthread">'+((c.thread||[]).map(e=>{
+// `addressed` (isAddressed(c), always false for resolved threads) puts the ADDRESSED badge on
+// the one entry that earned it: the thread's last, agent-authored entry, never any other.
+function threadHtml(c,addressed){
+  const entries=c.thread||[];
+  return '<div class="gthread">'+(entries.map((e,i)=>{
     const role=e.role==='agent'?'agent':'reviewer';
     const label=entryLabel(e);
+    const showAddr=addressed&&role==='agent'&&i===entries.length-1;
     return '<div class="gentry '+role+(label==='You'?' you':'')+'">'
       +'<div class="gmeta"><span class="gav" aria-hidden="true">'+esc(initialsOf(label))+'</span>'
       +'<span class="gwho">'+esc(label)+'</span>'
+      +(showAddr?'<span class="gaddr">Addressed</span>':'')
       +(e.ts?'<span class="gts">'+esc(ago(e.ts))+'</span>':'')+'</div>'
       +'<div class="gtext">'+mdComment(e.text||'')+'</div></div>';
   }).join(''))+'</div>';
@@ -804,20 +928,34 @@ function renderAll(){
     // engaged feedback; the human resolves/reopens it, never hard-deletes it (matches the
     // delete_comment convention that warns agents off deleting real feedback).
     const deletable=!(c.thread||[]).some(e=>e.role==='agent');
+    // #287: Resolve — the mock's md-viewer.html:54 action, absent from shipped code until this
+    // ticket. Unconditional in the markup (like Reply); body.viewonly hides it via CSS, the same
+    // gate every other author affordance already uses (#320), so can_write-vs-can_comment stays
+    // enforced server-side regardless of what the DOM shows.
     card.innerHTML='<div class="ghead"><span class="gref">'+(ref?'#'+esc(ref):'')+'</span>'+
+      '<button class="gres" data-act="resolve" title="Resolve this thread">Resolve</button>'+
       (deletable?'<button class="gdel" data-act="delete" title="Delete this comment — permanent, no undo">Delete</button>':'')+'</div>'+
       '<span class="gq">'+esc(qsnippet(c))+'</span>'+
-      threadHtml(c)+
+      threadHtml(c,isAddressed(c))+
       '<div class="greply"><textarea placeholder="Reply…"></textarea><button class="btn" data-act="reply">Reply</button></div>';
     card._anchor=mk||blk;G.appendChild(card);
   });
+  // #286: the optimistic pending/failed card, appended last (after the wiring loop below is
+  // scoped past it) so it reads as the newest thing — anchored to its target block like a real
+  // card would once it exists, so layoutComments() stacks it in the right place.
+  if(pendingPost){
+    const pblk=(pendingPost.anchor.bid&&document.querySelector('.blk[data-bid="'+pendingPost.anchor.bid+'"]'))
+      ||document.querySelector('.blk[data-num="'+(pendingPost.anchor.block_num||'')+'"]');
+    const pcard=document.createElement('div');pcard.innerHTML=pendingCardHtml(pendingPost);
+    const pel=pcard.firstElementChild;pel._anchor=pblk;G.appendChild(pel);wirePendingCard(pel);
+  }
   // resolved -> Resolved panel cards (+ reopen)
   const RI=$("#resitems");RI.innerHTML='';
   resolved.forEach(c=>{
     const r=document.createElement('div');r.className='rcard';r.dataset.id=c.comment_id;
     r.innerHTML='<div class="ghead"><span class="gref">#'+esc(c.anchor.block_num||'')+'</span></div>'+
       '<span class="gq">'+esc(qsnippet(c))+'</span>'+
-      threadHtml(c)+
+      threadHtml(c,false)+ // resolved is never addressed — it already has its own surface (.rcard)
       '<div class="reopenbox"><textarea placeholder="Optional reply when reopening…"></textarea><button class="btn" data-act="reopen">Reopen</button></div>';
     RI.appendChild(r);
   });
@@ -828,11 +966,15 @@ function renderAll(){
   $("#resbtn").textContent='Resolved '+resolved.length;
   document.querySelector('.resolved-count').textContent=resolved.length;
   const oc=$("#opencmt");if(oc)oc.textContent=active.length+' open comment'+(active.length===1?'':'s');
-  // wire reply / reopen / focus-pair
-  G.querySelectorAll('.gcard').forEach(card=>{
+  // wire reply / reopen / focus-pair. Excludes .pending: the optimistic card carries no
+  // reply/resolve/delete controls (unconditional selectors below assume every REAL card has
+  // them), and it wires its own retry/discard via wirePendingCard() above instead.
+  G.querySelectorAll('.gcard:not(.pending)').forEach(card=>{
     const rb=card.querySelector('[data-act=reply]');
     rb.onclick=e=>{e.stopPropagation();const ta=card.querySelector('textarea');const v=ta.value.trim();if(v)replyTo(card.dataset.id,v);};
     card.querySelector('textarea').onclick=e=>e.stopPropagation();
+    const res=card.querySelector('[data-act=resolve]');
+    if(res)res.onclick=e=>{e.stopPropagation();resolveComment(card.dataset.id);};
     // inline two-step delete: first click arms ("Confirm delete?"), second click deletes. While armed,
     // `confirming` is set so the 2s poll skips its re-render (which would otherwise wipe the confirm);
     // auto-disarm after 3s.
@@ -938,12 +1080,18 @@ function openPop(c){
   $("#popnote").focus();
 }
 $("#popcancel").onclick=()=>$("#pop").style.display='none';
-$("#popsave").onclick=async()=>{
+// #286: close the composer immediately and post optimistically — createComment() below renders a
+// pending card in the gutter (opacity .6, spinner + "posting…") and, on failure, leaves that card
+// in place with "Not posted — your text is kept." + retry/discard, so the typed text now lives
+// with the comment rather than in a composer the human has to remember is still open. This is a
+// strictly stronger guarantee than the old "keep the popup open on failure" behaviour (still true:
+// the card, not the composer, is what survives a refusal) — see comment_gate_selfcheck.py, updated
+// to assert the card contract instead of the composer-stays-open one.
+$("#popsave").onclick=()=>{
   const v=$("#popnote").value.trim();if(!v)return;
-  // Keep the popup (and the typed note) open if the post is refused — e.g. an anonymous visitor gets a
-  // "Sign in to comment" prompt instead of silently losing what they wrote.
-  if(!await createComment({quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null,bid:cur.bid},v))return;
+  const anchor={quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null,bid:cur.bid};
   $("#pop").style.display='none';window.getSelection().removeAllRanges();
+  createComment(anchor,v);
 };
 
 // dock toggles: #cmtbtn docks the active-comment gutter on narrow screens; #resbtn the Resolved panel
@@ -966,7 +1114,7 @@ function poll(){
     // Don't re-render the DOM out from under an in-progress comment gesture (button or popup open) —
     // re-rendering mid-selection is the secondary cause of "my highlight didn't take". Skip this tick;
     // the next one (2s) picks the update up once the human is done.
-    if(addbtn.style.display==='block'||$("#pop").style.display==='block'||confirming)return;
+    if(addbtn.style.display==='block'||$("#pop").style.display==='block'||confirming||pendingPost)return;
     try{
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
       setEditVisible(!!s.can_edit);

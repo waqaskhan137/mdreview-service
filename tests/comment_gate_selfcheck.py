@@ -144,7 +144,22 @@ try:
     # anonymous visitor the wrong message entirely.
     ok("anonymous POST -> 401", posts(c, ANON) == 401)
 
-    print("4. the viewers gate their author surfaces on the flag")
+    print("4. a refused post keeps what the human typed (#334, carried forward by #286)")
+    # #286 changed the MECHANISM (composer now closes immediately and posts optimistically; a
+    # refused post's text lives in a retryable in-thread card, not in a composer the human has to
+    # notice is still open) while keeping the GUARANTEE #334 introduced: a refusal never loses
+    # what was typed. Assert the contract that now holds, not the old close-timing shape.
+    for name in ("viewer.html", "latex-viewer.html"):
+        src = open(os.path.join(ROOT, "web", "app", name)).read()
+        # >...< anchors on the RENDERED markup, not a prose mention of the same words in a comment
+        # (this file has three: two comments plus the real one) — a plain substring search would
+        # pass even with the actual copy mutated, as long as a comment nearby still quoted it.
+        ok("%-18s a refused post keeps the text in a retryable card" % name,
+           re.search(r">Not posted — your text is kept\.<", src) is not None
+           and re.search(r"data-act=.?retry", src) is not None
+           and re.search(r"data-act=.?discard", src) is not None)
+
+    print("5. the viewers gate their author surfaces on the flag")
     for name in ("viewer.html", "latex-viewer.html"):
         src = open(os.path.join(ROOT, "web", "app", name)).read()
         ok("%-18s reads can_comment from /status" % name, "can_comment!==false" in src)

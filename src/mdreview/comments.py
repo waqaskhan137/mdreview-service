@@ -129,12 +129,18 @@ class CommentService:
         elif action == "resolve":
             if cur not in ("open", "reopened"):
                 return 409, {"error": "comment is not open/reopened", "status": cur}
-            if text:  # optional justification, appended as the final agent entry before the flip
-                c["thread"].append({"author": "agent", "role": "agent", "text": text, "ts": now})
+            # #287 D2: `by` is now plane-derived by the caller (server.py), not hardcoded — a
+            # human clicking Resolve must be recorded as the reviewer, never the agent (#187's
+            # attribution-truth rule mirrored onto comments). Unrecognized/absent `by` keeps the
+            # historical default so every pre-#287 caller (MCP resolve_comment, tests) is
+            # unaffected.
+            role = by if by in ("reviewer", "agent") else "agent"
+            if text:  # optional justification, appended as the final entry before the flip
+                c["thread"].append({"author": role, "role": role, "text": text, "ts": now})
             c["status"] = "resolved"
-            c["resolved_by"] = "agent"
+            c["resolved_by"] = role
             c["resolved_at"] = now
-            c["status_history"].append({"from": cur, "to": "resolved", "by": "agent", "ts": now})
+            c["status_history"].append({"from": cur, "to": "resolved", "by": role, "ts": now})
         elif action == "reopen":
             if cur != "resolved":
                 return 409, {"error": "comment is not resolved", "status": cur}

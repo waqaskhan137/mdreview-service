@@ -6,6 +6,10 @@ in a browser; the agent polls feedback back over HTTP. Multi-session (isolated b
 id), stdlib only, file-backed under DATA_DIR.
 
 API
+  GET    /api/reviews                 ?scope=shared            -> {reviews}  (#284, hosted only: named
+                                      shares granted TO the caller, whitelisted rows; absent scope =
+                                      today's owned list, additively decorated on hosted with
+                                      share_public/share_count when non-default)
   POST   /api/reviews                 {markdown, title?}      -> {id, review_url, feedback_url, source_url}
   GET    /api/reviews/{id}                                    -> meta
   DELETE /api/reviews/{id}                                    -> {deleted}
@@ -24,7 +28,9 @@ API
   GET    /api/reviews/{id}/comments/{cid}                     -> {comment}  (full thread + status_history)
   DELETE /api/reviews/{id}/comments/{cid}                     -> {deleted}  (hard-remove a junk comment)
   POST   /api/reviews/{id}/comments/{cid}/reply   {text}      -> {comment}  (append; status unchanged)
-  POST   /api/reviews/{id}/comments/{cid}/resolve {justification?} -> {comment}  (agent resolves; 409 if not open/reopened)
+  POST   /api/reviews/{id}/comments/{cid}/resolve {justification?} -> {comment}  (409 if not
+                                      open/reopened; attribution: cookie plane, or local +
+                                      X-Mdreview-Client: viewer, -> reviewer; else agent, #287)
   POST   /api/reviews/{id}/comments/{cid}/reopen  {text?}     -> {comment}  (reviewer reopens; 409 if not resolved)
   GET    /api/reviews/{id}/status                             -> {status, source_updated, feedback_updated, comments_updated, revision, can_edit, source_updated_by, ...}
   POST   /api/reviews/{id}/resolve    {resolved: true|false}  -> summary  (human sign-off; cookie plane ONLY, see the arm)
@@ -307,6 +313,49 @@ class H(BaseHTTPRequestHandler):
                 rows = changed_rows()   # re-scan on wake; cheap at this scale and correct under rapid flips
         return self._json(200, {"reviews": rows})
 
+    def _shared_reviews(self, p):
+        """GET /api/reviews?scope=shared (#284 Part 2) — every document NAMED-shared to caller p.
+        Hosted-only (getattr(app,"shares",None)); a tier with no ShareStore has nothing that could
+        ever be "shared", so it answers the empty list rather than falling through to the owned
+        scope (a different question the caller did not ask).
+
+        Deliberately does NOT go through app.policy.scope_list or app.reviews.list_reviews: this is
+        a different membership test entirely (ShareStore.for_subject, exactly subject=='user:<uid>'),
+        so a public-only share can never surface here by construction, and neither can super_read
+        (never consulted) or another user's owned/shared documents. The row is a WHITELIST, not
+        summary() — never project/source_path/session/owner, the fields custody.py notes a grantee
+        can already read per-document via GET /api/reviews/{id}; listing them is new, the fields
+        are not (see custody.py's scope_list docstring, #284 D1)."""
+        app = self.server.app
+        shares = getattr(app, "shares", None)
+        if shares is None:
+            return self._json(200, {"reviews": []})
+        out = []
+        for row in shares.for_subject(p.uid):
+            rid = row["rid"]
+            if not app.reviews.exists(rid):
+                continue                                   # a revoked/deleted doc's stray row, skip
+            meta = app.reviews.meta(rid)
+            # #284 D3 (owner decision, final — distinct from sharing.py's unrelated pre-existing
+            # "D3" naming, the public-is-view-only rule): the "from" disclosure is the owner's
+            # LOCAL-PART only, never the full address — computed HERE so the full email never
+            # reaches the grantee's browser at all (not merely hidden by the UI). "" (unknown)
+            # passes through unchanged, matching #267: never invented, and the caller must say so.
+            owner_email = app.users.email_for(meta.get("owner", ""))
+            out.append({
+                "id": rid,
+                "title": meta.get("title", ""),
+                "kind": meta.get("kind", "markdown"),
+                "created": meta.get("created", 0),
+                "source_updated": meta.get("source_updated", 0),
+                "feedback_updated": meta.get("feedback_updated", 0),
+                "right": row["right"],
+                "from_email": owner_email.split("@", 1)[0] if owner_email else "",
+            })
+        out.sort(key=lambda r: max(r.get("created", 0), r.get("source_updated", 0),
+                                    r.get("feedback_updated", 0)), reverse=True)
+        return self._json(200, {"reviews": out})
+
     def log_message(self, *a):
         pass
 
@@ -416,11 +465,33 @@ class H(BaseHTTPRequestHandler):
             p = self._require_user()
             if p is None:
                 return
+            qs = parse_qs(urlparse(self.path).query)
+            # #284 Part 2: ?scope=shared is a DISTINCT, explicit opt-in query — named shares granted
+            # TO the caller, never the caller's owned list. It returns BEFORE the owned-list code
+            # below, so the ?turn= filter (owned-only; shared rows carry no turn) and the badge
+            # decoration (owned-only) never run for it, and an absent/other scope value falls
+            # through to the untouched owned-list path (today's byte-identical behavior).
+            if (qs.get("scope") or [""])[0] == "shared":
+                return self._shared_reviews(p)
             reviews = app.reviews.list_reviews(app.policy.scope_list(p))
+            # #284 Part 1: additive share-state badges on OWNED rows, hosted tier only (app.shares is
+            # set only by build_hosted — getattr keeps the local/open tier byte-identical, same seam
+            # the DELETE arm's delete_all_for cleanup already uses). ONE batched read, not 2N.
+            shares = getattr(app, "shares", None)
+            if shares is not None and reviews:
+                counts = shares.counts_for([r.get("id") for r in reviews])
+                for r in reviews:
+                    c = counts.get(r.get("id"))
+                    if not c:
+                        continue
+                    if c["public"]:
+                        r["share_public"] = c["public"]
+                    if c["named"]:
+                        r["share_count"] = c["named"]
             # MR-054: optional ?turn= filter. Filtered in Python after list_reviews() (summary() is
             # where the turn default lands); an empty/absent value means no filter (return all),
             # preserving today's behavior. No new field, no cross-review aggregation.
-            turn_q = parse_qs(urlparse(self.path).query).get("turn", [""])[0]
+            turn_q = qs.get("turn", [""])[0]
             if turn_q:
                 reviews = [r for r in reviews if r.get("turn") == turn_q]
             return self._json(200, {"reviews": reviews})
@@ -819,7 +890,16 @@ class H(BaseHTTPRequestHandler):
                 by = "reviewer" if plane == "cookie" else "agent" if plane == "token" else b.get("role", "reviewer")
                 text = b.get("text", "")
             elif action == "resolve":
-                by, text = "agent", b.get("justification")          # justification optional
+                # #287 D2: plane-derived, same disambiguator as the #289 source-PUT arm (:645) —
+                # resolve is can_write like that arm, not can_comment like reply above, so its
+                # local-plane ambiguity gets the header check rather than reply's spoofable body
+                # field. Both viewers already send X-Mdreview-Client: viewer on their PUT /source
+                # (editguard.js); resolveComment() sends it too so a human's click on the local
+                # (single-operator, no REQUIRE_AUTH) tier is not misattributed to the agent.
+                by = ("reviewer" if plane == "cookie"
+                      or (plane == "local" and self.headers.get("X-Mdreview-Client", "") == "viewer")
+                      else "agent")
+                text = b.get("justification")                        # justification optional
             else:                                                    # reopen
                 by, text = "reviewer", b.get("text")                 # reviewer reply optional
             with app.store.lock:

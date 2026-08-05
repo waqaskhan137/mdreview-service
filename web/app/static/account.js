@@ -7,6 +7,18 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
     });
   }
+  // #281 Q6: two-character trigger initials, derived from the email since no display name exists.
+  // "a.kerr@x.com" -> "ak" (first letter of the first two dot/underscore/hyphen-split local-part
+  // segments); a local part with no such split falls back to its own first two characters. Always
+  // returns exactly two characters (AC1) even for a pathological one-character local part.
+  function initials(email) {
+    var local = String(email || "").split("@")[0].toLowerCase();
+    var segs = local.split(/[._-]+/).filter(Boolean);
+    var s = segs.length >= 2 ? segs[0][0] + segs[1][0] : local.replace(/[^a-z0-9]/g, "").slice(0, 2);
+    if (!s) s = "u";
+    if (s.length < 2) s += s[0];
+    return s.slice(0, 2);
+  }
   var CSS =
     // normal-case + no letter-spacing so the email reads right even inside the viewer's uppercase top bar
     "#acct .acct{display:flex;align-items:center;gap:9px;font-size:13px;min-width:0;text-transform:none;letter-spacing:normal;}" +
@@ -18,25 +30,22 @@
     "#acct .acct-out:hover{border-color:var(--text-subtle,var(--text-muted));}" +
     "#acct .acct-in{color:var(--link);text-decoration:none;font-weight:600;font-size:13px;white-space:nowrap;}" +
     "#acct .acct-in:hover{text-decoration:underline;}" +
-    // Admin: both the indicator (you are an admin) and the way to reach /admin. Fixed violet reads on
-    // every page's ground (light dashboard, dark viewer/account).
-    // #262: the retired #7c6cff and the hardcoded #6a5acd are gone. Follows theme.css's .dpill /
-    // .difftoggle pattern — tinted background, brand-coloured text — because the naive fix (white
-    // on var(--accent)) measures 2.18:1 in dark, WORSE than the 5.31:1 it replaced. This measures
-    // 6.24:1 light and 6.84:1 dark, both clearing AA.
-    "#acct .acct-admin{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;" +
-    "color:var(--accent);background:var(--accent-muted);border:1px solid var(--accent);" +
-    "border-radius:var(--r-pill,20px);padding:1px 7px;white-space:nowrap;flex:0 0 auto;} " +
-    // #262 menu. HAND-ROLLED, not Basecoat: this file mounts on all five pages and the two
-    // viewers load neither basecoat.cdn.min.css nor basecoat.all.min.js, so Basecoat is never the
-    // primary here and there would be no fallback to design.
+    // #281 (epic #276): the avatar-initials trigger replaces the #262 dot+email+Admin-pill+caret
+    // row. Admin stays visible — in the trigger's title tooltip and in the menu's .acct-who — it
+    // just no longer needs its own pill now the trigger isn't a text row with room for one.
     "#acct{position:relative;}" +
-    "#acct .acct-trig{display:flex;align-items:center;gap:9px;font:inherit;font-size:13px;" +
-    "background:none;border:1px solid transparent;border-radius:var(--r-control,8px);" +
-    "padding:3px 7px;cursor:pointer;color:inherit;max-width:min(46vw,320px);}" +
-    "#acct .acct-trig:hover{border-color:var(--border);background:var(--nav-hover,transparent);}" +
-    "#acct .acct-trig[aria-expanded=true]{border-color:var(--border);background:var(--nav-active,transparent);}" +
-    "#acct .acct-caret{flex:0 0 auto;opacity:.55;font-size:10px;}" +
+    "#acct .acct-trig{position:relative;display:flex;align-items:center;justify-content:center;" +
+    "width:28px;height:28px;padding:0;font-family:var(--font-mono,'Geist Mono',monospace);" +
+    "font-size:var(--t-eyebrow);font-weight:600;line-height:1;color:var(--text-muted);" +
+    "background:var(--code-bg);border:1px solid var(--border);border-radius:var(--r-control,8px);" +
+    "cursor:pointer;transition:border-color 160ms ease-out,color 160ms ease-out;}" +
+    "#acct .acct-trig:hover,#acct .acct-trig:focus-visible,#acct .acct-trig[aria-expanded=true]{" +
+    "border-color:var(--text-subtle);color:var(--text);}" +
+    // The liveness dot (#221/#223: "am I still signed in?"), now the trigger's corner badge
+    // instead of its leading glyph. A DISTINCT class from the three non-authenticated states'
+    // .acct-dot: those stay byte-for-byte (#281 AC5), so this cannot reuse or perturb that rule.
+    "#acct .acct-corner{position:absolute;right:-2px;bottom:-2px;width:8px;height:8px;" +
+    "border-radius:50%;background:var(--success);border:2px solid var(--bg);}" +
     "#acct .acct-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:224px;" +
     "background:var(--surface,#fff);border:1px solid var(--border);border-radius:var(--r-card,12px);" +
     "box-shadow:0 10px 30px rgba(0,0,0,.12);padding:6px;}" +
@@ -159,17 +168,19 @@
     var sess = res.sess;
 
     if (sess && sess.authenticated) {
-      // The dot stays the trigger: it encodes session liveness, and "am I still signed in?" is a
-      // real recurring question here (#221, #223). No avatar — there is no identity to depict and
-      // a generated initial-circle would be decoration standing in for information.
+      // #281 (epic #276 avatar-initials decision, reversing #262's "no avatar"): no display name
+      // exists anywhere in the user record (grooming confirmed), so the trigger's two characters
+      // are DERIVED from the email, not chosen. Documented judgement call (groom #281, Q6):
+      // first letters of the first two separator-split local-part segments ("a.kerr" -> "ak"),
+      // else the first two characters of the local part. Always exactly two characters.
+      var init = initials(sess.email);
+      var tip = esc(sess.email) + (sess.is_admin ? " \u00b7 Admin" : "");
       var adminItem = sess.is_admin
         ? '<a class="acct-item" href="/admin">Admin console</a>' : "";
       el.innerHTML =
-        '<button class="acct-trig" type="button" aria-haspopup="menu" aria-expanded="false">' +
-          '<span class="acct-dot" title="Signed in"></span>' +
-          '<span class="acct-email" title="' + esc(sess.email) + '">' + esc(sess.email) + "</span>" +
-          (sess.is_admin ? '<span class="acct-admin">Admin</span>' : "") +
-          '<span class="acct-caret" aria-hidden="true">\u25be</span>' +
+        '<button class="acct-trig" type="button" aria-haspopup="menu" aria-expanded="false" title="' + tip + '">' +
+          esc(init) +
+          '<span class="acct-corner" title="Signed in"></span>' +
         "</button>" +
         '<div class="acct-menu" role="menu" hidden>' +
           '<div class="acct-who"><b>' + esc(sess.email) + "</b>" +
