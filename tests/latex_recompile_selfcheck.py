@@ -8,9 +8,13 @@ stranded at `failed` forever, with a no-op source edit as the only user remedy. 
 is the one sanctioned exception; the poll must stay inert.
 
 Three parts, mirroring the AC groups:
-  A  plain local instance (tectonic absent locally, so every real compile deterministically ends
-     `failed` — exactly the fixture the retry ACs need): retry works, anti-stacking holds,
-     pdf_revision survives via _KEEP, 404s, 507 on a full disk.
+  A  plain local instance, fed a deliberately malformed LaTeX fixture (an undefined control
+     sequence) so every real compile deterministically ends `failed` regardless of whether
+     tectonic happens to be installed on the machine running this check — a TeX error when it
+     is (this exact posture is verified live against staging review ad8722a00e in #250's
+     grounding), "tectonic binary not found" when it is not. Either way `failed` is exactly the
+     fixture the retry ACs need: retry works, anti-stacking holds, pdf_revision survives via
+     _KEEP, 404s, 507 on a full disk.
   B  CompileWorker coalescing, asserted directly with no server (AC 5): N clicks can never make
      more than 1 queued + 1 redo.
   C  hosted instance (stub email, magic-link from the log — the pubcopy stand-up): 401 anonymous,
@@ -84,12 +88,26 @@ def boot(env_extra, module="mdreview"):
 # ================= A: local tier — retry, anti-stacking, _KEEP, 404s, 507 =====================
 srv, base, data = boot({})
 try:
+    # #355: the create arm reads "markdown", not "source" — posting under the wrong key silently
+    # creates an EMPTY-bodied review (POST /api/reviews accepts a missing markdown field with no
+    # error). That accidentally still fails to compile ("no legal \end found"), so this case used
+    # to pass, but for a reason its own comment misstated ("tectonic absent locally" — false on a
+    # machine that has tectonic).
+    #
+    # The fixture must fail for a STATED, environment-independent reason, not an accidental empty
+    # body: three checks below (state == "failed", a strictly newer finished_at, and _KEEP) all
+    # require a compile that fails at the current revision. A well-formed document like a bare
+    # "hi" body compiles clean wherever tectonic is present (verified locally: exit 0, PDF
+    # produced) and would never reach `failed` at all, so the fixture is a deliberately malformed
+    # document (an undefined control sequence) instead: tectonic present -> TeX error, tectonic
+    # absent -> "binary not found". Both ends in `failed`.
     body = json.dumps({"title": "recompile", "kind": "latex",
-                       "source": "\\documentclass{article}\\begin{document}hi\\end{document}"}).encode()
+                       "markdown": "\\documentclass{article}\\begin{document}"
+                                   "\\mdreviewSelfcheckUndefinedXyz\\end{document}"}).encode()
     _, _, raw = req(base + "/api/reviews", "POST", body, {"Content-Type": "application/json"})
     rid = json.loads(raw)["id"]
     st1 = wait_state(base, rid, ("failed",))
-    check("A: local compile deterministically fails (no tectonic)", st1.get("state") == "failed", st1)
+    check("A: local compile deterministically fails (malformed fixture)", st1.get("state") == "failed", st1)
     t1 = st1.get("finished_at")
 
     # Anti-stacking: polls do not retry a failed compile at the current revision.
@@ -136,7 +154,12 @@ finally:
 # then restart the SAME data dir under an absurd floor and probe only the recompile.
 srv, base, data = boot({})
 try:
-    body = json.dumps({"title": "floor", "kind": "latex", "source": "x"}).encode()
+    # Must look enough like TeX to pass the #188 create-time guard (a non-empty body with none of
+    # \documentclass/\begin{document}/\input/\include is rejected 400 before a review even exists);
+    # unlike case A this one doesn't care whether the compile itself ok's or fails (wait_state below
+    # accepts either), so a genuine minimal document is simplest.
+    body = json.dumps({"title": "floor", "kind": "latex",
+                       "markdown": "\\documentclass{article}\\begin{document}floor\\end{document}"}).encode()
     _, _, raw = req(base + "/api/reviews", "POST", body, {"Content-Type": "application/json"})
     rid2 = json.loads(raw)["id"]
     wait_state(base, rid2, ("failed", "ok"))
