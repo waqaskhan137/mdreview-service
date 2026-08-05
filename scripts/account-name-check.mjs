@@ -272,6 +272,23 @@ try {
   ok('AC (XSS/account row, <img onerror>): no real <img> element was created in the row/panel',
      !xssImgInRow.injectedImg, xssImgInRow);
 
+  // A DIFFERENT vector the two payloads above cannot exercise: neither contains a `"`, so neither
+  // can prove the prefilled input's value="..." ATTRIBUTE context is escaped — `<`/`>` need no
+  // escaping to stay inert inside a quoted attribute, only `"` (attribute breakout) does. Proven by
+  // mutation: dropping esc() around that one value="...' interpolation left every check above
+  // GREEN, because neither payload contains a quote. window.name-input.onfocus is a reliable,
+  // event-free probe: it is only a real function if the browser actually parsed a genuine
+  // onfocus="..." attribute, which requires the quote to have broken out.
+  const XSS_ATTR = 'x" onfocus="window.__xssFired=3';    // 33 chars
+  await setNameViaUI(XSS_ATTR);
+  await sleep(150);
+  const xssAttrInRow = await evalJSON(`JSON.stringify({
+    inputValueText: document.getElementById('name-input').value,
+    hasOnfocusHandler: typeof document.getElementById('name-input').onfocus === 'function',
+  })`);
+  ok('AC (XSS/account row, attribute breakout): a double-quote in the name cannot escape value="..."',
+     xssAttrInRow.inputValueText === XSS_ATTR && !xssAttrInRow.hasOnfocusHandler, xssAttrInRow);
+
   // Reload the page (a fresh parse of server-rendered/JS-rendered content) — the row must STILL
   // read the literal stored text, and still create no real <img>/<script> element.
   await navAccount();
@@ -280,14 +297,19 @@ try {
     rowValueText: document.querySelector('.acct-row[data-row="name"] .acct-row-value').textContent,
     injectedImg: !!document.querySelector('#acct-slot img'),
     injectedScript: !!document.querySelector('#acct-slot script'),
+    hasOnfocusHandler: typeof document.getElementById('name-input').onfocus === 'function',
   })`);
-  ok('AC (XSS/account row): still the literal text and still no injected element after a fresh page load',
-     xssAfterReload.rowValueText === XSS_IMG && !xssAfterReload.injectedImg && !xssAfterReload.injectedScript,
-     xssAfterReload);
+  ok('AC (XSS/account row): still the literal text and still no injected element/handler after a fresh page load',
+     xssAfterReload.rowValueText === XSS_ATTR && !xssAfterReload.injectedImg && !xssAfterReload.injectedScript &&
+     !xssAfterReload.hasOnfocusHandler, xssAfterReload);
 
-  // Top-bar menu: the same stored value reaches .acct-who via textContent, per account.js's esc().
-  // window.__xssFired was reset by the navAccount() reload just above (a fresh page = a fresh
-  // window with no prior flag) — re-arm it so a real fire here is actually observable.
+  // Top-bar menu: the same img-onerror payload reaches .acct-who via textContent, per account.js's
+  // esc(). Set it explicitly here (the row currently holds XSS_ATTR from the check above) so this
+  // block does not depend on leftover state from earlier ones. window.__xssFired was also reset by
+  // the navAccount() reload above (a fresh page = a fresh window) — re-arm it.
+  await evaluate(`document.querySelector('.acct-row[data-row="name"]').click(); true`);
+  await sleep(80);
+  await setNameViaUI(XSS_IMG);
   await evaluate(`window.__xssFired = 0; true`);
   const xssInMenu = await evalJSON(`(() => {
     document.querySelector('#acct .acct-trig').click();
