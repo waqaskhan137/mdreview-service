@@ -263,6 +263,31 @@ ok('T4: timeAgo(~2d ago) reads "2d ago"', t4.twoDay === '2d ago', t4);
 ok('T4: timeAgo(null) is null, not "NaNm ago" (the honest-fallback contract)', t4.nullTs === null, t4);
 ok('T4: timeAgo(0) is ALSO null (falsy timestamp, same as absent)', t4.zeroTs === null, t4);
 
+// ---- T5: topbar does not overflow at narrow widths --------------------------------------------
+// The switch and pill are two substantial new elements in a fixed-height, single-row topbar whose
+// filename already truncates via ellipsis. Mutation-testing flex-shrink:0 on them clipped the
+// ENTIRE "<- Reviews | filename | LATEX" group off-canvas at 600px (body{overflow:hidden} makes
+// this a SILENT clip, not a scrollbar) — a break tests/latex_reskin_selfcheck.sh's RB4 would never
+// catch, since it only asserts pane display at 800px, never topbar geometry. 800px is asserted
+// because it is the exact width RB4/RB5 already load; the narrower widths are this ticket's own
+// regression, caught here since nothing else in the suite would.
+for (const w of [800, 640, 560]) {
+  await evalJs(`(document.querySelector('#tab-split').click(),true)`);
+  const r = await send('Emulation.setDeviceMetricsOverride', { width: w, height: 900, deviceScaleFactor: 1, mobile: false });
+  await sleep(250);
+  const d = JSON.parse(await evalJs(`JSON.stringify({
+    overflowX: document.body.scrollWidth > window.innerWidth,
+    homeRect: document.querySelector('.home').getBoundingClientRect(),
+    pillRight: document.querySelector('#compilepill').getBoundingClientRect().right,
+    innerWidth: window.innerWidth,
+  })`));
+  ok(`${w}px: no horizontal overflow (topbar content clipped off-canvas)`, d.overflowX === false, d);
+  ok(`${w}px: "Reviews" link stays on-screen (not crushed by the new pill/switch, the mutation this caught)`,
+     d.homeRect.width > 0 && d.homeRect.left >= 0, d);
+  ok(`${w}px: the compile pill's right edge stays within the viewport`, d.pillRight <= d.innerWidth, d);
+}
+await send('Emulation.setDeviceMetricsOverride', { width: 1500, height: 900, deviceScaleFactor: 1, mobile: false });
+
 console.log(failed ? `\n${failed} case(s) failed` : '\nall #332 three-way/pill cases pass');
 await cleanup();
 process.exit(failed ? 1 : 0);

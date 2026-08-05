@@ -42,12 +42,21 @@
   .tb-right{font-size:12px;color:var(--text-muted);letter-spacing:.03em;white-space:nowrap;font-variant-numeric:tabular-nums;}
 
   /* #332 3-way Source/Split/Paper switch — lives in the topbar, ALWAYS visible (it replaces the
-     old <=880px-only tabbar, it does not layer on top of it). `.tabbar` stays as a second class on
-     the same element purely so tests/latex_reskin_selfcheck.sh's RB4 (`C(".tabbar","display")`)
-     keeps resolving; the actual look comes from `.viewswitch`. #tab-src/#tab-pdf keep the ids and
-     aria-pressed contract the old 2-state tabbar had (mdKeys "1"/"2", RB4/RB5) so neither needed a
-     rewrite; #tab-split is the new third segment. */
-  .viewswitch{display:flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:var(--r-control);background:var(--surface);flex:0 0 auto;}
+     old <=880px-only tabbar outright, no `.tabbar` class survives: a class kept only so a test's
+     selector still resolved would itself be the #265-class bug this repo documents elsewhere, a
+     green check discriminating nothing. tests/latex_reskin_selfcheck.sh's RB4/RB5 select
+     #viewswitch now, and assert it is visible at a WIDE width too, which is the actual behaviour
+     change). #tab-src/#tab-pdf keep the ids and aria-pressed contract the old 2-state tabbar had
+     (mdKeys "1"/"3", RB4/RB5) so neither needed a rewrite; #tab-split is the new third segment. */
+  /* flex-shrink stays at its default (1), NOT 0: a fixed-width topbar row with `justify-content:
+     space-between` puts these two new elements beside .tb-left, and .tb-left's own filename
+     already truncates via text-overflow:ellipsis. flex-shrink:0 here would force ALL narrow-
+     viewport squeeze onto .tb-left alone — confirmed by mutation-testing this exact property to 0,
+     which clipped the ENTIRE "← Reviews | filename | LATEX" group off-screen at 600px width
+     (tests/latex_reskin_selfcheck.sh has no narrower-than-800px case, so that regression would
+     have shipped unnoticed). Letting these shrink toward their own min-content width instead
+     shares the pressure, and #topstate (below) is hidden below 880px to buy the rest of the room. */
+  .viewswitch{display:flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:var(--r-control);background:var(--surface);}
   .viewswitch button{font:inherit;font-size:12px;color:var(--text-muted);background:none;border:none;
     height:26px;padding:0 11px;border-radius:var(--r-control);cursor:pointer;white-space:nowrap;}
   .viewswitch button:hover{color:var(--text);}
@@ -73,7 +82,7 @@
      #pdfstate/#recompilebtn keep their ids — refreshPdf()/the #250 click handler are unchanged,
      only where these two elements SIT moved (out of the removed per-pane .pdfbar, into the topbar). */
   .compilepill{display:flex;align-items:center;height:28px;border:1px solid var(--border);
-    border-radius:var(--r-control);overflow:hidden;background:var(--surface);flex:0 0 auto;}
+    border-radius:var(--r-control);overflow:hidden;background:var(--surface);}
   #pdfstate{display:inline-flex;align-items:center;gap:7px;height:100%;padding:0 10px;
     font-size:12px;color:var(--text-muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
   #pdfstate .ic{display:flex;flex:0 0 auto;}
@@ -87,6 +96,16 @@
     font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
   #recompilebtn:hover{background:var(--accent-strong);}
   #recompilebtn[disabled]{opacity:.55;cursor:default;}
+  /* #332/#320: recompile is owner-only server-side (src/latex_review/module.py's _recompile
+     docstring: "Auth mirrors every /api/latex arm: 401 anon, 404 non-owner" — the SAME custody
+     tier #editbtn already gates on via canEdit, #291). It used to be invisible to everyone except
+     while body.compile-failed, which incidentally hid this gap; making it a permanent pill segment
+     removes that cover, so it needs the gate #editbtn already has, not a new one. Both start
+     `hidden` in the markup (never a flash for the common view-only case) and are revealed together
+     in boot() once canEdit is known — an explicit `display` beats the UA's [hidden]{display:none}
+     (the .difftoggle/.srcscroll trap this file documents elsewhere), so both need saying here. */
+  #recompilebtn[hidden]{display:none;}
+  .compilepill .cp-sep[hidden]{display:none;}
   .split{flex:1;display:flex;min-height:0;}
   .srcpane{flex:0 0 46%;min-width:280px;display:flex;flex-direction:column;min-height:0;background:var(--bg);}
   .vdiv{flex:0 0 5px;cursor:col-resize;background:var(--border);position:relative;}
@@ -305,6 +324,11 @@
      squeezing both to half width. Source-only/Paper-only already hide the other pane via the
      view-source/view-paper rules above, at every width, so they need nothing extra here. */
   @media (max-width:880px){
+    /* #332: the topbar row got two new, non-collapsible controls (the switch, the pill). Below
+       this width there is not room for the switch, the pill, AND the "project · vN" text, so
+       #topstate — informational and already shown nowhere else as the only copy, but the LEAST
+       essential of the three since the filename is still visible in .tb-left — is what gives. */
+    #topstate{display:none;}
     .split{flex-direction:column;}
     .vdiv{display:none;}
     .srcpane{flex:1;min-width:0;}
@@ -395,15 +419,15 @@
   <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span>
     <span class="filename" id="filename">loading…</span><span class="typechip">LATEX</span></div>
   <div class="tb-right" style="display:flex;align-items:center;gap:14px">
-    <div class="viewswitch tabbar" id="viewswitch" role="tablist" aria-label="View">
+    <div class="viewswitch" id="viewswitch" role="tablist" aria-label="View">
       <button type="button" id="tab-src" aria-pressed="false">Source</button>
       <button type="button" id="tab-split" aria-pressed="true">Split</button>
       <button type="button" id="tab-pdf" aria-pressed="false">Paper</button>
     </div>
     <div class="compilepill" id="compilepill">
       <span id="pdfstate">PDF</span>
-      <span class="cp-sep" aria-hidden="true"></span>
-      <button id="recompilebtn" type="button" title="Re-run the compile at the current revision">Recompile</button>
+      <span class="cp-sep" id="cpsep" aria-hidden="true" hidden></span>
+      <button id="recompilebtn" type="button" title="Re-run the compile at the current revision" hidden>Recompile</button>
     </div>
     <span id="topstate"></span><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
 </header>
@@ -1065,6 +1089,9 @@ async function boot(){
     // tiers, false for a comment/view grantee. One extra field off a request the page already
     // makes, not a new one.
     canEdit=!!s.can_edit;$('#editbtn').hidden=!canEdit;
+    // #332/#320: same gate, same custody tier as #editbtn above — see the CSS comment by
+    // #recompilebtn for why the control needs this now that it is no longer failure-gated.
+    $('#recompilebtn').hidden=!canEdit;$('#cpsep').hidden=!canEdit;
     setCommentVisible(s.can_comment!==false);}catch(e){}   // #320
   await refreshDiffAvail();   // reveals the toggle if an earlier version exists; never opens it
   poll();
