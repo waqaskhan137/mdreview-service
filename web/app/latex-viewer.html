@@ -1126,7 +1126,12 @@ function poll(){
   $('#resbtn').onclick=()=>{
     const show=!$('#resolved').classList.contains('show');
     $('#resolved').classList.toggle('show',show);
-    if(show)$('#cmtdock').classList.remove('show');
+    if(show){
+      $('#cmtdock').classList.remove('show');
+      // #cmtbtn's aria-pressed tracks #cmtdock at narrow widths (syncCmtBtn) — closing the dock
+      // FROM HERE has to re-sync it too, or #cmtbtn keeps reporting pressed after this closed it.
+      syncCmtBtn($('.srcpane').clientWidth>=640);
+    }
   };
   window.addEventListener('resize',()=>{try{layoutCards();}catch(e){}});
 })();

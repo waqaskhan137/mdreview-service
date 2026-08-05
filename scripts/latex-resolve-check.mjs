@@ -19,6 +19,17 @@
 //   AC5 THE ticket's namesake: after the undo window fully expires with no click, the resolved
 //       thread is STILL reachable and reopenable from the panel, and nothing auto-reverted
 //       server-side in the meantime. This is what #287 refused to ship here without.
+//   AC6 (static) none of the CSS this ticket adds declares font-family/size/weight/line-height/
+//       letter-spacing, checked against the page this instance actually SERVED — AGENTS.md rule 6
+//       has no existing mechanical check that reaches latex-viewer.html specifically (reading_font
+//       _selfcheck.sh / viewer_polish_selfcheck.sh both load a markdown review, i.e. viewer.html).
+//   also: a narrow-width (<640px pane) regression for #resbtn/#cmtbtn sharing one dock corner, and
+//       a zero-page-exceptions check on load (the general belt for "a throw here silently kills
+//       every LATER addEventListener", covering the new mdKeys.register() entry too).
+//
+// NOT DELIVERED HERE: AC8 (a real browser on staging, signed in as the fixture owner, mirroring
+// tests/resolve_undo_selfcheck.sh's own header, which names its undelivered staging AC the same
+// way) — this script boots a throwaway LOCAL instance. AC8 is stage-8 evidence, not a local check.
 //
 // Every seeded comment is created HERE, over the real HTTP API against the real running instance
 // (fetch() from Node) — no synthetic DOM events stand in for a resolve or a reopen; every outcome
@@ -126,7 +137,19 @@ if (!target) { console.error('no page target'); await cleanup(); process.exit(2)
 ws = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise(r => ws.addEventListener('open', r, { once: true }));
 let id = 0; const pending = new Map();
-ws.addEventListener('message', e => { const m = JSON.parse(e.data); if (pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } });
+// Page/console exceptions arrive as CDP EVENTS (no `id`, just `method`+`params`), not as replies
+// to a pending command — collected here so a load-time throw (e.g. a bad mdKeys.register() entry
+// silently killing every addEventListener registered after it) is caught even though nothing in
+// this script directly evaluates the code that threw.
+const pageErrors = [];
+ws.addEventListener('message', e => {
+  const m = JSON.parse(e.data);
+  if (m.id !== undefined) { if (pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } return; }
+  if (m.method === 'Runtime.exceptionThrown') {
+    const d = m.params.exceptionDetails;
+    pageErrors.push(d.exception?.description || d.text || 'unknown exception');
+  }
+});
 const send = (method, params = {}) => new Promise(r => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
 const evaluate = async expr => {
   const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
@@ -161,6 +184,40 @@ ok('the latex viewer actually loaded with the fixture (probe is not vacuous)', r
   await evaluate(`document.readyState + ' gcards=' + document.querySelectorAll('.gcard').length`));
 if (!ready) { console.log('\naborting: nothing to sample'); await cleanup(); process.exit(1); }
 await sleep(400);
+// A thrown error inside a top-level script statement (e.g. a rejected mdKeys.register() entry)
+// silently kills every addEventListener call AFTER it in source order — nothing else in this file
+// would notice, since every other assertion only checks the specific control it targets. Zero
+// exceptions during boot is the cheap, general belt for that whole class of mutation.
+ok('page load: no uncaught exception (a throw here would silently kill every LATER addEventListener)',
+  pageErrors.length === 0, pageErrors);
+
+// ---- static: AC6 (AGENTS.md rule 6 / typography frozen) mechanically checked against what this
+// instance actually SERVED, not a second read of the file on disk. The task's rule is stricter
+// than a "no literal drifted" diff check: NONE of the five properties may appear on any rule this
+// ticket adds, even at a value equal to something the page already had — inherited, never
+// declared. Checked here because no existing suite exercises latex-viewer.html's CSS at all
+// (reading_font_selfcheck.sh / viewer_polish_selfcheck.sh both load a markdown review, i.e.
+// viewer.html — a file this ticket does not touch). ------------------------------------------
+const servedHtml = await evaluate(`fetch('/review/${rid}').then(r=>r.text())`);
+const BANNED = /font-family|font-size|font-weight|line-height|letter-spacing/i;
+function ruleBody(css, selector) {
+  const i = css.indexOf(selector + '{');
+  if (i < 0) return null;
+  const open = i + selector.length;
+  const close = css.indexOf('}', open);
+  return css.slice(open + 1, close);
+}
+const NEW_RULES = ['.gres', '.gres:hover', '#resolved', '#resolved.show', '.reshead', '.resolved-count', '#resempty', '.rcard', '.rcard:first-child'];
+for (const sel of NEW_RULES) {
+  const body = ruleBody(servedHtml, sel);
+  ok(`AC6: ${sel} exists as a rule in the served page`, body !== null, sel);
+  if (body !== null) ok(`AC6: ${sel} declares NO font-family/size/weight/line-height/letter-spacing`, !BANNED.test(body), body.trim());
+}
+// body.viewonly .gdel is the one EXISTING rule this ticket adds a value to (margin-left:auto) —
+// same standard applies to what was added, not to the pre-existing font-size:11px it inherits.
+const viewonlyGdel = ruleBody(servedHtml, 'body.viewonly .gdel');
+ok('AC6: body.viewonly .gdel (this ticket\'s one addition to an existing rule) declares no font-*',
+  viewonlyGdel !== null && !BANNED.test(viewonlyGdel), viewonlyGdel);
 
 // #railcol is the live rail; renderComments() also mirrors each card into #cmtdock (the narrow
 // floating dock) via cloneNode, so counting '.gcard' unscoped double-counts every card. Scope to
@@ -332,6 +389,38 @@ ok('#320: the resolved surface stays a READ surface under viewonly — the card 
   vo.rcardStillReadable === true, vo);
 ok('#320: the panel itself is never hidden by viewonly (only the author controls are)', vo.panelStillVisible === true, vo);
 await evaluate(`setCommentVisible(true); renderComments(); true`);
+
+// ================= narrow-width: #resbtn and #cmtbtn share one dock corner (right:18px;bottom:
+// 70px) at <640px pane widths — #resbtn closes #cmtdock when it opens #resolved, and that has to
+// re-sync #cmtbtn's aria-pressed (syncCmtBtn reads #cmtdock's OWN 'show' class in the narrow
+// branch), or #cmtbtn keeps reporting pressed=true after #resbtn silently closed what it was
+// pointing at. 1000x800 is tests/latex_reskin_selfcheck.sh's OWN RB2 width (srcpane ~46% ≈ 460px,
+// under the 640px threshold, without crossing the 880px stacked-layout breakpoint) — reused here
+// rather than picked fresh, so this exercises the exact narrow shape that suite already trusts. ==
+await send('Emulation.setDeviceMetricsOverride', { width: 1000, height: 800, deviceScaleFactor: 1, mobile: false });
+await sleep(300);
+await evaluate(`(document.querySelector('#tab-split').click(),true)`);   // ensure Split (srcpane present)
+await sleep(200);
+await evaluate(`(document.querySelector('#cmtbtn').click(),true)`);   // open #cmtdock
+await sleep(200);
+const narrowOpen = await evalJson(`JSON.stringify({
+  dockShown: document.getElementById('cmtdock').classList.contains('show'),
+  cmtAria: document.getElementById('cmtbtn').getAttribute('aria-pressed'),
+})`);
+ok('narrow setup: #cmtbtn opened #cmtdock (aria-pressed=true)',
+  narrowOpen.dockShown === true && narrowOpen.cmtAria === 'true', narrowOpen);
+await evaluate(`(document.querySelector('#resbtn').click(),true)`);   // open #resolved — must close #cmtdock
+await sleep(200);
+const narrowAfterResolved = await evalJson(`JSON.stringify({
+  dockShown: document.getElementById('cmtdock').classList.contains('show'),
+  resolvedShown: document.getElementById('resolved').classList.contains('show'),
+  cmtAria: document.getElementById('cmtbtn').getAttribute('aria-pressed'),
+})`);
+ok('narrow: opening #resolved closes #cmtdock (the two floating panels are mutually exclusive)',
+  narrowAfterResolved.dockShown === false && narrowAfterResolved.resolvedShown === true, narrowAfterResolved);
+ok('narrow: #cmtbtn aria-pressed RE-SYNCS to false when #resbtn closes the dock it was pointing at (not left stale)',
+  narrowAfterResolved.cmtAria === 'false', narrowAfterResolved);
+await send('Emulation.setDeviceMetricsOverride', { width: 1500, height: 900, deviceScaleFactor: 1, mobile: false });
 
 console.log(failed ? `\n${failed} case(s) failed` : '\nall #342 latex-resolve cases pass');
 await cleanup();
