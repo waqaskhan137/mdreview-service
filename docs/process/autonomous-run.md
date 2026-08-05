@@ -128,6 +128,9 @@ deploy: a sibling agent's merge moves the same marker.
    silently overwriting work you never read.
 10. **Stop at G4.** The run swaps to `status:review`. It never closes an issue (G5) and never
     touches `main` (G8).
+11. **Verification fixtures are minted per run, never a standing id on a live environment.** A
+    shared mutable fixture on a live environment is not a fixture (#318): mint it, verify it,
+    release it, every run.
 
 ## Stage 8: real input, and what to do when it will not arrive
 
