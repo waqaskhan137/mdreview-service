@@ -26,9 +26,10 @@
 #      the round trip                                      <- couple rail state to diff toggling
 #   S10 dark theme (explicit [data-theme=dark], the #285 arrival path): same S1/S2 equalities
 #      re-resolved, and the light/dark --bg values must actually differ (guards a vacuous pass)
-#   R1-R4 responsive: <640px pane forces norail regardless of the manual flag, #cmtbtn falls back
-#      to the #cmtdock, a restored wide viewport restores the MANUAL state; 880px tabbar flips
-#      panes and aria-pressed
+#   R1-R5 responsive: <640px pane forces norail regardless of the manual flag, #cmtbtn falls back
+#      to the #cmtdock, a restored wide viewport restores the MANUAL state; #332's #viewswitch is
+#      visible at BOTH a wide (RB0) and an 800px (RB4) width — it replaced the old <=880px-only
+#      tabbar rather than layering on it — and the Source/Paper segments still flip panes + aria
 #   C1 #250 Recompile survives the re-skin: a REAL failed-at-v1 compile (broken .tex over a good
 #      v0), cold load -> body.compile-failed, #recompilebtn visible+enabled+token-styled, #errsum
 #      names the failed and the shown revision. Read-only: the button is never clicked, matching
@@ -218,14 +219,20 @@ m10="$(meas "$runA" S10)"
   *) bad "S10: $m10";; esac
 [ -z "$m10" ] && bad "S10: no measurement"
 
-# ---- run B: responsive floor + tabbar --------------------------------------------------------
+# ---- run B: responsive floor + the #332 3-way switch -------------------------------------------
 R1=$PRE'(()=>{return "RB1 noRail="+document.body.classList.contains("norail")+"|raild="+C(".railcol","display")+"|";})()'
 R2=$PRE'(()=>{return "RB2 noRail="+document.body.classList.contains("norail")+"|raild="+C(".railcol","display")+"|dock="+$q("#cmtdock").classList.contains("show")+"|aria="+$q("#cmtbtn").getAttribute("aria-pressed")+"|";})()'
 R3=$PRE'(()=>{return "RB3 noRail="+document.body.classList.contains("norail")+"|raild="+C(".railcol","display")+"|railOff="+document.body.classList.contains("rail-off")+"|";})()'
-R4=$PRE'(()=>{return "RB4 tab="+C(".tabbar","display")+"|srcd="+C(".srcpane","display")+"|ariaPdf="+$q("#tab-pdf").getAttribute("aria-pressed")+"|";})()'
+# #332: the switch used to be display:none outside the <=880px media query, so a plain "is it
+# flex" read at 800px alone tested the media query, not the switch. It is width-independent now
+# (the actual behaviour change), so RB0 pins it ALSO visible at the wide 1500px width RB1 already
+# loads — a "flex" reading only at 800px, still true today, would otherwise read back green even
+# if #viewswitch reverted to the old <=880px-only gating.
+RB0=$PRE'(()=>{return "RB0 switchd="+C("#viewswitch","display")+"|";})()'
+R4=$PRE'(()=>{return "RB4 switchd="+C("#viewswitch","display")+"|srcd="+C(".srcpane","display")+"|ariaPdf="+$q("#tab-pdf").getAttribute("aria-pressed")+"|";})()'
 R5=$PRE'(()=>{return "RB5 srcd="+C(".srcpane","display")+"|ariaSrc="+$q("#tab-src").getAttribute("aria-pressed")+"|";})()'
 runB="$(retry_if_empty '=> "RB1 ' node "$here/scripts/cdp-shot.mjs" --url "$url1" \
-  --resize 1500x900 --wait-for ".ln[data-num='3']" --wait 500 --eval "$R1" \
+  --resize 1500x900 --wait-for ".ln[data-num='3']" --wait 500 --eval "$R1" --eval "$RB0" \
   --click "#cmtbtn" --wait 200 \
   --resize 1000x800 --wait 500 --eval "$R2" \
   --click "#cmtbtn" --wait 200 --eval "$R2" \
@@ -237,6 +244,10 @@ runB="$(retry_if_empty '=> "RB1 ' node "$here/scripts/cdp-shot.mjs" --url "$url1
 b1="$(meas "$runB" RB1)"
 [ -n "$b1" ] && case "$b1" in *"noRail=false"*) ok "RB1: wide viewport, responsive norail off, rail visible";; *) bad "RB1: $b1";; esac
 [ -z "$b1" ] && bad "RB1: no measurement"
+b0="$(meas "$runB" RB0)"
+[ -n "$b0" ] && case "$b0" in *"switchd=flex"*) ok "RB0: #viewswitch is ALSO visible at 1500px (width-independent, the #332 behaviour change)";;
+  *) bad "RB0: $b0";; esac
+[ -z "$b0" ] && bad "RB0: no measurement"
 b2a="$(meas "$runB" RB2)"; b2b="$(meas "$runB" RB2 2)"
 if [ -n "$b2a" ] && [ -n "$b2b" ]; then
   { [ "$(field "$b2a" noRail)" = "true" ] && [ "$(field "$b2a" raild)" = "none" ]; } \
@@ -250,7 +261,7 @@ b3="$(meas "$runB" RB3)"
   *) bad "RB3: manual state lost across the responsive round trip — $b3";; esac
 [ -z "$b3" ] && bad "RB3: no measurement"
 b4="$(meas "$runB" RB4)"
-[ -n "$b4" ] && case "$b4" in *"tab=flex|srcd=none|ariaPdf=true"*) ok "RB4: 880px tabbar shows; PDF tab hides the source pane, aria flips";;
+[ -n "$b4" ] && case "$b4" in *"switchd=flex|srcd=none|ariaPdf=true"*) ok "RB4: 800px: #viewswitch still visible; Paper tab hides the source pane, aria flips";;
   *) bad "RB4: $b4";; esac
 [ -z "$b4" ] && bad "RB4: no measurement"
 b5="$(meas "$runB" RB5)"
@@ -261,12 +272,19 @@ b5="$(meas "$runB" RB5)"
 # #286 restructured the failure card: #errsum is gone, replaced by #errhead (the D2 headline) and
 # #errline (the mono line retaining #205's failed/shown revision detail plus the first l.NNN log
 # line). Everything else C1 pins (recompilebtn styling, diff pill) is untouched by that ticket.
-C1=$PRE'(()=>{const rb=$q("#recompilebtn"),s=getComputedStyle(rb);const rc=(()=>{const p=document.createElement("div");p.style.cssText="display:none;border-radius:var(--r-control)";document.body.appendChild(p);const v=getComputedStyle(p).borderRadius;p.remove();return v;})();return "C1 failed="+document.body.classList.contains("compile-failed")+"|vis="+(s.display!=="none")+"|en="+(!rb.disabled)+"|rad="+(s.borderRadius===rc)+"|bg="+(s.backgroundColor===T("--surface"))+"|bord="+(s.borderTopColor===(()=>{const p=document.createElement("div");p.style.cssText="display:none;color:var(--border)";document.body.appendChild(p);const v=getComputedStyle(p).color;p.remove();return v;})())+"|dt="+(getComputedStyle($q("#difftoggle")).display!=="none")+"|head="+btoa(unescape(encodeURIComponent($q("#errhead").textContent)))+"|line="+btoa(unescape(encodeURIComponent($q("#errline").textContent)))+"|";})()'
+# #332: #recompilebtn moved from a bordered .btn.recompile (--surface bg, --border border, shown
+# only while body.compile-failed) into the joined .compilepill's right segment — accent-filled,
+# --bg text, no border of its own (the pill container carries the border; the two segments read as
+# one control, mock scraps/04-latex.html), and ALWAYS present, not gated to the failed state. `bg`
+# and `txt` replace the old `bg`/`bord` checks accordingly; `vis`/`en`/`rad`/`dt` are unchanged and
+# still meaningful (vis is now trivially true, which is itself the point — it proves #332 did not
+# accidentally reintroduce the old display:none gate).
+C1=$PRE'(()=>{const rb=$q("#recompilebtn"),s=getComputedStyle(rb);const rc=(()=>{const p=document.createElement("div");p.style.cssText="display:none;border-radius:var(--r-control)";document.body.appendChild(p);const v=getComputedStyle(p).borderRadius;p.remove();return v;})();const P=t=>{const p=document.createElement("div");p.style.cssText="display:none;color:var("+t+")";document.body.appendChild(p);const v=getComputedStyle(p).color;p.remove();return v;};return "C1 failed="+document.body.classList.contains("compile-failed")+"|vis="+(s.display!=="none")+"|en="+(!rb.disabled)+"|rad="+(s.borderRadius===rc)+"|bg="+(s.backgroundColor===T("--accent"))+"|txt="+(s.color===P("--bg"))+"|dt="+(getComputedStyle($q("#difftoggle")).display!=="none")+"|head="+btoa(unescape(encodeURIComponent($q("#errhead").textContent)))+"|line="+btoa(unescape(encodeURIComponent($q("#errline").textContent)))+"|";})()'
 runC="$(retry_if_empty '=> "C1 ' node "$here/scripts/cdp-shot.mjs" --url "$url2" \
   --resize 1500x900 --wait-for ".ln" --wait 1500 --eval "$C1")"
 c1="$(meas "$runC" C1)"
 if [ -z "$c1" ]; then bad "C1: no measurement"; else
-  case "$c1" in *"failed=true|vis=true|en=true|rad=true|bg=true|bord=true|dt=true"*)
+  case "$c1" in *"failed=true|vis=true|en=true|rad=true|bg=true|txt=true|dt=true"*)
       ok "C1: cold-load failed compile -> #recompilebtn visible, enabled, token-styled; diff pill visible (history exists)";;
     *) bad "C1: $c1";; esac
   head="$(field "$c1" head | python3 -c 'import sys,base64;print(base64.b64decode(sys.stdin.read().strip()).decode("utf-8"))' 2>/dev/null)"
