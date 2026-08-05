@@ -60,12 +60,17 @@ def req(url, method="GET", data=None, headers=None):
         return e.code, dict(e.headers), e.read()
 
 
-def wait_state(base, rid, states, tries=60):
+def wait_state(base, rid, states, tries=60, newer_than=None):
+    """Poll until state is one of `states`. `newer_than` closes a real race: right after a POST
+    that triggers a fresh compile, a poll landing before `enqueue` has written "queued" observes
+    the PREVIOUS terminal status untouched — same state, same finished_at, not a new compile at
+    all. Requiring finished_at to differ from a caller-supplied prior value means a stale read is
+    correctly NOT mistaken for the new compile's result."""
     st = {}
     for _ in range(tries):
         _, _, raw = req("%s/api/latex/%s/compile" % (base, rid))
         st = json.loads(raw)
-        if st.get("state") in states:
+        if st.get("state") in states and (newer_than is None or st.get("finished_at") != newer_than):
             return st
         time.sleep(0.5)
     return st
@@ -125,7 +130,7 @@ try:
     stq = json.loads(raw)
     check("A: POST /recompile returns 200 with the status shape", code == 200 and "state" in stq, (code, stq))
     check("A: response carries has_pdf and pdf_revision", "has_pdf" in stq and "pdf_revision" in stq, stq)
-    st2 = wait_state(base, rid, ("failed",))
+    st2 = wait_state(base, rid, ("failed",), newer_than=t1)
     check("A: the compile actually re-ran (strictly newer finished_at)",
           st2.get("finished_at") and t1 and st2["finished_at"] > t1, (t1, st2.get("finished_at")))
 
