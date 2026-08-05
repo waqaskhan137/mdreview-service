@@ -205,9 +205,15 @@
   .ghead{display:flex;gap:6px;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;}
   .gref{color:var(--accent);font-weight:700;}
   .gq{color:var(--text-muted);font-style:italic;font-size:12px;max-height:48px;overflow:hidden;}
-  .gdel{margin-left:auto;background:none;border:none;cursor:pointer;font:inherit;font-size:11px;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
+  .gdel{background:none;border:none;cursor:pointer;font:inherit;font-size:11px;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
   .gdel:hover{color:var(--danger);background:var(--danger-bg);}
   .gdel.armed{color:var(--bg);background:var(--danger);font-weight:600;}
+  /* #342: Resolve — always first of the .ghead actions when present, so it alone carries
+     margin-left:auto (Delete, conditional, just follows it in DOM order and rides along — the
+     same convention viewer.html's #287 documents). No font declared: font:inherit (not a size)
+     escapes the button UA-stylesheet default, per AGENTS.md rule 6. */
+  .gres{margin-left:auto;align-self:baseline;background:none;border:none;cursor:pointer;font:inherit;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
+  .gres:hover{color:var(--success);background:var(--success-bg);}
   /* #286: optimistic "posting a comment" card (AC9) — opacity .6 while in flight, full opacity
      with a danger edge once failed, matching the mock's two-state card. */
   .gcard.pending{opacity:.6;}
@@ -236,7 +242,12 @@
   #viewonly{display:none;font-size:var(--t-meta);color:var(--text-muted);}
   body.viewonly #viewonly{display:inline;}
   body.viewonly .greply,body.viewonly .reopenbox,body.viewonly #addbtn,body.viewonly #pop,
-  body.viewonly .addb{display:none !important;}
+  body.viewonly .addb,body.viewonly .gres{display:none !important;}
+  /* .gres normally carries the .ghead row's only margin-left:auto (see .gres above); hiding it
+     under viewonly takes that auto margin out of the flex flow too, or a viewonly reader's own
+     un-engaged .gdel (the one case deletable=true reaches) would sit packed left instead of flush
+     right — the same fix viewer.html's #320 CSS applies to its own .gdel. */
+  body.viewonly .gdel{margin-left:auto;}
   .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
   .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font:inherit;font-size:12.5px;border:1px solid var(--border);
     border-radius:var(--r-control);padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
@@ -317,6 +328,20 @@
     background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-dock);padding:12px;}
   #cmtdock.show{display:block;}
   #cmtdock .gcard{position:static;width:auto;margin-bottom:8px;box-shadow:none;}
+  /* #342: Resolved surface — ported from viewer.html's #resolved/.rcard into this file's own
+     tokens. Anchored at the SAME dock spot as #cmtdock and mutually exclusive with it (the click
+     handlers below close one when opening the other), so the two never occupy the same corner at
+     once. .ghead/.gref/.gq/.gthread/.gentry/.reopenbox are the EXISTING classes above, reused
+     verbatim — nothing here declares a font-family/size/weight/line-height/letter-spacing; text
+     inherits body's (AGENTS.md rule 6). */
+  #resolved{display:none;position:fixed;right:18px;bottom:70px;z-index:55;width:340px;max-height:64vh;overflow:auto;
+    background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-dock);padding:12px;}
+  #resolved.show{display:block;}
+  .reshead{margin:0 0 8px;text-transform:uppercase;color:var(--text-muted);}
+  .resolved-count{color:var(--accent);}
+  #resempty{color:var(--text-muted);}
+  .rcard{border-top:1px solid var(--border-faint);padding:9px 0;}
+  .rcard:first-child{border-top:none;padding-top:0;}
 
   /* #332: the old 2-state tabbar's <=880px gating is gone (the switch is width-independent now,
      styled by .viewswitch above). What is left here is the SPLIT-mode fallback: at this width two
@@ -476,8 +501,13 @@
   <textarea id="popnote" placeholder="Your comment on this line…"></textarea>
   <div class="row"><button class="btn" id="popcancel">Cancel</button><button class="btn primary" id="popsave">Comment</button></div>
 </div>
-<div id="dock"><div id="dockbar"><span id="count">0 open</span><span id="viewonly" title="Ask the owner for comment access">View only</span><button class="btn" id="cmtbtn" aria-pressed="true">Comments</button></div></div>
+<div id="dock"><div id="dockbar"><span id="count">0 open</span><span id="viewonly" title="Ask the owner for comment access">View only</span><button class="btn" id="cmtbtn" aria-pressed="true">Comments</button><button class="btn" id="resbtn" type="button">Resolved 0</button></div></div>
 <div id="cmtdock"></div>
+<div id="resolved">
+  <div class="reshead">Resolved <span class="resolved-count">0</span></div>
+  <div id="resitems"></div>
+  <div id="resempty">No resolved comments yet.</div>
+</div>
 <div id="toast" role="status"></div>
 
 <script src="/static/linediff.js"></script>
@@ -723,12 +753,30 @@ async function replyTo(cid,text){if(!text)return false;
     if(commentDenied(r,'Reply failed'))return false;
     await fetchComments();renderComments();return true;}
   catch(e){toast('Reply failed');return false;}}
+// #342: shared with viewer.html's #287 window — a UI promising 10s cannot be served by a toast
+// living toastAction's plain 7000ms default (kept, unchanged, for the "Draft updated by AI" call
+// site above).
+const UNDO_MS=10000;
 async function reopenComment(cid,text){
   try{const r=await fetch(API+'/comments/'+cid+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify(text?{text:text}:{})});
     if(commentDenied(r,'Reopen failed'))return false;
     await fetchComments();renderComments();toast('Reopened');return true;}
   catch(e){toast('Reopen failed');return false;}}
+// #342: port of viewer.html's resolveComment — commit-then-inverse (#179 shape). The resolve is
+// already committed (200 received, panel repainted into #resolved) before the toast shows; undo
+// is just the existing reopenComment() above, offered back for UNDO_MS. This is the ONLY resolve
+// call site — no second resolve/reopen implementation is added anywhere in this file.
+async function resolveComment(cid){
+  try{
+    const r=await fetch(API+'/comments/'+cid+'/resolve',{method:'POST',
+      headers:{'Content-Type':'application/json','X-Mdreview-Client':'viewer'},body:'{}'});
+    if(commentDenied(r,'Could not resolve'))return false;
+    await fetchComments();renderComments();
+    toastAction('Comment resolved','undo',()=>{reopenComment(cid,'');},UNDO_MS);
+    return true;
+  }catch(e){toast('Could not resolve');return false;}
+}
 async function deleteComment(cid){
   try{const r=await fetch(API+'/comments/'+cid,{method:'DELETE'});
     if(!r.ok&&r.status!==404){toast('Could not delete');return;}
@@ -783,6 +831,7 @@ function renderComments(){
   document.querySelectorAll('mark.cmt').forEach(m=>{const p=m.parentNode;while(m.firstChild)p.insertBefore(m.firstChild,m);p.removeChild(m);p.normalize();});
   document.querySelectorAll('.ln').forEach(l=>l.classList.remove('has-c'));
   const active=(comments||[]).filter(c=>c.status!=='resolved');
+  const resolved=(comments||[]).filter(c=>c.status==='resolved');
   const rail=$('#railcol'),dock=$('#cmtdock');rail.innerHTML='';
   const cards=[];
   active.forEach(c=>{
@@ -791,7 +840,10 @@ function renderComments(){
     const ref=(ln&&ln.dataset.num)||c.anchor.block_num||'';
     const card=document.createElement('div');card.className='gcard';card.dataset.id=c.comment_id;
     const deletable=!(c.thread||[]).some(e=>e.role==='agent');
+    // #342: Resolve — first ghead action when present, so it alone carries margin-left:auto (see
+    // .gres in the stylesheet); Delete (conditional) just follows it in DOM order.
     card.innerHTML='<div class="ghead"><span class="gref">'+(ref?'L'+esc(ref):'')+'</span> <span class="gq">'+esc(qsnippet(c))+'</span>'+
+      '<button class="gres" type="button" data-act="resolve" title="Resolve this thread">Resolve</button>'+
       (deletable?'<button class="gdel" data-act="delete" title="Delete this comment — permanent">Delete</button>':'')+'</div>'+
       threadHtml(c)+'<div class="greply"><textarea placeholder="Reply…"></textarea><button class="btn" data-act="reply">Reply</button></div>';
     card._anchor=ln;rail.appendChild(card);cards.push(card);
@@ -804,6 +856,23 @@ function renderComments(){
     const pcard=document.createElement('div');pcard.innerHTML=pendingCardHtml(pendingPost);
     const pel=pcard.firstElementChild;pel._anchor=pln;rail.appendChild(pel);wirePendingCard(pel);cards.push(pel);
   }
+  // #342: resolved -> Resolved panel cards (+ reopen). Port of viewer.html's #resolved/.rcard;
+  // reopenComment() above is the ONLY reopen implementation, reused unchanged (AC2 — no second
+  // one is added here).
+  const RI=$('#resitems');RI.innerHTML='';
+  resolved.forEach(c=>{
+    const r=document.createElement('div');r.className='rcard';r.dataset.id=c.comment_id;
+    r.innerHTML='<div class="ghead"><span class="gref">'+(c.anchor.block_num?'L'+esc(c.anchor.block_num):'')+'</span> <span class="gq">'+esc(qsnippet(c))+'</span></div>'+
+      threadHtml(c)+
+      '<div class="reopenbox"><textarea placeholder="Optional reply when reopening…"></textarea><button type="button" class="btn" data-act="reopen">Reopen</button></div>';
+    RI.appendChild(r);
+  });
+  $('#resempty').style.display=resolved.length?'none':'block';
+  $('#resbtn').textContent='Resolved '+resolved.length;
+  $('.resolved-count').textContent=resolved.length;
+  RI.querySelectorAll('.rcard [data-act=reopen]').forEach(b=>{
+    b.onclick=e=>{e.stopPropagation();const ta=b.parentNode.querySelector('textarea');reopenComment(b.closest('.rcard').dataset.id,ta.value.trim());};
+  });
   wireCards(rail);
   // mirror into the narrow dock (static list)
   dock.innerHTML='<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:8px">Comments ('+active.length+')</div>';
@@ -817,6 +886,8 @@ function wireCards(root){
     const rb=card.querySelector('[data-act=reply]');
     if(rb)rb.onclick=e=>{e.stopPropagation();const ta=card.querySelector('textarea');const v=ta.value.trim();if(v)replyTo(card.dataset.id,v);};
     const ta=card.querySelector('textarea');if(ta)ta.onclick=e=>e.stopPropagation();
+    const res=card.querySelector('[data-act=resolve]');
+    if(res)res.onclick=e=>{e.stopPropagation();resolveComment(card.dataset.id);};
     const del=card.querySelector('[data-act=delete]');
     if(del)del.onclick=e=>{e.stopPropagation();const cid=card.dataset.id;
       if(del.dataset.armed){deleteComment(cid);return;}
@@ -1046,8 +1117,16 @@ function poll(){
       if(!RAILOFF)layoutCards();else syncCmtBtn(true);
     }else{
       $('#cmtdock').classList.toggle('show');
+      if($('#cmtdock').classList.contains('show'))$('#resolved').classList.remove('show');   // #342
       syncCmtBtn(false);
     }
+  };
+  // #342: #resbtn toggles the Resolved panel. It floats at the SAME dock spot as the narrow
+  // #cmtdock (right:18px;bottom:70px), so opening one closes the other rather than stacking.
+  $('#resbtn').onclick=()=>{
+    const show=!$('#resolved').classList.contains('show');
+    $('#resolved').classList.toggle('show',show);
+    if(show)$('#cmtdock').classList.remove('show');
   };
   window.addEventListener('resize',()=>{try{layoutCards();}catch(e){}});
 })();
@@ -1056,14 +1135,14 @@ function toast(m){const t=$('#toast');t.classList.remove('hasaction');t.textCont
 // Toast carrying one action. Used for "the AI rewrote your paper — see what changed", which is the
 // moment the question is raised, so it is the right place to answer it. Longer-lived than a plain
 // toast because a 1.8s window is not long enough to read a sentence and then aim at a button.
-function toastAction(m,label,fn){
+function toastAction(m,label,fn,ms){
   const t=$('#toast');
   t.classList.add('hasaction');
   t.innerHTML='<span></span><button type="button" class="toastbtn"></button>';
   t.querySelector('span').textContent=m;
   const b=t.querySelector('.toastbtn');b.textContent=label;
   b.onclick=()=>{t.style.opacity=0;t.classList.remove('hasaction');fn();};
-  t.style.opacity=1;clearTimeout(tTimer);tTimer=setTimeout(()=>{t.style.opacity=0;t.classList.remove('hasaction');},7000);
+  t.style.opacity=1;clearTimeout(tTimer);tTimer=setTimeout(()=>{t.style.opacity=0;t.classList.remove('hasaction');},ms||7000);
 }
 
 // #189: AWAIT the write. writeText returns a promise, so a synchronous try/catch around it cannot
@@ -1205,6 +1284,7 @@ mdKeys.register([
   {keys:"2", label:"Show source and paper side by side", run:()=>mdKeys.click("#tab-split")},
   {keys:"3", label:"Show the compiled paper", run:()=>mdKeys.click("#tab-pdf")},
   {keys:"c", label:"Toggle comments", run:()=>mdKeys.click("#cmtbtn")},
+  {keys:"r", label:"Toggle resolved comments", run:()=>mdKeys.click("#resbtn")},
   {keys:"a", label:"Add a comment",            run:()=>mdKeys.click("#addbtn")},
   {keys:"mod+Enter", label:"Save the comment you are writing", keepInField:true, run:()=>{
     const pop=$('#pop');
