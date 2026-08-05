@@ -8,9 +8,16 @@ stranded at `failed` forever, with a no-op source edit as the only user remedy. 
 is the one sanctioned exception; the poll must stay inert.
 
 Three parts, mirroring the AC groups:
-  A  plain local instance (tectonic absent locally, so every real compile deterministically ends
-     `failed` — exactly the fixture the retry ACs need): retry works, anti-stacking holds,
-     pdf_revision survives via _KEEP, 404s, 507 on a full disk.
+  A  plain local instance, fed a deliberately malformed LaTeX fixture (an undefined control
+     sequence) so every real compile deterministically ends `failed` regardless of whether
+     tectonic happens to be installed on the machine running this check — a TeX error when it
+     is (this exact posture is verified live against staging review ad8722a00e in #250's
+     grounding), "tectonic binary not found" when it is not. Either way `failed` is exactly the
+     fixture the retry ACs need: retry works, pdf_revision survives via _KEEP, 404s, 507 on a
+     full disk. Anti-stacking itself (AC 4) is checked twice: once at the HTTP level (a
+     byte-stable finished_at across repeated polls) and once directly against `_self_heal`'s
+     recorded enqueue calls with no server (A2, the same style as B below) — the HTTP form alone
+     cannot distinguish "no enqueue" from "enqueued a redo that left status.json untouched".
   B  CompileWorker coalescing, asserted directly with no server (AC 5): N clicks can never make
      more than 1 queued + 1 redo.
   C  hosted instance (stub email, magic-link from the log — the pubcopy stand-up): 401 anonymous,
@@ -53,12 +60,17 @@ def req(url, method="GET", data=None, headers=None):
         return e.code, dict(e.headers), e.read()
 
 
-def wait_state(base, rid, states, tries=60):
+def wait_state(base, rid, states, tries=60, newer_than=None):
+    """Poll until state is one of `states`. `newer_than` closes a real race: right after a POST
+    that triggers a fresh compile, a poll landing before `enqueue` has written "queued" observes
+    the PREVIOUS terminal status untouched — same state, same finished_at, not a new compile at
+    all. Requiring finished_at to differ from a caller-supplied prior value means a stale read is
+    correctly NOT mistaken for the new compile's result."""
     st = {}
     for _ in range(tries):
         _, _, raw = req("%s/api/latex/%s/compile" % (base, rid))
         st = json.loads(raw)
-        if st.get("state") in states:
+        if st.get("state") in states and (newer_than is None or st.get("finished_at") != newer_than):
             return st
         time.sleep(0.5)
     return st
@@ -84,12 +96,26 @@ def boot(env_extra, module="mdreview"):
 # ================= A: local tier — retry, anti-stacking, _KEEP, 404s, 507 =====================
 srv, base, data = boot({})
 try:
+    # #355: the create arm reads "markdown", not "source" — posting under the wrong key silently
+    # creates an EMPTY-bodied review (POST /api/reviews accepts a missing markdown field with no
+    # error). That accidentally still fails to compile ("no legal \end found"), so this case used
+    # to pass, but for a reason its own comment misstated ("tectonic absent locally" — false on a
+    # machine that has tectonic).
+    #
+    # The fixture must fail for a STATED, environment-independent reason, not an accidental empty
+    # body: three checks below (state == "failed", a strictly newer finished_at, and _KEEP) all
+    # require a compile that fails at the current revision. A well-formed document like a bare
+    # "hi" body compiles clean wherever tectonic is present (verified locally: exit 0, PDF
+    # produced) and would never reach `failed` at all, so the fixture is a deliberately malformed
+    # document (an undefined control sequence) instead: tectonic present -> TeX error, tectonic
+    # absent -> "binary not found". Both ends in `failed`.
     body = json.dumps({"title": "recompile", "kind": "latex",
-                       "source": "\\documentclass{article}\\begin{document}hi\\end{document}"}).encode()
+                       "markdown": "\\documentclass{article}\\begin{document}"
+                                   "\\mdreviewSelfcheckUndefinedXyz\\end{document}"}).encode()
     _, _, raw = req(base + "/api/reviews", "POST", body, {"Content-Type": "application/json"})
     rid = json.loads(raw)["id"]
     st1 = wait_state(base, rid, ("failed",))
-    check("A: local compile deterministically fails (no tectonic)", st1.get("state") == "failed", st1)
+    check("A: local compile deterministically fails (malformed fixture)", st1.get("state") == "failed", st1)
     t1 = st1.get("finished_at")
 
     # Anti-stacking: polls do not retry a failed compile at the current revision.
@@ -104,7 +130,7 @@ try:
     stq = json.loads(raw)
     check("A: POST /recompile returns 200 with the status shape", code == 200 and "state" in stq, (code, stq))
     check("A: response carries has_pdf and pdf_revision", "has_pdf" in stq and "pdf_revision" in stq, stq)
-    st2 = wait_state(base, rid, ("failed",))
+    st2 = wait_state(base, rid, ("failed",), newer_than=t1)
     check("A: the compile actually re-ran (strictly newer finished_at)",
           st2.get("finished_at") and t1 and st2["finished_at"] > t1, (t1, st2.get("finished_at")))
 
@@ -136,7 +162,16 @@ finally:
 # then restart the SAME data dir under an absurd floor and probe only the recompile.
 srv, base, data = boot({})
 try:
-    body = json.dumps({"title": "floor", "kind": "latex", "source": "x"}).encode()
+    # Must look enough like TeX to pass the #188 create-time guard (a non-empty body with none of
+    # \documentclass/\begin{document}/\input/\include is rejected 400 before a review even exists).
+    # This case doesn't care whether the compile itself ok's or fails (wait_state below accepts
+    # either) so, unlike case A, correctness doesn't force a malformed body — but reuse the same
+    # deliberately-broken shape anyway: it fails fast (no font/glyph-list fetch tail), where a
+    # valid document pays the full bundle-download cost off-image (~7s, verified locally) for an
+    # outcome this case discards either way.
+    body = json.dumps({"title": "floor", "kind": "latex",
+                       "markdown": "\\documentclass{article}\\begin{document}"
+                                   "\\mdreviewSelfcheckUndefinedXyz\\end{document}"}).encode()
     _, _, raw = req(base + "/api/reviews", "POST", body, {"Content-Type": "application/json"})
     rid2 = json.loads(raw)["id"]
     wait_state(base, rid2, ("failed", "ok"))
@@ -160,6 +195,60 @@ try:
     check("A: disk under floor -> 507, never a silent 200", code == 507, code)
 finally:
     srv.terminate(); shutil.rmtree(data, ignore_errors=True)
+
+# ============ A2: _self_heal anti-stacking, asserted directly against the recorded calls =========
+# The HTTP-level "finished_at byte-stable" check above only proves status.json was not REWRITTEN.
+# It cannot tell that from "no enqueue call": CompileWorker.enqueue's mid-compile branch (rid ==
+# self._running) marks _redo and returns WITHOUT touching status.json at all, so a poll that lands
+# while a redo is already in flight can enqueue and still leave finished_at untouched. Confirmed
+# empirically: mutating _self_heal's revision guard from `<` to `<=` (so it re-enqueues a failed
+# compile at the CURRENT revision, exactly the regression this case exists to catch) left the
+# byte-stable check green in 2/2 runs; the suite still went red, but only on OTHER checks racing
+# against ~7-8s network-bound compiles, which is a fragile, indirect way to catch a direct logic
+# bug. Assert on the recorded enqueue calls instead, exactly as case B asserts on CompileWorker
+# with no server.
+os.environ.setdefault("MDREVIEW_DATA", tempfile.mkdtemp(prefix="mdr250a2-"))
+sys.path.insert(0, os.path.join(ROOT, "src"))
+from latex_review.module import LatexModule                 # noqa: E402
+
+
+class _HealWorker:
+    def __init__(self, status):
+        self._status = status
+        self.enqueued = []
+
+    def status(self, rid):
+        return self._status
+
+    def enqueue(self, rid):
+        self.enqueued.append(rid)
+
+
+class _HealReviews:
+    def __init__(self, revision):
+        self._revision = revision
+
+    def meta(self, rid):
+        return {"revision": self._revision}
+
+
+# The orphan path MUST still enqueue (a stubbed-out heal that never fires would pass the next
+# assertion vacuously): a PDF built from an older revision with nothing pending.
+heal_worker_stale = _HealWorker({"state": "ok", "revision": 0})
+heal_mod_stale = LatexModule(None, _HealReviews(1), None, heal_worker_stale)
+for _ in range(5):
+    heal_mod_stale._self_heal("stale")
+check("A2: self_heal enqueues the true orphan path (PDF older than current revision)",
+      heal_worker_stale.enqueued == ["stale"] * 5, heal_worker_stale.enqueued)
+
+# THE GAP THIS GUARDS (module docstring, verbatim): a failed compile at the CURRENT revision must
+# never be re-enqueued by the poll, so a persistently-failing source cannot stack compiles.
+heal_worker_current = _HealWorker({"state": "failed", "revision": 1})
+heal_mod_current = LatexModule(None, _HealReviews(1), None, heal_worker_current)
+for _ in range(5):
+    heal_mod_current._self_heal("current")
+check("A2: self_heal never re-enqueues a failed compile at the current revision",
+      heal_worker_current.enqueued == [], heal_worker_current.enqueued)
 
 # ================= B: CompileWorker coalescing, no server (AC 5) ==============================
 os.environ["MDREVIEW_DATA"] = tempfile.mkdtemp(prefix="mdr250b-")
