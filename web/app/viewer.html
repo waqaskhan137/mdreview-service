@@ -197,6 +197,15 @@
   .gcard .ghead .gdel{align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
   .gcard .ghead .gdel:hover{color:var(--danger);background:color-mix(in srgb,var(--danger) 10%,transparent);}
   .gcard .ghead .gdel.armed{color:var(--bg);background:var(--danger);font-weight:600;}
+  /* #286: optimistic "posting a comment" card (AC9) — opacity .6 while in flight, full opacity
+     with a danger edge once failed, matching the mock's two-state card. */
+  .gcard.pending{opacity:.6;}
+  .gcard.pending.failed{opacity:1;border-color:var(--danger);}
+  .gpending-status{display:flex;align-items:center;gap:6px;margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--text-subtle);}
+  .gpending-err{margin-top:8px;font-size:13px;color:var(--danger);}
+  .gpending-actions{display:flex;gap:16px;margin-top:8px;font-family:var(--font-mono);font-size:11px;}
+  .gpending-actions .glink{background:none;border:none;padding:0;cursor:pointer;font:inherit;color:var(--accent);}
+  .gpending-actions .glink.muted{color:var(--text-subtle);}
   /* rev 3 thread entries: initials chip + label + relative time, hairline-separated (#279 AC6/7) */
   .gthread{display:flex;flex-direction:column;gap:8px;}
   .gentry+.gentry{border-top:1px solid var(--border-faint);padding-top:8px;}
@@ -412,6 +421,14 @@ let lastCmt=0;          // comments_updated (thread live-reload)
 let confirming=null;    // comment_id with a pending inline delete-confirm (guards the poll re-render)
 let WORDS=0;            // prose word count, cached by load() for the title meta line
 let LASTTURN=null,LASTSTATUS=null;  // last turn/status painted, so the poll repaints only on change
+// #286: the optimistic "posting a comment" card. Set by createComment() before the POST resolves;
+// null once it settles (2xx) or the human discards a failed one. Non-null blocks the live poll's
+// full renderAll() (same reason `confirming` already does for an armed delete), and renderAll()
+// itself paints the extra card whenever this is set.
+let pendingPost=null;
+// #286: shared arc spinner (theme.css's .spin keyframe + reduced-motion guard), 12px per the
+// mock's "posting…" card.
+const SPIN_ICON_SM='<svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
 
 // #320: /status.can_comment — the custody policy's can_comment, the SAME gate POST /comments
 // enforces. Defaults TRUE so a server that predates the key behaves exactly as before (the owner
@@ -725,13 +742,41 @@ function commentDenied(r,fallback){
   if(!r.ok){toast(fallback);return true;}
   return false;
 }
+// #286: optimistic post. Renders the pending card (via renderAll(), below) immediately, then
+// resolves it: 2xx clears pendingPost and the normal fetch+repaint takes over (the pending card is
+// gone, replaced by the real one); a network error or non-2xx leaves pendingPost.failed=true so
+// renderAll() keeps showing the SAME card with "Not posted — your text is kept." + retry (calls
+// this again with the identical anchor/text) / discard (clears pendingPost and repaints).
 async function createComment(anchor,text){
+  pendingPost={anchor:anchor,text:text,failed:false};
+  renderAll();
+  return submitPendingPost();
+}
+async function submitPendingPost(){
+  if(!pendingPost)return true;   // discarded before this call started
+  pendingPost.failed=false;
+  let r;
   try{
-    const r=await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({anchor:anchor,text:text})});
-    if(commentDenied(r,'Could not save comment'))return false;
-    await fetchComments();renderAll();toast('Comment added');return true;
-  }catch(e){toast('Could not save comment');return false;}
+    r=await fetch(API+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({anchor:pendingPost.anchor,text:pendingPost.text})});
+  }catch(e){ pendingPost.failed=true; renderAll(); return false; }
+  if(commentDenied(r,'Could not save comment')){ pendingPost.failed=true; renderAll(); return false; }
+  pendingPost=null;
+  await fetchComments();renderAll();toast('Comment added');return true;
+}
+function discardPending(){ pendingPost=null; renderAll(); }
+function pendingCardHtml(p){
+  if(!p.failed)
+    return '<div class="gcard pending"><span class="gq"></span><div class="gtext">'+esc(p.text)+'</div>'+
+      '<div class="gpending-status">'+SPIN_ICON_SM+'posting…</div></div>';
+  return '<div class="gcard pending failed"><span class="gq"></span><div class="gtext">'+esc(p.text)+'</div>'+
+    '<div class="gpending-err">Not posted — your text is kept.</div>'+
+    '<div class="gpending-actions"><button type="button" class="glink" data-act="retry">retry</button>'+
+    '<button type="button" class="glink muted" data-act="discard">discard</button></div></div>';
+}
+function wirePendingCard(el){
+  const retry=el.querySelector('[data-act=retry]');if(retry)retry.onclick=e=>{e.stopPropagation();submitPendingPost();};
+  const discard=el.querySelector('[data-act=discard]');if(discard)discard.onclick=e=>{e.stopPropagation();discardPending();};
 }
 async function replyTo(cid,text){
   if(!text)return false;
@@ -895,6 +940,15 @@ function renderAll(){
       '<div class="greply"><textarea placeholder="Reply…"></textarea><button class="btn" data-act="reply">Reply</button></div>';
     card._anchor=mk||blk;G.appendChild(card);
   });
+  // #286: the optimistic pending/failed card, appended last (after the wiring loop below is
+  // scoped past it) so it reads as the newest thing — anchored to its target block like a real
+  // card would once it exists, so layoutComments() stacks it in the right place.
+  if(pendingPost){
+    const pblk=(pendingPost.anchor.bid&&document.querySelector('.blk[data-bid="'+pendingPost.anchor.bid+'"]'))
+      ||document.querySelector('.blk[data-num="'+(pendingPost.anchor.block_num||'')+'"]');
+    const pcard=document.createElement('div');pcard.innerHTML=pendingCardHtml(pendingPost);
+    const pel=pcard.firstElementChild;pel._anchor=pblk;G.appendChild(pel);wirePendingCard(pel);
+  }
   // resolved -> Resolved panel cards (+ reopen)
   const RI=$("#resitems");RI.innerHTML='';
   resolved.forEach(c=>{
@@ -912,8 +966,10 @@ function renderAll(){
   $("#resbtn").textContent='Resolved '+resolved.length;
   document.querySelector('.resolved-count').textContent=resolved.length;
   const oc=$("#opencmt");if(oc)oc.textContent=active.length+' open comment'+(active.length===1?'':'s');
-  // wire reply / reopen / focus-pair
-  G.querySelectorAll('.gcard').forEach(card=>{
+  // wire reply / reopen / focus-pair. Excludes .pending: the optimistic card carries no
+  // reply/resolve/delete controls (unconditional selectors below assume every REAL card has
+  // them), and it wires its own retry/discard via wirePendingCard() above instead.
+  G.querySelectorAll('.gcard:not(.pending)').forEach(card=>{
     const rb=card.querySelector('[data-act=reply]');
     rb.onclick=e=>{e.stopPropagation();const ta=card.querySelector('textarea');const v=ta.value.trim();if(v)replyTo(card.dataset.id,v);};
     card.querySelector('textarea').onclick=e=>e.stopPropagation();
@@ -1024,12 +1080,18 @@ function openPop(c){
   $("#popnote").focus();
 }
 $("#popcancel").onclick=()=>$("#pop").style.display='none';
-$("#popsave").onclick=async()=>{
+// #286: close the composer immediately and post optimistically — createComment() below renders a
+// pending card in the gutter (opacity .6, spinner + "posting…") and, on failure, leaves that card
+// in place with "Not posted — your text is kept." + retry/discard, so the typed text now lives
+// with the comment rather than in a composer the human has to remember is still open. This is a
+// strictly stronger guarantee than the old "keep the popup open on failure" behaviour (still true:
+// the card, not the composer, is what survives a refusal) — see comment_gate_selfcheck.py, updated
+// to assert the card contract instead of the composer-stays-open one.
+$("#popsave").onclick=()=>{
   const v=$("#popnote").value.trim();if(!v)return;
-  // Keep the popup (and the typed note) open if the post is refused — e.g. an anonymous visitor gets a
-  // "Sign in to comment" prompt instead of silently losing what they wrote.
-  if(!await createComment({quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null,bid:cur.bid},v))return;
+  const anchor={quoted_text:cur.quoted_text,block_num:cur.block_num,start:null,end:null,bid:cur.bid};
   $("#pop").style.display='none';window.getSelection().removeAllRanges();
+  createComment(anchor,v);
 };
 
 // dock toggles: #cmtbtn docks the active-comment gutter on narrow screens; #resbtn the Resolved panel
@@ -1052,7 +1114,7 @@ function poll(){
     // Don't re-render the DOM out from under an in-progress comment gesture (button or popup open) —
     // re-rendering mid-selection is the secondary cause of "my highlight didn't take". Skip this tick;
     // the next one (2s) picks the update up once the human is done.
-    if(addbtn.style.display==='block'||$("#pop").style.display==='block'||confirming)return;
+    if(addbtn.style.display==='block'||$("#pop").style.display==='block'||confirming||pendingPost)return;
     try{
       const s=await fetch(API+'/status',{cache:'no-store'}).then(r=>r.json());
       setEditVisible(!!s.can_edit);

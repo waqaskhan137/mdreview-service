@@ -167,10 +167,31 @@
 
   /* Namespaced: a bare `.empty` now collides with Basecoat's own empty-state block, which is
      display:flex/flex:1 and would fight this outright. */
-  .dash-empty,.noresults{text-align:center;color:var(--text-muted);padding:var(--s-12) 0;}
-  .noresults{display:none;}
+  .noresults{display:none;text-align:center;color:var(--text-muted);padding:var(--s-12) 0;}
+  /* #286: the empty/no-results states gained a heading + CTA (mock 11-states.html), so they read
+     left-aligned like the account page's own empty copy (.acct-empty), not centred filler text. */
+  .dash-empty{color:var(--text-muted);padding:var(--s-8) 0;max-width:52ch;}
+  .dash-empty .de-h,.noresults .nr-h{font-size:var(--t-card);font-weight:600;color:var(--text);margin:0 0 var(--s-2);}
+  .dash-empty .de-body,.noresults .nr-body{margin:0 0 var(--s-4);font-size:var(--t-body);line-height:1.6;color:var(--text-muted);}
+  .noresults .nr-body{margin-bottom:0;}
   .dash-empty code{font-family:var(--font-mono);font-size:var(--t-meta);
     background:var(--code-bg);padding:2px 6px;border-radius:var(--r-control);}
+  /* #286: three static skeleton rows while /api/reviews is in flight — no shimmer, per the mock's
+     own caption ("skeleton rows, not a spinner"): the AC pins computed animation-name:none, so
+     this block deliberately declares no animation of its own. */
+  .skrow{display:flex;align-items:center;gap:var(--s-3);}
+  .skrow+.skrow{margin-top:var(--s-4);}
+  .skpill{height:8px;border-radius:4px;background:var(--code-bg);}
+  .skpill.lead{flex:0 0 24px;}
+  .skpill.mid{flex:1 1 auto;}
+  .skpill.trail{flex:0 0 32px;}
+  /* #286: in-app "server didn't answer" banner (distinct from showUnreachable()'s boot-time
+     screen, which this does NOT touch — #221's copy there is a regression guard, not rebuilt). */
+  .unreach-banner{padding:var(--s-3) 16px;border-radius:var(--r-control);
+    background:var(--danger-bg);border:1px solid var(--danger-border);color:var(--danger);
+    font-size:var(--t-body);line-height:1.6;margin:0 0 var(--s-4);}
+  .unreach-row{display:flex;align-items:center;gap:var(--s-3);}
+  .unreach-count{font-family:var(--font-mono);font-size:var(--t-eyebrow);color:var(--text-subtle);}
 
   /* ---- sign-in screen (anonymous; #131) — rev 3: card-less 400px block, brand top-left ---- */
   .signin-wrap{min-height:100vh;display:none;align-items:center;justify-content:center;padding:var(--s-8);}
@@ -352,7 +373,7 @@
     <section id="nextup"></section>
     <div class="head">
       <h1 id="h1">Documents</h1>
-      <p class="sub" id="sub">Loading…</p>
+      <p class="sub" id="sub"></p>
     </div>
     <div class="filtrow">
       <nav class="filters" id="inbox" aria-label="Inbox filters">
@@ -502,7 +523,37 @@ let activeFilter="all";       // all | needs | working | resolved
 let activeProject="";         // "" = every project; otherwise an exact project name
 let showResolved=false;       // §05: resolved lives behind "browse all"
 
+// #286: 3 static skeleton rows (mock 11-states.html) while /api/reviews is in flight, replacing
+// the old plain "Loading…" text. No animation — the mock's caption says "not a spinner".
+function skeletonRows(){
+  const row=op=>`<div class="skrow" style="opacity:${op}"><span class="skpill lead"></span><span class="skpill mid"></span><span class="skpill trail"></span></div>`;
+  return row(1)+row(.7)+row(.45);
+}
+
+// #286: the in-app "server didn't answer" banner + Try again + an 8s auto-retry countdown. A
+// SEPARATE surface from showUnreachable() (boot-time, session read failed) — that screen and its
+// #221 copy are untouched, this one only ever replaces #list while the session is already valid.
+let unreachTimer=null;
+function stopUnreachTimer(){ if(unreachTimer){ clearInterval(unreachTimer); unreachTimer=null; } }
+function renderUnreachable(){
+  $("#nextup").innerHTML="";
+  $("#noresults").style.display="none";
+  let secs=8;
+  $("#list").innerHTML=`<div class="unreach-banner">The server didn't answer. You have <b>not</b> been signed out.</div>
+    <div class="unreach-row"><button type="button" class="btn" id="retrynow">Try again</button><span class="unreach-count" id="retrycount">retrying in ${secs}s</span></div>`;
+  $("#retrynow").onclick=()=>{ stopUnreachTimer(); load(); };
+  stopUnreachTimer();
+  unreachTimer=setInterval(()=>{
+    secs--;
+    if(secs<=0){ stopUnreachTimer(); load(); return; }
+    const c=$("#retrycount"); if(c) c.textContent=`retrying in ${secs}s`;
+  },1000);
+}
+
 async function load(){
+  stopUnreachTimer();
+  $("#list").innerHTML=skeletonRows();
+  $("#sub").textContent="";
   let data, sdata;
   try{
     [data,sdata]=await Promise.all([
@@ -510,7 +561,7 @@ async function load(){
       fetch('/api/reviews?scope=shared',{cache:'no-store'}).then(r=>r.json()),
     ]);
   }
-  catch(e){ $("#sub").textContent="Could not reach the service."; flash("Could not reach the service.","err"); return; }
+  catch(e){ flash("Could not reach the service.","err"); renderUnreachable(); return; }
   allReviews=(data&&data.reviews)||[];
   sharedReviews=(sdata&&sdata.reviews)||[];
   render();
@@ -574,7 +625,11 @@ function render(){
     $("#nextup").innerHTML="";
     $("#noresults").style.display="none";
     $("#sub").textContent="No reviews yet.";
-    $("#list").innerHTML=`<div class="dash-empty">No reviews yet.<br><br>Docs are created by your AI agent. <a href="/account">Connect your agent</a> to get a token, then its <code>create_review</code> calls land here.</div>`;
+    $("#list").innerHTML=`<div class="dash-empty">
+      <div class="de-h">No documents yet</div>
+      <p class="de-body">Your agent creates them. Mint a token, drop it into its MCP config, and every <code>create_review</code> lands here.</p>
+      <a class="btn" href="/account">Connect your agent</a>
+    </div>`;
     return;
   }
 
@@ -610,9 +665,15 @@ function render(){
 
   const shown=matched.length;
   // The empty result still says whether it was the search or the filter that emptied it: the
-  // heading names the view, not the reason the view is empty.
+  // heading names the view, not the reason the view is empty. #286: the search-emptied case
+  // echoes the query (mock 11-states.html); the filter-emptied case has no mock card and keeps
+  // its existing plain line.
   const nores=$("#noresults");
-  nores.textContent=q?"No reviews match your search.":"Nothing in this view.";
+  if(q){
+    nores.innerHTML=`<div class="nr-h">Nothing matches "${esc(q)}"</div><p class="nr-body">Titles, projects and paths are searched — not comment text.</p>`;
+  }else{
+    nores.textContent="Nothing in this view.";
+  }
   nores.style.display=(shown?"none":"block");
   const projects=new Set(allReviews.filter(r=>r.project).map(r=>r.project)).size;
   $("#sub").textContent=`${shown} · ${projects} project${projects===1?"":"s"}`;

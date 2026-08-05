@@ -8,7 +8,7 @@
 # the checks survive token revaluation while failing when a token is declared but not applied.
 #
 # WHAT IT PINS, and the mutation that kills each case:
-#   S1 chrome surfaces (topbar/panehead/srcpane on --bg, pdfpane backdrop on --code-bg, iframe
+#   S1 chrome surfaces (topbar/panehead/srcpane on --bg, pdfpane backdrop on --canvas (#333), iframe
 #      fills .pdfwrap, Geist Mono actually loaded)         <- revert .pdfpane to var(--canvas)
 #   S2 syntax + line-marker colours (.tx-c/.tx-m accent, .tx-x subtle italic, .ln.has-c tint +
 #      inset accent rule, an UNcommented neighbour has neither)  <- recolour .tx-c / tint-all bug
@@ -125,7 +125,7 @@ retry_if_empty(){ # $1 = marker, rest = command (same infrastructure-only retry 
 }
 
 # ---- run A: styling, round-trip, rail hide / clobber / re-show, diff composition, dark -------
-S1=$PRE'(()=>{const w=$q(".pdfwrap").getBoundingClientRect(),f=$q("#pdfframe").getBoundingClientRect();return "S1 top="+(C(".topbar","background-color")===T("--bg"))+"|ph="+(C(".panehead","background-color")===T("--bg"))+"|src="+(C(".srcpane","background-color")===T("--bg"))+"|pdf="+(C(".pdfpane","background-color")===T("--code-bg"))+"|ifr="+($q("#pdfframe").tagName==="IFRAME"&&!!$q("#pdfframe").contentWindow)+"|fill="+(Math.abs(w.width-f.width)<=2&&Math.abs(w.height-f.height)<=2)+"|mono="+document.fonts.check("13px \"Geist Mono\"")+"|";})()'
+S1=$PRE'(()=>{const w=$q(".pdfwrap").getBoundingClientRect(),f=$q("#pdfframe").getBoundingClientRect();return "S1 top="+(C(".topbar","background-color")===T("--bg"))+"|ph="+(C(".panehead","background-color")===T("--bg"))+"|src="+(C(".srcpane","background-color")===T("--bg"))+"|pdf="+(C(".pdfpane","background-color")===T("--canvas"))+"|ifr="+($q("#pdfframe").tagName==="IFRAME"&&!!$q("#pdfframe").contentWindow)+"|fill="+(Math.abs(w.width-f.width)<=2&&Math.abs(w.height-f.height)<=2)+"|mono="+document.fonts.check("13px \"Geist Mono\"")+"|";})()'
 S2=$PRE'(()=>{const acc=T("--accent"),sub=T("--text-subtle"),am=T("--accent-muted");const P=t=>{const p=document.createElement("div");p.style.cssText="display:none;color:var("+t+")";document.body.appendChild(p);const v=getComputedStyle(p).color;p.remove();return v;};const c=$q(".tx-c"),m=$q(".tx-m"),x=$q(".tx-x");const hc=$q(".ln.has-c"),nb=$q(".ln:not(.has-c)");const hcs=getComputedStyle(hc),nbs=getComputedStyle(nb);return "S2 c="+(getComputedStyle(c).color===P("--accent"))+"|m="+(getComputedStyle(m).color===P("--accent"))+"|x="+(getComputedStyle(x).color===P("--text-subtle")&&getComputedStyle(x).fontStyle==="italic")+"|hc="+(hcs.backgroundColor===am&&hcs.boxShadow.includes("inset"))+"|nb="+(nbs.backgroundColor!==am&&!nbs.boxShadow.includes("inset"))+"|";})()'
 S3=$PRE'(()=>{const ln=$q(".ln[data-num=\"3\"]");return "S3 b64="+btoa(ln.querySelector(".src").textContent)+"|mark="+(!!ln.querySelector("mark.cmt"))+"|";})()'
 S4=$PRE'(()=>{return "S4 railW="+Math.round($q(".railcol").getBoundingClientRect().width)+"|codeW="+Math.round($q("#codecol").getBoundingClientRect().width)+"|paneB="+C(".srcpane","flex-basis")+"|divX="+Math.round($q("#vdiv").getBoundingClientRect().left)+"|aria="+$q("#cmtbtn").getAttribute("aria-pressed")+"|count="+$q("#count").textContent+"|";})()'
@@ -138,7 +138,7 @@ S6=$PRE'(()=>{return "S6 count="+$q("#count").textContent+"|raild="+C(".railcol"
 S7=$PRE'(()=>{const cards=[...document.querySelectorAll("#railcol .gcard")].sort((a,b)=>a.offsetTop-b.offsetTop);const anch=cards.length>=3&&cards.every(c=>!c._anchor||c.offsetTop>=c._anchor.offsetTop);const stack=cards.length>=3&&cards.slice(1).every((c,i)=>c.offsetTop>=cards[i].offsetTop+cards[i].offsetHeight);return "S7 raild="+C(".railcol","display")+"|aria="+$q("#cmtbtn").getAttribute("aria-pressed")+"|n="+cards.length+"|anch="+anch+"|stack="+stack+"|";})()'
 S8=$PRE'(()=>{return "S8 srch="+$q("#srcscroll").hidden+"|diffh="+$q("#texdiffpane").hidden+"|";})()'
 S9=$PRE'(()=>{return "S9 srch="+$q("#srcscroll").hidden+"|raild="+C(".railcol","display")+"|";})()'
-S10=$PRE'(()=>{document.documentElement.dataset.theme="light";const lightBg=T("--bg");document.documentElement.dataset.theme="dark";const P=t=>{const p=document.createElement("div");p.style.cssText="display:none;color:var("+t+")";document.body.appendChild(p);const v=getComputedStyle(p).color;p.remove();return v;};return "S10 flip="+(T("--bg")!==lightBg)+"|top="+(C(".topbar","background-color")===T("--bg"))+"|pdf="+(C(".pdfpane","background-color")===T("--code-bg"))+"|c="+(getComputedStyle($q(".tx-c")).color===P("--accent"))+"|hc="+(getComputedStyle($q(".ln.has-c")).backgroundColor===T("--accent-muted"))+"|raild="+C(".railcol","display")+"|";})()'
+S10=$PRE'(()=>{document.documentElement.dataset.theme="light";const lightBg=T("--bg");document.documentElement.dataset.theme="dark";const P=t=>{const p=document.createElement("div");p.style.cssText="display:none;color:var("+t+")";document.body.appendChild(p);const v=getComputedStyle(p).color;p.remove();return v;};return "S10 flip="+(T("--bg")!==lightBg)+"|top="+(C(".topbar","background-color")===T("--bg"))+"|pdf="+(C(".pdfpane","background-color")===T("--canvas"))+"|c="+(getComputedStyle($q(".tx-c")).color===P("--accent"))+"|hc="+(getComputedStyle($q(".ln.has-c")).backgroundColor===T("--accent-muted"))+"|raild="+C(".railcol","display")+"|";})()'
 
 runA="$(retry_if_empty '=> "S1 ' node "$here/scripts/cdp-shot.mjs" --url "$url1" \
   --resize 1500x900 --wait-for ".ln[data-num='3']" --wait-for "#railcol .gcard" --wait 700 \
@@ -153,7 +153,7 @@ runA="$(retry_if_empty '=> "S1 ' node "$here/scripts/cdp-shot.mjs" --url "$url1"
 
 m1="$(meas "$runA" S1)"
 if [ -z "$m1" ]; then bad "S1: no measurement (browser step failed)"; echo "$runA" | tail -5; else
-  case "$m1" in *"top=true|ph=true|src=true|pdf=true|ifr=true|fill=true|mono=true"*) ok "S1: chrome surfaces on --bg, PDF backdrop on --code-bg, iframe fills .pdfwrap, Geist Mono loaded";;
+  case "$m1" in *"top=true|ph=true|src=true|pdf=true|ifr=true|fill=true|mono=true"*) ok "S1: chrome surfaces on --bg, PDF backdrop on --canvas, iframe fills .pdfwrap, Geist Mono loaded";;
     *) bad "S1: $m1";; esac
 fi
 m2="$(meas "$runA" S2)"
@@ -258,7 +258,10 @@ b5="$(meas "$runB" RB5)"
 [ -z "$b5" ] && bad "RB5: no measurement"
 
 # ---- run C: #250 Recompile after a REAL failed compile (cold load, read-only) ----------------
-C1=$PRE'(()=>{const rb=$q("#recompilebtn"),s=getComputedStyle(rb);const rc=(()=>{const p=document.createElement("div");p.style.cssText="display:none;border-radius:var(--r-control)";document.body.appendChild(p);const v=getComputedStyle(p).borderRadius;p.remove();return v;})();return "C1 failed="+document.body.classList.contains("compile-failed")+"|vis="+(s.display!=="none")+"|en="+(!rb.disabled)+"|rad="+(s.borderRadius===rc)+"|bg="+(s.backgroundColor===T("--surface"))+"|bord="+(s.borderTopColor===(()=>{const p=document.createElement("div");p.style.cssText="display:none;color:var(--border)";document.body.appendChild(p);const v=getComputedStyle(p).color;p.remove();return v;})())+"|dt="+(getComputedStyle($q("#difftoggle")).display!=="none")+"|sum="+btoa(unescape(encodeURIComponent($q("#errsum").textContent)))+"|";})()'
+# #286 restructured the failure card: #errsum is gone, replaced by #errhead (the D2 headline) and
+# #errline (the mono line retaining #205's failed/shown revision detail plus the first l.NNN log
+# line). Everything else C1 pins (recompilebtn styling, diff pill) is untouched by that ticket.
+C1=$PRE'(()=>{const rb=$q("#recompilebtn"),s=getComputedStyle(rb);const rc=(()=>{const p=document.createElement("div");p.style.cssText="display:none;border-radius:var(--r-control)";document.body.appendChild(p);const v=getComputedStyle(p).borderRadius;p.remove();return v;})();return "C1 failed="+document.body.classList.contains("compile-failed")+"|vis="+(s.display!=="none")+"|en="+(!rb.disabled)+"|rad="+(s.borderRadius===rc)+"|bg="+(s.backgroundColor===T("--surface"))+"|bord="+(s.borderTopColor===(()=>{const p=document.createElement("div");p.style.cssText="display:none;color:var(--border)";document.body.appendChild(p);const v=getComputedStyle(p).color;p.remove();return v;})())+"|dt="+(getComputedStyle($q("#difftoggle")).display!=="none")+"|head="+btoa(unescape(encodeURIComponent($q("#errhead").textContent)))+"|line="+btoa(unescape(encodeURIComponent($q("#errline").textContent)))+"|";})()'
 runC="$(retry_if_empty '=> "C1 ' node "$here/scripts/cdp-shot.mjs" --url "$url2" \
   --resize 1500x900 --wait-for ".ln" --wait 1500 --eval "$C1")"
 c1="$(meas "$runC" C1)"
@@ -266,9 +269,13 @@ if [ -z "$c1" ]; then bad "C1: no measurement"; else
   case "$c1" in *"failed=true|vis=true|en=true|rad=true|bg=true|bord=true|dt=true"*)
       ok "C1: cold-load failed compile -> #recompilebtn visible, enabled, token-styled; diff pill visible (history exists)";;
     *) bad "C1: $c1";; esac
-  sum="$(field "$c1" sum | python3 -c 'import sys,base64;print(base64.b64decode(sys.stdin.read().strip()).decode("utf-8"))' 2>/dev/null)"
-  case "$sum" in "Compile failed at v1"*"showing v0") ok "C1: #errsum names the failed and the shown revision ('$sum')";;
-    *) bad "C1: #errsum '$sum', expected 'Compile failed at v1 ... showing v0'";; esac
+  head="$(field "$c1" head | python3 -c 'import sys,base64;print(base64.b64decode(sys.stdin.read().strip()).decode("utf-8"))' 2>/dev/null)"
+  line="$(field "$c1" line | python3 -c 'import sys,base64;print(base64.b64decode(sys.stdin.read().strip()).decode("utf-8"))' 2>/dev/null)"
+  [ "$head" = "Compile failed — the last good PDF is still shown." ] \
+    && ok "C1: #errhead reads the #286/D2 headline ('$head')" \
+    || bad "C1: #errhead '$head', expected the D2 headline verbatim"
+  case "$line" in "v1 failed"*"showing v0"*) ok "C1: #errline retains #205's failed/shown revisions ('$line')";;
+    *) bad "C1: #errline '$line', expected 'v1 failed ... showing v0 ...'";; esac
 fi
 
 # ---- run D: fresh review (no agent push): the Diff pill stays hidden -------------------------
