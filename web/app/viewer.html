@@ -140,6 +140,16 @@
   #dockbar .btn{height:32px;padding:0 12px;border:0;background:transparent;color:var(--text-muted);font-size:12px;font-weight:600;border-radius:var(--r-control);}
   #dockbar .btn:hover{background:var(--code-bg);color:var(--text);border:0;}
   #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:90;background:var(--accent);color:var(--bg);font-family:var(--font-ui);font-size:13px;padding:8px 16px;border-radius:var(--r-card);box-shadow:var(--shadow-menu);opacity:0;transition:opacity .25s;pointer-events:none;}
+  /* #287: an action toast has to be clickable (the default explicitly is not) and outlive a
+     plain toast's fade, or the action is decorative. .resolve is the "Comment resolved · undo"
+     skin: a fixed dark chip in BOTH themes (--resolve-chip-*, see theme.css), distinct from the
+     ordinary accent toast above it in the cascade — .hasaction alone (no .resolve) stays
+     available for a future action toast that SHOULD track the page theme. */
+  #toast.hasaction{pointer-events:auto;display:flex;align-items:center;gap:var(--s-3);}
+  #toast.hasaction .toastbtn{font:inherit;background:none;border:none;cursor:pointer;padding:0;}
+  #toast.hasaction.resolve{background:var(--resolve-chip-bg);color:var(--resolve-chip-text);border-radius:var(--r-control);padding:var(--s-3) 16px;}
+  #toast.hasaction.resolve .toastbtn{font-family:var(--font-mono);font-size:11px;color:var(--resolve-chip-accent);}
+  #toast.hasaction.resolve .toastbtn:hover{text-decoration:underline;}
   /* MR-006/MR-036: Google-Docs style margin comments (threaded), rev-3 card skin.
      (.gcard.addressed and .gcard .gx were dead CSS with no JS setter, removed by #279. #331
      reinstates an ADDRESSED indicator with real semantics as .gentry .gaddr, below — a per-entry
@@ -178,8 +188,13 @@
   .blk.has-comment .num::after{content:" \25CF";color:var(--noteline);}
   /* MR-036: threaded comment cards (gutter when wide, docked panel when narrow) */
   .gcard .ghead,.rcard .ghead{display:flex;gap:6px;align-items:baseline;margin-bottom:2px;flex-wrap:wrap;}
+  /* #287: Resolve — the mock's md-viewer.html:54 action, hover -> --success. Always first of the
+     .ghead actions when present (every open, can_comment-gated card gets one), so it alone carries
+     margin-left:auto; Delete (conditional) simply follows it in DOM order and rides along. */
+  .gcard .ghead .gres{margin-left:auto;align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
+  .gcard .ghead .gres:hover{color:var(--success);background:color-mix(in srgb,var(--success) 10%,transparent);}
   /* MR-050: secondary, muted Delete affordance — only on the reviewer's own un-engaged comment */
-  .gcard .ghead .gdel{margin-left:auto;align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
+  .gcard .ghead .gdel{align-self:baseline;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--text-muted);padding:1px 5px;border-radius:var(--r-control);}
   .gcard .ghead .gdel:hover{color:var(--danger);background:color-mix(in srgb,var(--danger) 10%,transparent);}
   .gcard .ghead .gdel.armed{color:var(--bg);background:var(--danger);font-weight:600;}
   /* rev 3 thread entries: initials chip + label + relative time, hairline-separated (#279 AC6/7) */
@@ -213,7 +228,13 @@
      author surfaces. One class, so a repaint cannot resurrect a box the policy refuses. */
   #viewonly{display:none;font-size:var(--t-meta);color:var(--text-muted);letter-spacing:.01em;}
   body.viewonly #viewonly{display:inline;}
-  body.viewonly .greply,body.viewonly .reopenbox,body.viewonly #addbtn,body.viewonly #pop{display:none !important;}
+  body.viewonly .greply,body.viewonly .reopenbox,body.viewonly #addbtn,body.viewonly #pop,body.viewonly .gres{display:none !important;}
+  /* .gres carries the .ghead row's only margin-left:auto (see :194); body.viewonly hiding it
+     takes that auto margin out of the flex flow too, which would otherwise leave a viewonly
+     .gdel (deletable=true, no agent reply yet — exactly the reader's own un-engaged comment)
+     packed left instead of flush right. Two auto margins would split the free space and park
+     .gres mid-row, so this is additive to :194, not a duplicate of it. */
+  body.viewonly .gcard .ghead .gdel{margin-left:auto;}
   .greply,.reopenbox{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
   .greply textarea,.reopenbox textarea{width:100%;min-height:36px;font-family:var(--font-ui);font-size:12.5px;border:1px solid var(--border);border-radius:var(--r-control);padding:6px;background:var(--bg);color:var(--text);resize:vertical;}
   .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
@@ -369,7 +390,7 @@
 </div></div>
 
 <div id="lightbox"><img alt="zoomed figure"></div>
-<div id="toast"></div>
+<div id="toast" role="status"></div>
 <script src="/static/linediff.js"></script>
 <script src="/static/editguard.js"></script>
 <script src="/static/marked.min.js"></script>
@@ -408,7 +429,25 @@ let EDITORIG="";        // the buffer's value as loaded/reloaded, to ask before 
 let EDITACK=null;       // remote revision the user already dismissed the change-notice for, so
                          // the 2s poll doesn't re-nag about the same change every tick
 
-function toast(msg){const t=$("#toast");t.textContent=msg;t.style.opacity=1;clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.opacity=0,1800);}
+function toast(msg){const t=$("#toast");t.classList.remove('hasaction','resolve');t.textContent=msg;t.style.opacity=1;clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.opacity=0,1800);}
+// #287: the resolve-undo window, the #179 UNDO_MS shape (one constant, toast lifetime derives
+// from it — a UI promising 10s cannot be served by a toast that lives 3). Reused nowhere else
+// yet, so it stays a plain top-level const rather than a config knob.
+const UNDO_MS=10000;
+// A toast carrying one clickable action. cls (optional) adds a skin modifier class alongside
+// .hasaction — 'resolve' is the mock's fixed dark chip (theme.css --resolve-chip-*); omit it for
+// an ordinary accent-skinned action toast. ms (optional) is the lifetime; defaults to the plain
+// toast's 1800ms, but resolveComment() below always passes UNDO_MS explicitly.
+function toastAction(msg,label,fn,cls,ms){
+  const t=$("#toast");
+  t.classList.add('hasaction');if(cls)t.classList.add(cls);
+  t.innerHTML='<span></span><button type="button" class="toastbtn"></button>';
+  t.querySelector('span').textContent=msg;
+  const b=t.querySelector('.toastbtn');b.textContent=label;
+  const clear=()=>{t.style.opacity=0;t.classList.remove('hasaction');if(cls)t.classList.remove(cls);};
+  b.onclick=()=>{clear();fn();};
+  t.style.opacity=1;clearTimeout(window._tt);window._tt=setTimeout(clear,ms||1800);
+}
 // String() first: anchor.block_num arrives as a NUMBER from API/MCP authors (the viewer itself
 // sends strings), and Number.replace is a TypeError that used to kill renderAll() mid-pass,
 // leaving the counters stale and the resolved panel empty.
@@ -707,9 +746,30 @@ async function reopenComment(cid,text){
   try{
     const r=await fetch(API+'/comments/'+cid+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(text?{text:text}:{})});
+    // #287: reopen can race another tab/agent that got there first. 409 means the end state IS
+    // what the caller wanted (already reopened) — that is a fact to report, not the 'Reopen
+    // failed' error tone. commentDenied's 404 stays as-is for this route (it also fires when the
+    // comment itself was deleted meanwhile, a case this file does not try to distinguish from
+    // lost custody by inspecting the error body — out of scope here).
+    if(r.status===409){await fetchComments();renderAll();toast('Already reopened');return true;}
     if(commentDenied(r,'Reopen failed'))return false;
     await fetchComments();renderAll();toast('Reopened');return true;
   }catch(e){toast('Reopen failed');return false;}
+}
+async function resolveComment(cid){
+  try{
+    // X-Mdreview-Client: viewer (editguard.js's existing convention, #289) is what lets the
+    // server tell a human's click apart from an agent's MCP call on the local/single-operator
+    // tier, where both share plane="local" with no other signal (#287 D2).
+    const r=await fetch(API+'/comments/'+cid+'/resolve',{method:'POST',
+      headers:{'Content-Type':'application/json','X-Mdreview-Client':'viewer'},body:'{}'});
+    if(commentDenied(r,'Could not resolve'))return false;
+    await fetchComments();renderAll();
+    // Commit-then-inverse (#179 shape): the resolve is already committed (200 received) before
+    // this toast shows. Undo is just the existing reopen call, offered back for UNDO_MS.
+    toastAction('Comment resolved','undo',()=>{reopenComment(cid,'');},'resolve',UNDO_MS);
+    return true;
+  }catch(e){toast('Could not resolve');return false;}
 }
 async function deleteComment(cid){
   // Hard-remove a comment the reviewer made by mistake (DELETE /comments/{cid}). A 404 means it's
@@ -823,7 +883,12 @@ function renderAll(){
     // engaged feedback; the human resolves/reopens it, never hard-deletes it (matches the
     // delete_comment convention that warns agents off deleting real feedback).
     const deletable=!(c.thread||[]).some(e=>e.role==='agent');
+    // #287: Resolve — the mock's md-viewer.html:54 action, absent from shipped code until this
+    // ticket. Unconditional in the markup (like Reply); body.viewonly hides it via CSS, the same
+    // gate every other author affordance already uses (#320), so can_write-vs-can_comment stays
+    // enforced server-side regardless of what the DOM shows.
     card.innerHTML='<div class="ghead"><span class="gref">'+(ref?'#'+esc(ref):'')+'</span>'+
+      '<button class="gres" data-act="resolve" title="Resolve this thread">Resolve</button>'+
       (deletable?'<button class="gdel" data-act="delete" title="Delete this comment — permanent, no undo">Delete</button>':'')+'</div>'+
       '<span class="gq">'+esc(qsnippet(c))+'</span>'+
       threadHtml(c,isAddressed(c))+
@@ -852,6 +917,8 @@ function renderAll(){
     const rb=card.querySelector('[data-act=reply]');
     rb.onclick=e=>{e.stopPropagation();const ta=card.querySelector('textarea');const v=ta.value.trim();if(v)replyTo(card.dataset.id,v);};
     card.querySelector('textarea').onclick=e=>e.stopPropagation();
+    const res=card.querySelector('[data-act=resolve]');
+    if(res)res.onclick=e=>{e.stopPropagation();resolveComment(card.dataset.id);};
     // inline two-step delete: first click arms ("Confirm delete?"), second click deletes. While armed,
     // `confirming` is set so the 2s poll skips its re-render (which would otherwise wipe the confirm);
     // auto-disarm after 3s.

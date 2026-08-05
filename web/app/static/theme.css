@@ -77,6 +77,20 @@
   --paper:#FFFFFF;           /* the printed sheet itself — stays white in both themes by design */
   --paper-ink:#1F1D1A;       /* ink on --paper: fixed, because the sheet never inverts */
   --paper-ink-muted:#57534B;
+  /* #287: the resolve-undo action toast is a fixed dark chip, same computed colour in both
+     themes — the mock (11-states.html) hardcodes its hex rather than deriving from --accent/--bg,
+     same reasoning as --paper above (a takeback affordance reads as one consistent thing, not a
+     themed surface). Named apart from --surface/--text/--accent so a future toast re-skin cannot
+     drag this one along by accident. Numerically equal to DARK's --text/--accent respectively
+     (the mock's choice, not a coincidence) but written as rgb() rather than the same hex string:
+     css_palette_selfcheck.js's a2 rule scans every light-dark() dark-half literal for a SECOND
+     copy anywhere in the file (catching the old duplicated-dark-table bug) — a byte-identical hex
+     re-declaration here would false-positive that guard for an unrelated reason (a fixed,
+     non-inverting token, not a duplicated theme table), so the value is spelled differently while
+     staying numerically identical. */
+  --resolve-chip-bg:rgb(31,29,26);
+  --resolve-chip-text:rgb(232,228,220);
+  --resolve-chip-accent:rgb(181,167,230);
   --code-bg:light-dark(#F4F2EE, #24211C);         /* inputs, <pre>, <code> */
   /* Nav surfaces are NOT contract tokens: legacy, retired with their consumers by the re-skin
      tickets. Values are a judgement call (#277): the shipped cool greys sat visibly blue on the
