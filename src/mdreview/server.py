@@ -530,6 +530,19 @@ class H(BaseHTTPRequestHandler):
             # A template id is validated inside the (flag-on) latex decorator, which raises a
             # ReviewWriteRejected subclass; core catches only that core-defined base type and never
             # imports the feature module, so the flag-off import graph and behavior are unchanged.
+            #
+            # #363: a latex create with no `markdown` and no `template` to seed one is ACCEPTED and
+            # produces a review whose source is the empty string. That is deliberate, decided
+            # against this exact ticket: _require_tex (latex_review/decorator.py) passes
+            # allow_empty=True only on the create path, so starting a blank paper and filling it in
+            # later stays legal, the same as a markdown create already permits an empty body
+            # (hosted_boot_smoke.py's "A blank latex CREATE stays legal" case pins this). The same
+            # guard rejects an empty PUT once a paper exists, so nothing already written can be
+            # wiped this way. Consequence for a caller: a 201 here is not proof the request body
+            # arrived. #355 hit exactly this: a fixture posted its content under "source" instead
+            # of "markdown", the unknown key was silently ignored, and a 201 with an empty document
+            # passed for "created". A caller that needs confirmation should read the source back
+            # (GET .../source) rather than trust the status code alone.
             owner = app.policy.stamp_owner(p)
             try:
                 rid = app.reviews.create(b.get("markdown", ""), b.get("title", ""),
