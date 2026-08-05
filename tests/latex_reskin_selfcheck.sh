@@ -261,12 +261,19 @@ b5="$(meas "$runB" RB5)"
 # #286 restructured the failure card: #errsum is gone, replaced by #errhead (the D2 headline) and
 # #errline (the mono line retaining #205's failed/shown revision detail plus the first l.NNN log
 # line). Everything else C1 pins (recompilebtn styling, diff pill) is untouched by that ticket.
-C1=$PRE'(()=>{const rb=$q("#recompilebtn"),s=getComputedStyle(rb);const rc=(()=>{const p=document.createElement("div");p.style.cssText="display:none;border-radius:var(--r-control)";document.body.appendChild(p);const v=getComputedStyle(p).borderRadius;p.remove();return v;})();return "C1 failed="+document.body.classList.contains("compile-failed")+"|vis="+(s.display!=="none")+"|en="+(!rb.disabled)+"|rad="+(s.borderRadius===rc)+"|bg="+(s.backgroundColor===T("--surface"))+"|bord="+(s.borderTopColor===(()=>{const p=document.createElement("div");p.style.cssText="display:none;color:var(--border)";document.body.appendChild(p);const v=getComputedStyle(p).color;p.remove();return v;})())+"|dt="+(getComputedStyle($q("#difftoggle")).display!=="none")+"|head="+btoa(unescape(encodeURIComponent($q("#errhead").textContent)))+"|line="+btoa(unescape(encodeURIComponent($q("#errline").textContent)))+"|";})()'
+# #332: #recompilebtn moved from a bordered .btn.recompile (--surface bg, --border border, shown
+# only while body.compile-failed) into the joined .compilepill's right segment — accent-filled,
+# --bg text, no border of its own (the pill container carries the border; the two segments read as
+# one control, mock scraps/04-latex.html), and ALWAYS present, not gated to the failed state. `bg`
+# and `txt` replace the old `bg`/`bord` checks accordingly; `vis`/`en`/`rad`/`dt` are unchanged and
+# still meaningful (vis is now trivially true, which is itself the point — it proves #332 did not
+# accidentally reintroduce the old display:none gate).
+C1=$PRE'(()=>{const rb=$q("#recompilebtn"),s=getComputedStyle(rb);const rc=(()=>{const p=document.createElement("div");p.style.cssText="display:none;border-radius:var(--r-control)";document.body.appendChild(p);const v=getComputedStyle(p).borderRadius;p.remove();return v;})();const P=t=>{const p=document.createElement("div");p.style.cssText="display:none;color:var("+t+")";document.body.appendChild(p);const v=getComputedStyle(p).color;p.remove();return v;};return "C1 failed="+document.body.classList.contains("compile-failed")+"|vis="+(s.display!=="none")+"|en="+(!rb.disabled)+"|rad="+(s.borderRadius===rc)+"|bg="+(s.backgroundColor===T("--accent"))+"|txt="+(s.color===P("--bg"))+"|dt="+(getComputedStyle($q("#difftoggle")).display!=="none")+"|head="+btoa(unescape(encodeURIComponent($q("#errhead").textContent)))+"|line="+btoa(unescape(encodeURIComponent($q("#errline").textContent)))+"|";})()'
 runC="$(retry_if_empty '=> "C1 ' node "$here/scripts/cdp-shot.mjs" --url "$url2" \
   --resize 1500x900 --wait-for ".ln" --wait 1500 --eval "$C1")"
 c1="$(meas "$runC" C1)"
 if [ -z "$c1" ]; then bad "C1: no measurement"; else
-  case "$c1" in *"failed=true|vis=true|en=true|rad=true|bg=true|bord=true|dt=true"*)
+  case "$c1" in *"failed=true|vis=true|en=true|rad=true|bg=true|txt=true|dt=true"*)
       ok "C1: cold-load failed compile -> #recompilebtn visible, enabled, token-styled; diff pill visible (history exists)";;
     *) bad "C1: $c1";; esac
   head="$(field "$c1" head | python3 -c 'import sys,base64;print(base64.b64decode(sys.stdin.read().strip()).decode("utf-8"))' 2>/dev/null)"

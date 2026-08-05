@@ -41,7 +41,52 @@
   .typechip{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--text-subtle);background:var(--code-bg);border-radius:var(--r-pill);padding:2px 6px;}
   .tb-right{font-size:12px;color:var(--text-muted);letter-spacing:.03em;white-space:nowrap;font-variant-numeric:tabular-nums;}
 
-  .tabbar{display:none;}
+  /* #332 3-way Source/Split/Paper switch — lives in the topbar, ALWAYS visible (it replaces the
+     old <=880px-only tabbar, it does not layer on top of it). `.tabbar` stays as a second class on
+     the same element purely so tests/latex_reskin_selfcheck.sh's RB4 (`C(".tabbar","display")`)
+     keeps resolving; the actual look comes from `.viewswitch`. #tab-src/#tab-pdf keep the ids and
+     aria-pressed contract the old 2-state tabbar had (mdKeys "1"/"2", RB4/RB5) so neither needed a
+     rewrite; #tab-split is the new third segment. */
+  .viewswitch{display:flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:var(--r-control);background:var(--surface);flex:0 0 auto;}
+  .viewswitch button{font:inherit;font-size:12px;color:var(--text-muted);background:none;border:none;
+    height:26px;padding:0 11px;border-radius:var(--r-control);cursor:pointer;white-space:nowrap;}
+  .viewswitch button:hover{color:var(--text);}
+  .viewswitch button[aria-pressed="true"]{background:var(--code-bg);color:var(--text);font-weight:600;}
+  /* Tri-state pane visibility, active at EVERY width (not gated behind a breakpoint the way the
+     2-state tabbar was) — the switch is a real control now, not a narrow-viewport fallback. The
+     narrow-viewport block further down still forces a column stack for Split at <=880px; these
+     rules are what "Source"/"Paper" mean at ANY width, including that one. */
+  body.view-source .pdfpane,body.view-source .vdiv{display:none;}
+  /* .srcpane's base rule (below) is flex:0 0 46% — a real override is needed or Source mode would
+     leave it sitting at 46% width with a blank 54% gap where the now-display:none pdfpane used to
+     be (caught by mutation-testing this exact line out: the pane stayed display:flex, so a
+     display-only assertion passed while the layout was broken — width had to be asserted too). */
+  body.view-source .srcpane{flex:1;}
+  body.view-paper .srcpane,body.view-paper .vdiv{display:none;}
+  /* No .pdfpane{flex:1} override needed here, unlike .srcpane above: .pdfpane's OWN base rule
+     (below) is already flex:1 unconditionally, so it already fills the row whenever it is the only
+     visible child — confirmed by mutating a redundant copy of this rule in, which made no
+     measurable difference, and mutating it back out again for the same reason. Recorded rather
+     than left as dead-looking-necessary CSS someone re-adds "to be safe". */
+  /* #332 joined compile-status pill: one bordered, clipped container so the status text and the
+     Recompile action read as ONE control (mock scraps/04-latex.html), not two adjacent buttons.
+     #pdfstate/#recompilebtn keep their ids — refreshPdf()/the #250 click handler are unchanged,
+     only where these two elements SIT moved (out of the removed per-pane .pdfbar, into the topbar). */
+  .compilepill{display:flex;align-items:center;height:28px;border:1px solid var(--border);
+    border-radius:var(--r-control);overflow:hidden;background:var(--surface);flex:0 0 auto;}
+  #pdfstate{display:inline-flex;align-items:center;gap:7px;height:100%;padding:0 10px;
+    font-size:12px;color:var(--text-muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  #pdfstate .ic{display:flex;flex:0 0 auto;}
+  #pdfstate .ic.ok{color:var(--success);}
+  .compilepill .cp-sep{width:1px;height:100%;background:var(--border);flex:0 0 auto;}
+  /* border-radius is set here even though overflow:hidden on the container clips it visually —
+     tests/latex_reskin_selfcheck.sh's C1 reads #recompilebtn's OWN computed border-radius, and
+     this keeps that assertion meaningful without depending on which element happens to clip it. */
+  #recompilebtn{display:inline-flex;align-items:center;gap:6px;height:100%;padding:0 11px;
+    border:none;border-radius:var(--r-control);background:var(--accent);color:var(--bg);
+    font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
+  #recompilebtn:hover{background:var(--accent-strong);}
+  #recompilebtn[disabled]{opacity:.55;cursor:default;}
   .split{flex:1;display:flex;min-height:0;}
   .srcpane{flex:0 0 46%;min-width:280px;display:flex;flex-direction:column;min-height:0;background:var(--bg);}
   .vdiv{flex:0 0 5px;cursor:col-resize;background:var(--border);position:relative;}
@@ -187,16 +232,18 @@
   .btn.primary:hover{background:var(--accent-strong);border-color:var(--accent-strong);}
   .greply .btn,.reopenbox .btn{align-self:flex-end;padding:4px 12px;font-size:12px;}
 
-  /* PDF pane. The bar carries no fill of its own (rev 3): it sits on the pane's --code-bg. */
+  /* PDF pane. The bar carries no fill of its own (rev 3): it sits on the pane's --code-bg.
+     #332: #pdfstate and #recompilebtn moved out of here into the topbar's joined .compilepill
+     (mock scraps/04-latex.html has no per-pane bar at all — the pill is the only compile-status
+     surface, document-level rather than pane-level). What is left is Download, which the mock's
+     single screen does not show but tests/latex_stale_pdf_selfcheck.py asserts on directly (#dlbtn
+     href/label after a failed-then-recovered compile), so it keeps its slot rather than being cut
+     on the strength of one screen's silence. #250's Recompile is no longer gated to
+     body.compile-failed — the mock shows it as a permanent pill segment, so the CONTROL is always
+     present now; only its label/disabled state still tracks compile state (refreshPdf(), untouched). */
   .pdfbar{flex:0 0 32px;height:32px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border-faint);
     font-size:12px;color:var(--text-muted);}
-  .pdfbar .st{font-variant-numeric:tabular-nums;}
   .pdfbar .dl{margin-left:auto;}
-  /* #250: retry a failed compile without editing the source. Same visibility contract as .errbar —
-     body.compile-failed drives it, so it appears on a COLD load of a failed review and never on ok. */
-  .pdfbar .recompile{display:none;}
-  body.compile-failed .pdfbar .recompile{display:inline-block;}
-  .pdfbar .recompile[disabled]{opacity:.55;cursor:default;}
   .dl{text-decoration:none;}
   /* #286 D2/AC8: danger-tinted (was warning), restructured to headline / mono revision+log line /
      full-log disclosure, matching mock 11-states.html's "Compile failed" card. */
@@ -252,17 +299,45 @@
   #cmtdock.show{display:block;}
   #cmtdock .gcard{position:static;width:auto;margin-bottom:8px;box-shadow:none;}
 
+  /* #332: the old 2-state tabbar's <=880px gating is gone (the switch is width-independent now,
+     styled by .viewswitch above). What is left here is the SPLIT-mode fallback: at this width two
+     side-by-side panes do not fit, so an unpicked (Split) view stacks them in a column instead of
+     squeezing both to half width. Source-only/Paper-only already hide the other pane via the
+     view-source/view-paper rules above, at every width, so they need nothing extra here. */
   @media (max-width:880px){
     .split{flex-direction:column;}
     .vdiv{display:none;}
     .srcpane{flex:1;min-width:0;}
     .pdfpane{flex:1;}
-    .tabbar{display:flex;gap:6px;padding:7px 14px;border-bottom:1px solid var(--border);background:var(--bg);}
-    .tabbar button{font:inherit;font-size:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:var(--r-control);padding:4px 14px;cursor:pointer;}
-    .tabbar button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg);}
-    body.show-pdf .srcpane{display:none;}
-    body:not(.show-pdf) .pdfpane{display:none;}
   }
+  /* #332 zoom — DELIBERATELY NOT SHIPPED. The mock's "− 100% +" control implies scaling the
+     rendered PDF itself, but .pdfframe is a real PDF drawn by the browser's OWN embedded viewer
+     (same fact #333's --canvas comment records for the backdrop), and every mechanism for driving
+     that viewer from outside was tested against the actual Chrome build this repo targets and
+     failed:
+       1. The Adobe/pdf.js-style #zoom=N / #toolbar=0 URL fragment: the historical mechanism, and
+          the one a URL-fragment approach would reach for. Tested at TOP-LEVEL navigation (the
+          strongest form of the test — no iframe indirection to blame) against a real
+          Page.printToPDF-generated PDF in this repo's actual headless Chrome (150.0.7871.188):
+          #zoom=50/100/250/300 and #toolbar=0 all produced byte-identical renders to a plain load.
+          Chrome's current PDFium viewer ignores the parameter entirely; it is not a Chrome-vs-
+          Firefox gap, it is dead in the one engine this app's checks and users actually get.
+       2. CSS transform:scale() on #pdfframe: LOOKS like it works — the box visibly grows — but it
+          scales the iframe's own native toolbar and thumbnail rail right along with the page, so
+          "125%" renders as an oversized, blurry toolbar with a giant sidebar eating the pane, not
+          a bigger paper. Confirmed by screenshot during grooming (not committed — throwaway
+          spike, gitignored .scratch/, see the #332 ticket comment for the finding); rejected on
+          sight once seen, not on suspicion.
+       3. Pane width (the resizable divider, #vdiv, already ships): the viewer's own "fit" zoom
+          does track available width, confirmed by screenshot at three widths — but it CAPS at
+          100% of true size and never exceeds it (confirmed: a much wider pane stayed at 100%, just
+          with more margin), so it cannot deliver the "+" side of the control at all, and the "-"
+          side already exists as the divider drag.
+     A fourth option, a JS PDF renderer (pdf.js/canvas) that this app fully controls the zoom of the
+     way real Overleaf does, would be the honest fix — but it is a new rendering pipeline, not a
+     control added to an existing toolbar, and outside this ticket's file ownership (latex-
+     viewer.html + theme.css only). Filed as a decision-list item on #332 rather than built here or
+     silently dropped — see the ticket comment. */
   button:focus-visible,a:focus-visible,.ln .n:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 
   /* ---- Share control (#133 public link, extended by #134 people) — copied verbatim from viewer.html
@@ -319,12 +394,19 @@
 <header class="topbar">
   <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span>
     <span class="filename" id="filename">loading…</span><span class="typechip">LATEX</span></div>
-  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><span id="topstate"></span><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
+  <div class="tb-right" style="display:flex;align-items:center;gap:14px">
+    <div class="viewswitch tabbar" id="viewswitch" role="tablist" aria-label="View">
+      <button type="button" id="tab-src" aria-pressed="false">Source</button>
+      <button type="button" id="tab-split" aria-pressed="true">Split</button>
+      <button type="button" id="tab-pdf" aria-pressed="false">Paper</button>
+    </div>
+    <div class="compilepill" id="compilepill">
+      <span id="pdfstate">PDF</span>
+      <span class="cp-sep" aria-hidden="true"></span>
+      <button id="recompilebtn" type="button" title="Re-run the compile at the current revision">Recompile</button>
+    </div>
+    <span id="topstate"></span><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div id="acct"></div></div>
 </header>
-<div class="tabbar" role="tablist">
-  <button id="tab-src" aria-pressed="true">Source</button>
-  <button id="tab-pdf" aria-pressed="false">PDF</button>
-</div>
 <div class="split">
   <section class="srcpane" aria-label="LaTeX source">
     <div class="panehead">Source <span class="mono" id="srcname">paper.tex</span><span id="srcmeta"></span><button type="button" class="headbtn difftoggle" id="difftoggle" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><button type="button" class="headbtn" id="editbtn" aria-label="Edit the LaTeX source" hidden>Edit</button><button type="button" class="headbtn" id="copysrc" aria-label="Copy the LaTeX source to the clipboard">Copy</button></div>
@@ -353,9 +435,7 @@
   </section>
   <div class="vdiv" id="vdiv" role="separator" aria-label="Resize panes" aria-orientation="vertical"></div>
   <section class="pdfpane" aria-label="PDF preview">
-    <div class="pdfbar"><span class="st" id="pdfstate">PDF</span>
-      <button class="btn recompile" id="recompilebtn" type="button" title="Re-run the compile at the current revision">Recompile</button>
-      <a class="btn primary dl" id="dlbtn" href="#" download="paper.pdf">Download PDF</a></div>
+    <div class="pdfbar"><a class="btn primary dl" id="dlbtn" href="#" download="paper.pdf">Download PDF</a></div>
     <div class="compileprogress" id="compileprogress"><span class="fill"></span></div>
     <div class="errbar" id="errbar">
       <div class="errhead" id="errhead">Compile failed</div>
@@ -394,6 +474,24 @@ let pendingPost=null;
 // mock: 14px for the Compiling bar, 12px for a "posting…" comment card.
 const SPIN_ICON='<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
 const SPIN_ICON_SM='<svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+// #332: the compiled-pill's success check, matching the mock's --success-coloured icon beside
+// "Compiled Nm ago". Wrapped in .ic so #pdfstate's own CSS can size/space it identically across
+// every state (spinner while running, this while ok, plain text while failed).
+const CHECK_ICON='<span class="ic ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span>';
+// #332: "Compiled Nm ago" reads off finished_at (epoch seconds, written by compiler.py's
+// _write_status for every ok/failed status — see src/latex_review/compiler.py). Returns null
+// rather than guessing when the field is absent (a legacy status file predating it, or a state
+// where the server never sets it) so the caller can fall back to an honest label instead of
+// printing "NaNm ago". Recomputed fresh on every refreshPdf() call, which the 2s poll already
+// drives, so the label ages correctly without a dedicated timer.
+function timeAgo(ts){
+  if(!ts)return null;
+  const s=Math.max(0,Date.now()/1000-ts);
+  if(s<60)return 'just now';
+  const m=Math.floor(s/60);if(m<60)return m+'m ago';
+  const h=Math.floor(m/60);if(h<24)return h+'h ago';
+  return Math.floor(h/24)+'d ago';
+}
 // #280 comments-off (design screen 05). Session-only, rail ON on load — same persistence contract
 // as diff mode (OFF on load, sticky within the session). This flag must NEVER be body.norail:
 // layoutCards() rewrites norail on every repaint, resize and divider drag, so a toggle that
@@ -795,7 +893,10 @@ async function refreshPdf(){
   const rev=st.revision;
   if(st.state==='ok'){
     document.body.classList.remove('compile-running');
-    bar.textContent='PDF · v'+rev+' · compiled';
+    // #332: the mock's pill reads "Compiled Nm ago", not the old "PDF · vN · compiled" — the
+    // revision number moves nowhere else because nothing here still tests for it (only the
+    // COMPILING-state text is asserted, by scripts/loading-states-check.mjs).
+    bar.innerHTML=CHECK_ICON+' Compiled '+(timeAgo(st.finished_at)||'just now');
     document.body.classList.remove('compile-failed');
     // #205: a return to ok must CLEAR the staleness dressing the failed branch applied, or the
     // Download button keeps advertising an old revision after the compile recovered.
@@ -809,7 +910,9 @@ async function refreshPdf(){
     // handed over a previous revision's document with no indication it was stale.
     // Both are answered by the SERVER now (has_pdf / pdf_revision) rather than by session memory.
     document.body.classList.remove('compile-running');
-    bar.textContent='PDF · v'+rev+' · compile failed';
+    // #332: the pill's short summary; the WHY (which revision, the l.NNN pointer) still lives in
+    // #errline below, unchanged — this line only ever named the same two facts twice.
+    bar.textContent='Compile failed';
     document.body.classList.add('compile-failed');
     const rb=$('#recompilebtn'); if(rb){ rb.disabled=false; rb.textContent='Recompile'; }  // #250: verdict is in
     const fullLog=st.log_tail||'(no log)';
@@ -887,9 +990,26 @@ function poll(){
   div.addEventListener('pointermove',e=>{if(!drag)return;const r=$('.split').getBoundingClientRect();
     const pct=Math.min(72,Math.max(24,(e.clientX-r.left)/r.width*100));src.style.flexBasis=pct+'%';layoutCards();});
   div.addEventListener('pointerup',()=>{drag=false;div.classList.remove('drag');});
-  const ts=$('#tab-src'),tp=$('#tab-pdf');
-  function tab(pdf){document.body.classList.toggle('show-pdf',pdf);ts.setAttribute('aria-pressed',String(!pdf));tp.setAttribute('aria-pressed',String(pdf));}
-  ts.onclick=()=>tab(false);tp.onclick=()=>tab(true);
+  // #332: 3-way Source/Split/Paper, replacing the old show-pdf boolean. body.view-source and
+  // body.view-paper are mutually exclusive and width-independent (see the CSS above); Split is
+  // simply neither class, the pre-#332 default. layoutCards() at the end is NOT optional — hiding
+  // .srcpane (Paper mode) collapses its clientWidth to 0, which is exactly the "pane too narrow"
+  // condition layoutCards() already tests for the RESPONSIVE case, so switching TO Paper falls
+  // back to the floating #cmtdock for comments (a reasonable reuse: the rail lives inside the
+  // hidden source pane's DOM, so it has nowhere to render), and switching AWAY from Paper must
+  // recompute clientWidth again to decide whether the rail (and, within it, body.rail-off's
+  // MANUAL state — untouched by any of this, see #280/D2) governs #cmtbtn once more.
+  function setView(mode){
+    document.body.classList.toggle('view-source',mode==='source');
+    document.body.classList.toggle('view-paper',mode==='paper');
+    $('#tab-src').setAttribute('aria-pressed',String(mode==='source'));
+    $('#tab-split').setAttribute('aria-pressed',String(mode==='split'));
+    $('#tab-pdf').setAttribute('aria-pressed',String(mode==='paper'));
+    layoutCards();
+  }
+  $('#tab-src').onclick=()=>setView('source');
+  $('#tab-split').onclick=()=>setView('split');
+  $('#tab-pdf').onclick=()=>setView('paper');
   // #280: at rail-capable pane widths the button toggles the RAIL (manual comments-off, screen
   // 05); narrow keeps toggling the dock exactly as before. Re-showing re-runs layoutCards()
   // because the cards were position:absolute-laid-out while display:none (offsetHeight 0), so
@@ -1055,7 +1175,8 @@ initShare();
 mdKeys.pushEscape(()=>{const p=$('#pop');if(!p||p.style.display!=='block')return false;p.style.display='none';return true;});
 mdKeys.register([
   {keys:"1", label:"Show the LaTeX source",   run:()=>mdKeys.click("#tab-src")},
-  {keys:"2", label:"Show the compiled PDF",   run:()=>mdKeys.click("#tab-pdf")},
+  {keys:"2", label:"Show source and paper side by side", run:()=>mdKeys.click("#tab-split")},
+  {keys:"3", label:"Show the compiled paper", run:()=>mdKeys.click("#tab-pdf")},
   {keys:"c", label:"Toggle comments", run:()=>mdKeys.click("#cmtbtn")},
   {keys:"a", label:"Add a comment",            run:()=>mdKeys.click("#addbtn")},
   {keys:"mod+Enter", label:"Save the comment you are writing", keepInField:true, run:()=>{
