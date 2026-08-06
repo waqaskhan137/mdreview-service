@@ -92,6 +92,52 @@ class CommentService:
             out.append(c2)
         return out
 
+    @staticmethod
+    def redact_identity(comments, viewer_uid, entitled):
+        """Read-time projection (#368): hides the create-time raw identity from a reader who is
+        neither the document owner nor the entry's own author.
+
+        create() is the ONLY writer that ever seeds a raw uid: thread[0]["author"], created_by,
+        and status_history[0]["by"] all come from the SAME `author` argument (server.py's
+        cookie/token-plane calls pass the caller's own provider:sub or "email:..." uid there).
+        That is #368's exact reproduction: a public-link reader with no cookie and no token could
+        fetch GET .../comments and read another person's uid or email in cleartext. Every OTHER
+        thread entry (reply) and status_history entry (resolve/reopen), plus resolved_by, are
+        #287's plane-derived role literals -- "reviewer" or "agent", never identity -- so this
+        does NOT touch them: running a literal through this same gate would null it for a
+        non-owner reader for zero privacy gain, which is exactly what "a label is not an
+        identity" (the #287/#309 contract resolve_attribution_selfcheck.py pins) forbids.
+
+        Visibility: a reader may always see a value that IS their own uid (harmless -- you
+        already know your own identity, and the client's isOwnEntry(e) --
+        `e.role!=='agent' && e.author===SESSION.uid` -- depends on this to render "You"/.you
+        without any client change). The document owner (entitled=True, i.e.
+        AccessPolicy.can_write, owner-only on every tier) may see everyone's. Anyone else -- an
+        anonymous public-link reader, or a named-share grantee reading someone else's entry --
+        gets None: not a placeholder that could itself be mistaken for an identity, and never
+        equal to a real uid, so isOwnEntry's comparison degrades safely to "not mine" with no
+        redundant client-side gate to keep in sync.
+
+        Pure: returns new dicts, never mutates `comments` (mirrors with_author_names)."""
+        def visible(raw):
+            return entitled or (viewer_uid is not None and raw == viewer_uid)
+
+        out = []
+        for c in comments:
+            c2 = dict(c)
+            thread = list(c.get("thread") or [])
+            if thread and not visible(thread[0].get("author")):
+                thread[0] = dict(thread[0], author=None)
+            c2["thread"] = thread
+            if not visible(c.get("created_by")):
+                c2["created_by"] = None
+            hist = list(c.get("status_history") or [])
+            if hist and not visible(hist[0].get("by")):
+                hist[0] = dict(hist[0], by=None)
+            c2["status_history"] = hist
+            out.append(c2)
+        return out
+
     def create(self, rid, anchor, text, author=None, role="reviewer"):
         """Append a new open comment with one thread entry. Caller holds store.lock."""
         now = time.time()
