@@ -17,6 +17,7 @@ on:
 
 permissions:
   packages: write          # push the Docker images to GHCR
+  contents: write          # create the GitHub Release for the tag (#373)
 
 jobs:
   docker:
@@ -79,3 +80,25 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/mdreview-service-latex:${{ env.VERSION }}
             ghcr.io/${{ github.repository_owner }}/mdreview-service-latex:latest
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      # #373: the tag -> GitHub Release link. Everything downstream (the public releases page,
+      # republishing it) derives from this Release existing, so it is created right after the
+      # images that make the tag real, not left as a separate manual step nobody remembers.
+      # Generated notes are the FLOOR, not the ceiling: the owner can edit the Release's title
+      # and body afterward on GitHub, and the next Pages deploy (release: published, or the next
+      # web/site/** push) picks the edit up since the page is generated from the API each time,
+      # never hand-copied.
+      #
+      # Idempotent by construction: `gh release create` fails outright if a Release already
+      # exists for the tag, so re-running this job (a re-dispatch, a retried step) checks first
+      # and no-ops rather than erroring or creating a duplicate.
+      - name: Create the GitHub Release for the tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "release $VERSION already exists -- idempotent no-op"
+          else
+            gh release create "$VERSION" --repo "${{ github.repository }}" --generate-notes
+          fi
