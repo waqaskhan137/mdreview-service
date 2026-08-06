@@ -34,6 +34,11 @@ def _require_tex(markdown, allow_empty):
     allow_empty is True only on create: starting a blank paper and filling it in later is a real
     workflow, but an empty PUT would snapshot-and-overwrite a working paper into exactly the
     failed-compile state this guard exists to prevent.
+
+    #363: because create silently accepts empty, a 201 from POST /api/reviews is not proof the
+    caller's markdown arrived. A body posted under the wrong key looks identical to a deliberate
+    blank start (this is what let #355's typo pass unnoticed). See the POST /api/reviews arm in
+    server.py for the full reasoning.
     """
     if allow_empty and not (markdown or "").strip():
         return

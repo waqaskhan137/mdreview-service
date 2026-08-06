@@ -1,0 +1,17 @@
+# issue #360 — fire the prod deploy-drift check every 30 minutes, alongside mdreview-autoupdate.timer.
+# Offset from auto-update's OnBootSec=5min/OnUnitActiveSec=30min by a few minutes so the two oneshots
+# don't usually land on the same tick. Not load-bearing by itself (both are idempotent, and the
+# service's flock on auto-update.lock is what actually serializes them if a tick does collide, e.g.
+# after a Persistent=true catch-up run) — this is just spreading routine load, not a correctness fix.
+[Unit]
+Description=Run mdreview prod deploy-drift check every 30 minutes
+
+[Timer]
+OnBootSec=9min
+OnUnitActiveSec=30min
+# Catch up one missed run if the host was asleep/off at the scheduled tick (matches auto-update's
+# own Persistent=true).
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -508,12 +508,19 @@ function renderDocMeta(st){
     +'<span class="mwords">'+WORDS.toLocaleString()+' words · '+Math.max(1,Math.round(WORDS/200))+' min</span>';
 }
 
-// ---- who is reading (#279 AC6) ----------------------------------------------------------------
+// ---- who is reading (#279 AC6) + universal attribution (#309) ----------------------------------
 // The hosted plane has /auth/session ({uid,email,...}); the local tier has NO such route (404) and
-// is single-user by construction. Card labels depend on this: a reviewer entry is "You" only when
-// its author IS the signed-in uid — on a shared review another grantee's words must never be
-// labelled as yours. Any non-404 failure is treated as an anonymous hosted visitor (labels fall
-// back to "Reviewer"), the direction that can never mislabel someone else's words.
+// is single-user by construction. isOwnEntry answers "is this MINE" for the .you highlight and the
+// "unnamed" fallback below — a reviewer entry is "yours" only when its author IS the signed-in
+// uid, so on a shared review another grantee's words are never highlighted or defaulted as yours.
+//
+// #309 UNIVERSAL attribution (owner decision, corrected from an earlier ego-centric draft): the
+// comments API resolves each thread entry's CURRENT display name server-side
+// (CommentService.with_author_names, read fresh from the user record on every GET, never
+// snapshotted onto the comment) and hands it to EVERY reader as e.name — not only the author
+// viewing their own words. entryLabel/initialsOf read that field directly, for anyone's entry.
+// SESSION is consulted only for the "no name set yet" fallback (own entry -> "You", anyone else's
+// -> "Reviewer"), which is exactly today's pre-#309 behaviour, unperturbed.
 let SESSION={tier:'unknown',uid:null,email:''};
 async function initSession(){
   try{
@@ -523,14 +530,29 @@ async function initSession(){
     SESSION={tier:'hosted',uid:null,email:''};
   }catch(e){SESSION={tier:'hosted',uid:null,email:''};}
 }
+// True for an entry that is YOURS to highlight/default specially — never for an agent entry (that
+// always reads "Agent" regardless of who is looking), so callers that only check role need no
+// extra guard.
+function isOwnEntry(e){
+  return e.role!=='agent' && (SESSION.tier==='local' || (SESSION.uid&&e.author===SESSION.uid));
+}
 function entryLabel(e){
   if(e.role==='agent')return 'Agent';
-  if(SESSION.tier==='local')return 'You';
-  return (SESSION.uid&&e.author===SESSION.uid)?'You':'Reviewer';
+  if(e.name)return e.name;                 // #309: the author's CURRENT name, visible to ANY reader
+  return isOwnEntry(e)?'You':'Reviewer';   // unset: today's behaviour, unperturbed
 }
-function initialsOf(label){
-  if(label==='Agent')return 'ag';
-  if(label!=='You')return 'rv';
+function initialsOf(e){
+  if(e.role==='agent')return 'ag';
+  if(e.name){
+    // First letters of the first two whitespace-split words ("Ada Lovelace" -> "al"), else the
+    // name's own first two characters (a single-word name) — same shape as account.js's nameInitials.
+    const parts=e.name.trim().split(/\s+/).filter(Boolean);
+    if(parts.length>=2)return (parts[0][0]+parts[1][0]).toLowerCase();
+    if(parts.length)return parts[0].slice(0,2).toLowerCase();
+  }
+  if(!isOwnEntry(e))return 'rv';
+  // own, unnamed: the pre-#309 email heuristic (first letters of the first two separator-split
+  // local-part segments).
   const parts=(SESSION.email||'').split('@')[0].split(/[._-]+/).filter(Boolean);
   if(parts.length>=2)return (parts[0][0]+parts[1][0]).toLowerCase();
   if(parts.length)return parts[0].slice(0,2).toLowerCase();
@@ -857,18 +879,21 @@ function isAddressed(c){
   const t=c.thread||[];
   return c.status!=='resolved' && t.length>0 && t[t.length-1].role==='agent';
 }
-// rev 3 entries: initials chip + label ("You" only for the signed-in author, see entryLabel) +
+// rev 3 entries: initials chip + label (your own name, or "You" while unset — see entryLabel) +
 // relative time from thread[].ts (absent on legacy entries -> no time span, never "just now").
 // `addressed` (isAddressed(c), always false for resolved threads) puts the ADDRESSED badge on
 // the one entry that earned it: the thread's last, agent-authored entry, never any other.
+// `.you` styling keys on isOwnEntry(e), NOT on the label text — #309 made the label a real name
+// for your own entries, so a text comparison against the literal string "You" would silently stop
+// highlighting them the moment you set one.
 function threadHtml(c,addressed){
   const entries=c.thread||[];
   return '<div class="gthread">'+(entries.map((e,i)=>{
     const role=e.role==='agent'?'agent':'reviewer';
     const label=entryLabel(e);
     const showAddr=addressed&&role==='agent'&&i===entries.length-1;
-    return '<div class="gentry '+role+(label==='You'?' you':'')+'">'
-      +'<div class="gmeta"><span class="gav" aria-hidden="true">'+esc(initialsOf(label))+'</span>'
+    return '<div class="gentry '+role+(isOwnEntry(e)?' you':'')+'">'
+      +'<div class="gmeta"><span class="gav" aria-hidden="true">'+esc(initialsOf(e))+'</span>'
       +'<span class="gwho">'+esc(label)+'</span>'
       +(showAddr?'<span class="gaddr">Addressed</span>':'')
       +(e.ts?'<span class="gts">'+esc(ago(e.ts))+'</span>':'')+'</div>'

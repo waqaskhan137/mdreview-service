@@ -1,0 +1,43 @@
+# issue #360 — periodic prod deploy-drift check. infra/deploy/check-drift.sh already asserts the
+# invariants (issue #86); it just never ran on a schedule, so a divergence (like #221's fix sitting
+# undeclared on the host for 12 days) sat until someone happened to look. This unit is that schedule.
+#
+# VISIBILITY MECHANISM: check-drift.sh's own exit code (0 clean, 1 drift) IS the signal — no new log
+# file, no new state. A oneshot service that exits non-zero is left by systemd in `failed` state until
+# the NEXT run (persistent drift keeps re-failing it; a fixed host clears it on the next tick). That
+# shows up in `systemctl --failed`, `systemctl status mdreview-driftcheck.service`, and
+# `journalctl -u mdreview-driftcheck.service` (stdout/stderr go to the journal by systemd's default,
+# so the failing run's actual DRIFT lines are right there, not a separate file to go stale). See
+# infra/deploy/RUNBOOK-phase1.md "Drift check" for the exact commands and the residual gap (nobody
+# polls `systemctl --failed` today; agent-status's `health` verb doesn't report unit state either).
+#
+# HOST=  (empty, not unset) pins check-drift.sh to its local-mode branch: `${HOST-kapture}` only
+# substitutes the ssh default when HOST is UNSET, so HOST= (set-but-empty) makes `[ -n "$HOST" ]`
+# false and it runs in-process (`bash -c`, no ssh hop) against this host's own state — the same
+# HOST= convention check-drift.sh's own header already documents for on-host use. Getting this wrong
+# (e.g. `${HOST:-kapture}`) would make the unit ssh from the host to itself, with no key for that hop,
+# and fail every single run for a reason that has nothing to do with drift — exactly the "nobody reads
+# it" failure this ticket exists to kill. tests/drift_prod_selfcheck.sh asserts this explicitly.
+#
+# flock on auto-update's OWN lock file (not touching auto-update.sh): auto-update.sh recreates the
+# container under this same lock, and mid-recreate `docker inspect mdreview` can transiently fail,
+# which would fail-closed checks 3-5 to DRIFT for no real reason (a cry-wolf race, not a genuine
+# finding). Waiting up to 240s for the lock serializes the two oneshots instead. If the wait itself
+# times out (auto-update stuck well past its own ~170s worst case), that IS worth a failed unit — it
+# means something is already wrong, not a false positive — so the timeout is left to red the unit
+# rather than swallowed.
+[Unit]
+Description=mdreview prod deploy-drift check (host state vs infra/deploy/ intent)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=rana
+WorkingDirectory=/home/rana/mdreview-deploy
+Environment=HOST=
+ExecStart=/usr/bin/flock -w 240 /home/rana/mdreview-deploy/.autoupdate.lock /home/rana/mdreview-deploy/check-drift.sh
+# Must exceed the flock wait (240s) plus check-drift.sh's own handful of docker-inspect/file-read
+# calls by a comfortable margin, so systemd never SIGTERMs a legitimate run mid-wait.
+TimeoutStartSec=300

@@ -12,6 +12,8 @@ Routes:
                                      mint the session, Set-Cookie, 303 -> /.
   GET  /auth/session                 the SPA's identity + CSRF token; slides the session's lifetime.
   POST /auth/logout                  clear the session (CSRF-checked).
+  POST /auth/profile  {name}         set/clear the caller's display name (#309, CSRF-checked).
+                                     "" (after trim) clears it -> every renderer falls back to email.
 """
 import html
 import json
@@ -107,6 +109,8 @@ class AuthModule:
             return self._session(h)
         if path == "/auth/logout" and m == "POST":
             return self._logout(h)
+        if path == "/auth/profile" and m == "POST":
+            return self._set_profile(h)
         # #223 per-device session management. Owner-scoped: every handler resolves the caller's own
         # session first and passes its uid into the store, so a jti belonging to another account
         # cannot be read or revoked even if guessed.
@@ -205,7 +209,33 @@ class AuthModule:
             if sess.jti:
                 self.id_store.session_touch(sess.jti)
         self._json(h, 200, {"authenticated": True, "uid": sess.uid, "email": sess.email,
-                            "is_admin": self.users.is_admin(sess.uid), "csrf": csrf}, cookies=cookies)
+                            "is_admin": self.users.is_admin(sess.uid), "csrf": csrf,
+                            "name": self.users.name_for(sess.uid)}, cookies=cookies)
+        return True
+
+    # ---- POST /auth/profile (#309: set/clear the display name; cookie-plane, CSRF-checked) ----
+    def _set_profile(self, h):
+        sess = self._require_session(h, csrf_required=True)
+        if not sess:
+            return True
+        body = h._body_json()
+        name = body.get("name") if isinstance(body, dict) else None
+        with self.store.lock:
+            result = self.users.set_name(sess.uid, name if isinstance(name, str) else "")
+        if result == "toolong":
+            self._json(h, 400, {"error": "display name must be %d characters or fewer" %
+                                self.users.MAX_NAME_LEN})
+            return True
+        if result == "invalid":
+            self._json(h, 400, {"error": "display name cannot contain control characters"})
+            return True
+        if result == "missing_user":
+            self._json(h, 404, {"error": "no such user"})
+            return True
+        stored = self.users.name_for(sess.uid)
+        self.id_store.audit("profile_name_set", uid=sess.uid, email=sess.email,
+                            ip=self._client_ip(h), detail="cleared" if not stored else "set")
+        self._json(h, 200, {"ok": True, "name": stored})
         return True
 
     # ---- #223 per-device sessions ----

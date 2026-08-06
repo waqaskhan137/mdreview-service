@@ -265,6 +265,64 @@ class H(BaseHTTPRequestHandler):
         self._json(404, {"error": "not found"})           # 404 (not 403): ownership must not be probeable
         return (None, None)
 
+    def _visible_comments(self, rid, arr, with_names=False):
+        """The one seam every comment-returning response arm routes through (#368): closes the
+        public-link identity leak (GET /api/reviews/{rid}/comments returning a commenter's raw
+        uid/email to an anonymous caller) without special-casing each arm. `entitled` is
+        AccessPolicy.can_write on THIS rid — owner-only on every tier, so it is cheap (a pure
+        predicate, no extra I/O) and already the exact test _authz used to admit a can_write
+        caller; re-deriving it here for a can_read/can_comment arm (GET, POST /comments,
+        .../reply) is what lets a comment-share grantee or a public reader still be denied raw
+        identity even though they were let in to read/comment.
+
+        with_names=True runs #309's with_author_names FIRST (name_for needs the RAW uid to
+        resolve a display name) on the two GET arms only, so the public/no-account
+        `redact_identity` never sees a name it would have to invent. The create/reply/resolve/
+        reopen POST arms return the single comment just acted on and today carry no `name` key
+        at all; adding one here would be an unrelated, unrequested payload change (and
+        golden_transcript.sh drift) for a #309 feature this ticket does not extend, so they skip
+        straight to redact_identity."""
+        app = self.server.app
+        p = self._principal()
+        entitled = app.policy.can_write(p, rid)
+        if with_names:
+            arr = app.comments.with_author_names(arr, app.users)
+        return app.comments.redact_identity(arr, p.uid, entitled)
+
+    def _visible_meta(self, rid, m):
+        """Read-time projection (#368 follow-up): GET /api/reviews/{rid} and .../feedback both
+        return dict(meta.json) WHOLESALE (ReviewService.summary/feedback), which carries `owner`
+        -- the document owner's raw uid -- unconditionally, to any caller who can_read the
+        document. That includes an anonymous public-link reader: confirmed live,
+        `curl .../api/reviews/{rid}` with no cookie and no token returned `"owner":
+        "google:..."` on a public production review. Same defect class as the comments leak,
+        same fix: `owner` is visible only to the ENTITLED caller -- app.policy.can_write, the
+        EXACT SAME predicate _visible_comments already uses (one notion of "entitled" for the
+        whole module; a document has exactly one owner, so unlike a comment thread there is no
+        separate "is this caller's own value" branch to add -- can_write on a hosted tier already
+        IS "are you this document's owner").
+
+        Every OTHER meta.json key was audited and is not a second raw identity:
+          - source_updated_by is #289's role literal ("reviewer" or absent -> default "agent"),
+            never a uid -- verified against every writer (reviews.py put_source), not assumed.
+          - agent_status.owner / agent_status.message (handoff.py) are CALLER-SUPPLIED free text
+            (MCP hand_back/ping_working's "owner" is documented as "YOUR opaque session id",
+            never derived from the authenticated principal) -- the same "a chosen label is not
+            the leak" reasoning #309's display name already established for this ticket, so
+            deliberately NOT redacted here.
+          - every *_updated/created/revision key is a timestamp/counter, never identity.
+        The plain GET /api/reviews list is unaffected: it 401s anonymous outright (_require_user)
+        and scope_list() filters every row to the caller's OWN uid, so a returned row's `owner`
+        is always the caller's own value already. ?scope=shared is a hand-whitelisted response
+        (_shared_reviews) that never included `owner` even before #368 (#284 D3).
+
+        Pure: returns a new dict when redacting, `m` itself (no copy) when entitled."""
+        if self.server.app.policy.can_write(self._principal(), rid):
+            return m
+        m2 = dict(m)
+        m2["owner"] = None
+        return m2
+
     def _base(self):
         if PUBLIC_BASE:
             return PUBLIC_BASE
@@ -530,6 +588,19 @@ class H(BaseHTTPRequestHandler):
             # A template id is validated inside the (flag-on) latex decorator, which raises a
             # ReviewWriteRejected subclass; core catches only that core-defined base type and never
             # imports the feature module, so the flag-off import graph and behavior are unchanged.
+            #
+            # #363: a latex create with no `markdown` and no `template` to seed one is ACCEPTED and
+            # produces a review whose source is the empty string. That is deliberate, decided
+            # against this exact ticket: _require_tex (latex_review/decorator.py) passes
+            # allow_empty=True only on the create path, so starting a blank paper and filling it in
+            # later stays legal, the same as a markdown create already permits an empty body
+            # (hosted_boot_smoke.py's "A blank latex CREATE stays legal" case pins this). The same
+            # guard rejects an empty PUT once a paper exists, so nothing already written can be
+            # wiped this way. Consequence for a caller: a 201 here is not proof the request body
+            # arrived. #355 hit exactly this: a fixture posted its content under "source" instead
+            # of "markdown", the unknown key was silently ignored, and a 201 with an empty document
+            # passed for "created". A caller that needs confirmation should read the source back
+            # (GET .../source) rather than trust the status code alone.
             owner = app.policy.stamp_owner(p)
             try:
                 rid = app.reviews.create(b.get("markdown", ""), b.get("title", ""),
@@ -580,7 +651,7 @@ class H(BaseHTTPRequestHandler):
             if plane is None:
                 return
             if m == "GET":
-                return self._json(200, app.reviews.summary(rid))
+                return self._json(200, self._visible_meta(rid, app.reviews.summary(rid)))
             if m == "DELETE":
                 with app.store.lock:
                     app.reviews.delete(rid)
@@ -669,8 +740,10 @@ class H(BaseHTTPRequestHandler):
             if m == "GET":
                 # comment-aware: meta + feedback.md + a union of on-disk notes and a read-time
                 # projection of comments (ReviewService.feedback delegates the projection to
-                # CommentService). notes.json on disk is never rewritten here.
-                return self._json(200, app.reviews.feedback(rid))
+                # CommentService). notes.json on disk is never rewritten here. #368 follow-up:
+                # feedback() also returns dict(meta) wholesale, so it carries the same `owner`
+                # leak GET /api/reviews/{rid} did -- same _visible_meta redaction.
+                return self._json(200, self._visible_meta(rid, app.reviews.feedback(rid)))
             if m == "POST":
                 # Retired (MR-046). The viewer wrote notes/feedback here until MR-036; it authors
                 # comments now (POST /comments). The write is gone — return an explicit 410 (not a
@@ -838,7 +911,12 @@ class H(BaseHTTPRequestHandler):
             if m == "GET":
                 q = parse_qs(urlparse(self.path).query)
                 status = (q.get("status") or ["all"])[0] or "all"
-                return self._json(200, {"comments": app.comments.list(rid, status)})
+                # #309: an ADDITIVE read-time projection (thread[].name), never a stored write —
+                # see CommentService.with_author_names for what it does and does not touch. #368:
+                # the SAME response also drops the raw create-time uid from a reader who is not
+                # its author and not the owner — see _visible_comments / redact_identity.
+                comments = self._visible_comments(rid, app.comments.list(rid, status), with_names=True)
+                return self._json(200, {"comments": comments})
             if m == "POST":
                 b = self._body_json()
                 # Attribution from the authenticated plane, not spoofable body fields: a human on the
@@ -854,7 +932,11 @@ class H(BaseHTTPRequestHandler):
                     c = app.comments.create(rid, b.get("anchor") or {}, b.get("text", ""),
                                          author, role)
                     app.reviews.bump(rid, "comments_updated")
-                return self._json(201, c)
+                # #368: harmless for THIS response (the caller always is the entry's own author —
+                # you cannot learn anyone else's identity from your own create call) but routed
+                # through the same seam as every other comment-returning arm on principle, so a
+                # future change here never becomes the one arm that forgets it.
+                return self._json(201, self._visible_comments(rid, [c])[0])
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/comments/(c[A-Za-z0-9]{10})", path)
         if mo and m in ("GET", "DELETE"):
@@ -866,7 +948,7 @@ class H(BaseHTTPRequestHandler):
                 c = app.comments.get(rid, cid)
                 if not c:
                     return self._json(404, {"error": "no such comment"})
-                return self._json(200, c)
+                return self._json(200, self._visible_comments(rid, [c], with_names=True)[0])
             # DELETE: hard-remove a comment (junk cleanup), distinct from resolve, which only hides it.
             with app.store.lock:
                 if not app.comments.delete(rid, cid):
@@ -906,6 +988,13 @@ class H(BaseHTTPRequestHandler):
                 code, payload = app.comments.apply_transition(rid, cid, action, by, text)
                 if code == 200:
                     app.reviews.bump(rid, "comments_updated")
+            # #368: a reply is can_comment (owner OR a comment-share grantee), and apply_transition
+            # returns the WHOLE updated comment — including thread[0]/created_by/status_history[0]
+            # from whoever originally opened it, which may not be this caller. Route the 200 through
+            # the same redaction as every GET (a 409/404/400 error body has no "thread" to redact,
+            # and is unaffected by the guard inside redact_identity/with_author_names either way).
+            if code == 200:
+                payload = self._visible_comments(rid, [payload])[0]
             return self._json(code, payload)
 
         mo = re.fullmatch(r"/api/reviews/" + RID + r"/asset/([A-Za-z0-9._-]+)", path)
