@@ -289,6 +289,40 @@ class H(BaseHTTPRequestHandler):
             arr = app.comments.with_author_names(arr, app.users)
         return app.comments.redact_identity(arr, p.uid, entitled)
 
+    def _visible_meta(self, rid, m):
+        """Read-time projection (#368 follow-up): GET /api/reviews/{rid} and .../feedback both
+        return dict(meta.json) WHOLESALE (ReviewService.summary/feedback), which carries `owner`
+        -- the document owner's raw uid -- unconditionally, to any caller who can_read the
+        document. That includes an anonymous public-link reader: confirmed live,
+        `curl .../api/reviews/{rid}` with no cookie and no token returned `"owner":
+        "google:..."` on a public production review. Same defect class as the comments leak,
+        same fix: `owner` is visible only to the ENTITLED caller -- app.policy.can_write, the
+        EXACT SAME predicate _visible_comments already uses (one notion of "entitled" for the
+        whole module; a document has exactly one owner, so unlike a comment thread there is no
+        separate "is this caller's own value" branch to add -- can_write on a hosted tier already
+        IS "are you this document's owner").
+
+        Every OTHER meta.json key was audited and is not a second raw identity:
+          - source_updated_by is #289's role literal ("reviewer" or absent -> default "agent"),
+            never a uid -- verified against every writer (reviews.py put_source), not assumed.
+          - agent_status.owner / agent_status.message (handoff.py) are CALLER-SUPPLIED free text
+            (MCP hand_back/ping_working's "owner" is documented as "YOUR opaque session id",
+            never derived from the authenticated principal) -- the same "a chosen label is not
+            the leak" reasoning #309's display name already established for this ticket, so
+            deliberately NOT redacted here.
+          - every *_updated/created/revision key is a timestamp/counter, never identity.
+        The plain GET /api/reviews list is unaffected: it 401s anonymous outright (_require_user)
+        and scope_list() filters every row to the caller's OWN uid, so a returned row's `owner`
+        is always the caller's own value already. ?scope=shared is a hand-whitelisted response
+        (_shared_reviews) that never included `owner` even before #368 (#284 D3).
+
+        Pure: returns a new dict when redacting, `m` itself (no copy) when entitled."""
+        if self.server.app.policy.can_write(self._principal(), rid):
+            return m
+        m2 = dict(m)
+        m2["owner"] = None
+        return m2
+
     def _base(self):
         if PUBLIC_BASE:
             return PUBLIC_BASE
@@ -617,7 +651,7 @@ class H(BaseHTTPRequestHandler):
             if plane is None:
                 return
             if m == "GET":
-                return self._json(200, app.reviews.summary(rid))
+                return self._json(200, self._visible_meta(rid, app.reviews.summary(rid)))
             if m == "DELETE":
                 with app.store.lock:
                     app.reviews.delete(rid)
@@ -706,8 +740,10 @@ class H(BaseHTTPRequestHandler):
             if m == "GET":
                 # comment-aware: meta + feedback.md + a union of on-disk notes and a read-time
                 # projection of comments (ReviewService.feedback delegates the projection to
-                # CommentService). notes.json on disk is never rewritten here.
-                return self._json(200, app.reviews.feedback(rid))
+                # CommentService). notes.json on disk is never rewritten here. #368 follow-up:
+                # feedback() also returns dict(meta) wholesale, so it carries the same `owner`
+                # leak GET /api/reviews/{rid} did -- same _visible_meta redaction.
+                return self._json(200, self._visible_meta(rid, app.reviews.feedback(rid)))
             if m == "POST":
                 # Retired (MR-046). The viewer wrote notes/feedback here until MR-036; it authors
                 # comments now (POST /comments). The write is gone — return an explicit 410 (not a
