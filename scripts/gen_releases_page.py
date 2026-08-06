@@ -8,16 +8,16 @@ tag (release.yml creates one after the images publish, see #373) is the single s
 and every downstream artifact is generated from it.
 
 Runs at Pages-deploy time (.github/workflows/pages.yml), on every push to web/site/** and on
-every `release: published` event. Nothing this script produces is committed back to the repo --
-`main` requires signed commits (branch protection, required_signatures), which would make a bot
-commit here awkward for zero benefit: generating fresh on every deploy is simpler, can never go
-stale between a release and the next unrelated web/site/** edit, and there is no committed file
-for anyone to hand-edit and quietly re-diverge from the API (the exact failure this issue is
-about). The generated file is gitignored-in-spirit: it exists in the runner's checkout for one
-job, gets uploaded to Pages, and the checkout is discarded.
+every `release: published`/`edited` event. Nothing this script produces is committed back to the
+repo -- `main` requires signed commits (branch protection, required_signatures), which would make
+a bot commit here awkward for zero benefit: generating fresh on every deploy is simpler, can
+never go stale between a release and the next unrelated web/site/** edit, and there is no
+committed file for anyone to hand-edit and quietly re-diverge from the API (the exact failure
+this issue is about). The generated file is gitignored-in-spirit: it exists in the runner's
+checkout for one job, gets uploaded to Pages, and the checkout is discarded.
 
 Usage:
-    python3 scripts/gen_releases_page.py <output.html> --repo OWNER/NAME [--dump-json PATH]
+    python3 scripts/gen_releases_page.py <output.html> --repo OWNER/NAME
 
 Offline / test mode, no network call (used by tests/releases_page_tripwire_selfcheck.py so the
 generator's real code path is exercised without depending on live GitHub state):
@@ -79,8 +79,8 @@ HEAD = """<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Releases — mdreview</title>
-<meta name="description" content="What's shipped in mdreview, newest first — release notes for the human-in-the-loop markdown review service.">
+<title>mdreview: releases</title>
+<meta name="description" content="What's shipped in mdreview, newest first: release notes for the human-in-the-loop markdown review service.">
 <link rel="canonical" href="https://mdreview.space/releases/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://mdreview.space/releases/">
@@ -218,12 +218,19 @@ ENTRY = """
 
 
 def render_page(releases, repo):
-    """The full page. `releases` newest-first by published_at -- this sort is this function's
-    OWN, independent of any other module's idea of "newest" (see releases_page_tripwire.py's
+    """The full page, releases ordered newest-first. This sort is this function's OWN,
+    independent of any other module's idea of "newest" (see releases_page_tripwire.py's
     docstring for why that independence matters: a generator and its check sharing one sort/
     comparator can both go wrong together and neither would notice)."""
     owner = repo.split("/", 1)[0]
-    ordered = sorted(releases, key=lambda r: r.get("published_at") or "", reverse=True)
+    # Sort and date by created_at, not published_at. GitHub sets created_at from the tagged
+    # commit/tag object regardless of when the Release object itself was created, so it survives
+    # a backfill: the 8 Releases #373 backfilled long after their tags shipped all got
+    # published_at values clustered in the minute the backfill ran (today), which would have
+    # sorted correctly here only by the accident of running the backfill in version order.
+    # created_at instead reflects when each version actually shipped, both for those backfilled
+    # releases and for every future one created immediately after its tag.
+    ordered = sorted(releases, key=lambda r: r.get("created_at") or "", reverse=True)
 
     if not ordered:
         body = EMPTY_STATE
@@ -237,7 +244,7 @@ def render_page(releases, repo):
                 "latest_class": " latest" if i == 0 else "",
                 "tag": html.escape(tag),
                 "pill": '<span class="pill">Latest</span>' if i == 0 else "",
-                "date": _fmt_date(r.get("published_at")),
+                "date": _fmt_date(r.get("created_at")),
                 "title": title,
                 "body_html": body_html,
                 "html_url": html.escape(r.get("html_url") or
@@ -258,10 +265,6 @@ def main(argv=None):
     p.add_argument("--repo", help='"OWNER/NAME", required unless --releases-file is given')
     p.add_argument("--releases-file", help="skip the network call; load releases JSON from this "
                                             "path instead (offline / test mode)")
-    p.add_argument("--dump-json", help="also write the raw releases list fetched from the API "
-                                        "to this path, so a later step (the tripwire) checks "
-                                        "against the exact same snapshot rather than re-fetching "
-                                        "and risking a race with a release landing in between")
     args = p.parse_args(argv)
 
     if args.releases_file:
@@ -281,12 +284,6 @@ def main(argv=None):
     with open(args.output, "w", encoding="utf-8") as f:
         f.write(page)
     print("wrote %s (%d release%s)" % (args.output, len(releases), "" if len(releases) == 1 else "s"))
-
-    if args.dump_json:
-        with open(args.dump_json, "w", encoding="utf-8") as f:
-            json.dump(releases, f)
-        print("wrote %s (raw releases snapshot)" % args.dump_json)
-
     return 0
 
 

@@ -1,18 +1,22 @@
 name: Deploy landing page to Pages
 
 # Single source of truth: web/site/ lives on main; this Action publishes it to GitHub Pages.
-# No gh-pages branch, no local worktree — edit web/site/, push to main, it deploys.
+# No gh-pages branch, no local worktree: edit web/site/, push to main, it deploys.
 #
 # web/site/releases/index.html is the one exception to "web/site/ IS the site": it does not
 # exist in git at all (#373). It is GENERATED here, into the checkout, on every run, from the
-# GitHub Releases API (scripts/gen_releases_page.py) — never committed back. Two reasons, not
+# GitHub Releases API (scripts/gen_releases_page.py), never committed back. Two reasons, not
 # one: `main` requires signed commits (branch protection, required_signatures), which would make
 # a bot commit here awkward for no benefit; and generating fresh every deploy means there is no
 # committed file for a person or a future change to quietly hand-edit and let drift from the API
 # again, which is the exact failure this issue reports (page stuck at v0.2.0 while prod ran
-# v0.5.3, flagged once at v0.4.0 and not fixed). `release: published` is a new trigger below
-# specifically so tagging + creating a Release (release.yml) republishes the site without anyone
-# remembering to — the third of the three links #373 found broken.
+# v0.5.3, flagged once at v0.4.0 and not fixed). `release: [published, edited]` is a new trigger
+# below specifically so tagging + creating a Release (release.yml), or the owner editing a
+# Release's notes afterward, republishes the site without anyone remembering to.
+#
+# `ref: main` is pinned on checkout below: a `release` event's default ref is the TAG, not main,
+# so without this pin a release-triggered run would upload web/site as of that tag's commit
+# instead of current main, silently reverting any unrelated web/site/** change landed since.
 on:
   push:
     branches: [main]
@@ -22,7 +26,7 @@ on:
       - 'scripts/gen_releases_page.py'
       - 'scripts/releases_page_tripwire.py'
   release:
-    types: [published]
+    types: [published, edited]
   workflow_dispatch:
 
 permissions:
@@ -43,30 +47,41 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
+      # Ground truth for the tripwire below: every v*.*.* TAG, independent of whether a GitHub
+      # Release was ever created for it. This is deliberately NOT sourced from the Releases API
+      # the generator step uses next: broken link #1 in #373's diagnosis is "tag -> Release"
+      # itself (release.yml's create-Release step can fail, or someone tags outside CI), and a
+      # check built from Releases data structurally cannot see that link break. Tags can.
+      - name: Fetch the tag list (tripwire ground truth)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${{ github.repository }}/tags" --paginate --jq '.[].name' \
+            > "$RUNNER_TEMP/tags.txt"
+
       # #373: render web/site/releases/index.html from the live Releases API into this run's
-      # checkout (see the file header for why this is never committed). --dump-json snapshots
-      # the exact release list this run rendered from, so the tripwire step below checks the
-      # page against the SAME data, not a re-fetch that could race a release landing in between.
+      # checkout (see the file header for why this is never committed).
       - name: Generate the releases page from GitHub Releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 scripts/gen_releases_page.py web/site/releases/index.html \
-            --repo "${{ github.repository }}" \
-            --dump-json /tmp/releases-snapshot.json
+            --repo "${{ github.repository }}"
 
-      # #373's tripwire: fail the deploy, loudly, if the newest release did not make it onto the
-      # page the previous step just generated — rather than publish a stale page and rely on
-      # someone noticing (twice already, per the ticket). Exit code is the signal; a nonzero exit
-      # here fails this job before upload-pages-artifact/deploy-pages ever runs.
-      - name: Verify the newest release is represented (tripwire)
+      # #373's tripwire: fail the deploy, loudly, if the newest TAG did not make it onto the page
+      # the previous step just generated, rather than publish a stale page and rely on someone
+      # noticing (twice already, per the ticket). Exit code is the signal; a nonzero exit here
+      # fails this job before upload-pages-artifact/deploy-pages ever runs.
+      - name: Verify the newest tag is represented (tripwire)
         run: |
-          python3 scripts/releases_page_tripwire.py /tmp/releases-snapshot.json \
+          python3 scripts/releases_page_tripwire.py "$RUNNER_TEMP/tags.txt" \
             web/site/releases/index.html
 
       - uses: actions/configure-pages@v5

@@ -52,8 +52,8 @@ jobs:
 
       # #373: the releases-page generator + its tripwire (scripts/gen_releases_page.py,
       # scripts/releases_page_tripwire.py), against a synthetic fixture. Mutation-tested both
-      # ways — a broken generator must be caught by name, and a neutered tripwire must be caught
-      # too (the #361 technique) — so this pipeline can't quietly rot back to "site says v0.2.0,
+      # ways: a broken generator must be caught by name, and a neutered tripwire must be caught
+      # too (the #361 technique), so this pipeline can't quietly rot back to "site says v0.2.0,
       # prod runs v0.5.3" a third time. Stdlib-only, no network.
       - name: Releases page tripwire selfcheck
         run: python3 tests/releases_page_tripwire_selfcheck.py
