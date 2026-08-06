@@ -209,9 +209,9 @@ try:
                              "message": "on it"}).encode(), hdr(ock, ocsrf))
     check("setup: handoff lease claimed", code == 200, code)
     code, raw = req(base + f"/api/reviews/{rid}")
+    astatus = json.loads(raw).get("agent_status") or {}
     check("anonymous still reads agent_status.owner verbatim (caller-chosen label, not identity)",
-          json.loads(raw).get("agent_status", {}).get("owner") == "agent-session-xyz",
-          json.loads(raw).get("agent_status"))
+          astatus.get("owner") == "agent-session-xyz", json.loads(raw).get("agent_status"))
 
     # ---- the plain (unscoped) list route and ?scope=shared: confirm, don't just assume ------------
     print("5. GET /api/reviews (unscoped) and ?scope=shared — confirmed already safe, unchanged")
