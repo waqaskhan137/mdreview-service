@@ -199,6 +199,19 @@ TOOLS = [
         },
     },
     {
+        "name": "get_git_url",
+        "description": "Get a review's git-clone URL (#379): a real, clonable git remote — one commit "
+                       "per past round plus a live tip commit, so `git log`/`git diff`/`git blame` work "
+                       "with standard tools. Only present on a server built with git-tracked history "
+                       "enabled; if it 404s, that instance doesn't have the feature on. `git clone "
+                       "<git_url>` works as-is on an open/local instance. On a server that requires "
+                       "auth, the URL carries no embedded credential (a token in the URL would send "
+                       "Basic auth, not the Bearer this server checks) — clone with your token as an "
+                       "extra header instead: `git -c http.extraheader=\"Authorization: Bearer "
+                       "<your token>\" clone <git_url>`. Read-only: no push, no branching (v1).",
+        "inputSchema": {"type": "object", "properties": {"id": _ID}, "required": ["id"]},
+    },
+    {
         "name": "delete_review",
         "description": "Delete a review and its data.",
         "inputSchema": {"type": "object", "properties": {"id": _ID}, "required": ["id"]},
