@@ -354,7 +354,7 @@
 <body>
 <header class="topbar">
   <div class="tb-left"><a href="/" class="home" title="Back to all reviews">&larr; Reviews</a><span class="tb-sep">|</span><span class="kindchip" aria-hidden="true">MD</span><span class="filename" id="filename">loading…</span></div>
-  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><button id="editbtn" class="tb-btn" type="button" style="display:none">Edit</button><button id="difftoggle" class="tb-btn difftoggle" type="button" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><!-- #285's theme toggle mounts HERE (between Share and #acct): account.js inserts it as #acct's previous sibling --><div id="acct"></div></div>
+  <div class="tb-right" style="display:flex;align-items:center;gap:14px"><button id="editbtn" class="tb-btn" type="button" style="display:none">Edit</button><button id="difftoggle" class="tb-btn difftoggle" type="button" aria-pressed="false" title="Show what changed in the last revision" hidden><span class="dglyph" aria-hidden="true">+/−</span><span>Diff</span><span class="dcount" id="diffcount" hidden></span></button><div class="share-wrap"><button id="sharebtn" class="tb-btn" type="button" style="display:none">Share</button><div id="sharepop" class="sharepop" hidden></div></div><div class="share-wrap"><button id="gitbtn" class="tb-btn" type="button" style="display:none">Git</button><div id="gitpop" class="sharepop" hidden></div></div><!-- #285's theme toggle mounts HERE (between Share and #acct): account.js inserts it as #acct's previous sibling --><div id="acct"></div></div>
 </header>
 <div class="wrap">
   <nav class="breadcrumb" id="breadcrumb"></nav>
@@ -1454,6 +1454,7 @@ mdKeys.pushEscape(()=>{const l=$("#lightbox");if(!l||l.style.display!=='flex')re
 mdKeys.pushEscape(()=>{const h=$("#histmodal");if(!h||h.style.display!=='flex')return false;h.style.display='none';return true;});
 mdKeys.pushEscape(()=>{const p=$("#pop");if(!p||p.style.display!=='block')return false;p.style.display='none';return true;});
 mdKeys.pushEscape(()=>{const s=$("#sharepop");if(!s||s.hidden)return false;s.hidden=true;return true;});
+mdKeys.pushEscape(()=>{const g=$("#gitpop");if(!g||g.hidden)return false;g.hidden=true;return true;});
 
 mdKeys.register([
   {keys:"c", label:"Toggle the comments panel",  run:()=>mdKeys.click("#cmtbtn")},
@@ -1582,6 +1583,37 @@ function renderShare(){
   }));
 }
 initShare();
+
+// ---- Git control: clone URL for git-tracked history (#379) — same shape as Share, above.
+// Absent entirely (button never shown) when the backend has the feature off, or on a 404/error;
+// #git_url is additive, so this never assumes the route exists.
+async function initGit(){
+  const btn = document.getElementById("gitbtn"), pop = document.getElementById("gitpop");
+  if(!btn) return;
+  let r; try{ r = await fetch(API + "/git_url", {cache:"no-store"}); }catch(e){ return; }
+  if(r.status !== 200) return;
+  const d = await r.json().catch(()=>({}));
+  if(!d.git_url) return;
+  btn.style.display = "";
+  btn.addEventListener("click", e=>{ e.stopPropagation(); pop.hidden = !pop.hidden; if(!pop.hidden) renderGit(d.git_url); });
+  document.addEventListener("click", e=>{ if(!pop.hidden && !pop.contains(e.target) && e.target!==btn) pop.hidden = true; });
+}
+async function copyPlain(text, focusSel){
+  try{ await navigator.clipboard.writeText(text); return true; }
+  catch(e){ try{ const i=document.querySelector(focusSel); if(i){i.focus();i.select();} return document.execCommand("copy"); }catch(e2){ return false; } }
+}
+function renderGit(url){
+  const pop = document.getElementById("gitpop");
+  pop.innerHTML =
+    '<h3>Clone this review</h3>' +
+    '<div class="share-row"><div class="share-lbl">Full revision history<small>Every round, as real git commits</small></div></div>' +
+    '<div class="share-link"><input id="giturl" readonly value="' + _esc(url) + '"><button class="share-copy" id="gitcopy" type="button">Copy</button></div>';
+  pop.querySelector("#gitcopy").addEventListener("click", async ()=>{
+    const cp = pop.querySelector("#gitcopy");
+    if(await copyPlain(url, "#gitpop #giturl")){ cp.textContent = "Copied"; cp.classList.add("ok"); setTimeout(()=>{ if(cp.isConnected){ cp.textContent = "Copy"; cp.classList.remove("ok"); } }, 2000); }
+  });
+}
+initGit();
 </script>
 <script src="/static/session.js"></script>
 <script src="/static/account.js"></script>
